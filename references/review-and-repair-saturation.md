@@ -7,9 +7,11 @@
 
 | 层 | 承担者 | 核验内容 | 触发（唯一规则） |
 |---|---|---|---|
-| L0 MACHINE | harness / 脚本 / agent 机械执行 | exact SHA、base SHA、diff 语义范围、测试执行与结果、回归、ancestry、静态检查、secret/路径扫描、图 base SHA 记录 | **每票必做** |
-| L1 NORMAL | 低成本 fresh context 独立评审 | 合同满足、缝与所有权、scope、失败语义、缺失假设、缺失高价值反例（≥2 个非复制 worker 的新反例） | **生产代码（全部风险级）必须；非生产票按仓政策可选**。即：非生产/机械 LOW 票可 L0-only 闭合（仓政策允许时）；生产代码 LOW/MEDIUM/HIGH 一律 L1 |
+| L0 MACHINE | harness / 脚本 / agent 机械执行 | exact SHA、base SHA、diff 语义范围、**syntax/build、formatter、lint、type、LSP/静态诊断（按仓配置）**、测试执行与结果、回归、ancestry、静态检查、secret/路径扫描、图 base SHA 记录 | **每票必做；L0 先清场——机器能定位的缺陷在进入 L1 前修复并由测试证明** |
+| L1 NORMAL | 低成本 fresh context 独立评审 | 合同满足、缝与所有权、scope、失败语义、缺失假设、缺失高价值反例（≥2 个非复制 worker 的新反例）；**不重复报告 L0 已可确定性检出的问题**（效率规则，非豁免） | **生产代码（全部风险级）必须；非生产票按仓政策可选**。即：非生产/机械 LOW 票可 L0-only 闭合（仓政策允许时）；生产代码 LOW/MEDIUM/HIGH 一律 L1 |
 | L2 STRONG/EXTERNAL | 强模型/外部独立评审（不同模型族优先） | 架构、安全、状态/并发、身份/provenance、评审分歧仲裁、governance/Spec 变更、里程碑、高爆炸半径 | 仅 AGENTS §3 ESCALATION 清单命中时 |
+
+- **MACHINE BEFORE MODEL（D2/D5）**：升级方向恒为 静态/机器证据 → 测试证据 → 常规模型推理 → 强模型/外部评审，不可反向。工具层级见 `references/static-analysis-and-code-intelligence.md`。
 
 - 独立性语义：fresh context + 独立 grounding（查询独立，非重建库）+ 独立反例。
 - 评审顺序：权威 → 票 → repo 图 → 合同 → 反例 → diff → 测试 → CI；不从 worker 解释出发。主问题永远是："这个 exact SHA 是否在真实仓库中实现了合同？"
