@@ -4,7 +4,7 @@
 > 原则：只使用**已验证存在**的机制；不建框架；不假装自动加载。
 >
 > **验证状态（证据诚实拆分，R2 修复）**：
-> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（≤3,500 字符 vs 实测截断 4028）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 9/9 通过；GitHub Actions governance-ci 已配置（R1）。
+> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（≤3,500 字符 vs 实测截断 4028）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 10/10 通过；GitHub Actions governance-ci 已接入且 green。
 > - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN` —— fresh neutral-session 验收（§3 协议）只能在受控部署（§2.1 前置条件满足）后执行；在部署完成前**不得**声称 runtime 验证通过，任何报告引用本合同时必须使用上述拆分字段。
 
 ## 1. 已验证的注入事实（2026-09-05 实测）
@@ -25,7 +25,7 @@
 - `deployment/MEMORY_POINTER_CANDIDATE.md` = 替换 `~/.workbuddy/MEMORY.md` 的候选全文，**≤3,500 字符**（预算 4,028 减安全余量）。
 - 内容 = 治理仓指针 + 读取清单 + 4 条 B 层不变量摘要（即使后续加载全部失败，这 4 条也已随注入可见）。
 - **部署 = 把候选内容写入 `~/.workbuddy/MEMORY.md`**（一次性、可回滚：旧 MEMORY 原始备份 **local-only（Git 之外）**；治理仓 `deployment/archive/` 只收 **sanitized/redacted 迁移快照**——raw 归档默认不进 Git，提交前过 R2 第一层扫描 + redaction，命中即阻止）。旧 MEMORY 全部语义已迁移至本仓 canonical 文件，无信息丢失。
-- 部署前置条件：外部 fresh 评审 APPROVE + skills manifest 补齐（REPRODUCIBILITY=INCOMPLETE 未解除）+ product owner 显式授权。**当前未部署**。
+- 部署前置条件（V1 定稿版）：治理核心已通过（`GOVERNANCE_CORE = PASS`）+ skills 获取指南按 V1 政策就绪（`skills/README.md`，SOURCE=UNKNOWN 不阻塞）+ product owner 对 live 部署的**显式授权**。本次 V1 finalization 不执行 live 部署。
 
 ### 2.2 会话开工清单（agent 执行，每工程会话一次）
 

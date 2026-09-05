@@ -1,14 +1,23 @@
 # agent-engineering-governance
 
-> **状态：CANDIDATE V2（未激活）。** 承载 FlapPearLabs 全局 agent 工程治理的 AUDIT 与 CANDIDATE。
-> 分支 `audit/workbuddy-global-governance-v1-2026-09-05` = 送外部评审的候选；main 保持最小。
-> V2 = 修复 GPT-5.6 Sol 首轮评审 F1–F7 后的候选（修复包见 `audit/AUDIT_QUALITY_REVIEW.md` 与各 V2 文档）。
+> **AGENT_ENGINEERING_GOVERNANCE_V1** —— FlapPearLabs 全局工程治理的 canonical 基线（external verdict: `PASS_WITH_DEPLOYMENT_BLOCKERS`，核心治理已通过）。
+>
+> - `GOVERNANCE_CORE = PASS`（GPT-5.6 Sol 多轮评审收敛；权威分层/Stage/Lane/风险分级/评审收敛/CI/exact-SHA/Seam-first 均已接受）
+> - `PORTABLE_SETUP = READY`（见 `deployment/PORTABLE_SETUP.md`）
+> - `BOOTSTRAP_STATIC_VALIDATION = PASS`（指针预算 ≤3,500 vs 实测截断 4028；校验器 10/10；governance-ci green）
+> - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN`（fresh-session 验收待受控部署后执行——唯一遗留部署事项，非 V1 阻塞）
+>
+> V1 是 canonical 工程治理基线；后续变更是正常版本化演进。`audit/` 全部为**历史证据**，不是 runtime 权威；**canonical runtime 权威 = `RULES.md` + `AGENTS.md` + `references/` + `deployment/` setup 文档**。
 
-## 1. 为什么存在
+## 1. 新 Agent 入口
 
-现行全局工程治理的全部权威寄宿在一份 29.8KB 的 WorkBuddy 记忆文件里，而该文件的会话注入在 **byte 4028** 截断 —— 宪法的大部分（含三大 OVERRIDE）对 agent 实际不可见；同时项目仓各自手写 800+ 行 AGENTS.md，语义重复且漂移。本仓库把"治理内容"与"治理载体"解耦：**这里只有一个 canonical owner**，其他位置只留指针或项目 delta。
+**`deployment/PORTABLE_SETUP.md`** —— 17 步：读权威 → 调和权威（六层算法）→ 检查/获取 Skills（canonical upstream）→ 检查/获取 MCP（codegraph/context7/gh_grep）→ 验证 → 输出 bootstrap receipt → 开工。本仓**不 vendor** 任何第三方工具内容。
 
-## 2. 权威模型（V2，修复 F1）
+## 2. 为什么存在
+
+现行全局工程治理的全部权威曾寄宿在一份 29.8KB 的 WorkBuddy 记忆文件里，而该文件的会话注入在 **byte 4028** 截断 —— 宪法的大部分（含三大 OVERRIDE）对 agent 实际不可见；同时项目仓各自手写 800+ 行 AGENTS.md，语义重复且漂移。本仓库把"治理内容"与"治理载体"解耦：**这里只有一个 canonical owner**，其他位置只留指针或项目 delta。
+
+## 3. 权威模型（六层）
 
 ```
 A  PLATFORM / SYSTEM        平台/系统/沙箱/工具契约 —— 不可覆盖
@@ -19,46 +28,35 @@ E  METHODS / TOOLS          skills / MCP / 脚本 —— 方法不产生权威
 F  MEMORY / PREFERENCES     指针 + 偏好 + 环境事实 —— 永不压倒契约
 ```
 
-- **C 层显式政策可覆盖 D 层全部默认**（如仓选 squash-merge、无 CI 基础设施的等价证据形态）；加严永远合法；覆盖必须记录 `OVERRIDE = ...`。
-- 不可解析的真实冲突 → STOP: CONTRACT_CONFLICT。
-- 详细层表与冲突算法：`audit/AUTHORITY_MAP_V2.md`。
+- **C 层显式政策可覆盖 D 层全部默认**（记录 `OVERRIDE = ...`）；加严永远合法。
+- 不可解析的真实冲突 → STOP: CONTRACT_CONFLICT。详细层表与冲突算法：`audit/AUTHORITY_MAP_V2.md`。
 
-## 3. 仓库内容
+## 4. 仓库内容
 
 | 路径 | 内容 |
 |---|---|
-| `AGENTS.md` / `RULES.md` | 候选全局执行架构 / 普适硬不变量（B 层，薄） |
-| `references/*.md` | execution-stage / ticket-lane / review-and-repair-saturation / git-ci-integration / codegraph-grounding / skills-and-model-routing（D 层默认，含真实工具能力校准） |
-| `audit/*.md` | V1 审计 + V2 再审计：AUDIT_QUALITY_REVIEW、AS_IS_WORKBUDDY(_V2)、TARGET_WORKFLOW_V1、WORKFLOW_EVOLUTION_MAP、GAP_MATRIX、PAIN_TO_POLICY_MAP(_V2)、AUTHORITY_MAP(_V1/_V2)、MIGRATION_PLAN、SCENARIO_VALIDATION、TARGET_ARCHITECTURE_CHALLENGE |
-| `deployment/` | BOOTSTRAP_CONTRACT、MEMORY_POINTER_CANDIDATE（≤3,500 字符）、deployment-profile（机器事实） |
-| `scripts/` | validate_governance.py（治理自检 harness） |
-| `skills/` | skill 治理政策与 manifest（**REPRODUCIBILITY=INCOMPLETE → deployment 受阻**） |
-| `mcp/` | MCP 意图治理 + example 配置（占位符，无 secrets） |
-
-## 4. Bootstrap（如何被新会话看到；F2 修复）
-
-- 已验证：`~/.workbuddy/MEMORY.md` 头部是唯一自动注入通道（截断点 byte 4028）；项目 AGENTS/RULES **无**自动加载证据。
-- 机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针候选（自动可见层）+ 会话开工 BOOTSTRAP_CHECKLIST（B1–B5，产出引导回执）+ `scripts/validate_governance.py` 机械自检（GitHub Actions `governance-ci` 已接入）。
-- **证据状态拆分**：`BOOTSTRAP_STATIC_VALIDATION = PASS`（预算/清单/校验器/CI）｜ `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN`（fresh-session 验收待受控部署后执行；部署前不得声称 runtime 验证）。
-- 显式声明：自动加载项目 AGENTS/RULES 目前不可保证 —— 以清单步骤补足，并以 fresh-session 验收协议（§3 of contract）验证。
+| `AGENTS.md` / `RULES.md` | 执行架构（含 ENGINEERING DOCTRINE 十原则）/ 普适硬不变量（B 层） |
+| `references/*.md` | execution-stage / ticket-lane / review-and-repair-saturation / git-ci-integration / codegraph-grounding（含 Mode A/B/C 探针证据）/ skills-and-model-routing |
+| `deployment/PORTABLE_SETUP.md` | **新 Agent 17 步入口 + bootstrap receipt** |
+| `deployment/` 其余 | BOOTSTRAP_CONTRACT（static PASS / live NOT_RUN）、MEMORY_POINTER_CANDIDATE、deployment-profile（designated 机器事实） |
+| `skills/README.md` | 主线 13 skill 获取指南（SOURCE/FALLBACK，不 vendor 源码） |
+| `mcp/README.md` | REQUIRED MCP 三项（元数据字段≠工具）+ PLATFORM CONNECTORS（github=OPTIONAL；agent-mail 非 canonical） |
+| `scripts/validate_governance.py` | 治理自检（CI 接入 `.github/workflows/governance-ci.yml`） |
+| `audit/` | 历史证据：AS-IS/演化/GAP/PAIN/AUTHORITY/MIGRATION/场景对抗/质量复核（**非 runtime 权威**） |
 
 ## 5. SOURCE-OF-TRUTH vs MACHINE-SPECIFIC vs 禁止提交
 
 - **SOURCE-OF-TRUTH（本仓）**：全部治理语义。
-- **MACHINE-SPECIFIC（RULES R2 第二层，分区规则）**：宿主路径/端口/二进制位置**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated 文件（deployment-profile / MEMORY_POINTER / 未来 archive）——私有仓、用途 = 机器恢复；一般治理产物（AGENTS/RULES/references/audit/skills/mcp）禁止。
-- **NEVER COMMIT（R2 第一层，任何位置）**：API key、token、cookie、auth header、SSH 私钥、secret 环境变量、凭据文件路径、用户名、真实 `~/.workbuddy/mcp.json`。
-- 校验器执行双层扫描：凭据模式全库零命中；machine 模式在非 designated 文件零命中。
+- **MACHINE-SPECIFIC（RULES R2 第二层）**：宿主路径/端口/二进制位置仅允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 标记的 designated 文件；**raw 旧 MEMORY 备份 local-only（Git 之外）**，仓内只收 sanitized/redacted 迁移快照。
+- **NEVER COMMIT（R2 第一层，任何位置）**：凭据/secret/私钥/cookie/auth header/local OS identity、真实 `~/.workbuddy/mcp.json`。
+- 校验器双层扫描强制执行（凭据/local-identity 全库；machine 模式限非 designated）。
 
-## 6. 当前流程状态
+## 6. 状态与后续
 
 ```
-V1 审计 + 候选（e5a4871）
-→ GPT-5.6 Sol 外部评审：CHANGES_REQUESTED（F1–F7）
-→ 再审计（AUDIT_QUALITY_REVIEW + 四个冻结 V2 文档）
-→ V2 修复（本状态）：append-only commits
-→ STOP：等待外部 fresh 评审
-→ APPROVE 后：仍受阻两项 —— skills manifest 补齐（source/commit/license）+ MEMORY 指针部署（product owner 授权）
-→ 按 MIGRATION_PLAN 分批部署
+AGENT_ENGINEERING_GOVERNANCE_V1 —— 已定稿（本版）
+→ 下一步：fresh-agent dogfood（仅凭 PORTABLE_SETUP 重建环境 + bootstrap receipt）
+→ 遗留部署事项（非 V1 阻塞）：skills 上游 registry 确证（可选）；BOOTSTRAP_LIVE_VALIDATION（受控部署后）；
+  MEMORY 指针部署按 BOOTSTRAP_CONTRACT §2.1 前置条件执行
+→ 后续变更 = 正常版本化演进（治理变更评审协议，AGENTS §8）
 ```
-
-本分支合并前、候选文件激活前、任何 live 配置改动前，都需要 product owner 明确授权。

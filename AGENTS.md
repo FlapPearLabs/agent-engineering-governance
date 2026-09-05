@@ -10,6 +10,21 @@
 - 适用于 FlapPearLabs 软件工程项目的 agent 协作（WorkBuddy / Hermes / Codex / 其他 runtime），作为**默认**；与 A/B/C 层冲突时按 AUTHORITY_MAP_V2 冲突算法处理。
 - `SKILL_IS_EXECUTION_METHOD` / `SKILL_IS_NOT_AUTHORITY`；`DAG_IS_EXECUTION_MODEL` / `DAG_IS_NOT_ARCHITECTURE_AUTHORITY`。
 
+# ENGINEERING DOCTRINE
+
+> 工程哲学十条。它们是**原则**，不是新增 gate；机制语义在后续章节与 references，此处不重复。
+
+1. **AUTHORITY BEFORE ACTION** —— 先确认权威链（A>B>C>D>E>F）与当前票授权，再动手；授权不明即停。
+2. **UNDERSTAND BEFORE EDIT** —— 编辑前先建立仓库关系模型（surface manifest / CodeGraph）；不知谁生产、谁消费、谁拥有状态，不写代码。
+3. **SEAM BEFORE TICKET** —— 自然缝先于票据；DAG 是执行排序，不是架构权威。
+4. **CONTRACT BEFORE CODE** —— 合同字段块（输入/输出/不变量/失败语义）先于实现；缺语义 → STOP，不猜。
+5. **COUNTEREXAMPLE BEFORE IMPLEMENTATION** —— 先设计"看起来合理仍违反合同"的反例，再写实现；RED 必须由反例触发。
+6. **EVIDENCE BEFORE CONFIDENCE** —— 一切"完成/PASS"声明由可复现证据支撑；UNKNOWN != PASS。
+7. **SELF_REVIEW != INDEPENDENT_REVIEW WHEN THE GATE EXISTS** —— gate 存在时自审不替代独立评审。
+8. **RISK-SCALED RIGOR** —— 严格度随风险缩放：LOW 不跑全链，HIGH 才升级强评审。
+9. **MINIMUM NECESSARY COMPLEXITY** —— 每个机制必须回答"防哪次真实失效"；无强论证不立 gate。
+10. **AUTO-ADVANCE UNTIL REAL AUTHORITY UNCERTAINTY** —— 授权已覆盖的路径自主推进；只在真实权威不确定（§7 STOP 枚举）时停机问人。
+
 ## 1. 角色模型
 
 | 角色 | 拥有 | 不得 |
@@ -57,14 +72,13 @@
 - prefactor 提议服从既有架构权威；新模块名必须映射到既有架构概念或 Spec 名词，映射不上 = 假缝，回炉。
 - 每票 = 内聚行为 + 自然缝 + 显式 owner + 可测验收合同 + 合理评审边界。
 
-## 5. CODEGRAPH GROUNDING（按真实工具能力）
+## 5. CODEGRAPH GROUNDING（可执行摘要；详情与探针证据见 `references/codegraph-grounding.md`）
 
-- 已核实 CLI 能力：`init / index / sync / status / query / explore / node / callers / callees / impact / affected / daemon`。
-- 默认形态：**主仓库目录 = canonical graph**（`init` 一次；master 前进后 `sync`；`status` 做健康检查）→ lane worktree 保持**独立的查询与证据生命周期**，通过 daemon 查询 canonical 或对本目录库做 `sync`（增量，廉价）。
-- `INDEPENDENT_GROUNDING != INDEPENDENT_REINDEX`：独立的是查询/关系推理/证据，**不是**各自重建库。禁止每票/每评审跑全量 `index`。
-- 爆炸半径与受影响测试用 `impact` / `affected`；全量重建仅由 `status` 健康证据或 schema/配置变更触发。
-- **不可用降级**：CodeGraph 缺失/损坏时 → 手工 Relevant Surface Manifest + 重点文件阅读，记录 `CODEGRAPH = UNAVAILABLE`，不伪造接地证据。
-- 详见 `references/codegraph-grounding.md`。
+- 已核实 CLI 能力：`init / index / sync / status / query / explore / node / callers / callees / impact / affected / daemon`。图库**每目录**一个（`<dir>/.codegraph/`）。
+- **MODE A — BASE + DIFF（默认）**：结构问题查 canonical 主仓图（base/master 拓扑：callers/callees/impact）；候选增量用 `git diff BASE..candidate` + 变更文件直读。报告 `CANDIDATE_GRAPH_COVERAGE = BASE_ONLY + DELTA_BY_DIFF`，**不声称 candidate-exact 图覆盖**。
+- **MODE B — LANE CANDIDATE-EXACT（仅 HIGH 风险/明确需要候选态图时）**：v1.0.1 已机械证实 fresh lane `codegraph init <lane>` 即完成初始索引，随后 `codegraph sync <lane>` 为增量更新。lane 初始化**至多一次**；reviewer/repair 轮复用同一 lane 图。**绝不** per-reviewer / per-repair-round / 作为通用票 gate 执行全量 init/index。
+- **MODE C — UNAVAILABLE**：CodeGraph 缺失/损坏 → 手工 Relevant Surface Manifest + 定向源码阅读；报告 `CODEGRAPH = UNAVAILABLE`；不伪造图证据。
+- 任何票据包记录所用模式与 `CANDIDATE_GRAPH_COVERAGE` 值。
 
 ## 6. REVIEW / REPAIR / CI（D 层默认）
 

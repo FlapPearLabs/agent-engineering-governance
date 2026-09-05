@@ -33,10 +33,13 @@ REQUIRED_FILES = [
     "deployment/BOOTSTRAP_CONTRACT.md",
     "deployment/MEMORY_POINTER_CANDIDATE.md",
     "deployment/deployment-profile.md",
+    "deployment/PORTABLE_SETUP.md",
     "skills/README.md", "mcp/README.md", "mcp/example/mcp.example.json",
     "scripts/validate_governance.py",
     ".github/workflows/governance-ci.yml",
 ]
+
+CANONICAL_MCP = ["codegraph", "context7", "gh_grep"]
 
 # Tier 1 (RULES R2 layer-1): credentials/secrets AND local OS/personal identity
 # (e.g. host login username) — banned in EVERY file, designated files included.
@@ -172,14 +175,9 @@ def main() -> int:
             owner_missing.append(ref.name)
     check("references-declare-canonical-owner", not owner_missing, f"missing={owner_missing}")
 
-    # 8. skills manifest required fields
-    sk = ROOT / "skills/README.md"
-    if sk.is_file():
-        text = sk.read_text(encoding="utf-8")
-        ok = all(k in text for k in ("SOURCE", "VERSION", "LICENSE", "REPRODUCIBILITY"))
-        check("skills-manifest-fields-present", ok, "need SOURCE/VERSION/LICENSE/REPRODUCIBILITY")
-    else:
-        check("skills-manifest-fields-present", False, "skills/README.md missing")
+    # 8. skills guide: exists, no vendored third-party skill source (D2)
+    vendored = [p.name for p in (ROOT / "skills").glob("**/SKILL.md")]
+    check("no-vendored-skill-source", not vendored, f"vendored={vendored}")
 
     # 9. contradictory authority markers
     inv_hits: list[str] = []
@@ -189,6 +187,49 @@ def main() -> int:
             if marker in text:
                 inv_hits.append(f"{name}: {marker!r}")
     check("no-authority-inversion-markers", not inv_hits, f"hits={inv_hits}")
+
+    # 10. V1 portability: skills guide fields without vendoring/blocker
+    sk = ROOT / "skills/README.md"
+    sk_text = sk.read_text(encoding="utf-8") if sk.is_file() else ""
+    sk_ok = all(k in sk_text for k in ("NAME", "PURPOSE", "SOURCE", "PRIMARY_TRIGGER", "IMPORTANT_BOUNDARY", "FALLBACK"))
+    sk_blocked = ("REPRODUCIBILITY=INCOMPLETE" in sk_text) or ("deployment blocked" in sk_text) or ("DEPLOYMENT受阻" in sk_text) or ("deployment 受阻" in sk_text)
+    check("skills-guide-v1-fields", sk_ok and not sk_blocked,
+          f"fields_ok={sk_ok} stale_blocker={sk_blocked}")
+
+    # 11. V1 portability: canonical MCP set exactly; agent-mail not canonical; connectors not MCP
+    mcp_text = (ROOT / "mcp/README.md").read_text(encoding="utf-8")
+    required_section = mcp_text.split("# PLATFORM CONNECTORS")[0]
+    mcp_ok = all(name in required_section for name in CANONICAL_MCP) \
+        and "OPTIONAL_PLATFORM_CONNECTOR" in mcp_text \
+        and "不是 MCP" in mcp_text and "元数据字段" in mcp_text
+    agentmail_canonical = "agent-mail" in required_section
+    check("mcp-canonical-set-v1", mcp_ok and not agentmail_canonical,
+          f"ok={mcp_ok} agentmail_in_required_section={agentmail_canonical}")
+
+    # 12. V1 portability: AGENTS CodeGraph summary carries Mode A/B/C semantics
+    ag_text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    doctrine_ok = "ENGINEERING DOCTRINE" in ag_text and "AUTO-ADVANCE UNTIL REAL AUTHORITY UNCERTAINTY" in ag_text
+    modes_ok = "MODE A — BASE + DIFF" in ag_text and "MODE B — LANE CANDIDATE-EXACT" in ag_text \
+        and "MODE C — UNAVAILABLE" in ag_text and "CANDIDATE_GRAPH_COVERAGE" in ag_text
+    check("agents-doctrine-and-codegraph-modes", doctrine_ok and modes_ok,
+          f"doctrine={doctrine_ok} modes={modes_ok}")
+
+    # 13. V1 portability: no stale operational state in README/skills
+    stale_state: list[str] = []
+    for name in ("README.md", "skills/README.md"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        for phrase in ("等待外部", "送外部评审", "fresh governance review", "REPRODUCIBILITY=INCOMPLETE"):
+            if phrase in text:
+                stale_state.append(f"{name}: {phrase!r}")
+    readme_ok = "GOVERNANCE_CORE = PASS" in (ROOT / "README.md").read_text(encoding="utf-8")
+    check("no-stale-operational-state", not stale_state and readme_ok,
+          f"stale={stale_state} readme_core_pass={readme_ok}")
+
+    # 14. V1 portability: PORTABLE_SETUP receipt schema present
+    ps = ROOT / "deployment/PORTABLE_SETUP.md"
+    ps_ok = ps.is_file() and all(k in ps.read_text(encoding="utf-8")
+                                 for k in ("READY_FOR_ENGINEERING", "MISSING_SKILLS", "MISSING_MCP", "OVERRIDES"))
+    check("portable-setup-receipt-schema", ps_ok, "PORTABLE_SETUP.md or receipt fields missing")
 
     # report
     failed = [r for r in results if not r[1]]

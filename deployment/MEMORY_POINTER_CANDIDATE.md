@@ -1,7 +1,7 @@
 # MEMORY_POINTER_CANDIDATE — ~/.workbuddy/MEMORY.md 替换候选（未部署）
 
 > **MACHINE-SPECIFIC ALLOWED** —— 本文件是 RULES R2 第二层的 designated deployment 产物：其中环境事实段可含宿主路径/端口（私有仓、用途 = 新机 bootstrap）；**凭据/secret/local OS identity 仍然绝对禁止**（R2 第一层，designated 不豁免）。
-> 部署前置：外部 fresh 评审 APPROVE + skills manifest 补齐 + product owner 授权（见 BOOTSTRAP_CONTRACT §2.1）。
+> 部署前置（V1 定稿版）：治理核心已通过 + product owner 对 live 部署的显式授权（见 BOOTSTRAP_CONTRACT §2.1；skills 来源状态不阻塞）。
 > 硬约束：全文 ≤3,500 字符（实测注入截断点 byte 4028）。旧 MEMORY 全部语义已迁移至治理仓 canonical 文件；**旧 MEMORY 原始备份 local-only（Git 之外）**，治理仓 `deployment/archive/` 仅收 sanitized/redacted 迁移快照（R2 归档政策，B2 修复）。
 > 下方代码块内 = 候选正文原文。
 
