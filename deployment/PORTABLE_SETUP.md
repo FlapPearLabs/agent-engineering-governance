@@ -22,6 +22,23 @@
 16. **输出 bootstrap receipt**（下方 schema）给用户/编排者。
 17. **开始工程工作**：按 AGENTS.md 生命周期执行；授权路径自主推进，只在 §7 STOP 状态停机。
 
+## 项目状态恢复（STATE_RESTORE）
+
+进入**既有项目**（非本仓）时，禁止以"请人讲历史"开局：fetch remote → 读仓本地权威 → 读 TARGET/SPEC/ADR/SPIKE → 检视 open Issues/PRs/tracker → exact branch SHAs → CI/评审状态 → 重构合法 frontier。输出恢复回执（字段与协议见 `references/project-state-persistence.md` §5）：
+
+```text
+PROJECT =
+REMOTE_DEFAULT_SHA =
+TARGET = SPEC = ADR = SPIKES =
+ACTIVE_STAGE = ACTIVE_TICKETS = ACTIVE_PRS =
+BLOCKERS = DECISIONS_REQUIRED =
+CURRENT_LEGAL_FRONTIER =
+STATE_RECOVERY = COMPLETE / PARTIAL / BLOCKED
+READY_TO_CONTINUE = YES / NO
+```
+
+GitHub/仓内证据足够时不要求用户复述历史；授权已明确则自动继续。自己**离开**会话前执行 STATE_FLUSH（见同 reference §6）：问"下一个 fresh Agent 需要什么而它只存在于我的 context？"并持久化。
+
 ## 环境能力矩阵（Environment Capability Matrix）
 
 > 新 Agent 开工前对目标环境逐行盘点并按此 schema 回报；语言特定工具**由目标仓决定**（`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`），不全局要求任何语言栈。原始机实测值见 `audit/PORTABILITY_HARDENING_EVIDENCE.md`。
