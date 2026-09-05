@@ -1,4 +1,4 @@
-# PORTABLE_SETUP — 新 Agent 入口（V1）
+# PORTABLE_SETUP — 新 Agent 入口（AGENT_ENGINEERING_GOVERNANCE_V1.1.1）
 
 # I AM A NEW AGENT. WHAT DO I DO?
 
@@ -46,7 +46,7 @@
 
 ```text
 GOVERNANCE_SOURCE = <repo url / local path>
-GOVERNANCE_VERSION = AGENT_ENGINEERING_GOVERNANCE_V1 (<git sha if available>)
+GOVERNANCE_VERSION = AGENT_ENGINEERING_GOVERNANCE_V1.1.1 (<git sha if available>)
 RULES_LOADED = YES/NO (8 rules)
 AGENTS_LOADED = YES/NO (doctrine + architecture)
 

@@ -282,8 +282,9 @@ def main() -> int:
         "CANDIDATE V2",
     ]
     stale_hits: list[str] = []
-    runtime_files = [ROOT / n for n in ("README.md", "AGENTS.md", "RULES.md")]
+    runtime_files = [ROOT / n for n in ("README.md", "AGENTS.md", "RULES.md", "skills/README.md")]
     runtime_files += [p for p in (ROOT / "deployment").rglob("*.md")]
+    runtime_files += [p for p in (ROOT / "references").rglob("*.md")]
     for f in runtime_files:
         text = f.read_text(encoding="utf-8")
         for phrase in STALE_RUNTIME:
