@@ -69,7 +69,7 @@
 - 应为硬规则的内容（exact-SHA、SELF_REVIEW != INDEPENDENT_REVIEW、CI 诚实性）
 - 应为执行架构的内容（角色模型、lane 流程、并行/串行）
 - 应为参考的内容（counterexample 类目清单、REPAIR_VALUE 字段表、报告模板）
-- 机器私有事实（`/Users/songshiyao/.local/bin/codegraph` 绝对路径硬编码）
+- 机器私有事实（`~/.local/bin/codegraph` 绝对路径硬编码）
 - 模型名单（Mimo V2.5 / Hunyuan / GPT Luna / DeepSeek V4 / GLM 5.3 Flash / GPT Terra / GPT Sol —— 无法从任何本地配置文件核验其可用性）
 
 分类判定（详见 AUTHORITY_MAP_V1 / MIGRATION_PLAN）：约 70% 应 MOVE 到治理仓库的 AGENTS/RULES/references；~5% STALE/机器私有；~15% KEEP_IN_MEMORY（偏好、环境事实、指针）；其余为 DUPLICATE（与项目 AGENTS.md 重复维护，存在漂移风险）。
@@ -134,7 +134,7 @@
 - 项目级红线（RULES §8）：禁 force push / amend / rebase-after-review / squash；ff-only；master 串行集成；merge 前 fresh fetch + remote master 核验；`MASTER_DRIFT != CONTENT_CONFLICT`。
 - 全局 git 身份：`git config --global user.name/user.email` **为空**；凭据走 `credential.https://github.com.helper = !/opt/homebrew/bin/gh auth git-credential`。
 - 署名纪律（AUTHOR_NAME=FlapPearLabs / GITHUB_NOREPLY）存在于用户工程记忆，未落任何全局文件；逐仓 repo-local config 维持。
-- 代理依赖：外网统一走 `http://127.0.0.1:7897`（git push / gh / npm 均依赖），**未写入任何持久配置**，每次操作需显式 env —— 机器特定、易碎、无文档。
+- 代理依赖：外网统一走 `http://127.0.0.1:<port>`（git push / gh / npm 均依赖），**未写入任何持久配置**，每次操作需显式 env —— 机器特定、易碎、无文档。
 - `gh` CLI 在 `/opt/homebrew/bin/gh`（v2.89.0，已认证 FlapPearLabs），**但不在 agent sandbox 默认 PATH 中**（裸 `gh` 报 command not found；绝对路径可用）。
 
 ## 13. CURRENT_MULTI_AGENT_CAPABILITY

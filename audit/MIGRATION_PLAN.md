@@ -2,6 +2,13 @@
 
 > STATUS: PLAN_ONLY。本文件描述"如果候选治理获批，如何把现状迁到目标态"。
 > 本审计**未**修改 `~/.workbuddy/MEMORY.md`、live skills、live MCP、任何产品仓。
+>
+> **V2 增补（F1–F7 修复后）**：
+> 1. Batch 1 的"新 MEMORY.md"已物化为 `deployment/MEMORY_POINTER_CANDIDATE.md`（≤3,500 字符，实测截断点 4028）；部署前置 = fresh 评审 APPROVE + skills manifest 补齐 + owner 授权（deployment/BOOTSTRAP_CONTRACT.md §2.1）。
+> 2. 风险模型定稿为 **LOW/MEDIUM/HIGH 三级 + ESCALATION 触发清单**（原四级 CRITICAL 并入触发清单）。
+> 3. ff-only / merge 方法 / CI 形态 / worktree 例外 / macOS 全部降为 D 层默认或 deployment 档案（`deployment/deployment-profile.md`），不再是组织硬规则。
+> 4. 新增 Batch 2.5：BOOTSTRAP 部署（MEMORY 指针替换 + fresh-session 验收协议执行 + 归档旧 MEMORY 至 deployment/archive/）。
+> 5. CodeGraph 机制按真实 CLI 校准（init/sync/status 每目录库；canonical = 主仓目录）——Batch 3 相应行以 references/codegraph-grounding.md V2 为准。
 
 ## 迁移批次
 

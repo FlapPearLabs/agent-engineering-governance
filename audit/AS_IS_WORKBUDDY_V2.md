@@ -41,7 +41,7 @@
 
 - FACT：当前全局层 = MEMORY.md（截断注入）+ 身份文件 + 系统提示（含 skills 清单）。
 - FACT：工程宪法语义当前实际宿主 = 项目仓（zhihu AGENTS/RULES 全文），而非任何全局文件。
-- FACT：机器私有事实散落处 = MEMORY.md 内绝对路径（`/Users/…/.local/bin/codegraph`）、mcp.json 绝对路径、git credential helper 的 gh 绝对路径、代理端口仅存在于用户操作习惯（无持久配置文件）。
+- FACT：机器私有事实散落处 = MEMORY.md 内绝对路径（`~/…/.local/bin/codegraph`）、mcp.json 绝对路径、git credential helper 的 gh 绝对路径、代理端口仅存在于用户操作习惯（无持久配置文件）。
 - FACT：`gh` 2.89.0 位于 `/opt/homebrew/bin/gh`，已认证 FlapPearLabs；agent sandbox PATH 中无 `gh`（裸命令 miss，绝对路径可用）。
 - FACT：全局 git config：credential.helper 走 gh；user.name/email 为空；无 http.proxy 配置。
 - FACT：zhihu 仓 5 个 linked worktree（wt-p1-reform/t08/t08-reform/t09/t11）——每 lane 独立目录/分支。

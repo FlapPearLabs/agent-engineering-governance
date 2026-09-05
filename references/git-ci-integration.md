@@ -1,53 +1,39 @@
-# REF: Git / CI / Integration — 精确 SHA、CI 状态与串行集成
+# REF: Git / CI / Integration — 证据块、merge gate 与串行集成（默认协议）
 
-> Canonical owner: RULES.md R4/R5/R7 + AGENTS.md §6。本文件是证据块与核验清单。
+> Canonical owner: RULES.md R3/R5 + AGENTS.md §6。本文件是 **D 层默认**：所有 merge/CI 形态条款均可被仓库本地政策（C 层）显式 OVERRIDE；不可覆盖的是 RULES R3（证据真实性）与 R5（reviewed/published 历史不被静默改写）。
 
-## 1. 分支与提交
+## 1. 分支与提交（默认）
 
-- 一票 = 一分支 = 一 worktree = 一 PR（除非显式 override）。
-- 分支基于最新 remote master；禁止 master 直接施工；scope-clean commits。
+- 一票 = 一分支 = 一隔离 worktree（**默认**；微小机械修复/共享迁移等场景仓政策可定义例外）。
+- 分支基于最新 remote master；默认禁止 master 直接施工；scope-clean commits。
 - Conventional Commits（`feat/fix/docs/test/refactor/chore`）；凭据、临时产物、runtime memory 不提交。
-- 署名约定：AUTHOR_NAME=`FlapPearLabs`；AUTHOR_EMAIL_CLASS=`GITHUB_NOREPLY`（执行点 = 仓 repo-local `git config user.name/user.email`）。
+- 署名约定：AUTHOR_NAME=`FlapPearLabs`、AUTHOR_EMAIL_CLASS=`GITHUB_NOREPLY`（执行点 = 仓 repo-local git config）。
 
-## 2. Merge gate（每次 merge 重新执行，不得沿用旧结论）
+## 2. Merge 方法（C 层决定，D 层默认）
 
-```
-1. fresh fetch
-2. origin/<feature> == REVIEWED_HEAD（exact SHA）
-3. current remote master / merge-base 核验
-4. master drift? → re-form candidate + fresh review（不 force-push、不转移 PASS）
-5. required quorum（本票风险级）已对同一 exact HEAD PASS
-6. ff-only merge
-7. push
-8. remote verify（origin/master 新 SHA == 预期）
-9. 之后才允许 close Issue / tracker DONE
-```
+- **默认**：ff-only 集成、master 串行（任一时刻至多一个 Integrator）。
+- **仓库政策可覆盖**：squash / merge commit / rebase-based 流程均为合法集成形态——此时 B 层不变量仍适用：被评审的候选分支不得被静默改写（R5），且 PR/评审记录必须保留 reviewed SHA 与最终集成产物的对应关系。
+- 每次集成前重新执行：fresh fetch → `origin/<branch> == REVIEWED_HEAD`（若分支未被 squash 类方法改变语义）→ master drift 检查 → 按**仓政策**执行 merge → push → remote verify → 关 tracker。
+- `MASTER_DRIFT != CONTENT_CONFLICT`：前者是机械时序条件（re-form + fresh review），后者才走 STOP 裁决。
+- 无损恢复（refs 丢失/损坏）：优先使用仓库自带恢复流程；无仓库流程时 STOP 求裁决，不得用 `reset --hard`/`clean -fd` 猜测性修复**已评审/已发布对象**；对可弃的一次性 worktree（未评审、未推送、可重建）的清理不受此限。
 
-`MASTER_DRIFT != CONTENT_CONFLICT`：前者是机械时序条件（re-form + fresh review），后者才是 product-owner 裁决的契约冲突。
+## 3. CI 语义（诚实性 = R3，不可豁免；形态 = 可覆盖默认）
 
-## 3. CI 状态语义
+- 默认要求：MEDIUM+ 票集成前存在 **real PR CI** 证据；`LOCAL_TESTS != REAL_PR_CI`。
+- **仓政策可 OVERRIDE**：无 CI 基础设施的仓可定义等价证据形态（如确定性本地套件 + reviewer 现场执行 + remote 核验），必须显式记录为 OVERRIDE。
+- 状态集（不可坍缩）：`PASS / FAIL / NOT_TRIGGERED / CANCELLED / INFRASTRUCTURE_FAILURE / KNOWN_BASELINE_FAILURE / UNKNOWN`。
+- 永不成立：`NOT_TRIGGERED = PASS`、`UNKNOWN = PASS`、`KNOWN_BASELINE_FAILURE = PASS`、`SKIPPED = PASS`。
 
-| 状态 | 必须披露 |
-|---|---|
-| PASS | 可压缩为一行（`PR_CI_COMPRESSION_ALLOWED = PASS_ONLY`） |
-| FAIL | generic block + 失败签名 |
-| NOT_TRIGGERED | 绝不得表述为 PASS 或 CI 完成 |
-| SKIPPED | 为什么必需 CI 未执行 + skip 是否被授权 |
-| CANCELLED | 外部/手动/被取代/候选相关 |
-| INFRASTRUCTURE_FAILURE | 与候选代码失效区分 |
-| KNOWN_BASELINE_FAILURE | generic block + 9 字段基线块 |
-| BLOCKED | 阻塞依赖或授权条件 |
-| UNKNOWN | 保持 UNKNOWN 直至证据充分；`UNKNOWN != PASS` |
-
-### Generic non-PASS block（所有非 PASS 必附）
+### 3.1 非 PASS 通用证据块（R3 强制）
 
 ```
 CI_STATE / CI_TRIGGERED / CI_RUN_ID_OR_URL / CI_OBSERVED_AT /
-CI_FAILURE_SIGNATURE / RETRY_PERFORMED / CI_BLOCKER_CLASS(CANDIDATE|BASELINE|INFRASTRUCTURE|AUTHORIZATION|SCHEDULING|UNKNOWN) /
+CI_FAILURE_SIGNATURE / RETRY_PERFORMED /
+CI_BLOCKER_CLASS (CANDIDATE|BASELINE|INFRASTRUCTURE|AUTHORIZATION|SCHEDULING|UNKNOWN) /
 REVIEWER_ACCEPTED_CLASSIFICATION / REQUIRED_NEXT_ACTION
 ```
 
-### KNOWN_BASELINE_FAILURE 9 字段块（叠加，不减）
+### 3.2 KNOWN_BASELINE_FAILURE 附加 9 字段（加法不减法）
 
 ```
 CANDIDATE_CI_TRIGGERED / CANDIDATE_FAILURE_SIGNATURE / BASELINE_REPRODUCED /
@@ -55,26 +41,17 @@ BASELINE_SHA / BASELINE_FAILURE_SIGNATURE / SIGNATURE_MATCH /
 CANDIDATE_CAUSED_FAILURE / CI_CLASSIFICATION / REVIEWER_ACCEPTED_CLASSIFICATION
 ```
 
-分类权威：worker = PROPOSAL_ONLY；接受需独立评审 YES（R7）。
+- Worker 分类 = PROPOSAL_ONLY（R3）。自动化评审不可用（配额/故障）= `UNAVAILABLE`，不是 PENDING，也不得静默豁免 gate——按仓政策路由到指定独立评审。
 
-## 4. 修复后的 delta 评审协议
+## 4. Scope 核验（L0；语义优先）
 
-```
-previous reviewed SHA --(diff)--> current candidate SHA
-+ CodeGraph blast radius（变更触碰的 owner 模块与下游）
-+ 权威（新增/变更的合同面）
-→ 决定本轮需重开的 gate（全量链 vs delta 链）
-```
+- 默认校验 = **语义 scope**：changed files 落在票声明的行为范围 / expected surface 内。
+- 实施中涌现的支撑文件（测试/fixture/生成物/缝支撑）不是自动违规——需在票据包中有 justification 行并经评审确认（RULES R6）。
+- 仅当票**明确冻结了文件清单**时，才执行子集校验。
+- 附带机械检查：`git diff --check` clean；无凭据/机器私有路径混入。
 
-- blast radius 未扩张且合同面未变 → 仅重开受影响 gate；
-- 触及 owner 模块/安全边界/持久化语义 → 全链 fresh review；
-- 争议/不确定 → 就高不就低。
+## 5. Exact-SHA 评审协议
 
-## 5. L0 机械核验清单（harness 目标形态，NOW 部分可手工执行）
-
-SHA 绑定、diff 范围、测试与回归执行记录、ancestry（merge-base --is-ancestor）、禁改文件清单、`git diff --check`、secret/路径扫描、CI 状态与证据块存在性校验、graph base SHA 记录。
-（完整 harness 工具化 = NEXT，见 GAP_MATRIX G-09；先规则后工具，不为工具化推迟规则生效。）
-
-## 6. 远端操作环境事实（指针，非规则）
-
-- 凭据通道、gh CLI 路径、代理端口等机器特定事实 → `mcp/README.md` §MACHINE_SPECIFIC。本文件不记录任何环境值。
+- PASS 绑定 exact SHA（R5）；code-changing repair → 新 SHA → 适用 gate 新鲜重审。
+- 新鲜 ≠ 重读全仓：blast radius 未扩张时 = previous reviewed SHA + delta（diff + `impact` 爆炸半径 + 权威对照）。
+- AUTO_ADVANCE 集成序列见 AGENTS §2/§7；Stage 内集成顺序 = STAGE_MANIFEST 声明顺序。

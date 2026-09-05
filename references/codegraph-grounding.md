@@ -1,50 +1,53 @@
-# REF: CodeGraph Grounding — 结构接地与增量同步
+# REF: CodeGraph Grounding — 结构接地与增量同步（按真实工具能力）
 
-> Canonical owner: AGENTS.md §5。本文件是机制协议。
+> Canonical owner: AGENTS.md §5。本文件是机制协议。**已对照安装版 CodeGraph v1.0.1 的真实 CLI 能力校准（2026-09-05 `--help` 全量核验）**；不发明工具不存在的机制。
 
-## 1. 定位
-
-CodeGraph 回答**结构问题**：谁调用/谁生产/谁校验/谁拥有状态/谁持久化/谁消费/下游谁坏/信任边界在哪。它是 grounding 工具，不是仪式；不产生权威（权威永远是 RULES > AGENTS > Spec）。
-
-## 2. 核心语义
+## 1. 已核实的工具能力面
 
 ```
-INDEPENDENT_CODEGRAPH_GROUNDING != INDEPENDENT_FULL_REINDEX
+init / uninit      建库（.codegraph/ 目录）/ 移除
+index              全量索引（重）
+sync               增量同步（"Sync changes since last index"）
+status             索引状态与健康统计
+query / explore / node / files / callers / callees   查询族
+impact             变更影响分析（爆炸半径）
+affected           变更源文件 → 受影响测试
+daemon             后台常驻
 ```
 
-- 独立性 = 独立**查询**与关系推理（worker 与 reviewer 各自回答结构问题）；
-- 独立性 ≠ 各自重建索引库；
-- 全量重建仅由健康/schema/配置证据触发，且永不是每票/每评审 gate。
+**限制（必须如实接受）**：数据库是**每目录**的（`<dir>/.codegraph/`），无内建跨目录/跨 worktree 共享库语义。
 
-## 3. Canonical graph + delta 协议
+## 2. 目标拓扑（默认，全部落在真实能力内）
 
 ```
-CANONICAL HEALTHY GRAPH @ current remote master
-   （主 worktree 持有；master 前进后增量同步）
-        ↓ worker lane 开始时
-   LANES 记录 GRAPH_BASE_SHA（所查图对应的 master SHA）
-        ↓ 候选编辑发生
-   INCREMENTAL SYNC / DELTA GROUNDING（只同步本 lane 变更触碰的子图）
-        ↓ fresh reviewer
-   独立查询：canonical graph @ GRAPH_BASE_SHA + candidate delta
+主仓库目录 = CANONICAL GRAPH
+  init 一次（base = 当前 master）
+  master 前进后 → codegraph sync（增量）
+  健康检查 → codegraph status
+        ↑ 查询（daemon / 直接 CLI 指向主仓目录）
+LANE WORKTREE
+  独立的【查询 + 证据】生命周期：
+  a) 通过 daemon 查询 canonical；或
+  b) 对本目录库执行 sync（从其 base 增量，廉价）
+  记录 GRAPH_BASE_SHA（= grounding 依据的图所对应的提交）
 ```
 
-义务：
+- `INDEPENDENT_GROUNDING != INDEPENDENT_REINDEX`：独立的是**查询、关系推理与证据**，不是库所有权。
+- 禁止：每票/每评审跑全量 `index`；每个 worktree 长期维护互不相通的陈旧库。
+- Reviewer 复用同一 canonical/增量库完全**不**损害评审独立性——独立性由 fresh context、独立查询路径、独立反例承担。
 
-- 每 lane 证据包记录 `GRAPH_BASE_SHA`；评审核对 `GRAPH_BASE_SHA == 当票 base SHA`（陈旧图永不作为 PASS 证据）；
-- delta 同步失败/结果可疑 → 该 lane 升级为全量重建（带健康证据），或 STOP；
-- worktree 不各自养独立陈旧库：worktree 查询指向 canonical graph（或显式 fork + 记录）；
-- 全量重建的合法触发：图健康报告异常、schema 升级、索引配置变更、delta 连续失败、仓库大规模重构。
+## 3. delta grounding 协议
 
-## 4. 反模式清单
+1. lane 开始：`status` 确认图健康；记录 `GRAPH_BASE_SHA`（应 == 票 base SHA 或 master）。
+2. 候选编辑后：`sync` 同步变更文件 → 查询更新后的关系。
+3. 爆炸半径：`impact <symbol>`；回归定位：`affected <files>`。
+4. 评审：reviewer 对同一 exact SHA 独立查询；重点复核 worker 声明的关系（producer/consumer/owner）。
+5. 全量重建白名单：`status` 报告损坏/过期不可 sync；schema/版本升级不兼容；`init` 配置变更。**除此之外全量重建不是任何 gate。**
 
-| 反模式 | 后果 | 纠正 |
-|---|---|---|
-| 每评审员全量重建 | 时间烧在索引；互相得到不同版本的图 | canonical + delta |
-| 陈旧图作 PASS 证据 | 评审建立在错误结构事实上 | GRAPH_BASE_SHA 核验 |
-| 用图库输出替代权威裁决 | 图描述现状，不裁决合同 | 结构事实供推理，权威链裁决 |
-| 为图工具引入第二套竞争索引实现 | 双真相源 | 除非显式要求，只用既有 CodeGraph MCP |
+## 4. 不可用降级
 
-## 5. 部署事实（指针）
+CodeGraph 未安装/损坏/库不可恢复 → 该票 grounding 降级为：手工 Relevant Surface Manifest + 重点文件阅读；报告 `CODEGRAPH = UNAVAILABLE`（UNKNOWN ≠ PASS，不得伪造接地）。降级是否阻塞由风险级决定：HIGH 默认阻塞（等待修复或 owner 豁免），MEDIUM 允许降级继续但必须标注。
 
-- 安装/版本/服务命令/健康检查 = `mcp/README.md`（codegraph 条目 + MACHINE_SPECIFIC）。本文件不写机器路径。
+## 5. 与权威的关系
+
+CodeGraph 产出**证据**，不产出权威；结构问题的裁决权在 C 层（仓架构/Spec）与 D 层（本协议默认）。
