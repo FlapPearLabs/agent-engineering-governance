@@ -1,6 +1,6 @@
-# RULES.md — 普适硬不变量（CANDIDATE V2）
+# RULES.md — 普适硬不变量
 
-> **状态：CANDIDATE — 未激活。** 本文件只收录"**任何仓库违反即错**"的普适不变量（AUTHORITY_MAP_V2 B 层）。
+> **AGENT_ENGINEERING_GOVERNANCE_V1.1.1 — CANONICAL。** 本文件是 **B 层普适不变量**的 canonical 集（随治理仓 main 版本化演进）；任何仓库违反即错，C 层仓权威只可加严或指定执行者，不得削弱。
 > 执行方法、风险分级、git/merge/CI 默认全部在 `AGENTS.md` 与 `references/`——它们是**全局默认（D 层）**，仓库本地权威（C 层）可通过显式 OVERRIDE 覆盖。
 > 每条规则附 V: 验证钩子。
 

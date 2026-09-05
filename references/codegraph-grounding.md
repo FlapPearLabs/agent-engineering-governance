@@ -79,9 +79,14 @@ Impact of changing "computeTotal" — 2 affected symbols: computeTotal, checkout
 5. 评审：reviewer 独立查询（模式 B 复用 lane 库；模式 A 复用 canonical + 独立 diff 阅读路径），重点复核 worker 声明的关系（producer/consumer/owner）。
 6. 全量重建白名单：`status` 报告损坏/过期不可 sync；schema/版本升级不兼容；`init` 配置变更。**除此之外全量重建不是任何 gate**；模式 B 的 lane init 每 lane 至多一次。
 
-## 4. 不可用降级
+## 4. 不可用降级（SKILL/TOOL_IS_METHOD_NOT_AUTHORITY：工具缺失不自动成为普适硬 gate）
 
-CodeGraph 未安装/损坏/库不可恢复 → 该票 grounding 降级为：手工 Relevant Surface Manifest + 重点文件阅读；报告 `CODEGRAPH = UNAVAILABLE`（UNKNOWN ≠ PASS，不得伪造接地）。降级是否阻塞由风险级决定：HIGH 默认阻塞（等待修复或 owner 豁免），MEDIUM 允许降级继续但必须标注。
+CodeGraph 未安装/损坏/库不可恢复 → **MODE C**：手工 Relevant Surface Manifest + 定向源码阅读；报告 `CODEGRAPH = UNAVAILABLE`（UNKNOWN ≠ PASS，不得伪造接地）。
+
+- **MEDIUM**：MODE C 继续推进，前提 = 适用仓合同允许；必须如实标注降级。
+- **HIGH**：默认 **MODE C + ENHANCED_MANUAL_GROUNDING + ESCALATION**（更强手工证据 + 独立评审加强），**不得**假装发生了正常图接地；`CANDIDATE_GRAPH_COVERAGE` 记为 UNAVAILABLE/DELTA_BY_DIFF。
+- **仅以下条件触发 HARD STOP**：①仓本地权威（C 层）明确要求 CodeGraph；②该 HIGH 风险问题在没有结构证据时无法负责任地接地；③reviewer/owner 判定证据不足。
+- 详见 `references/static-analysis-and-code-intelligence.md`（工具层级与降级路径）。
 
 ## 5. 与权威的关系
 

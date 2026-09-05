@@ -1,13 +1,13 @@
 # agent-engineering-governance
 
-> **AGENT_ENGINEERING_GOVERNANCE_V1** —— FlapPearLabs 全局工程治理的 canonical 基线（external verdict: `PASS_WITH_DEPLOYMENT_BLOCKERS`，核心治理已通过）。
+> **AGENT_ENGINEERING_GOVERNANCE_V1.1.1 — CANONICAL** —— FlapPearLabs 全局工程治理基线（external verdict: `PASS_WITH_DEPLOYMENT_BLOCKERS` → V1 架构 `PASS`，核心治理已通过并合并）。
 >
 > - `GOVERNANCE_CORE = PASS`（GPT-5.6 Sol 多轮评审收敛；权威分层/Stage/Lane/风险分级/评审收敛/CI/exact-SHA/Seam-first 均已接受）
 > - `PORTABLE_SETUP = READY`（见 `deployment/PORTABLE_SETUP.md`）
-> - `BOOTSTRAP_STATIC_VALIDATION = PASS`（指针预算 ≤3,500 vs 实测截断 4028；校验器 10/10；governance-ci green）
-> - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN`（fresh-session 验收待受控部署后执行——唯一遗留部署事项，非 V1 阻塞）
+> - `BOOTSTRAP_STATIC_VALIDATION = PASS`（指针预算 ≤3,500 vs 实测截断 4028；governance-ci green；自检以 `python3 scripts/validate_governance.py` 全部 PASS 为准）
+> - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN`（fresh-session 验收待受控部署后执行——唯一遗留部署事项，非 V1.1.1 阻塞）
 >
-> V1 是 canonical 工程治理基线；后续变更是正常版本化演进。`audit/` 全部为**历史证据**，不是 runtime 权威；**canonical runtime 权威 = `RULES.md` + `AGENTS.md` + `references/` + `deployment/` setup 文档**。
+> V1.1.1 是 canonical 工程治理基线；后续变更是正常版本化演进。`audit/` 全部为**历史证据**，不是 runtime 权威；**canonical runtime 权威 = `RULES.md` + `AGENTS.md` + `references/` + `deployment/` setup 文档**。
 
 ## 1. 新 Agent 入口
 
@@ -54,9 +54,9 @@ F  MEMORY / PREFERENCES     指针 + 偏好 + 环境事实 —— 永不压倒�
 ## 6. 状态与后续
 
 ```
-AGENT_ENGINEERING_GOVERNANCE_V1 —— 已定稿（本版）
-→ 下一步：fresh-agent dogfood（仅凭 PORTABLE_SETUP 重建环境 + bootstrap receipt）
-→ 遗留部署事项（非 V1 阻塞）：skills 上游 registry 确证（可选）；BOOTSTRAP_LIVE_VALIDATION（受控部署后）；
+AGENT_ENGINEERING_GOVERNANCE_V1.1.1 —— CANONICAL（本版；closure patch 完成状态矛盾清理与 skill 溯源验证）
+→ 下一步：fresh-agent full-fidelity dogfood（仅凭 PORTABLE_SETUP 重建环境 + bootstrap receipt）
+→ 遗留部署事项（非 V1.1.1 阻塞）：BOOTSTRAP_LIVE_VALIDATION（受控部署后）；
   MEMORY 指针部署按 BOOTSTRAP_CONTRACT §2.1 前置条件执行
 → 后续变更 = 正常版本化演进（治理变更评审协议，AGENTS §8）
 ```

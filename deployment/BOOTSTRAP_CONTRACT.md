@@ -1,10 +1,10 @@
 # BOOTSTRAP_CONTRACT — 治理如何被新会话真实看到（F2 修复）
 
-> 状态：CANDIDATE。本文回答一个工程问题：**fresh WorkBuddy 工程会话如何保证在开工前看到 canonical 治理**。
+> 状态：**CANONICAL（V1.1.1）**。本文回答一个工程问题：**fresh WorkBuddy 工程会话如何保证在开工前看到 canonical 治理**。
 > 原则：只使用**已验证存在**的机制；不建框架；不假装自动加载。
 >
 > **验证状态（证据诚实拆分，R2 修复）**：
-> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（≤3,500 字符 vs 实测截断 4028）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 10/10 通过；GitHub Actions governance-ci 已接入且 green。
+> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（≤3,500 字符 vs 实测截断 4028）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 全部检查 PASS（以运行时输出为准）；GitHub Actions governance-ci 已接入且 green。
 > - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN` —— fresh neutral-session 验收（§3 协议）只能在受控部署（§2.1 前置条件满足）后执行；在部署完成前**不得**声称 runtime 验证通过，任何报告引用本合同时必须使用上述拆分字段。
 
 ## 1. 已验证的注入事实（2026-09-05 实测）

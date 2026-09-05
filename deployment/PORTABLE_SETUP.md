@@ -1,4 +1,4 @@
-# PORTABLE_SETUP — 新 Agent 入口（V1）
+# PORTABLE_SETUP — 新 Agent 入口（AGENT_ENGINEERING_GOVERNANCE_V1.1.1）
 
 # I AM A NEW AGENT. WHAT DO I DO?
 
@@ -18,7 +18,7 @@
 12. **验证 CodeGraph / Context7 / gh_grep**：各完成一次健康查询（codegraph：`--version` + 仓库内 `status`；两个远程 MCP：任一查询成功）。
 13. **识别当前 runtime/平台**：读 `deployment/deployment-profile.md`（designated 机器事实）。
 14. **只应用适用的 deployment profile**：档案是宿主事实记录，不是规则（RULES R7）；目标仓平台与宿主无关。
-15. **运行治理校验**：`python3 scripts/validate_governance.py`（本仓内）——10 项机械检查。
+15. **运行治理校验**：`python3 scripts/validate_governance.py`（本仓内）——要求全部检查 PASS（以运行时输出为准）。
 16. **输出 bootstrap receipt**（下方 schema）给用户/编排者。
 17. **开始工程工作**：按 AGENTS.md 生命周期执行；授权路径自主推进，只在 §7 STOP 状态停机。
 
@@ -30,7 +30,7 @@
 |---|---|---|---|---|---|
 | Git | USER_CONFIGURED / MISSING | 本机 git | `git --version` | 无（硬前提） | **YES** |
 | GitHub access | USER_CONFIGURED / OPTIONAL | gh CLI 或平台 connector | `gh auth status` / PR API 试读 | 仅本地工作（remote gate 降级并如实报告） | 远程操作 YES |
-| CodeGraph | USER_CONFIGURED / MISSING | `~/.local/bin/codegraph` + MCP 配置 | `codegraph --version` + `status` | MODE C（手工 manifest + 定向阅读） | HIGH 票 YES；MEDIUM 降级可用 |
+| CodeGraph | USER_CONFIGURED / MISSING | `~/.local/bin/codegraph` + MCP 配置 | `codegraph --version` + `status` | MODE C（MEDIUM 直接降级；HIGH = ENHANCED_MANUAL_GROUNDING + ESCALATION，HARD STOP 仅三种条件，见 codegraph-grounding §4） | 非普适硬 gate（如实标注 UNAVAILABLE） |
 | LSP | PLATFORM_PROVIDED / ABSENT | 平台内置 LSP 工具 + 目标仓语言服务器 | 对目标仓符号执行 go-to-def/references | 源码阅读 + CodeGraph | NO（降级） |
 | AST / static-query | PLATFORM_PROVIDED 或 REPOSITORY_PROVIDED | CodeGraph 符号查询；仓内语言工具 | 对已知符号执行结构查询 | grep（标注非结构证明） | NO |
 | formatter / linter | REPOSITORY_PROVIDED | 仓 package/lint 配置 | 跑仓配置的命令 | 无——不注入仓外工具链 | NO（但仓有配置则为该仓 gate） |
@@ -46,7 +46,7 @@
 
 ```text
 GOVERNANCE_SOURCE = <repo url / local path>
-GOVERNANCE_VERSION = AGENT_ENGINEERING_GOVERNANCE_V1 (<git sha if available>)
+GOVERNANCE_VERSION = AGENT_ENGINEERING_GOVERNANCE_V1.1.1 (<git sha if available>)
 RULES_LOADED = YES/NO (8 rules)
 AGENTS_LOADED = YES/NO (doctrine + architecture)
 
