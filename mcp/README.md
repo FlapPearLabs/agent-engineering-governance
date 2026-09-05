@@ -23,11 +23,9 @@
 - stdio server 与 agent 同权限运行：只安装可信来源，来源与本表登记一致。
 - 写型 connector（github）的写操作受治理 gate 约束（merge/PR/issue 写入按 RULES/AGENTS 流程执行）。
 
-## MACHINE_SPECIFIC（环境事实登记处，不进 canonical 治理文件）
+## MACHINE_SPECIFIC（政策指针，非登记处）
 
-> 本节内容按机器登记；换机时先复核再使用。示例机器：macOS 工作站（2026-09-05）。
-
-- 外网代理：本机出网统一走本地代理（端口见用户环境约定，如 `http://127.0.0.1:<PORT>`）；git push / gh / npm 均依赖，按操作显式注入 `HTTPS_PROXY`，未写入任何全局 git 配置。
-- gh CLI：安装于 Homebrew 路径（如 `${HOME}/opt/homebrew/bin/gh` 或 `/opt/homebrew/bin/gh`），可能不在 agent sandbox 默认 PATH —— 用绝对路径调用；凭据通道 = gh auth git-credential（git credential helper 配置）。
-- Git 身份：全局 user.name/email 可能为空；按仓 repo-local 配置署名约定（见 references/git-ci-integration.md §1）。
-- WorkBuddy 数据目录：`~/.workbuddy/`（mcp.json、skills、memory 等的宿主）。
+> 本文件属一般治理产物，按 RULES R2 第二层**不得**登记宿主路径/端口。
+> 机器特定事实的唯一登记处 = `deployment/deployment-profile.md`（designated，带 `MACHINE-SPECIFIC ALLOWED` 标记）。
+> 与 MCP 相关的机器事实（gh CLI 位置、代理端口、凭据通道）见该档案；本节仅保留机制性说明：
+> 外网操作按操作显式注入 `HTTPS_PROXY`（未写入全局 git 配置）；gh 可能不在 agent sandbox 默认 PATH，用绝对路径调用。

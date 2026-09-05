@@ -35,16 +35,28 @@ REQUIRED_FILES = [
     "deployment/deployment-profile.md",
     "skills/README.md", "mcp/README.md", "mcp/example/mcp.example.json",
     "scripts/validate_governance.py",
+    ".github/workflows/governance-ci.yml",
 ]
 
-SECRET_PATTERNS = [
-    r"songshiyao",            # username
-    r"/Users/",               # absolute home path
-    r"ghp_[A-Za-z0-9]{20,}",  # GitHub PAT
+# Tier 1 (RULES R2 layer-1): credentials/secrets/usernames — banned in EVERY file.
+CREDENTIAL_PATTERNS = [
+    r"ghp_[A-Za-z0-9]{20,}",   # GitHub PAT
     r"github_pat_",
-    r"sk-[A-Za-z0-9]{20,}",   # generic API key
-    r"127\.0\.0\.1:7897",     # machine-specific proxy port (use <port> placeholders)
+    r"sk-[A-Za-z0-9]{20,}",    # generic API key
+    r"-----BEGIN [A-Z ]*PRIVATE KEY",
+    r"(?i)cookie\s*=",
+    r"(?i)password\s*=",
+    r"songshiyao",             # username / identity leakage
 ]
+# Tier 2 (RULES R2 layer-2): host-specific facts — banned in general governance
+# artifacts; allowed ONLY in designated deployment files carrying the marker
+# "MACHINE-SPECIFIC ALLOWED" (private repo, purpose = machine recovery).
+MACHINE_PATTERNS = [
+    r"/Users/",
+    r"127\.0\.0\.1:7897",
+]
+DESIGNATED_MARKER = "MACHINE-SPECIFIC ALLOWED"
+DESIGNATED_DIR = "deployment"
 
 PLATFORM_MARKERS = [
     r"(基线|baseline)\s*[=＝:：]\s*(macOS|PowerShell|Windows|pwsh|zsh)",
@@ -103,19 +115,32 @@ def main() -> int:
             json_bad.append(f"{jf.relative_to(ROOT)}: {exc}")
     check("json-parses", not json_bad, f"bad={json_bad}")
 
-    # 4. secrets / machine-private paths (scanner itself is exempt: it embeds
-    #    its own detection regexes, which would otherwise self-match)
-    leaks: list[str] = []
+    # 4. secrets / machine-private paths (two-tier, RULES R2)
+    #    The scanner itself is exempt: it embeds its own detection regexes.
+    def is_designated(f: Path) -> bool:
+        try:
+            head = "\n".join(f.read_text(encoding="utf-8", errors="ignore").splitlines()[:10])
+        except Exception:  # noqa: BLE001
+            return False
+        return DESIGNATED_MARKER in head and str(f.relative_to(ROOT)).startswith(DESIGNATED_DIR)
+
+    cred_leaks: list[str] = []
+    mach_leaks: list[str] = []
     scan_files = [p for p in ROOT.rglob("*")
-                  if p.is_file() and p.suffix in {".md", ".json", ".py", ".sh", ".txt"}
+                  if p.is_file() and p.suffix in {".md", ".json", ".py", ".sh", ".txt", ".yml", ".yaml"}
                   and ".git" not in p.parts
                   and p.name != "validate_governance.py"]
     for f in scan_files:
         text = f.read_text(encoding="utf-8", errors="ignore")
-        for pat in SECRET_PATTERNS:
+        for pat in CREDENTIAL_PATTERNS:
             if re.search(pat, text):
-                leaks.append(f"{f.relative_to(ROOT)} matches {pat}")
-    check("no-secrets-or-machine-paths", not leaks, f"leaks={leaks[:5]}")
+                cred_leaks.append(f"{f.relative_to(ROOT)} matches {pat}")
+        if not is_designated(f):
+            for pat in MACHINE_PATTERNS:
+                if re.search(pat, text):
+                    mach_leaks.append(f"{f.relative_to(ROOT)} matches {pat}")
+    check("no-credentials-anywhere", not cred_leaks, f"leaks={cred_leaks[:5]}")
+    check("machine-facts-only-in-designated-files", not mach_leaks, f"leaks={mach_leaks[:5]}")
 
     # 5. MEMORY pointer budget
     pointer = ROOT / "deployment/MEMORY_POINTER_CANDIDATE.md"

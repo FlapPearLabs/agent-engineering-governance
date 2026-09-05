@@ -38,15 +38,16 @@ F  MEMORY / PREFERENCES     指针 + 偏好 + 环境事实 —— 永不压倒�
 ## 4. Bootstrap（如何被新会话看到；F2 修复）
 
 - 已验证：`~/.workbuddy/MEMORY.md` 头部是唯一自动注入通道（截断点 byte 4028）；项目 AGENTS/RULES **无**自动加载证据。
-- 机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针候选（自动可见层）+ 会话开工 BOOTSTRAP_CHECKLIST（B1–B5，产出引导回执）+ `scripts/validate_governance.py` 机械自检。
+- 机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针候选（自动可见层）+ 会话开工 BOOTSTRAP_CHECKLIST（B1–B5，产出引导回执）+ `scripts/validate_governance.py` 机械自检（GitHub Actions `governance-ci` 已接入）。
+- **证据状态拆分**：`BOOTSTRAP_STATIC_VALIDATION = PASS`（预算/清单/校验器/CI）｜ `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN`（fresh-session 验收待受控部署后执行；部署前不得声称 runtime 验证）。
 - 显式声明：自动加载项目 AGENTS/RULES 目前不可保证 —— 以清单步骤补足，并以 fresh-session 验收协议（§3 of contract）验证。
 
 ## 5. SOURCE-OF-TRUTH vs MACHINE-SPECIFIC vs 禁止提交
 
 - **SOURCE-OF-TRUTH（本仓）**：全部治理语义。
-- **MACHINE-SPECIFIC**：宿主路径、代理端口、gh 位置、凭据通道 → `deployment/deployment-profile.md` + `mcp/README.md` §MACHINE_SPECIFIC；治理文件使用 `${HOME}` 类占位。
-- **NEVER COMMIT**：API key、token、cookie、auth header、SSH 私钥、secret 环境变量、凭据文件路径、真实 `~/.workbuddy/mcp.json`。
-- 审计证据路径一律 home 相对（`~/...`），无用户名。
+- **MACHINE-SPECIFIC（RULES R2 第二层，分区规则）**：宿主路径/端口/二进制位置**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated 文件（deployment-profile / MEMORY_POINTER / 未来 archive）——私有仓、用途 = 机器恢复；一般治理产物（AGENTS/RULES/references/audit/skills/mcp）禁止。
+- **NEVER COMMIT（R2 第一层，任何位置）**：API key、token、cookie、auth header、SSH 私钥、secret 环境变量、凭据文件路径、用户名、真实 `~/.workbuddy/mcp.json`。
+- 校验器执行双层扫描：凭据模式全库零命中；machine 模式在非 designated 文件零命中。
 
 ## 6. 当前流程状态
 

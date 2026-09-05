@@ -14,11 +14,11 @@
 
 ## R2 凭据与机器私有信息安全
 
-- Cookie/Secret/Token/API key/登录凭证/SSH 私钥绝不进入 repo、log、聊天、产物、长期记忆、报告。
-- 提交到 Git 的工具/MCP 配置必须是占位符模板形态（`${HOME}`、`${TOKEN_FROM_ENV}`、`<PATH_TO_BINARY>`）；机器私有绝对路径/端口/用户名不得进入共享治理产物。
-- 凭据探测输出只允许布尔/错误类型，不允许值、长度、前缀、哈希。
-- 为什么普适：泄漏不可撤回。
-- V: push 前 secret/路径扫描零命中（`scripts/validate_governance.py` 承担本仓自检）。
+- **第一层（任何文件、任何仓，绝对禁止）**：Cookie/Secret/Token/API key/登录凭证/SSH 私钥/用户名绝不进入 repo、log、聊天、产物、长期记忆、报告。凭据探测输出只允许布尔/错误类型。
+- **第二层（宿主机事实，分区管理）**：宿主路径、端口、二进制位置等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated profile/archive 文件中（私有仓、用途 = 机器恢复与环境复现）。未带标记的文件一律按一般产物对待。
+- 提交到 Git 的工具/MCP 配置必须是占位符模板形态（`${HOME}`、`${TOKEN_FROM_ENV}`、`<PATH_TO_BINARY>`）。
+- 为什么普适：泄漏不可撤回；分区规则让"机器可恢复"与"共享语义干净"兼容（外部评审 machine-specific consistency 项）。
+- V: `scripts/validate_governance.py` 双层扫描——凭据模式全库零命中；machine 模式在非 designated 文件零命中；designated 文件必须带头标记。
 
 ## R3 证据真实性
 

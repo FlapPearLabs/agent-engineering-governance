@@ -1,7 +1,8 @@
 # MEMORY_POINTER_CANDIDATE — ~/.workbuddy/MEMORY.md 替换候选（未部署）
 
+> **MACHINE-SPECIFIC ALLOWED** —— 本文件是 RULES R2 第二层的 designated deployment 产物：其中环境事实段可含宿主路径/端口（私有仓、用途 = 新机 bootstrap）；**凭据/secret/用户名仍然绝对禁止**（R2 第一层）。
 > 部署前置：外部 fresh 评审 APPROVE + skills manifest 补齐 + product owner 授权（见 BOOTSTRAP_CONTRACT §2.1）。
-> 硬约束：全文 ≤3,500 字符（实测注入截断点 byte 4028）。旧 MEMORY 29,810B 全部语义已迁移至治理仓 canonical 文件；部署时旧文归档不删除。
+> 硬约束：全文 ≤3,500 字符（实测注入截断点 byte 4028）。旧 MEMORY 29,810B 全部语义已迁移至治理仓 canonical 文件；部署时旧文归档到 `deployment/archive/`（archive 同属 designated 例外区，R2 第二层）。
 > 下方代码块内 = 候选正文原文。
 
 ```markdown
@@ -19,8 +20,8 @@
 3. 独立评审 gate 存在时，self-review 不满足之；不自批不自合并。
 4. reviewed/published 历史不被静默改写；修复 = append-only commit。
 
-## 环境事实（machine-specific，非规则）
-- 外网走本地代理 http://127.0.0.1:<port>（git push/gh/npm 依赖，显式 env 注入）。
+## 环境事实（machine-specific，非规则；与 deployment-profile.md 保持同步）
+- 外网走本地代理 http://127.0.0.1:7897（git push/gh/npm 依赖，显式 env 注入）。
 - gh CLI: /opt/homebrew/bin/gh（不在 agent sandbox PATH，用绝对路径；已认证 FlapPearLabs）。
 - CodeGraph: ~/.local/bin/codegraph serve --mcp（MCP 已配）；CLI 含 sync/impact/affected。
 - 模型路由按 RISK FIRST：LOW→lite 档；MEDIUM→default；长文→大上下文；ESCALATION→最强可用（外部 Sol 级人工搬运）。

@@ -20,29 +20,40 @@ daemon             后台常驻
 ## 2. 目标拓扑（默认，全部落在真实能力内）
 
 ```
-主仓库目录 = CANONICAL GRAPH
+主仓库目录 = CANONICAL GRAPH（BASE 态：master/已合并拓扑）
   init 一次（base = 当前 master）
   master 前进后 → codegraph sync（增量）
   健康检查 → codegraph status
         ↑ 查询（daemon / 直接 CLI 指向主仓目录）
 LANE WORKTREE
-  独立的【查询 + 证据】生命周期：
-  a) 通过 daemon 查询 canonical；或
-  b) 对本目录库执行 sync（从其 base 增量，廉价）
-  记录 GRAPH_BASE_SHA（= grounding 依据的图所对应的提交）
+  独立的【查询 + 证据】生命周期；candidate 态按 §2.1 三种模式之一接地
 ```
 
 - `INDEPENDENT_GROUNDING != INDEPENDENT_REINDEX`：独立的是**查询、关系推理与证据**，不是库所有权。
 - 禁止：每票/每评审跑全量 `index`；每个 worktree 长期维护互不相通的陈旧库。
-- Reviewer 复用同一 canonical/增量库完全**不**损害评审独立性——独立性由 fresh context、独立查询路径、独立反例承担。
+- Reviewer 复用同一 lane 库（若存在）完全不**损害**评审独立性——独立性由 fresh context、独立查询路径、独立反例承担。
 
-## 3. delta grounding 协议
+### 2.1 Candidate 接地三模式（R3 修复：可执行且诚实）
 
-1. lane 开始：`status` 确认图健康；记录 `GRAPH_BASE_SHA`（应 == 票 base SHA 或 master）。
-2. 候选编辑后：`sync` 同步变更文件 → 查询更新后的关系。
-3. 爆炸半径：`impact <symbol>`；回归定位：`affected <files>`。
-4. 评审：reviewer 对同一 exact SHA 独立查询；重点复核 worker 声明的关系（producer/consumer/owner）。
-5. 全量重建白名单：`status` 报告损坏/过期不可 sync；schema/版本升级不兼容；`init` 配置变更。**除此之外全量重建不是任何 gate。**
+工具现实：worktree 新建时**没有**本地 `.codegraph`，`sync` 无库可增；canonical 图只代表 base/master，**看不到未合并的候选编辑**。因此：
+
+| 模式 | 机制 | 覆盖声明 | 成本 |
+|---|---|---|---|
+| A. BASE + DIFF（默认） | 结构问题查 canonical（base 拓扑：callers/callees/impact）；候选增量用 `git diff BASE..candidate` + 变更文件直读 | `CANDIDATE_GRAPH_COVERAGE = BASE_ONLY + DELTA_BY_DIFF`（**不声称 candidate-exact 图覆盖**） | 零额外索引 |
+| B. LANE_INDEX（按需，每 lane 一次） | 确需 candidate-exact 图查询时（HIGH 风险/重跨模块候选），在 lane worktree `codegraph init` **一次**（索引候选态），后续编辑用 `sync` | `CANDIDATE_GRAPH_COVERAGE = CANDIDATE_EXACT` | 每 lane 一次 init；lane 内 reviewer **复用同一库**，绝不每评审重建 |
+| C. UNAVAILABLE | CodeGraph 不可用 → 手工 surface manifest + 重点阅读 | `CODEGRAPH = UNAVAILABLE` | — |
+
+- 报告必须写明所用模式与 `CANDIDATE_GRAPH_COVERAGE` 值；A 模式下凡涉及"候选编辑后的新关系"的结论，证据来源必须标注为 diff/源码而非图查询。
+- 禁止：per-reviewer / per-repair-round 的全量 `index`/`init`；跨 worktree 共享库的虚构机制（工具不支持）。
+
+## 3. delta grounding 协议（对应 §2.1 模式落地步骤）
+
+1. lane 开始：`status` 确认 canonical 图健康；记录 `GRAPH_BASE_SHA`（应 == 票 base SHA 或 master）；**选择模式 A/B 并写入票据包**（默认 A）。
+2. 候选编辑后（模式 A）：`git diff BASE..candidate` + 变更文件直读；对触及符号在 canonical 上跑 `impact` 评估 base 拓扑下的爆炸半径。
+3. 候选编辑后（模式 B）：lane 库 `sync` 同步变更文件 → candidate-exact 查询更新后的关系。
+4. 回归定位：`affected <files>`（模式 B 为候选态；模式 A 为 base 态近似，须标注）。
+5. 评审：reviewer 独立查询（模式 B 复用 lane 库；模式 A 复用 canonical + 独立 diff 阅读路径），重点复核 worker 声明的关系（producer/consumer/owner）。
+6. 全量重建白名单：`status` 报告损坏/过期不可 sync；schema/版本升级不兼容；`init` 配置变更。**除此之外全量重建不是任何 gate**；模式 B 的 lane init 每 lane 至多一次。
 
 ## 4. 不可用降级
 
