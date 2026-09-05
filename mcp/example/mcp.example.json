@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "${HOME}/.local/bin/codegraph",
+      "args": ["serve", "--mcp"],
+      "timeout": 120000,
+      "disabled": false
+    },
+    "context7": {
+      "type": "streamableHttp",
+      "url": "https://mcp.context7.com/mcp",
+      "timeout": 30000,
+      "disabled": false
+    },
+    "gh_grep": {
+      "type": "streamableHttp",
+      "url": "https://mcp.grep.app",
+      "timeout": 30000,
+      "disabled": false
+    }
+  }
+}
