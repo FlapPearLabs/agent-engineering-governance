@@ -216,11 +216,11 @@ def main() -> int:
     check("agents-doctrine-and-codegraph-modes", doctrine_ok and modes_ok,
           f"doctrine={doctrine_ok} modes={modes_ok}")
 
-    # 13. V1 portability: no stale operational state in README/skills
+    # 13. V1 portability: no stale operational state in README/skills/routing reference
     stale_state: list[str] = []
-    for name in ("README.md", "skills/README.md"):
+    for name in ("README.md", "skills/README.md", "references/skills-and-model-routing.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        for phrase in ("等待外部", "送外部评审", "fresh governance review", "REPRODUCIBILITY=INCOMPLETE"):
+        for phrase in ("等待外部", "送外部评审", "fresh governance review", "REPRODUCIBILITY=INCOMPLETE", "deployment 受阻"):
             if phrase in text:
                 stale_state.append(f"{name}: {phrase!r}")
     readme_ok = "GOVERNANCE_CORE = PASS" in (ROOT / "README.md").read_text(encoding="utf-8")
