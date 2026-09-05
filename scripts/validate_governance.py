@@ -39,6 +39,7 @@ REQUIRED_FILES = [
     "references/skills-and-model-routing.md",
     "references/static-analysis-and-code-intelligence.md",
     "references/engineering-memory.md",
+    "references/project-state-persistence.md",
     "deployment/BOOTSTRAP_CONTRACT.md",
     "deployment/MEMORY_POINTER_CANDIDATE.md",
     "deployment/deployment-profile.md",
@@ -303,6 +304,25 @@ def main() -> int:
                      for n in ("README.md", "AGENTS.md", "RULES.md"))
     check("runtime-version-and-counts-sync", not count_hits and version_ok,
           f"counts={count_hits} version_sync={version_ok}")
+
+    # 21. V1.1.2: project-state persistence wired into AGENTS + PORTABLE_SETUP
+    ref = ROOT / "references/project-state-persistence.md"
+    ref_text = ref.read_text(encoding="utf-8") if ref.is_file() else ""
+    ps_text = ps_text if ps_text else (ps.read_text(encoding="utf-8") if ps.is_file() else "")
+    ag2 = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    ps_integrated = all(k in ps_text for k in ("STATE_RESTORE", "REMOTE_DEFAULT_SHA", "CURRENT_LEGAL_FRONTIER", "READY_TO_CONTINUE"))
+    ag_ok = all(k in ag2 for k in ("STATE_RESTORE", "STATE_FLUSH", "PROJECT_STATE_MUST_OUTLIVE_THE_AGENT", "project-state-persistence.md"))
+    ref_ok = all(k in ref_text for k in ("PERSISTENCE_VALUE", "REMOTE_UNKNOWN != REMOTE_SYNCED", "STATE_FLUSH", "EPHEMERAL SCRATCH"))
+    check("project-state-persistence-integrated", ref.is_file() and ps_integrated and ag_ok and ref_ok,
+          f"ref={ref.is_file()} portable={ps_integrated} agents={ag_ok} ref_fields={ref_ok}")
+
+    # 22. V1.1.2: memory stays non-authoritative; anti-bureaucracy present
+    em = ROOT / "references/engineering-memory.md"
+    em_text = em.read_text(encoding="utf-8") if em.is_file() else ""
+    mem_ok = "MEMORY_IS_DISCOVERY_NOT_AUTHORITY" in em_text and "跨项目工程经验 → 本治理仓" in em_text
+    anti_ok = "PERSISTENCE_VALUE" in ref_text and "不造官僚模板" in ref_text
+    check("memory-non-authoritative-and-anti-bureaucracy", mem_ok and anti_ok,
+          f"memory={mem_ok} anti_bureaucracy={anti_ok}")
 
     # report
     failed = [r for r in results if not r[1]]

@@ -74,3 +74,7 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 - 只修 reviewer 指出的 blocker + 同 scope 内明确真实缺陷；append-only commit（RULES R5）。
 - 新 SHA 触发失效链；delta 评审协议见 git-ci-integration.md §5。
 - 修复轮次受 REPAIR_VALUE gate 与 budget 默认约束（review-and-repair-saturation.md §3）。
+
+## 7. Live 状态持久化（P1）
+
+Ticket/Lane 的活跃状态按 `references/project-state-persistence.md` §2–3 在**有意义转换点**持久化到 GitHub（Issue/PR/tracker：status/owner/SHA/评审/CI/blockers/next legal action）；离线时 `REMOTE_STATE_SYNC = DEFERRED` 且不声称远端已同步。票结束或会话离开前执行 STATE_FLUSH。

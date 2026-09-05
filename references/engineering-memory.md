@@ -12,6 +12,17 @@
 
 每次晋升记录：`SOURCE = MEMORY` / `DURABILITY_REASON` / `CANONICAL_DESTINATION` / `EXISTING_DUPLICATE = YES|NO` / `ACTION = ADD|MERGE|ALREADY_COVERED|DROP`。逐项台账见 `audit/PORTABILITY_HARDENING_EVIDENCE.md`。
 
+### 记忆路由（V1.1.2，与 project-state-persistence §9 同步）
+
+```text
+临时想法 → P0 ephemeral；当前票状态 → GitHub Issue/PR/tracker（P1）；
+长期项目决策 → TARGET/SPEC/ADR/架构（P2）；技术不确定性/结果 → SPIKE（P2）；
+重要缺陷 → TEST + Issue/PR（P3）；环境要求 → 本机全量 + sanitized 远端 profile（P4）；
+跨项目工程经验 → 本治理仓（canonical）；用户/runtime 便利记忆 → MEMORY（F 层导航）。
+```
+
+同一真相不做五处竞争副本——始终有唯一可识别的 canonical owner。
+
 ## 2. 已晋升内容（V1.1，源自原始 MEMORY 的 durable 工程知识）
 
 ### Engineering style（工程风格原则，SOURCE = MEMORY Lane V2 "Engineering style"；DURABILITY_REASON = 跨项目稳定的实现美学，防过度设计与静默 fallback；EXISTING_DUPLICATE = 部分（doctrine 已覆盖最小复杂性）；ACTION = ADD）

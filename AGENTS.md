@@ -116,6 +116,13 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 授权已覆盖的路径（gate 满足 → 集成 → remote verify → tracker → 重算 frontier → 下一 Stage）**不问"是否继续"**。
 仅以下状态停机：`USER_DECISION_REQUIRED` / `CONTRACT_CONFLICT` / `SPEC_AMENDMENT_REQUIRED` / `EXTERNAL_EVIDENCE_REQUIRED` / `AUTHORIZATION_FAILURE` / `UNRESOLVABLE_CONFLICT` / `MILESTONE_COMPLETE`。milestone 后不自动进入已明确排除的 NEXT_STAGE。
 
+## 7.1 STATE_RESTORE / STATE_FLUSH（跨 Agent 状态连续性）
+
+- `PROJECT_STATE_MUST_OUTLIVE_THE_AGENT`；`CONVERSATION_MEMORY_IS_CACHE, NOT_PROJECT_STORAGE`。
+- **STATE_RESTORE**：进入既有项目禁止以"请人讲历史"开局——按固定序列从 remote + 仓文档 + Issues/PRs 重构状态，输出 recovery receipt（PROJECT/REMOTE_DEFAULT_SHA/TARGET/SPEC/ADR/SPIKES/ACTIVE_TICKETS/BLOCKERS/DECISIONS_REQUIRED/CURRENT_LEGAL_FRONTIER/READY_TO_CONTINUE），授权已明确则自动继续。
+- **STATE_FLUSH**：结束有意义会话 / 切换 runtime / 交接 / STOP / milestone / 完票 / 集成 / context 耗尽前，自问"下一个 fresh Agent 需要什么而它只存在于我的 context？"并把答案持久化到正确 canonical 位置；输出短 receipt（STATE_FLUSH = PASS/PARTIAL + UNPERSISTED_IMPORTANT_CONTEXT）。
+- 状态分类 P0–P4、GitHub 控制平面字段、转换点清单、离线 `REMOTE_STATE_SYNC = DEFERRED` 语义、反官僚 PERSISTENCE_VALUE 判据：唯一详情见 `references/project-state-persistence.md`。运行时中立：WorkBuddy / ZCode / OpenCode / Codex / Hermes / 未来 Agent 同规。
+
 ## 8. 治理变更（默认协议）
 
 修改本文件、RULES.md 或 canonical reference：默认双独立评审（合同向 + 一致性向）对同一 exact HEAD PASS；仓库/owner 可定义更严协议。禁止实现票顺手改治理。
