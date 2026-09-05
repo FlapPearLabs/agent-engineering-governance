@@ -1,6 +1,6 @@
-# AGENTS.md — 全局代理工程执行架构（CANDIDATE V2）
+# AGENTS.md — 全局代理工程执行架构
 
-> **状态：CANDIDATE — 未激活。** 等待外部治理评审与 product owner 批准。
+> **AGENT_ENGINEERING_GOVERNANCE_V1.1.1 — CANONICAL。** 本文件是本仓当前的 **D 层全局默认治理基线**，随治理仓 main 版本化演进；不再是候选状态。
 > 权威分层见 `audit/AUTHORITY_MAP_V2.md`（A 平台/系统 > B 普适不变量=`RULES.md` > **C 仓库本地产品权威 > D 全局默认工作流=本文件与 references/** > E 方法/工具 > F 记忆/偏好）。
 > 本文件与 references 是 **D 层默认**：仓库本地权威可通过显式 OVERRIDE 覆盖它们；加严永远合法。未覆盖处按本架构执行。
 > 本文件不复制 references 全文；每节给出唯一详情指针。
@@ -100,7 +100,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 - 已核实 CLI 能力：`init / index / sync / status / query / explore / node / callers / callees / impact / affected / daemon`。图库**每目录**一个（`<dir>/.codegraph/`）。
 - **MODE A — BASE + DIFF（默认）**：结构问题查 canonical 主仓图（base/master 拓扑：callers/callees/impact）；候选增量用 `git diff BASE..candidate` + 变更文件直读。报告 `CANDIDATE_GRAPH_COVERAGE = BASE_ONLY + DELTA_BY_DIFF`，**不声称 candidate-exact 图覆盖**。
 - **MODE B — LANE CANDIDATE-EXACT（仅 HIGH 风险/明确需要候选态图时）**：v1.0.1 已机械证实 fresh lane `codegraph init <lane>` 即完成初始索引，随后 `codegraph sync <lane>` 为增量更新。lane 初始化**至多一次**；reviewer/repair 轮复用同一 lane 图。**绝不** per-reviewer / per-repair-round / 作为通用票 gate 执行全量 init/index。
-- **MODE C — UNAVAILABLE**：CodeGraph 缺失/损坏 → 手工 Relevant Surface Manifest + 定向源码阅读；报告 `CODEGRAPH = UNAVAILABLE`；不伪造图证据。
+- **MODE C — UNAVAILABLE**：CodeGraph 缺失/损坏 → 手工 Relevant Surface Manifest + 定向源码阅读；报告 `CODEGRAPH = UNAVAILABLE`；不伪造图证据。HIGH 票 = MODE C + ENHANCED_MANUAL_GROUNDING + ESCALATION（更强手工证据 + 独立评审加强）；HARD STOP 仅当：仓本地权威明确要求 CodeGraph / 该问题无结构证据无法负责任接地 / reviewer-owner 判定证据不足（工具是方法不是权威，不自动成为普适硬 gate）。
 - 任何票据包记录所用模式与 `CANDIDATE_GRAPH_COVERAGE` 值。
 
 ## 6. REVIEW / REPAIR / CI（D 层默认）

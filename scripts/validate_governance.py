@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """Governance self-validation harness (minimal).
 
-Verifies mechanical properties of the governance repository only:
-  1. required canonical files exist
-  2. markdown relative links resolve
-  3. JSON files parse
-  4. no secrets / machine-private paths in governance artifacts
-  5. MEMORY pointer candidate within injection budget (<=3500 chars)
-  6. no unrelated-platform shell requirements in RULES/AGENTS
-  7. every reference declares its canonical owner
-  8. skills manifest carries required fields
-  9. no contradictory authority markers (V1 inversion phrases)
+Verifies mechanical properties of the governance repository only. Check
+families (the live count is whatever this file enforces — run it and require
+all checks PASS; never hard-code an expected number in documentation):
+
+  - required canonical files exist (incl. V1.1.1 references/setup docs)
+  - markdown internal links resolve; JSON examples parse
+  - two-tier secret scan (R2): credentials/local identity banned everywhere,
+    machine-specific facts only in designated deployment files
+  - MEMORY pointer candidate within injection budget
+  - no unrelated-platform shell requirements in RULES/AGENTS
+  - references declare canonical owners; skills guide carries V1 fields
+  - canonical MCP set unchanged; agent-mail not canonical; connectors != MCP
+  - AGENTS carries doctrine + CodeGraph Mode A/B/C semantics
+  - no stale operational state (candidate headers / old check counts)
+  - no vendored third-party skill source; skills statuses valid
+  - no raw MEMORY archive under deployment/
+  - PORTABLE_SETUP capability matrix present
 
 NOT a workflow engine. Exit 0 = all checks PASS; exit 1 = any FAIL.
 """
@@ -265,6 +272,36 @@ def main() -> int:
     ps_text = ps.read_text(encoding="utf-8") if ps.is_file() else ""
     cap_ok = all(k in ps_text for k in ("LSP", "AST", "formatter", "linter", "type checker", "test runner", "CAPABILITIES"))
     check("portable-setup-capability-matrix", cap_ok, "capability matrix fields missing")
+
+    # 19. V1.1.1: no stale candidate/unactivated state in canonical runtime docs
+    STALE_RUNTIME = [
+        "CANDIDATE — 未激活",
+        "状态：CANDIDATE",
+        "等待外部治理评审",
+        "pending external review",
+        "CANDIDATE V2",
+    ]
+    stale_hits: list[str] = []
+    runtime_files = [ROOT / n for n in ("README.md", "AGENTS.md", "RULES.md")]
+    runtime_files += [p for p in (ROOT / "deployment").rglob("*.md")]
+    for f in runtime_files:
+        text = f.read_text(encoding="utf-8")
+        for phrase in STALE_RUNTIME:
+            if phrase in text:
+                stale_hits.append(f"{f.relative_to(ROOT)}: {phrase!r}")
+    check("no-candidate-state-in-runtime-docs", not stale_hits, f"hits={stale_hits}")
+
+    # 20. V1.1.1: no stale check-count claims in canonical docs (counts are execution evidence, not doctrine)
+    count_hits: list[str] = []
+    for f in runtime_files + [ROOT / "references" / "engineering-memory.md"]:
+        text = f.read_text(encoding="utf-8")
+        for phrase in ("10/10", "9/9", "10 项机械检查"):
+            if phrase in text:
+                count_hits.append(f"{f.relative_to(ROOT)}: {phrase!r}")
+    version_ok = all("AGENT_ENGINEERING_GOVERNANCE_V1.1.1" in (ROOT / n).read_text(encoding="utf-8")
+                     for n in ("README.md", "AGENTS.md", "RULES.md"))
+    check("runtime-version-and-counts-sync", not count_hits and version_ok,
+          f"counts={count_hits} version_sync={version_ok}")
 
     # report
     failed = [r for r in results if not r[1]]
