@@ -25,6 +25,29 @@
 9. **MINIMUM NECESSARY COMPLEXITY** —— 每个机制必须回答"防哪次真实失效"；无强论证不立 gate。
 10. **AUTO-ADVANCE UNTIL REAL AUTHORITY UNCERTAINTY** —— 授权已覆盖的路径自主推进；只在真实权威不确定（§7 STOP 枚举）时停机问人。
 
+# ENGINEERING EVIDENCE ROUTING
+
+```text
+MECHANICAL QUESTION（syntax/type/格式/结构查询/依赖图）?
+→ STATIC TOOL / LSP / AST / COMPILER / LINTER / CODEGRAPH / TEST
+
+BEHAVIORAL CONTRACT（行为/边界/fail-closed）?
+→ TEST
+
+CROSS-MODULE STRUCTURE（谁调用/谁拥有/爆炸半径）?
+→ CODEGRAPH（模式 A/B/C）
+
+SEMANTIC / CONTRACT / ARCHITECTURE QUESTION?
+→ MODEL REASONING（合同、缝、所有权、失败语义、反例设计）
+
+HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
+→ STRONG / EXTERNAL REVIEW（ESCALATION 清单）
+```
+
+- `DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`：机器能证明的不进模型评审（L0 先清场）。
+- `DO_NOT_REPLACE_SEMANTIC_REASONING_WITH_STATIC_TOOL_OUTPUT`：静态输出不裁决语义/合同/所有权。
+- 语言栈选择：`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`（详情 `references/static-analysis-and-code-intelligence.md`）。
+
 ## 1. 角色模型
 
 | 角色 | 拥有 | 不得 |

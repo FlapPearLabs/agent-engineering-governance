@@ -55,6 +55,14 @@ OWNERSHIP / OUT_OF_SCOPE
 
 **防伪**：禁止新增 skip、删断言、缩范围伪造绿灯。
 
+### 4.1 Test-first defect closure（缺陷闭环，D4）
+
+worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE_BE_CAPTURED_AS_A_STABLE_TEST?`
+
+- **YES（默认路径）**：写/强化回归测试 → 观察失败（适用时）→ 修复 → 观察 PASS → **测试随修复保留**。可靠的回归知识住在测试里，不住在任何人的记忆里。
+- 不为此制造低价值测试：无合同意义的实现细节；已被 formatter/linter 机械强制的行为；低价值合成态（REPAIR_VALUE 已裁定的 long-tail）。
+- 测试应编码**有意义的行为知识**（回归、边界、fail-closed、producer/consumer 合同、持久化、身份/provenance、已知反例）。
+
 ## 5. 实现与自审
 
 - `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify` 只在 GREEN 之后且不得改行为/合同。

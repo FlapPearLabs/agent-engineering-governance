@@ -22,6 +22,26 @@
 16. **输出 bootstrap receipt**（下方 schema）给用户/编排者。
 17. **开始工程工作**：按 AGENTS.md 生命周期执行；授权路径自主推进，只在 §7 STOP 状态停机。
 
+## 环境能力矩阵（Environment Capability Matrix）
+
+> 新 Agent 开工前对目标环境逐行盘点并按此 schema 回报；语言特定工具**由目标仓决定**（`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`），不全局要求任何语言栈。原始机实测值见 `audit/PORTABILITY_HARDENING_EVIDENCE.md`。
+
+| CAPABILITY | STATUS（回报值） | SOURCE（可能来源） | VERIFY | FALLBACK | BLOCKING? |
+|---|---|---|---|---|---|
+| Git | USER_CONFIGURED / MISSING | 本机 git | `git --version` | 无（硬前提） | **YES** |
+| GitHub access | USER_CONFIGURED / OPTIONAL | gh CLI 或平台 connector | `gh auth status` / PR API 试读 | 仅本地工作（remote gate 降级并如实报告） | 远程操作 YES |
+| CodeGraph | USER_CONFIGURED / MISSING | `~/.local/bin/codegraph` + MCP 配置 | `codegraph --version` + `status` | MODE C（手工 manifest + 定向阅读） | HIGH 票 YES；MEDIUM 降级可用 |
+| LSP | PLATFORM_PROVIDED / ABSENT | 平台内置 LSP 工具 + 目标仓语言服务器 | 对目标仓符号执行 go-to-def/references | 源码阅读 + CodeGraph | NO（降级） |
+| AST / static-query | PLATFORM_PROVIDED 或 REPOSITORY_PROVIDED | CodeGraph 符号查询；仓内语言工具 | 对已知符号执行结构查询 | grep（标注非结构证明） | NO |
+| formatter / linter | REPOSITORY_PROVIDED | 仓 package/lint 配置 | 跑仓配置的命令 | 无——不注入仓外工具链 | NO（但仓有配置则为该仓 gate） |
+| type checker / compiler | REPOSITORY_PROVIDED | 仓构建配置 | 跑仓配置的命令 | 无 | 该仓 gate YES |
+| test runner | REPOSITORY_PROVIDED | 仓 package/test 配置 | 跑仓测试命令 | 无——测试 gate 不可豁免 | **YES**（适用 gate） |
+| canonical Skills | INSTALLED / PARTIAL / MISSING | 平台 skill registry / `~/.workbuddy/skills/` | 定位各 `SKILL.md` | skills/README.md 各行 FALLBACK | NO（如实标注 SKILL_UNAVAILABLE） |
+| canonical MCP（codegraph/context7/gh_grep） | READY / PARTIAL | mcp/README.md INSTALL 方法 | 各一次健康查询 | 降级如实报告（context7/gh_grep 非阻断；codegraph 见上） | codegraph HIGH 票 YES |
+| CI access | AVAILABLE / ABSENT | GitHub Actions（governance-ci；仓级 CI） | `gh run list` | 仓政策等价证据形态（OVERRIDE 记录） | MEDIUM+ remote YES |
+
+语言示例：TypeScript 仓 → tsserver/tsc/eslint（若仓配置）；Python 仓 → pyright/mypy/ruff/pytest（仅当仓配置实际使用）。**绝不注入无关工具链。**
+
 ## Bootstrap Receipt（回执 schema，≤20 行）
 
 ```text
@@ -41,6 +61,7 @@ MISSING_MCP = <names + degraded mode or NONE>
 
 CODEGRAPH = MODE_A / MODE_B / UNAVAILABLE
 PLATFORM_CONNECTORS = <github optional connector available YES/NO; others NONE>
+CAPABILITIES = <git/lsp/ast/formatter/linter/typecheck/test-runner/CI: per capability matrix, blocking gaps flagged>
 
 BOOTSTRAP = GOVERNANCE_POINTER_MISSING / COMPLETE
 READY_FOR_ENGINEERING = YES / NO (+ reason)

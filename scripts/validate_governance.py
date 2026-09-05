@@ -30,6 +30,8 @@ REQUIRED_FILES = [
     "references/git-ci-integration.md",
     "references/codegraph-grounding.md",
     "references/skills-and-model-routing.md",
+    "references/static-analysis-and-code-intelligence.md",
+    "references/engineering-memory.md",
     "deployment/BOOTSTRAP_CONTRACT.md",
     "deployment/MEMORY_POINTER_CANDIDATE.md",
     "deployment/deployment-profile.md",
@@ -214,11 +216,11 @@ def main() -> int:
     check("agents-doctrine-and-codegraph-modes", doctrine_ok and modes_ok,
           f"doctrine={doctrine_ok} modes={modes_ok}")
 
-    # 13. V1 portability: no stale operational state in README/skills
+    # 13. V1 portability: no stale operational state in README/skills/routing reference
     stale_state: list[str] = []
-    for name in ("README.md", "skills/README.md"):
+    for name in ("README.md", "skills/README.md", "references/skills-and-model-routing.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        for phrase in ("等待外部", "送外部评审", "fresh governance review", "REPRODUCIBILITY=INCOMPLETE"):
+        for phrase in ("等待外部", "送外部评审", "fresh governance review", "REPRODUCIBILITY=INCOMPLETE", "deployment 受阻"):
             if phrase in text:
                 stale_state.append(f"{name}: {phrase!r}")
     readme_ok = "GOVERNANCE_CORE = PASS" in (ROOT / "README.md").read_text(encoding="utf-8")
@@ -230,6 +232,39 @@ def main() -> int:
     ps_ok = ps.is_file() and all(k in ps.read_text(encoding="utf-8")
                                  for k in ("READY_FOR_ENGINEERING", "MISSING_SKILLS", "MISSING_MCP", "OVERRIDES"))
     check("portable-setup-receipt-schema", ps_ok, "PORTABLE_SETUP.md or receipt fields missing")
+
+    # 15. V1.1: static-analysis reference + evidence routing doctrine
+    sa_ok = (ROOT / "references/static-analysis-and-code-intelligence.md").is_file()
+    ag = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    routing_ok = "ENGINEERING EVIDENCE ROUTING" in ag \
+        and "DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS" in ag \
+        and "DO_NOT_REPLACE_SEMANTIC_REASONING_WITH_STATIC_TOOL_OUTPUT" in ag
+    check("static-analysis-and-routing-present", sa_ok and routing_ok,
+          f"ref={sa_ok} routing={routing_ok}")
+
+    # 16. V1.1: skills statuses valid (9 REQUIRED-at-trigger + 4 OPTIONAL; fallback principle present)
+    skt = sk_text if sk_text else (ROOT / "skills/README.md").read_text(encoding="utf-8")
+    n_req = skt.count("| CANONICAL | REQUIRED |")
+    n_opt = skt.count("| CANONICAL | OPTIONAL |")
+    missing_ok = "SKILL_MISSING != USER_MUST_COPY_FILES_MANUALLY" in skt
+    check("skills-statuses-valid", n_req == 9 and n_opt == 4 and missing_ok,
+          f"required={n_req} optional={n_opt} missing_principle={missing_ok}")
+
+    # 17. V1.1: no raw MEMORY archive committed under deployment/
+    raw_hits: list[str] = []
+    dep = ROOT / "deployment"
+    for f in dep.rglob("*"):
+        if f.is_file():
+            if f.stat().st_size > 8 * 1024:
+                raw_hits.append(f"{f.relative_to(ROOT)} too large for a snapshot")
+            elif f.suffix in {".md", ".txt"} and "TICKET LANE V2" in f.read_text(encoding="utf-8", errors="ignore"):
+                raw_hits.append(f"{f.relative_to(ROOT)} looks like raw MEMORY body")
+    check("no-raw-memory-archive", not raw_hits, f"hits={raw_hits}")
+
+    # 18. V1.1: PORTABLE_SETUP capability matrix covers LSP/AST/static tooling
+    ps_text = ps.read_text(encoding="utf-8") if ps.is_file() else ""
+    cap_ok = all(k in ps_text for k in ("LSP", "AST", "formatter", "linter", "type checker", "test runner", "CAPABILITIES"))
+    check("portable-setup-capability-matrix", cap_ok, "capability matrix fields missing")
 
     # report
     failed = [r for r in results if not r[1]]

@@ -1,7 +1,7 @@
 # REF: Skills & Model Routing — 执行方法路由与风险优先模型选择
 
 > Canonical owner: AGENTS.md §0（skill 边界）。本文件是路由表（D 层默认）。SKILL_IS_EXECUTION_METHOD / SKILL_IS_NOT_AUTHORITY。
-> skill 契约细节以各 SKILL.md 原文为准；本表与其冲突时，修本表而不是曲解 skill。manifest 状态见 `skills/README.md`（REPRODUCIBILITY=INCOMPLETE，deployment 受阻直至补齐）。
+> skill 契约细节以各 SKILL.md 原文为准；本表与其冲突时，修本表而不是曲解 skill。各 skill 的 STATUS/SOURCE/FALLBACK 见 `skills/README.md` 主线清单（V1.1：13 项全部 INSTALLED 于基准环境，SOURCE=UNKNOWN 者按行 FALLBACK，无部署阻塞）。
 
 ## 1. Skill 路由表（按流程阶段；2026-09-05 安装与契约核验）
 
