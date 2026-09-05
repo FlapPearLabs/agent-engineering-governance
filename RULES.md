@@ -14,11 +14,13 @@
 
 ## R2 凭据与机器私有信息安全
 
-- **第一层（任何文件、任何仓，绝对禁止）**：Cookie/Secret/Token/API key/登录凭证/SSH 私钥/用户名绝不进入 repo、log、聊天、产物、长期记忆、报告。凭据探测输出只允许布尔/错误类型。
-- **第二层（宿主机事实，分区管理）**：宿主路径、端口、二进制位置等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated profile/archive 文件中（私有仓、用途 = 机器恢复与环境复现）。未带标记的文件一律按一般产物对待。
+- **第一层（任何文件、任何位置，绝对禁止）**：Cookie/Secret/Token/API key/登录凭证/SSH 私钥、以及**本机登录名/系统用户身份等 local OS identity**（如宿主登录用户名）绝不进入 repo、log、聊天、产物、长期记忆、报告。凭据探测输出只允许布尔/错误类型。
+  - 术语澄清：本层禁的是 **local OS/personal identity**；**repository/account identity**（git 署名如 `FlapPearLabs`、GitHub 账号名、`@users.noreply` 邮箱等公开仓身份）不属于本层禁令，按署名约定正常使用（B2 修复）。
+- **第二层（宿主机事实，分区管理）**：宿主路径、端口、二进制位置等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated profile 文件中（私有仓、用途 = 机器恢复与环境复现）。未带标记的文件一律按一般产物对待。
+- **历史原文归档（B2 修复）**：被迁移/替换的旧 MEMORY 等 raw 历史文件**默认不进 Git**——原始备份 local-only（Git 之外，如本机私有目录）；治理仓 `deployment/archive/` 只保存 **sanitized/redacted 迁移快照**。任何 raw 归档提交前必须过 R2 第一层扫描 + 人工 redaction，**任何凭据/secret/local identity 命中即阻止 commit**；designated 目录不豁免第一层。
 - 提交到 Git 的工具/MCP 配置必须是占位符模板形态（`${HOME}`、`${TOKEN_FROM_ENV}`、`<PATH_TO_BINARY>`）。
-- 为什么普适：泄漏不可撤回；分区规则让"机器可恢复"与"共享语义干净"兼容（外部评审 machine-specific consistency 项）。
-- V: `scripts/validate_governance.py` 双层扫描——凭据模式全库零命中；machine 模式在非 designated 文件零命中；designated 文件必须带头标记。
+- 为什么普适：泄漏不可撤回；分区 + 归档规则让"机器可恢复、历史可追溯"与"共享产物干净"兼容。
+- V: `scripts/validate_governance.py` 双层扫描——凭据/local-identity 模式全库零命中（designated 文件不豁免本层）；machine 模式在非 designated 文件零命中；designated 文件必须带头标记。
 
 ## R3 证据真实性
 

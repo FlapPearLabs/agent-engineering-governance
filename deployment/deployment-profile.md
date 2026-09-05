@@ -1,6 +1,6 @@
 # deployment-profile — 宿主/环境事实（machine-specific，非组织规则）
 
-> **MACHINE-SPECIFIC ALLOWED** —— 本文件是 RULES R2 第二层的 designated deployment profile：宿主路径/端口/二进制位置允许入库（私有仓、用途 = 机器恢复与环境复现）；**凭据/secret/用户名仍然绝对禁止**（R2 第一层）。
+> **MACHINE-SPECIFIC ALLOWED** —— 本文件是 RULES R2 第二层的 designated deployment profile：宿主路径/端口/二进制位置允许入库（私有仓、用途 = 机器恢复与环境复现）；**凭据/secret/local OS identity 仍然绝对禁止**（R2 第一层，designated 不豁免）。
 > 本文只登记**当前宿主**的事实；换机/换环境时复核改写。不属于 RULES，不属于任何仓的产品语义（RULES R7）。
 > 通用占位符约定见 mcp/README.md。
 

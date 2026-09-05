@@ -24,7 +24,7 @@
 
 - `deployment/MEMORY_POINTER_CANDIDATE.md` = 替换 `~/.workbuddy/MEMORY.md` 的候选全文，**≤3,500 字符**（预算 4,028 减安全余量）。
 - 内容 = 治理仓指针 + 读取清单 + 4 条 B 层不变量摘要（即使后续加载全部失败，这 4 条也已随注入可见）。
-- **部署 = 把候选内容写入 `~/.workbuddy/MEMORY.md`**（一次性、可回滚：旧 MEMORY 全文先归档到治理仓 `deployment/archive/`，不删除任何历史语义——全部内容已迁移至本仓 canonical 文件）。
+- **部署 = 把候选内容写入 `~/.workbuddy/MEMORY.md`**（一次性、可回滚：旧 MEMORY 原始备份 **local-only（Git 之外）**；治理仓 `deployment/archive/` 只收 **sanitized/redacted 迁移快照**——raw 归档默认不进 Git，提交前过 R2 第一层扫描 + redaction，命中即阻止）。旧 MEMORY 全部语义已迁移至本仓 canonical 文件，无信息丢失。
 - 部署前置条件：外部 fresh 评审 APPROVE + skills manifest 补齐（REPRODUCIBILITY=INCOMPLETE 未解除）+ product owner 显式授权。**当前未部署**。
 
 ### 2.2 会话开工清单（agent 执行，每工程会话一次）

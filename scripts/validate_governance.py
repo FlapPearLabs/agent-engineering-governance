@@ -38,7 +38,10 @@ REQUIRED_FILES = [
     ".github/workflows/governance-ci.yml",
 ]
 
-# Tier 1 (RULES R2 layer-1): credentials/secrets/usernames — banned in EVERY file.
+# Tier 1 (RULES R2 layer-1): credentials/secrets AND local OS/personal identity
+# (e.g. host login username) — banned in EVERY file, designated files included.
+# Note: repository/account identifiers (git author name, account handle,
+# noreply email) are legitimate and NOT scanned here (R2 terminology, B2 fix).
 CREDENTIAL_PATTERNS = [
     r"ghp_[A-Za-z0-9]{20,}",   # GitHub PAT
     r"github_pat_",
@@ -46,7 +49,7 @@ CREDENTIAL_PATTERNS = [
     r"-----BEGIN [A-Z ]*PRIVATE KEY",
     r"(?i)cookie\s*=",
     r"(?i)password\s*=",
-    r"songshiyao",             # username / identity leakage
+    r"songshiyao",             # local OS login identity of the current host
 ]
 # Tier 2 (RULES R2 layer-2): host-specific facts — banned in general governance
 # artifacts; allowed ONLY in designated deployment files carrying the marker

@@ -40,8 +40,32 @@ LANE WORKTREE
 | 模式 | 机制 | 覆盖声明 | 成本 |
 |---|---|---|---|
 | A. BASE + DIFF（默认） | 结构问题查 canonical（base 拓扑：callers/callees/impact）；候选增量用 `git diff BASE..candidate` + 变更文件直读 | `CANDIDATE_GRAPH_COVERAGE = BASE_ONLY + DELTA_BY_DIFF`（**不声称 candidate-exact 图覆盖**） | 零额外索引 |
-| B. LANE_INDEX（按需，每 lane 一次） | 确需 candidate-exact 图查询时（HIGH 风险/重跨模块候选），在 lane worktree `codegraph init` **一次**（索引候选态），后续编辑用 `sync` | `CANDIDATE_GRAPH_COVERAGE = CANDIDATE_EXACT` | 每 lane 一次 init；lane 内 reviewer **复用同一库**，绝不每评审重建 |
+| B. LANE_INDEX（按需，每 lane 一次；**已机械证实**，见下方探针证据） | 确需 candidate-exact 图查询时（HIGH 风险/重跨模块候选），在 lane worktree `codegraph init` **一次**——v1.0.1 实测 `init` 即完成初始全量索引——后续编辑用 `sync` 增量 | `CANDIDATE_GRAPH_COVERAGE = CANDIDATE_EXACT` | 每 lane 一次 init；lane 内 reviewer **复用同一库**，绝不每评审重建 |
 | C. UNAVAILABLE | CodeGraph 不可用 → 手工 surface manifest + 重点阅读 | `CODEGRAPH = UNAVAILABLE` | — |
+
+**Mode B 探针证据（B1 修复，2026-09-05，安装版 codegraph v1.0.1，隔离一次性目录 /tmp/cg-probe-*，未触碰任何产品仓；探针目录已销毁）**：
+
+```
+$ codegraph init /tmp/cg-probe-9822
+◆  Indexed 3 files
+●  7 nodes, 6 edges in 2.6s
+└  Done                              # → init 即完成初始全量索引（fresh 目录无先验库）
+
+$ codegraph status /tmp/cg-probe-9822
+Index Statistics:  Files: 3  Nodes: 7  Edges: 6  DB Size: 0.14 MB
+
+$ codegraph query "computeTotal" --path /tmp/cg-probe-9822
+function computeTotal (9311%)  src/core.js:1
+
+# 新增 billing.js 后（增量验证）：
+$ codegraph sync /tmp/cg-probe2
+●  Added: 1 — 2 nodes in 513ms       # → sync 为真增量，无需重建
+
+$ codegraph impact "computeTotal" --path /tmp/cg-probe2
+Impact of changing "computeTotal" — 2 affected symbols: computeTotal, checkout
+```
+
+结论：**评审选项 A 成立** —— Mode B 执行路径 = `init`（每 lane 至多一次，即初始索引）→ `sync`（增量）；`init`/`index` 全量操作**绝不** per-reviewer / per-repair-round 重复。
 
 - 报告必须写明所用模式与 `CANDIDATE_GRAPH_COVERAGE` 值；A 模式下凡涉及"候选编辑后的新关系"的结论，证据来源必须标注为 diff/源码而非图查询。
 - 禁止：per-reviewer / per-repair-round 的全量 `index`/`init`；跨 worktree 共享库的虚构机制（工具不支持）。

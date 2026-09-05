@@ -7,7 +7,7 @@
 > 1. Batch 1 的"新 MEMORY.md"已物化为 `deployment/MEMORY_POINTER_CANDIDATE.md`（≤3,500 字符，实测截断点 4028）；部署前置 = fresh 评审 APPROVE + skills manifest 补齐 + owner 授权（deployment/BOOTSTRAP_CONTRACT.md §2.1）。
 > 2. 风险模型定稿为 **LOW/MEDIUM/HIGH 三级 + ESCALATION 触发清单**（原四级 CRITICAL 并入触发清单）。
 > 3. ff-only / merge 方法 / CI 形态 / worktree 例外 / macOS 全部降为 D 层默认或 deployment 档案（`deployment/deployment-profile.md`），不再是组织硬规则。
-> 4. 新增 Batch 2.5：BOOTSTRAP 部署（MEMORY 指针替换 + fresh-session 验收协议执行 + 归档旧 MEMORY 至 `deployment/archive/`）。
+> 4. 新增 Batch 2.5：BOOTSTRAP 部署（MEMORY 指针替换 + fresh-session 验收协议执行）。**旧 MEMORY 原始备份 local-only（Git 之外）**；`deployment/archive/` 仅保存 sanitized/redacted 迁移快照——raw 归档默认不进 Git，任何归档提交前过 R2 第一层扫描 + redaction，命中即阻止 commit（B2 修复）。
 > 5. CodeGraph 机制按真实 CLI 校准（init/sync/status 每目录库；canonical = 主仓目录）——Batch 3 相应行以 references/codegraph-grounding.md V2 为准。
 > 6. Machine-specific 政策定稿（R2 第二层）：`deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 标记的 designated 文件（profile / MEMORY_POINTER / archive）允许宿主路径/端口入库（私有仓、机器恢复用途）；凭据/secret/用户名任何位置绝对禁止；一般治理产物仍禁 machine 事实。旧 MEMORY 归档到 designated 区因此与 R2 一致。
 
