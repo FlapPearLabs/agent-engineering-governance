@@ -39,6 +39,10 @@ READY_TO_CONTINUE = YES / NO
 
 GitHub/仓内证据足够时不要求用户复述历史；授权已明确则自动继续。自己**离开**会话前执行 STATE_FLUSH（见同 reference §6）：问"下一个 fresh Agent 需要什么而它只存在于我的 context？"并持久化。
 
+## 项目连续性合同（PROJECT_CONTINUITY_CONTRACT_V1）
+
+目标仓根有 `.agent/project-state.json` 即为 PROJECT_CONTINUITY_CONTRACT 入口——**先读它**（pointers + recovery snapshot），再按其指向的 canonical 文档与 GitHub 控制平面完成恢复。缺失：既有仓 **lazy adoption**（discover → index → point，不重写历史），新仓在第一次 meaningful implementation 前 bootstrap；自动执行、不问用户。CodeGraph code 仓 `INIT_ONCE_SYNC_CONTINUOUSLY`，runtime-local dirty 状态绝不 commit。全文/schema/template/validator：`references/project-continuity-contract.md`、`schemas/`、`templates/`、`scripts/validate_project_state.py`。
+
 ## 环境能力矩阵（Environment Capability Matrix）
 
 > 新 Agent 开工前对目标环境逐行盘点并按此 schema 回报；语言特定工具**由目标仓决定**（`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`），不全局要求任何语言栈。原始机实测值见 `audit/PORTABILITY_HARDENING_EVIDENCE.md`。

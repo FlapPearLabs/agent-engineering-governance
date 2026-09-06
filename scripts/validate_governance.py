@@ -40,6 +40,18 @@ REQUIRED_FILES = [
     "references/static-analysis-and-code-intelligence.md",
     "references/engineering-memory.md",
     "references/project-state-persistence.md",
+    "references/project-continuity-contract.md",
+    "schemas/project-state.schema.json",
+    "templates/project-state.json",
+    "scripts/validate_project_state.py",
+    "adapters/zcode/README.md",
+    "adapters/zcode/hooks/governance_sync.py",
+    "adapters/zcode/hooks/project_state_guard.py",
+    "adapters/zcode/hooks/codegraph_state.py",
+    "adapters/zcode/hooks/state_flush_guard.py",
+    "adapters/zcode/hooks/grounding_guard.py",
+    "adapters/zcode/hooks/_continuity_state.py",
+    "adapters/zcode/tests/test_project_continuity.py",
     "deployment/BOOTSTRAP_CONTRACT.md",
     "deployment/MEMORY_POINTER_CANDIDATE.md",
     "deployment/deployment-profile.md",
@@ -323,6 +335,57 @@ def main() -> int:
     anti_ok = "PERSISTENCE_VALUE" in ref_text and "不造官僚模板" in ref_text
     check("memory-non-authoritative-and-anti-bureaucracy", mem_ok and anti_ok,
           f"memory={mem_ok} anti_bureaucracy={anti_ok}")
+
+    # 23. PROJECT_CONTINUITY_CONTRACT_V1: contract text is canonical and complete
+    pcc = ROOT / "references/project-continuity-contract.md"
+    pcc_text = pcc.read_text(encoding="utf-8") if pcc.is_file() else ""
+    pcc_ok = all(k in pcc_text for k in (
+        "PROJECT_CONTINUITY_CONTRACT_V1", ".agent/project-state.json",
+        "ONE_FACT_ONE_CANONICAL_OWNER", "CODEGRAPH_INIT_ONCE_SYNC_CONTINUOUSLY",
+        "GROUND_BEFORE_MEDIUM_HIGH_WRITE", "PROJECT_STATE_SYNC_RECEIPT",
+        "REMOTE_STATE_SYNC = DEFERRED", "GROUNDING_RECEIPT", "DURABLE_STATE_SYNC_REQUIRED",
+        "lazy adoption", "PROJECT_CONTINUITY_INITIALIZATION_REQUIRED",
+    ))
+    check("project-continuity-contract-present", pcc_ok, f"ok={pcc_ok}")
+
+    # 24. project-state schema/template/validator trio is coherent
+    schema = ROOT / "schemas/project-state.schema.json"
+    template = ROOT / "templates/project-state.json"
+    vps = ROOT / "scripts/validate_project_state.py"
+    trio_ok = schema.is_file() and vps.is_file() and template.is_file()
+    if trio_ok:
+        tpl_text = template.read_text(encoding="utf-8")
+        sch_text = schema.read_text(encoding="utf-8")
+        vps_text = vps.read_text(encoding="utf-8")
+        trio_ok = (
+            tpl_text.count("${") >= 5                      # placeholder form (R2), no real values
+            and '"contract_version"' in tpl_text
+            and "project-state.schema.json" in sch_text
+            and ".agent" in vps_text and "project-state.json" in vps_text
+            and "secret" in vps_text.lower()
+        )
+    check("project-state-trio-coherent", trio_ok, f"ok={trio_ok}")
+
+    # 25. ZCode adapter reference: hooks + runtime-state layout + tests present
+    ad = ROOT / "adapters/zcode/README.md"
+    ad_text = ad.read_text(encoding="utf-8") if ad.is_file() else ""
+    ad_ok = all(k in ad_text for k in (
+        "project_state_guard.py", "codegraph_state.py", "state_flush_guard.py",
+        "grounding_guard.py", "runtime-state", "contract_version",
+    ))
+    check("zcode-adapter-reference-present", ad_ok, f"ok={ad_ok}")
+
+    # 26. AGENTS carries the continuity contract pointer
+    ag3 = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    ag3_ok = "project-continuity-contract.md" in ag3 \
+        and ".agent/project-state.json" in ag3 \
+        and "PROJECT_CONTINUITY_INITIALIZATION_REQUIRED" in ag3
+    check("agents-continuity-wiring", ag3_ok, f"ok={ag3_ok}")
+
+    # 27. CI runs the synthetic continuity matrix
+    ci_text = (ROOT / ".github/workflows/governance-ci.yml").read_text(encoding="utf-8")
+    ci_ok = "unittest discover -s adapters/zcode/tests" in ci_text
+    check("ci-runs-continuity-matrix", ci_ok, f"ok={ci_ok}")
 
     # report
     failed = [r for r in results if not r[1]]

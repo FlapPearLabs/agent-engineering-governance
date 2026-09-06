@@ -36,7 +36,9 @@ F  MEMORY / PREFERENCES     指针 + 偏好 + 环境事实 —— 永不压倒�
 | 路径 | 内容 |
 |---|---|
 | `AGENTS.md` / `RULES.md` | 执行架构（含 ENGINEERING DOCTRINE 十原则）/ 普适硬不变量（B 层） |
-| `references/*.md` | execution-stage / ticket-lane / review-and-repair-saturation / git-ci-integration / codegraph-grounding（含 Mode A/B/C 探针证据）/ skills-and-model-routing |
+| `references/*.md` | execution-stage / ticket-lane / review-and-repair-saturation / git-ci-integration / codegraph-grounding（含 Mode A/B/C 探针证据）/ skills-and-model-routing / **project-continuity-contract（PROJECT_CONTINUITY_CONTRACT_V1）** |
+| `schemas/` + `templates/` | `.agent/project-state.json` 的 normative schema 与占位符模板（validator：`scripts/validate_project_state.py`） |
+| `adapters/zcode/` | ZCode hook 参考实现（project_state_guard / codegraph_state / state_flush_guard / grounding_guard）+ 合成测试矩阵 PS1-15 / CG1-12（CI 接入） |
 | `deployment/PORTABLE_SETUP.md` | **新 Agent 17 步入口 + bootstrap receipt** |
 | `deployment/` 其余 | BOOTSTRAP_CONTRACT（static PASS / live NOT_RUN）、MEMORY_POINTER_CANDIDATE、deployment-profile（designated 机器事实） |
 | `skills/README.md` | 主线 13 skill 获取指南（SOURCE/FALLBACK，不 vendor 源码） |
@@ -55,6 +57,9 @@ F  MEMORY / PREFERENCES     指针 + 偏好 + 环境事实 —— 永不压倒�
 
 ```
 AGENT_ENGINEERING_GOVERNANCE_V1.1.1 —— CANONICAL（本版；closure patch 完成状态矛盾清理与 skill 溯源验证）
+→ + PROJECT_CONTINUITY_CONTRACT_V1（contract_version=1）：固定 .agent/project-state.json 恢复索引、
+  lazy adoption/新仓初始化、meaningful-transition 写入合同、CodeGraph INIT_ONCE_SYNC_CONTINUOUSLY
+  生命周期、MEDIUM/HIGH GROUNDING_RECEIPT 前置、ZCode hook 参考实现 + 合成测试矩阵（PS/CG/cross-agent）
 → 下一步：fresh-agent full-fidelity dogfood（仅凭 PORTABLE_SETUP 重建环境 + bootstrap receipt）
 → 遗留部署事项（非 V1.1.1 阻塞）：BOOTSTRAP_LIVE_VALIDATION（受控部署后）；
   MEMORY 指针部署按 BOOTSTRAP_CONTRACT §2.1 前置条件执行
