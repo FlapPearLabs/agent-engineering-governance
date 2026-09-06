@@ -39,6 +39,26 @@ def git_head(worktree: str) -> str:
         return ""
 
 
+def base_is_fresh(base: str, head: str, worktree: str) -> tuple[bool, bool]:
+    """(fresh, decided). Receipt stays fresh while the grounded BASE_SHA is an
+    ancestor of HEAD — the worker's own commits do NOT invalidate grounding
+    (contract §7 gates the FIRST meaningful write, not every commit).
+    decided=False means git could not answer; caller falls back to equality."""
+    if not base or not head:
+        return True, True  # nothing to compare against
+    try:
+        r = subprocess.run(["git", "merge-base", "--is-ancestor", base, head],
+                           cwd=worktree, capture_output=True, text=True,
+                           timeout=10, errors="replace")
+    except Exception:
+        return base == head, True
+    if r.returncode == 0:
+        return True, True
+    if r.returncode == 1:
+        return False, True
+    return base == head, True  # git error: conservative fallback
+
+
 def decide(file_path: str, risk: str, worktree: str) -> tuple[str, str]:
     """Returns (decision, detail). decision ∈ ALLOW / ALLOW_MANUAL / BLOCK."""
     risk = str(risk or LOW).upper()
@@ -56,9 +76,11 @@ def decide(file_path: str, risk: str, worktree: str) -> tuple[str, str]:
 
     head = git_head(worktree)
     base = str(receipt.get("BASE_SHA", ""))
-    if head and base and head != base:
-        return "BLOCK", ("GROUNDING_RECEIPT_STALE BASE_SHA=%s HEAD=%s — re-ground at current "
-                         "base before writing" % (base, head))
+    fresh, _decided = base_is_fresh(base, head, worktree)
+    if not fresh:
+        return "BLOCK", ("GROUNDING_RECEIPT_STALE BASE_SHA=%s HEAD=%s — grounded base left the "
+                         "HEAD ancestry; re-ground at the current base before writing"
+                         % (base, head))
     mode = str(receipt.get("GRAPH_MODE", "graph"))
     if mode == "manual":
         return "ALLOW_MANUAL", "MANUAL_GROUNDING_RECEIPT present TICKET=%s" % receipt.get("TICKET", "")

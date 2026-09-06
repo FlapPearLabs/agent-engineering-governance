@@ -10,7 +10,7 @@
 | `hooks/project_state_guard.py` | SessionStart | 合同 §2 初始化 | 缺 `.agent/project-state.json` → `PROJECT_CONTINUITY_INITIALIZATION_REQUIRED`（orchestrator 自动执行 lazy adoption / 新仓 bootstrap，不问用户）；版本不兼容 → `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED` |
 | `hooks/codegraph_state.py`（`--hook`） | PostToolUse | 合同 §6.6 / §3 | 生产源码编辑 → `CODEGRAPH_DIRTY`；状态文档编辑 → `PROJECT_STATE_DIRTY`；只标脏，绝无 per-edit sync / full index |
 | `hooks/state_flush_guard.py` | Stop | 合同 §5 / §9 durability gate | 未提交/未推 → `STATE_FLUSH_REQUIRED`；project_state_dirty → `DURABLE_STATE_SYNC_REQUIRED`；graph_dirty → `CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP`（sync 一次，禁止 fallback init） |
-| `hooks/grounding_guard.py` | PreToolUse | 合同 §7 | RISK≥MEDIUM + 生产写 + 无 receipt → block（exit 2）`CODEGRAPH_GROUNDING_REQUIRED`；MANUAL receipt（mode=manual）→ 放行；BASE_SHA≠HEAD → `GROUNDING_RECEIPT_STALE` |
+| `hooks/grounding_guard.py` | PreToolUse | 合同 §7 | RISK≥MEDIUM + 生产写 + 无 receipt → block（exit 2）`CODEGRAPH_GROUNDING_REQUIRED`；receipt 的 BASE_SHA 不在 HEAD 祖先链（base 被重写/换底）→ `GROUNDING_RECEIPT_STALE`——worker 自身的新 commit 不失效 receipt；MANUAL receipt（mode=manual）→ 放行 |
 
 共享状态：`hooks/_continuity_state.py`（runtime-local，见下）。
 
@@ -50,5 +50,6 @@ pre-query   # JIT 规则：INDEX_MISSING→INIT_ONCE_ALLOWED；dirty→SYNC_REQU
 
 - **PreToolUse payload 可靠性未证实（2026-09-06 ZCode 实测）**：`grounding_guard.py` 在 stdin 拿不到 `tool_input.file_path` 时 fail-open（advisory）。**权威 gate 仍是 orchestrator 纪律（合同 §7）**；hook 只把"忘记"变成机械可见。Pre-commit/pre-push 拦截同理：payload 不能可靠识别 `git commit`/`git push` 前**不实现**（合同 §9）。
 - Hook 只做机械检测与信号注入，**绝不**写语义决策（架构含义/用户决策/Spec 内容）——合同 §9 HOOK 不写语义决策。
+- **状态文档识别是名字启发式**（target/spec/adr/spike/architecture 路径子串，见 `_continuity_state.py`）：MADR 风格 `docs/decisions/` 等布局不会被自动标脏（fail-open 漏报）；`notes/speculation.md` 之类会误报。权威做法 = 按 index 的 `canonical_documents` pointers 分类，留待下一版；漏报时 orchestrator 仍按合同 §3 在 meaningful transition 手动 `record-event`。
 - 所有 hook 任何异常 exit 0，绝不阻塞会话启动/结束（`grounding_guard` 的 exit 2 = 显式 block 请求除外）。
 - CodeGraph 工具本身**不由 hook 调用**：hook 只维护 dirty 账本并发出 `SYNC_REQUIRED_ONCE / INDEX_MISSING` 指令，执行者是 orchestrator——因此合成测试无需安装 CodeGraph。

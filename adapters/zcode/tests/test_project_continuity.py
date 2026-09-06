@@ -261,10 +261,16 @@ class ProjectStateTests(ContinuityBase):
         self.write_state(repo)
         agent = repo / ".agent" / "project-state.json"
         data = json.loads(agent.read_text(encoding="utf-8"))
-        data["contract_version"] = 0  # older compatible → SAFE_MIGRATION
+        data["contract_version"] = 0  # pre-contract stub → SAFE_MIGRATION (regenerate)
         agent.write_text(json.dumps(data), encoding="utf-8")
         self.assertIn("SAFE_MIGRATION", self.guard(repo))
         data["contract_version"] = 2  # unknown newer → never destroy silently
+        agent.write_text(json.dumps(data), encoding="utf-8")
+        self.assertIn("PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED", self.guard(repo))
+        data["contract_version"] = -1  # nonsense int → not auto-migrated either
+        agent.write_text(json.dumps(data), encoding="utf-8")
+        self.assertIn("PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED", self.guard(repo))
+        data["contract_version"] = "1"  # wrong type → not trusted as supported
         agent.write_text(json.dumps(data), encoding="utf-8")
         self.assertIn("PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED", self.guard(repo))
 
@@ -278,6 +284,28 @@ class ProjectStateTests(ContinuityBase):
         p = self.run_tool(str(VALIDATOR), [str(repo)], repo=repo)
         self.assertEqual(p.returncode, 1)
         self.assertIn("no-local-absolute-paths", p.stdout)
+
+    # PS14b — runtime-only state is rejected in ANY value shape (key-level scan)
+    def test_ps14b_runtime_fields_rejected_any_shape(self):
+        repo = self.mk_repo()
+        self.write_state(repo)
+        agent = repo / ".agent" / "project-state.json"
+        data = json.loads(agent.read_text(encoding="utf-8"))
+        data["recovery_snapshot"]["graph_dirty"] = True          # boolean shape
+        data["recovery_snapshot"]["last_sync_head"] = 12345      # int shape
+        agent.write_text(json.dumps(data), encoding="utf-8")
+        p = self.run_tool(str(VALIDATOR), [str(repo)], repo=repo)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("no-runtime-only-fields", p.stdout)
+        data["recovery_snapshot"] = {
+            "last_verified_remote_sha": "", "last_state_flush_reason": "x",
+            "last_state_flush_at": "", "legal_frontier_summary": "x",
+            "blocker_refs": [], "next_legal_action": "x",
+            "grounding_receipt": {"TICKET": "T-1", "RISK": "HIGH"}}  # dict shape
+        agent.write_text(json.dumps(data), encoding="utf-8")
+        p = self.run_tool(str(VALIDATOR), [str(repo)], repo=repo)
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("no-runtime-only-fields", p.stdout)
 
     # PS15 — secret-like fields rejected (RULES R2 layer 1)
     def test_ps15_secret_like_field_rejection(self):
@@ -393,13 +421,18 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.assertIn("GROUNDING_GUARD_DECISION=BLOCK", p.stdout)
         self.assertIn("CODEGRAPH_GROUNDING_REQUIRED", p.stdout)
 
-    # CG11 — grounding receipt present → write allowed
+    # CG11 — grounding receipt present → write allowed (worker's own commits
+    # after the receipt do NOT stale it: base stays an ancestor of HEAD)
     def test_cg11_grounding_present_write_allowed(self):
         repo = self.mk_repo()
         head = self.commit_all(repo)
         self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-1", "--risk", "MEDIUM",
-                            "--base-sha", head, "--mode", "graph",
-                            "--seam", "src/app.py"], repo=repo)
+                                 "--base-sha", head, "--mode", "graph",
+                                 "--seam", "src/app.py"], repo=repo)
+        p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "MEDIUM"], repo=repo)
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("GROUNDING_GUARD_DECISION=ALLOW", p.stdout)
+        self.commit_all(repo, "worker commit after grounding")  # HEAD descends from base
         p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "MEDIUM"], repo=repo)
         self.assertEqual(p.returncode, 0, p.stdout)
         self.assertIn("GROUNDING_GUARD_DECISION=ALLOW", p.stdout)

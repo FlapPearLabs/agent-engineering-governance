@@ -11,8 +11,10 @@ Mechanical detection only (no network, no writes, no reasoning):
                                   new-repo initialization; never asks the user)
 - present + contract_version == supported
                                 → PROJECT_CONTINUITY_INITIALIZED
-- present + older compatible    → SAFE_MIGRATION note (auto, no data loss)
-- present + unknown newer       → PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED
+- present + version 0 (pre-contract stub, no normative v0 schema existed)
+                                → SAFE_MIGRATION note (regenerate from discovery)
+- present + anything else unsupported
+                                → PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED
                                   (never silently destroy old data)
 
 Also reports the index's own last verified remote SHA and a DEFERRED hint when
@@ -82,12 +84,14 @@ def main() -> int:
         version = None
 
     if not isinstance(version, int) or version not in SUPPORTED_VERSIONS:
-        if isinstance(version, int) and version < max(SUPPORTED_VERSIONS):
-            emit("PROJECT_CONTINUITY=SAFE_MIGRATION contract_version=%s "
-                 "(compatible; auto-migrate without data loss)" % version)
+        if version == 0:
+            # pre-contract stub: no normative schema ever existed for v0, so the
+            # only safe repair is regenerate-from-discovery (nothing to destroy)
+            emit("PROJECT_CONTINUITY=SAFE_MIGRATION contract_version=0 "
+                 "(pre-contract stub; regenerate the index from repo discovery)")
         else:
             emit("PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED contract_version=%r "
-                 "(incompatible; do not silently destroy old data)" % version)
+                 "(unsupported/incompatible; do not silently destroy old data)" % version)
         return 0
 
     remotes = git(["remote"], root)

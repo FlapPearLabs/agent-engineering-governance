@@ -124,8 +124,8 @@ UNPERSISTED_IMPORTANT_CONTEXT = / NEXT_LEGAL_ACTION =
 
 ## 4. STATE_RESTORE / STATE_FLUSH 接线
 
-- **STATE_RESTORE**：禁止"请人讲历史"开局。序列 = governance bootstrap → fetch project remote → validate project-state contract → **读 `.agent/project-state.json`** → 读其指向的 TARGET/SPEC/ADR/SPIKE/架构 → Issues → PRs → branches → exact SHA → CI → 重构 legal frontier → 未决决策 → 输出 recovery receipt（字段见 `project-state-persistence.md` §5）。只有 persisted evidence 真的不足才问人。
-- **STATE_FLUSH**：触发 = meaningful session end / agent·runtime·model switch / STOP / ticket completed / milestone / integration / context pressure / handoff / lane abandoned。核心问句：`WHAT DOES THE NEXT FRESH AGENT NEED THAT CURRENTLY EXISTS ONLY IN MY CONTEXT?` 高价值答案进入正确 canonical owner（序列见 `project-state-persistence.md` §6）。
+- **STATE_RESTORE**：禁止"请人讲历史"开局。序列 canonical = `project-state-persistence.md` §5（14 步）；本合同在其上**只加一步**：在"读仓本地权威"之后插入 **validate project-state contract → 读 `.agent/project-state.json`**，并按其 pointers 调整后续阅读顺序。其余（Issues → PRs → branches → exact SHA → CI → legal frontier → recovery receipt 字段）以 persistence §5 为准，不在此重复。只有 persisted evidence 真的不足才问人。
+- **STATE_FLUSH**：触发清单与问句 canonical = `project-state-persistence.md` §6（`WHAT DOES THE NEXT FRESH AGENT NEED THAT CURRENTLY EXISTS ONLY IN MY CONTEXT?`）；本合同补充：flush 产生的 receipt 字段见 §3.1，且 flush 后必须刷新 index 的 recovery snapshot（时点证据，见 §8）。
 
 ## 5. 远端持久化语义（REMOTE IS REQUIRED, NOT OPTIONAL）
 
@@ -197,9 +197,10 @@ EXPECTED_EDIT_SURFACE = OUT_OF_SCOPE =
 
 ## 8. 迁移与失败语义（MIGRATION / FAILURE）
 
-- `contract_version < current`：区分 `SAFE_MIGRATION`（结构兼容 → 自动，不毁数据）与 `INCOMPATIBLE_MIGRATION`（→ 注入 `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED`，**不静默毁旧数据**，等 owner 裁决）。
+- `contract_version` 语义：`0` = pre-contract stub（v0 从未存在规范 schema，无可保留的 normative 数据）→ `SAFE_MIGRATION`：自动按 repo discovery 重建索引，无数据可毁；`current` 集合内的版本 → 正常；**其余一切（未知更新版本 / 负数 / 非整数 / 损坏）** → 注入 `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED`，**不静默毁旧数据**，等 owner 裁决。
+- **恢复快照 vs 活控制平面**：`.agent/project-state.json` 的 recovery snapshot 是**时点证据（point-in-time evidence）**，永远不从属于对 live 控制平面的权威；与 GitHub Issue/PR/tracker 冲突时 **tracker 赢**，且必须刷新 index（ONE FACT ONE CANONICAL OWNER：P1 活跃执行状态归 GitHub，见 §1.1）。
 - Hook 永不阻塞会话启动/结束（fail-open exit 0）；hook 检测到的状态只注入提醒/阻止信号，语义修复由 Agent 按 canonical 协议执行。
-- 校验器禁止项（同样进 validator）：secret-like 字段；committed 状态中的本机绝对路径。
+- 校验器禁止项（同样进 validator）：secret-like 字段；committed 状态中的本机绝对路径；**任何值形态**的 machine-only runtime 字段（`GRAPH_DIRTY` / `grounding_receipt` 等按键名拒绝，不只查字符串值）。
 
 ## 9. Hook 语义（runtime-neutral；ZCode adapter 见 `../adapters/zcode/README.md`）
 

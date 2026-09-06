@@ -31,7 +31,7 @@ CONTROL_PLANE_TYPES = {"github-issues", "none", "other"}
 CODEGRAPH_APPLICABILITY = {"REQUIRED", "NOT_APPLICABLE"}
 CODEGRAPH_LIFECYCLE = {"INIT_ONCE_SYNC_CONTINUOUSLY"}
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
-REMOTE_RE = re.compile(r"^(https://[^\s]+\.git|git@[^\s]+:[^\s]+\.git|ssh://[^\s]+\.git)$")
+REMOTE_RE = re.compile(r"^(https?://[^\s]+|git@[^\s]+:[^\s]+|ssh://[^\s]+)$")
 ISO8601_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00|-00:00)$")
 
 # Machine-only runtime state must never be committed into the index
@@ -84,6 +84,19 @@ def walk_strings(node):
                 yield None, item
             else:
                 yield from walk_strings(item)
+
+
+def walk_keys(node):
+    """Yields every dict key in the tree regardless of value shape — dirty flags
+    and receipts are booleans/ints/dicts at runtime, so key-level scanning is
+    required to keep machine-only runtime state out of the committed index."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield k
+            yield from walk_keys(v)
+    elif isinstance(node, list):
+        for item in node:
+            yield from walk_keys(item)
 
 
 def main() -> int:
@@ -151,12 +164,19 @@ def main() -> int:
     snap = data.get("recovery_snapshot")
     snap_ok = isinstance(snap, dict)
     if snap_ok:
+        # Empty last_verified_remote_sha is the honest day-one/adoption state
+        # (nothing remotely verified yet); a 40-hex SHA is required once verified.
         sha = snap.get("last_verified_remote_sha", "")
-        snap_ok = (sha == "" and deferred) or bool(SHA40.match(str(sha)))
+        snap_ok = (sha == "") or bool(SHA40.match(str(sha)))
         ts = snap.get("last_state_flush_at", "")
         snap_ok = snap_ok and (ts == "" or bool(ISO8601_UTC.match(str(ts))))
         snap_ok = snap_ok and isinstance(snap.get("blocker_refs", []), list)
         snap_ok = snap_ok and isinstance(snap.get("next_legal_action", ""), str)
+        unknown_snap = set(snap) - {
+            "last_verified_remote_sha", "last_state_flush_reason", "last_state_flush_at",
+            "legal_frontier_summary", "blocker_refs", "next_legal_action",
+        }
+        check("recovery-snapshot-keys-known", not unknown_snap, f"unknown={sorted(unknown_snap)}")
     check("recovery-snapshot", snap_ok, f"got={snap!r}")
 
     # 7. codegraph policy
@@ -189,8 +209,8 @@ def main() -> int:
             abs_hits.append(value)
     check("no-local-absolute-paths", not abs_hits, f"values={abs_hits[:3]}")
 
-    # 10. machine-only runtime state must not be committed
-    runtime_hits = [k for k, _ in walk_strings(data) if k in RUNTIME_ONLY_FIELDS]
+    # 10. machine-only runtime state must not be committed (any value shape)
+    runtime_hits = [k for k in walk_keys(data) if k in RUNTIME_ONLY_FIELDS]
     check("no-runtime-only-fields", not runtime_hits, f"fields={sorted(set(runtime_hits))}")
 
     return _report()

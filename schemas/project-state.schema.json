@@ -32,8 +32,8 @@
     },
     "remote": {
       "type": "string",
-      "description": "Git remote URL. Empty string is legal only in offline/deferred mode (REMOTE_STATE_SYNC = DEFERRED); non-empty must look like a git remote (https/git/ssh).",
-      "pattern": "^(https://[^\\s]+\\.git|git@[^\\s]+:[^\\s]+\\.git|ssh://[^\\s]+\\.git|)$"
+      "description": "Git remote URL as git itself reports it (.git suffix optional). Empty string is legal only in offline/deferred mode (REMOTE_STATE_SYNC = DEFERRED).",
+      "pattern": "^(https?://[^\\s]+|git@[^\\s]+:[^\\s]+|ssh://[^\\s]+|)$"
     },
     "default_branch": { "type": "string", "minLength": 1 },
     "canonical_documents": {
@@ -80,7 +80,7 @@
         "last_verified_remote_sha": {
           "type": "string",
           "pattern": "^([0-9a-f]{40}|)$",
-          "description": "Empty string legal only while REMOTE_STATE_SYNC = DEFERRED."
+          "description": "Empty string = nothing remotely verified yet (the honest bootstrap/adoption state); 40-hex SHA once a remote verify has actually happened."
         },
         "last_state_flush_reason": { "type": "string" },
         "last_state_flush_at": {

@@ -19,7 +19,10 @@ import subprocess
 import sys
 
 DEFAULT_URL = "https://github.com/FlapPearLabs/agent-engineering-governance.git"
-DEFAULT_CHECKOUT = r"C:\Users\ssy\.zcode\workspace\default\agent-engineering-governance"
+# Machine-local default; built from the user home so no host identity/path is
+# committed (RULES R2). Env overrides: ZCODE_GOVERNANCE_DIR / ZCODE_PROJECT_DIR.
+DEFAULT_CHECKOUT = os.path.join(os.path.expanduser("~"), ".zcode", "workspace",
+                                "default", "agent-engineering-governance")
 
 
 def find_checkout():

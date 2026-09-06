@@ -82,6 +82,7 @@ CREDENTIAL_PATTERNS = [
 MACHINE_PATTERNS = [
     r"/Users/",
     r"127\.0\.0\.1:7897",
+    r"(?i)[a-z]:\\users\\",    # Windows-form host path (R2 layer 2, scanner-gap fix R1-A)
 ]
 DESIGNATED_MARKER = "MACHINE-SPECIFIC ALLOWED"
 DESIGNATED_DIR = "deployment"
