@@ -54,7 +54,11 @@ ABS_PATH_PATTERNS = [
     re.compile(r"^//"),                       # UNC / protocol-relative
     re.compile(r"^[A-Z]:$"),                  # bare drive
 ]
-TRAVERSAL = re.compile(r"(^|/)\.\.(/|$)")
+TRAVERSAL = re.compile(r"(^|[\\/])\.\.([\\/]|$)")
+REQUIRED_SNAP_KEYS = (
+    "last_verified_remote_sha", "last_state_flush_reason", "last_state_flush_at",
+    "legal_frontier_summary", "blocker_refs", "next_legal_action",
+)
 
 results: list[tuple[str, bool, str]] = []
 
@@ -121,8 +125,12 @@ def main() -> int:
         return _report()
 
     # 2. version + top-level shape
+    # bool is an int subclass in Python — exclude it explicitly so
+    # contract_version=true can never alias its way into a supported version.
     ver = data.get("contract_version")
-    check("contract-version-supported", ver in SUPPORTED_CONTRACT_VERSIONS, f"got={ver!r}")
+    check("contract-version-supported",
+          isinstance(ver, int) and not isinstance(ver, bool) and ver in SUPPORTED_CONTRACT_VERSIONS,
+          f"got={ver!r}")
 
     unknown_top = set(data) - {
         "contract_version", "project_identity", "remote", "default_branch",
@@ -164,18 +172,18 @@ def main() -> int:
     snap = data.get("recovery_snapshot")
     snap_ok = isinstance(snap, dict)
     if snap_ok:
+        missing_keys = [k for k in REQUIRED_SNAP_KEYS if k not in snap]
+        check("recovery-snapshot-required-keys", not missing_keys, f"missing={missing_keys}")
         # Empty last_verified_remote_sha is the honest day-one/adoption state
         # (nothing remotely verified yet); a 40-hex SHA is required once verified.
-        sha = snap.get("last_verified_remote_sha", "")
-        snap_ok = (sha == "") or bool(SHA40.match(str(sha)))
+        # Type-strict: bool/int/float must never alias into a SHA shape.
+        sha = snap.get("last_verified_remote_sha")
+        snap_ok = (isinstance(sha, str) and (sha == "" or bool(SHA40.match(sha))))
         ts = snap.get("last_state_flush_at", "")
         snap_ok = snap_ok and (ts == "" or bool(ISO8601_UTC.match(str(ts))))
         snap_ok = snap_ok and isinstance(snap.get("blocker_refs", []), list)
         snap_ok = snap_ok and isinstance(snap.get("next_legal_action", ""), str)
-        unknown_snap = set(snap) - {
-            "last_verified_remote_sha", "last_state_flush_reason", "last_state_flush_at",
-            "legal_frontier_summary", "blocker_refs", "next_legal_action",
-        }
+        unknown_snap = set(snap) - set(REQUIRED_SNAP_KEYS)
         check("recovery-snapshot-keys-known", not unknown_snap, f"unknown={sorted(unknown_snap)}")
     check("recovery-snapshot", snap_ok, f"got={snap!r}")
 

@@ -28,6 +28,7 @@ import _continuity_state as cs
 
 LOW = "LOW"
 RISK_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+REQUIRED_RECEIPT_KEYS = ("TICKET", "RISK", "BASE_SHA", "GRAPH_MODE")
 
 
 def git_head(worktree: str) -> str:
@@ -68,14 +69,22 @@ def decide(file_path: str, risk: str, worktree: str) -> tuple[str, str]:
         return "ALLOW", "non-production or unspecified target"
 
     state = cs.load(worktree)
-    receipt = state.get("grounding_receipt") or None
-    if not receipt:
+    receipt = state.get("grounding_receipt")
+    if receipt is None:
         return "BLOCK", ("CODEGRAPH_GROUNDING_REQUIRED risk=%s — orchestrator: fresh graph → "
                          "grounding → set-grounding receipt (or MANUAL_GROUNDING_RECEIPT via "
                          "--mode manual) → continue" % risk)
+    # Fail-CLOSED for malformed receipts: a truncated/hand-edited receipt must
+    # never be mistaken for a valid one (contract §7 — missing grounding blocks).
+    if not isinstance(receipt, dict) or any(k not in receipt for k in REQUIRED_RECEIPT_KEYS):
+        return "BLOCK", ("GROUNDING_RECEIPT_INVALID risk=%s — receipt malformed (required keys: "
+                         "%s); re-ground before writing" % (risk, "/".join(REQUIRED_RECEIPT_KEYS)))
 
     head = git_head(worktree)
-    base = str(receipt.get("BASE_SHA", ""))
+    base = str(receipt.get("BASE_SHA") or "")
+    if not base:
+        return "BLOCK", ("GROUNDING_RECEIPT_INVALID risk=%s — BASE_SHA empty; re-ground before "
+                         "writing" % risk)
     fresh, _decided = base_is_fresh(base, head, worktree)
     if not fresh:
         return "BLOCK", ("GROUNDING_RECEIPT_STALE BASE_SHA=%s HEAD=%s — grounded base left the "

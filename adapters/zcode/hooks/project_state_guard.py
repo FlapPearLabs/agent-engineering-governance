@@ -83,7 +83,7 @@ def main() -> int:
     except Exception:
         version = None
 
-    if not isinstance(version, int) or version not in SUPPORTED_VERSIONS:
+    if not isinstance(version, int) or isinstance(version, bool) or version not in SUPPORTED_VERSIONS:
         if version == 0:
             # pre-contract stub: no normative schema ever existed for v0, so the
             # only safe repair is regenerate-from-discovery (nothing to destroy)

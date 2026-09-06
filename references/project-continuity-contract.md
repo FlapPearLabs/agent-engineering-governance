@@ -178,6 +178,47 @@ Edit Edit Edit → GRAPH_DIRTY（只标脏，不同步）
 
 Stop 前若 `GRAPH_DIRTY = YES` 且 index 健康 → sync 一次；**sync 失败不得自动 fallback 到 full init**（fail → 如实报告 DEFERRED）。
 
+### 6.7 生命周期决策表（单一规范决策面）
+
+整个生命周期只有一个决策入口（ZCode 参考实现：`adapters/zcode/hooks/codegraph_lifecycle.py`，命令 `decide --intent <I>`），任何 session / hook / orchestrator 都不得自行从散文重新推导规则。判定枚举封闭，共 11 个：
+
+```text
+INIT_ONCE                      新仓（无 index 且无 init 记录）→ 允许一次 full init
+FULL_INIT_FORBIDDEN            已有 init 记录或 index → full init 永远不合法
+INCREMENTAL_SYNC_ONCE          dirty → 增量同步恰好一次，随后清脏
+NO_SYNC                        干净 → 无事可做
+GROUNDING_REQUIRED             MEDIUM/HIGH 生产写且无 receipt（§7）
+BLAST_RADIUS_REQUIRED          有 receipt 但无 blast radius / 失效 / UNRESOLVED
+BLAST_RADIUS_EXPANSION_REQUIRED  写入已跟踪但不在 blast radius 内的文件
+ALLOW_WRITE                    pre-edit 门禁满足
+MARK_DIRTY                     改完只标脏，同步延后（§6.6）
+SYNC_FAILED_DEFERRED           同步失败如实报告，绝不升级为 full init
+NO_REPO                        非 git worktree → no-op
+```
+
+意图路由（`INTENT ∈ session-start | pre-edit | post-edit | query | review | blast-radius | handoff | stop`）：
+
+| 时机 | 规则 |
+| --- | --- |
+| 新代码仓 | **init 一次**（`INIT_ONCE`，随后立即 `record-init` 固化记录） |
+| 以后 | **sync 增量维护**（`INCREMENTAL_SYNC_ONCE` / `NO_SYNC`） |
+| 改代码前 | **先 grounding / blast radius**（`GROUNDING_REQUIRED` → `BLAST_RADIUS_REQUIRED` → `ALLOW_WRITE`） |
+| 改完 | **标 dirty**（`MARK_DIRTY`，绝不同步编辑） |
+| review / handoff / stop | 必要时 **incremental sync**（dirty → `INCREMENTAL_SYNC_ONCE`） |
+| 永远不是 | **每个 session 再 full init**（`FULL_INIT_FORBIDDEN`） |
+
+机械不变量（`verify` 命令，退出码 1 = 违规，供 CI / 测试门禁）：
+
+```text
+LC-INV1  一旦存在 init 记录，任何 intent 都不得再返回 INIT_ONCE
+LC-INV2  已 init 仓的 session-start 永不 INIT_ONCE
+LC-INV3  同步失败后永不回落到 INIT_ONCE
+LC-INV4  dirty 状态下 sync 意图必须返回 INCREMENTAL_SYNC_ONCE
+LC-INV5  全部判定都来自封闭枚举
+```
+
+blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
+
 ## 7. GROUNDING（MEDIUM/HIGH 生产写前置）
 
 - 任何 **MEDIUM / HIGH** 生产代码票在第一次 meaningful production write 前必须有 **GROUNDING_RECEIPT**（入 runtime-local state，绝不 commit），至少字段：
@@ -198,7 +239,7 @@ EXPECTED_EDIT_SURFACE = OUT_OF_SCOPE =
 ## 8. 迁移与失败语义（MIGRATION / FAILURE）
 
 - `contract_version` 语义：`0` = pre-contract stub（v0 从未存在规范 schema，无可保留的 normative 数据）→ `SAFE_MIGRATION`：自动按 repo discovery 重建索引，无数据可毁；`current` 集合内的版本 → 正常；**其余一切（未知更新版本 / 负数 / 非整数 / 损坏）** → 注入 `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED`，**不静默毁旧数据**，等 owner 裁决。
-- **恢复快照 vs 活控制平面**：`.agent/project-state.json` 的 recovery snapshot 是**时点证据（point-in-time evidence）**，永远不从属于对 live 控制平面的权威；与 GitHub Issue/PR/tracker 冲突时 **tracker 赢**，且必须刷新 index（ONE FACT ONE CANONICAL OWNER：P1 活跃执行状态归 GitHub，见 §1.1）。
+- **恢复快照 vs 活控制平面**：`.agent/project-state.json` 的 recovery snapshot 是**时点证据（point-in-time evidence）**，永远不是对 live 控制平面的权威；与 GitHub Issue/PR/tracker 冲突时 **tracker 赢**，且必须刷新 index（ONE FACT ONE CANONICAL OWNER：P1 活跃执行状态归 GitHub，见 §1.1）。
 - Hook 永不阻塞会话启动/结束（fail-open exit 0）；hook 检测到的状态只注入提醒/阻止信号，语义修复由 Agent 按 canonical 协议执行。
 - 校验器禁止项（同样进 validator）：secret-like 字段；committed 状态中的本机绝对路径；**任何值形态**的 machine-only runtime 字段（`GRAPH_DIRTY` / `grounding_receipt` 等按键名拒绝，不只查字符串值）。
 

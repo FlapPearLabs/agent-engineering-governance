@@ -50,6 +50,7 @@ REQUIRED_FILES = [
     "adapters/zcode/hooks/codegraph_state.py",
     "adapters/zcode/hooks/state_flush_guard.py",
     "adapters/zcode/hooks/grounding_guard.py",
+    "adapters/zcode/hooks/codegraph_lifecycle.py",
     "adapters/zcode/hooks/_continuity_state.py",
     "adapters/zcode/tests/test_project_continuity.py",
     "deployment/BOOTSTRAP_CONTRACT.md",
