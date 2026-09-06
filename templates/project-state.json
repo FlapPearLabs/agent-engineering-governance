@@ -1,0 +1,34 @@
+{
+  "contract_version": 1,
+  "project_identity": {
+    "name": "${PROJECT_NAME}",
+    "description": "${ONE_LINE_PURPOSE}"
+  },
+  "remote": "${REMOTE_URL_OR_EMPTY_WHEN_DEFERRED}",
+  "default_branch": "${DEFAULT_BRANCH_USUALLY_MAIN}",
+  "canonical_documents": {
+    "targets": ["${RELATIVE_PATH_OR_NONE}"],
+    "specs": ["NONE"],
+    "architecture": ["${RELATIVE_PATH_OR_NONE}"],
+    "adrs": ["NONE"],
+    "spikes": ["NONE"],
+    "environment": ["NONE"]
+  },
+  "execution_control_plane": {
+    "type": "github-issues",
+    "tracker_location": "${OWNER_SLASH_REPO_OR_NONE}"
+  },
+  "recovery_snapshot": {
+    "last_verified_remote_sha": "",
+    "last_state_flush_reason": "PROJECT_INITIALIZED",
+    "last_state_flush_at": "${ISO8601_UTC_TIMESTAMP}",
+    "legal_frontier_summary": "${ONE_LINE_CURRENT_LEGAL_FRONTIER}",
+    "blocker_refs": [],
+    "next_legal_action": "${ONE_LINE_NEXT_LEGAL_ACTION}"
+  },
+  "codegraph_policy": {
+    "applicability": "REQUIRED",
+    "lifecycle": "INIT_ONCE_SYNC_CONTINUOUSLY",
+    "notes": ""
+  }
+}

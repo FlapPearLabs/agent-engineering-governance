@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/FlapPearLabs/agent-engineering-governance/schemas/project-state.schema.json",
+  "title": "PROJECT_CONTINUITY_CONTRACT_V1 — .agent/project-state.json",
+  "description": "Durable recovery index for a governed repository. Index of pointers + recovery snapshot, NOT a knowledge dump. Validated by scripts/validate_project_state.py (which additionally enforces secret-like-field and absolute-path bans that JSON Schema cannot express portably).",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "project_identity",
+    "remote",
+    "default_branch",
+    "canonical_documents",
+    "execution_control_plane",
+    "recovery_snapshot",
+    "codegraph_policy"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bump only via the migration semantics in references/project-continuity-contract.md section 8."
+    },
+    "project_identity": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      }
+    },
+    "remote": {
+      "type": "string",
+      "description": "Git remote URL. Empty string is legal only in offline/deferred mode (REMOTE_STATE_SYNC = DEFERRED); non-empty must look like a git remote (https/git/ssh).",
+      "pattern": "^(https://[^\\s]+\\.git|git@[^\\s]+:[^\\s]+\\.git|ssh://[^\\s]+\\.git|)$"
+    },
+    "default_branch": { "type": "string", "minLength": 1 },
+    "canonical_documents": {
+      "type": "object",
+      "description": "Pointers to canonical docs, relative repo paths. Each slot: [] / [\"NONE\"] / \"NOT_APPLICABLE\" (allowed by contract) or a list of relative paths.",
+      "required": ["targets", "specs", "architecture", "adrs", "spikes", "environment"],
+      "additionalProperties": false,
+      "properties": {
+        "targets": { "$ref": "#/$defs/pointer_list" },
+        "specs": { "$ref": "#/$defs/pointer_list" },
+        "architecture": { "$ref": "#/$defs/pointer_list" },
+        "adrs": { "$ref": "#/$defs/pointer_list" },
+        "spikes": { "$ref": "#/$defs/pointer_list" },
+        "environment": { "$ref": "#/$defs/pointer_list" }
+      }
+    },
+    "execution_control_plane": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["github-issues", "none", "other"]
+        },
+        "tracker_location": {
+          "type": ["string", "null"],
+          "description": "e.g. owner/repo, or NONE/NOT_APPLICABLE when type is none."
+        }
+      }
+    },
+    "recovery_snapshot": {
+      "type": "object",
+      "required": [
+        "last_verified_remote_sha",
+        "last_state_flush_reason",
+        "last_state_flush_at",
+        "legal_frontier_summary",
+        "blocker_refs",
+        "next_legal_action"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "last_verified_remote_sha": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|)$",
+          "description": "Empty string legal only while REMOTE_STATE_SYNC = DEFERRED."
+        },
+        "last_state_flush_reason": { "type": "string" },
+        "last_state_flush_at": {
+          "type": "string",
+          "description": "ISO-8601 UTC timestamp, or empty when never flushed."
+        },
+        "legal_frontier_summary": { "type": "string" },
+        "blocker_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_legal_action": { "type": "string" }
+      }
+    },
+    "codegraph_policy": {
+      "type": "object",
+      "required": ["applicability"],
+      "additionalProperties": false,
+      "properties": {
+        "applicability": {
+          "type": "string",
+          "enum": ["REQUIRED", "NOT_APPLICABLE"]
+        },
+        "lifecycle": {
+          "type": "string",
+          "const": "INIT_ONCE_SYNC_CONTINUOUSLY"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Mechanical basis REQUIRED when applicability is NOT_APPLICABLE (docs-only repo evidence)."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pointer_list": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        { "type": "string", "enum": ["NONE", "NOT_APPLICABLE"] }
+      ]
+    }
+  }
+}
