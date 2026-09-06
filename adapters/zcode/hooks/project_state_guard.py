@@ -10,7 +10,10 @@ Mechanical detection only (no network, no writes, no reasoning):
                                   (orchestrator auto-executes lazy adoption /
                                   new-repo initialization; never asks the user)
 - present + contract_version == supported
+                                → shape validation (review F6: required top keys +
+                                  required recovery-snapshot keys); valid
                                 → PROJECT_CONTINUITY_INITIALIZED
+                                  invalid → PROJECT_STATE_CONTRACT_INVALID
 - present + version 0 (pre-contract stub, no normative v0 schema existed)
                                 → SAFE_MIGRATION note (regenerate from discovery)
 - present + anything else unsupported
@@ -34,6 +37,30 @@ REQUIRED_TOP_KEYS = [
     "canonical_documents", "execution_control_plane", "recovery_snapshot",
     "codegraph_policy",
 ]
+
+# Review F6: contract_version == 1 alone does NOT prove the index is a valid
+# current-contract document. These recovery-snapshot fields are normative in
+# schemas/project-state.json — a v1 index missing any of them is INVALID.
+REQUIRED_RECOVERY_SNAPSHOT_KEYS = [
+    "last_verified_remote_sha", "last_state_flush_reason", "last_state_flush_at",
+    "legal_frontier_summary", "blocker_refs", "next_legal_action",
+]
+
+
+def index_is_valid(data) -> tuple[bool, str]:
+    """(ok, reason). Mechanical shape check for a current-contract index."""
+    if not isinstance(data, dict):
+        return False, "not-an-object"
+    missing = [k for k in REQUIRED_TOP_KEYS if k not in data]
+    if missing:
+        return False, "missing-top-keys=%s" % ",".join(missing)
+    snap = data.get("recovery_snapshot")
+    if not isinstance(snap, dict):
+        return False, "recovery_snapshot-not-an-object"
+    missing = [k for k in REQUIRED_RECOVERY_SNAPSHOT_KEYS if k not in snap]
+    if missing:
+        return False, "recovery_snapshot-missing-keys=%s" % ",".join(missing)
+    return True, ""
 
 
 def git(args, cwd, timeout=10):
@@ -79,9 +106,14 @@ def main() -> int:
 
     try:
         data = json.loads(open(state_file, encoding="utf-8").read())
-        version = data.get("contract_version")
     except Exception:
-        version = None
+        # Review F6: a corrupt index is never "INITIALIZED" — it must not be
+        # silently destroyed either; surface the invalid state for the
+        # orchestrator to repair via discovery.
+        emit("PROJECT_STATE_CONTRACT_INVALID reason=unparseable-json "
+             "(do not silently destroy; repair via repo discovery)")
+        return 0
+    version = data.get("contract_version") if isinstance(data, dict) else None
 
     if not isinstance(version, int) or isinstance(version, bool) or version not in SUPPORTED_VERSIONS:
         if version == 0:
@@ -92,6 +124,15 @@ def main() -> int:
         else:
             emit("PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED contract_version=%r "
                  "(unsupported/incompatible; do not silently destroy old data)" % version)
+        return 0
+
+    # Review F6: a current-version index must still be shape-valid before the
+    # session may trust it as INITIALIZED.
+    ok, reason = index_is_valid(data)
+    if not ok:
+        emit("PROJECT_STATE_CONTRACT_INVALID contract_version=%s reason=%s "
+             "(index present but not a valid current-contract document; repair "
+             "via repo discovery — do not silently destroy)" % (version, reason))
         return 0
 
     remotes = git(["remote"], root)

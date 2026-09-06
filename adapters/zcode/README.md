@@ -9,7 +9,7 @@
 | `hooks/governance_sync.py` | SessionStart | 治理仓同步 | SYNCED / BEHIND_FAST_FORWARDABLE / DIRTY / DIVERGED / REMOTE_UNAVAILABLE；不覆盖 dirty/diverged |
 | `hooks/project_state_guard.py` | SessionStart | 合同 §2 初始化 | 缺 `.agent/project-state.json` → `PROJECT_CONTINUITY_INITIALIZATION_REQUIRED`（orchestrator 自动执行 lazy adoption / 新仓 bootstrap，不问用户）；版本不兼容 → `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED` |
 | `hooks/codegraph_state.py`（`--hook`） | PostToolUse | 合同 §6.6 / §3 | 生产源码编辑 → `CODEGRAPH_DIRTY`；状态文档编辑 → `PROJECT_STATE_DIRTY`；只标脏，绝无 per-edit sync / full index |
-| `hooks/state_flush_guard.py` | Stop | 合同 §5 / §9 durability gate | 未提交/未推 → `STATE_FLUSH_REQUIRED`；project_state_dirty → `DURABLE_STATE_SYNC_REQUIRED`；graph_dirty → `CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP`（sync 一次，禁止 fallback init） |
+| `hooks/state_flush_guard.py` | Stop | 合同 §5 / §9 durability gate | 未提交/未推 → `STATE_FLUSH_REQUIRED`；project_state_dirty → `DURABLE_STATE_SYNC_REQUIRED`；remote-backed 项目按 F5 阶梯判定：无凭据/LOCAL_DURABLE/REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`，凭据绑定 HEAD 前移 → `REMOTE_RECEIPT_STALE`，合法终态仅 `REMOTE_VERIFIED=YES` 或 `REMOTE_STATE_SYNC=DEFERRED`；env flush marker 必须经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 且无更新 transition，否则 `UNBOUND/STALE_FLUSH_MARKER` 落穿重估；graph_dirty → `CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP`（sync 一次，禁止 fallback init） |
 | `hooks/grounding_guard.py` | PreToolUse | 合同 §7 | RISK≥MEDIUM + 生产写 + 无 receipt → block（exit 2）`CODEGRAPH_GROUNDING_REQUIRED`；receipt 的 BASE_SHA 不在 HEAD 祖先链（base 被重写/换底）→ `GROUNDING_RECEIPT_STALE`——worker 自身的新 commit 不失效 receipt；MANUAL receipt（mode=manual）→ 放行 |
 | `hooks/codegraph_lifecycle.py` | CLI（orchestrator 决策入口） | 合同 §6.7 | 生命周期单一规范决策面：`INIT_ONCE / FULL_INIT_FORBIDDEN / INCREMENTAL_SYNC_ONCE / NO_SYNC / GROUNDING_REQUIRED / BLAST_RADIUS_REQUIRED / BLAST_RADIUS_EXPANSION_REQUIRED / ALLOW_WRITE / MARK_DIRTY / SYNC_FAILED_DEFERRED / NO_REPO`；`verify` 输出 LC-INV1..INV5 不变量（exit 1 = 违规，可接 CI 门禁） |
 
@@ -40,14 +40,21 @@ pre-query   # JIT 规则：INDEX_MISSING→INIT_ONCE_ALLOWED；dirty→SYNC_REQU
 
 ```text
 decide --intent session-start|pre-edit|post-edit|query|review|blast-radius|handoff|stop
-       [--risk R] [--file F] [--request-full-init]
-record-init [--head SHA] [--mode full]      # full init 完成后立即固化 → 之后永久 FORBIDDEN
+       [--risk R] [--file F] [--request-full-init] [--lane-mode A|B]
+record-init [--head SHA] [--mode full] [--lane]   # F7: index 不存在 → ERROR=GRAPH_INIT_REJECTED
 blast-radius [--base SHA] [--target F ...] [--impact-file JSON]
-record-sync-result --ok | --fail            # fail → SYNC_FAILED_DEFERRED，绝不回落 init
-verify                                      # LC-INV1..INV5；exit 1 = 违规
+record-sync-result --ok | --fail                  # fail → SYNC_FAILED_DEFERRED，绝不回落 init
+verify                                            # LC-INV1..INV5；exit 1 = 违规
 ```
 
 规则一句话版：**新仓 init 一次 → 以后只增量 sync → 改前 grounding + blast radius → 改后标 dirty → review/handoff/stop 必要时增量 sync → 永远不在每个 session 再 full init。**
+
+评审修正 R3（external review F1–F4/F7，2026-09-07）：
+
+- **F1 MODE A（默认）**：canonical base graph 按 **repo 全局** init 一次（`record-init` 写 repo-level 记录）；worktree lane 复用 base graph + delta-by-diff，session-start 永不 `INIT_ONCE`。**MODE B**（`--lane-mode B` 显式 candidate-exact lane）：lane 自持 graph，`record-init --lane` 写 lane-local 记录，lane 内 init 一次。MODE C：manual grounding。
+- **F2**：`blast-radius` 产出含规范 `resolved` 字段；base 缺失 / BASE_SHA 不可解析 / git diff 或 status 失败 → `mode=UNRESOLVED` → pre-edit `BLAST_RADIUS_REQUIRED`，生产写被阻止。
+- **F3**：编辑面权威与 git index 无关——tracked/untracked 一视同仁，出界即 `BLAST_RADIUS_EXPANSION_REQUIRED`；显式扩张意图编辑面（再跑 `blast-radius --target ...`）后放行。
+- **F4**：grounding receipt 机械有效性 = §7 全部字段存在（值可 `NONE/UNKNOWN`）；`set-grounding` 提供 `--field KEY=VALUE` 透传且不自动补全；缺字段 → `GROUNDING_RECEIPT_INVALID`。
 
 ## Install（新 ZCode 环境重建）
 

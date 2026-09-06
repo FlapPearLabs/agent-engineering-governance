@@ -20,11 +20,21 @@ Any failure exits 0 (hooks must never block the runtime).
 """
 import json
 import os
+import subprocess
 import sys
 
 import _continuity_state as cs
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Replace"}
+
+
+def git_head(worktree):
+    try:
+        r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=worktree, capture_output=True,
+                           text=True, timeout=10, errors="replace")
+        return r.stdout.strip() if r.returncode == 0 else ""
+    except Exception:
+        return ""
 
 
 def stdin_json() -> dict:
@@ -104,25 +114,62 @@ def cli(args: list[str]) -> int:
         return 0
 
     if cmd == "record-state-sync":
+        # Review F5: durability is a three-level ladder, never collapsed into
+        # "done". A receipt is always bound to the exact HEAD it flushed and a
+        # timestamp, so any later meaningful transition stales it.
         state["project_state_dirty"] = False
         state["last_state_sync_at"] = cs.now_utc()
         if "--head" in args:
             state["last_state_sync_head"] = args[args.index("--head") + 1]
         if "--event" in args:
             state["last_state_sync_event"] = args[args.index("--event") + 1]
+        level = "LOCAL_DURABLE"
+        if "--remote-verified" in args:
+            level = "REMOTE_VERIFIED"
+        elif "--pushed" in args:
+            level = "REMOTE_PUSHED"
+        deferred = "--deferred" in args
+        head = state.get("last_state_sync_head") or git_head(worktree)
+        state["remote_durability"] = {
+            "level": level,
+            "deferred": deferred,
+            "head_sha": head,
+            "at": cs.now_utc(),
+        }
         cs.save(worktree, state)
-        out("PROJECT_STATE_SYNC_RECEIPT RECORDED REMOTE_SYNC=%s"
-            % ("DEFERRED" if "--deferred" in args else "PENDING_VERIFY"))
+        out("PROJECT_STATE_SYNC_RECEIPT RECORDED LOCAL_DURABLE=YES "
+            "REMOTE_DURABILITY=%s REMOTE_SYNC=%s HEAD_SHA=%s"
+            % (level, "DEFERRED" if deferred else "PENDING_VERIFY", head))
         return 0
 
     if cmd == "set-grounding":
         receipt = {"created_at": cs.now_utc()}
         for flag, key in (("--ticket", "TICKET"), ("--risk", "RISK"), ("--base-sha", "BASE_SHA"),
-                          ("--mode", "GRAPH_MODE"), ("--seam", "TARGET_SEAM"),
+                          ("--mode", "GRAPH_MODE"), ("--graph-base-sha", "GRAPH_BASE_SHA"),
+                          ("--seam", "TARGET_SEAM"),
+                          ("--direct-targets", "DIRECT_TARGETS"),
+                          ("--upstream", "UPSTREAM_PRODUCERS"),
+                          ("--callers", "CALLERS"), ("--callees", "CALLEES"),
+                          ("--downstream", "DOWNSTREAM_CONSUMERS"),
+                          ("--impact", "IMPACT"), ("--affected", "AFFECTED"),
+                          ("--state-owner", "STATE_OWNER"),
+                          ("--identity-owner", "IDENTITY_OWNER"),
+                          ("--validation-owner", "VALIDATION_OWNER"),
                           ("--surface", "EXPECTED_EDIT_SURFACE"),
                           ("--out-of-scope", "OUT_OF_SCOPE")):
             if flag in args:
                 receipt[key] = args[args.index(flag) + 1]
+        # generic passthrough so orchestrators can supply any §7 field explicitly
+        # (values may be "NONE"/"UNKNOWN" — honesty about gaps, not absence of
+        # the field; review F4)
+        i = 0
+        while i < len(args):
+            if args[i] == "--field" and i + 1 < len(args) and "=" in args[i + 1]:
+                k, _, v = args[i + 1].partition("=")
+                receipt[k.strip()] = v.strip()
+                i += 2
+                continue
+            i += 1
         if "--clear" in args:
             state["grounding_receipt"] = None
             cs.save(worktree, state)

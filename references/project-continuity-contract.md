@@ -137,6 +137,11 @@ LOCAL_DURABLE = YES / REMOTE_DURABLE = YES / REMOTE_VERIFIED = YES
 
 远端暂时失败 → `REMOTE_STATE_SYNC = DEFERRED` + 留待同步事实 + 下次 SessionStart 优先处理；诚实语义见 `project-state-persistence.md` §7。
 
+**评审修正 R3（F5/F6，2026-09-07）**：
+
+- **F5 远端持久化是三级阶梯，不得折叠成"完成"**：`LOCAL_DURABLE → REMOTE_PUSHED → REMOTE_VERIFIED`。`record-state-sync` 产出 `remote_durability` 凭据，必须绑定 `HEAD_SHA` + 时间戳；此后任何新 meaningful transition（dirty 置位或 HEAD 前移）都使旧凭据失效（`REMOTE_RECEIPT_STALE`）。Stop guard 在 remote-backed 项目的合法终态只有两种：`REMOTE_VERIFIED = YES` 或 `REMOTE_STATE_SYNC = DEFERRED`；仅有 LOCAL_DURABLE / REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`。环境 flush marker（`STATE_FLUSH_COMPLETED=1`）**必须**经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 且无更新 transition 才被信任；未绑定/过期 marker 一律落穿重估（`UNBOUND_FLUSH_MARKER` / `STALE_FLUSH_MARKER`）。
+- **F6 contract_version == 1 不足以推出 INITIALIZED**。SessionStart 守卫对当前版本 index 至少执行：parse + 必需 top keys + 必需 recovery_snapshot keys + version 校验；不通过 → `PROJECT_STATE_CONTRACT_INVALID`（绝不算 INITIALIZED，也绝不静默销毁，走 repo discovery 修复）；JSON 不可解析同此。
+
 ## 6. CodeGraph 生命周期合同
 
 原则：`CODEGRAPH_INIT_ONCE / CODEGRAPH_SYNC_CONTINUOUSLY / NO_REDUNDANT_FULL_REINDEX`。机制协议（模式 A/B/C、真实工具能力）见 `codegraph-grounding.md`，本节是其生命周期外壳。
@@ -219,6 +224,13 @@ LC-INV5  全部判定都来自封闭枚举
 
 blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
 
+**评审修正 R3（external review F1–F3/F7，2026-09-07）**：
+
+- **F1 worktree ≠ 独立 full init 候选**。MODE A（默认）：canonical base graph **按 repo 全局 init 一次**，init 记录为 **repo-level**（键 = 主 checkout），所有 worktree lane 复用 base graph + delta-by-diff，**禁止 per-worktree full init**；lane 的 session-start 永不返回 `INIT_ONCE`。MODE B（显式 candidate-exact / HIGH lane，`--lane-mode B` + `record-init --lane`）：lane 自持 graph，**lane 内** init 一次后仅增量同步。MODE C：manual grounding，无 graph 要求。`graph_init` 增加 `scope=canonical|lane` 字段。
+- **F2 blast radius `resolved` 是规范性字段**。base 缺失 / BASE_SHA 无法解析 / git diff 或 status 失败 → `mode=UNRESOLVED, resolved=false` → pre-edit 一律 `BLAST_RADIUS_REQUIRED`，**生产写被阻止**；record 可留作 evidence，但不授权任何写。
+- **F3 编辑面权威与 git index 无关**。tracked/untracked 不决定 scope authority：任何**已跟踪或新建**的生产文件落在已批准 blast radius / EXPECTED_EDIT_SURFACE 之外 → `BLAST_RADIUS_EXPANSION_REQUIRED`；新文件确需修改时必须显式扩张意图编辑面并重算 radius 后方可 ALLOW。
+- **F7 record-init 诚实性**。`record-init` 必须先验证 index 实际存在（最低健康证据）才允许持久化 init 记录；一次失败 init 不得把 repo 永久锁进"已初始化"状态。
+
 ## 7. GROUNDING（MEDIUM/HIGH 生产写前置）
 
 - 任何 **MEDIUM / HIGH** 生产代码票在第一次 meaningful production write 前必须有 **GROUNDING_RECEIPT**（入 runtime-local state，绝不 commit），至少字段：
@@ -235,6 +247,7 @@ EXPECTED_EDIT_SURFACE = OUT_OF_SCOPE =
 - **Pre-write guard**：`RISK >= MEDIUM + production write + receipt missing` → `CODEGRAPH_GROUNDING_REQUIRED`（自动阻止/软阻止）。主 Agent 自行 `fresh graph → grounding → receipt → continue`，**不需要用户**。
 - **MANUAL fallback**：CodeGraph 不可用 → `GROUNDING_MODE = MANUAL`（grep / AST / 仓内静态工具 / 定向阅读 / Relevant Surface Manifest）→ 产出 `MANUAL_GROUNDING_RECEIPT` → 继续。工具缺失不得永久阻塞（与 `codegraph-grounding.md` §4 Mode C 同规）。
 - **Review 接线**：独立 reviewer 开工前必须知道 `GRAPH_FRESHNESS`；candidate-exact 与 `BASE_ONLY + DELTA_BY_DIFF` 不得混称（见 `codegraph-grounding.md` §2.1）。
+- **评审修正 R3（F4，2026-09-07）**：receipt 的机械有效性 = **§7 全部字段必须存在**（值允许为空 / `NONE` / `UNKNOWN`——诚实缺口，不是字段缺席）；字段缺失 = 未做 structural grounding 却伪造"已 grounding" → `GROUNDING_RECEIPT_INVALID`（fail-closed）。`set-grounding` 支持具名 flag 与 `--field KEY=VALUE` 透传，**不自动补全字段**；MANUAL（Mode C）receipt 同样必须具备 Relevant Surface Manifest 等价字段。
 
 ## 8. 迁移与失败语义（MIGRATION / FAILURE）
 

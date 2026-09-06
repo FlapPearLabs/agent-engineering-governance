@@ -5,6 +5,9 @@
 Rule: RISK >= MEDIUM + production-source write + GROUNDING_RECEIPT missing
       → block with CODEGRAPH_GROUNDING_REQUIRED. The orchestrator then runs
       fresh graph → grounding → receipt → continue, without asking the user.
+Receipt validity (review F4): ALL contract §7 fields must EXIST (values may be
+      empty / NONE / UNKNOWN); a truncated or hand-made partial receipt is
+      INVALID → GROUNDING_RECEIPT_INVALID (fail closed).
 Manual fallback: CodeGraph unavailable → MANUAL_GROUNDING_RECEIPT (mode=manual)
       → allowed (MODE C semantics, codegraph-grounding.md §4).
 
@@ -28,7 +31,19 @@ import _continuity_state as cs
 
 LOW = "LOW"
 RISK_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
-REQUIRED_RECEIPT_KEYS = ("TICKET", "RISK", "BASE_SHA", "GRAPH_MODE")
+# Contract §7 receipt fields. A receipt is only mechanically VALID when every
+# field EXISTS; values may be empty / "NONE" / "UNKNOWN" (an honest gap), but a
+# missing field means structural grounding never happened and the receipt is
+# treated as fabricated (review F4: presence is the bar, not prose).
+RECEIPT_STRUCTURAL_FIELDS = (
+    "GRAPH_BASE_SHA", "TARGET_SEAM", "DIRECT_TARGETS", "UPSTREAM_PRODUCERS",
+    "CALLERS", "CALLEES", "DOWNSTREAM_CONSUMERS", "IMPACT", "AFFECTED",
+    "STATE_OWNER", "IDENTITY_OWNER", "VALIDATION_OWNER",
+    "EXPECTED_EDIT_SURFACE", "OUT_OF_SCOPE",
+)
+REQUIRED_RECEIPT_KEYS = ("TICKET", "RISK", "BASE_SHA", "GRAPH_MODE") + RECEIPT_STRUCTURAL_FIELDS
+# values that mean "honestly unknown" — accepted wherever a field exists
+UNKNOWN_VALUES = {"", "NONE", "UNKNOWN", "N/A"}
 
 
 def git_head(worktree: str) -> str:
