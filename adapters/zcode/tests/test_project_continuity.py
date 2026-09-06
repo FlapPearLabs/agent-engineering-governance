@@ -6,10 +6,15 @@ Runs the adapter hooks + project-state validator against throwaway synthetic
 repos (temp dirs, deleted afterwards). Never touches any product repository.
 Needs only git + python stdlib — the hooks never invoke CodeGraph themselves.
 
-  PS1-PS15   project-state lifecycle       CG1-CG12   CodeGraph lifecycle
-  LC1-LC11   lifecycle decision surface    PS12       = CROSS-AGENT RESTORE
-             (init once / sync / grounding + blast radius / never re-init)
-             (Agent A flush → remote → fresh Agent B clone)
+  PS1-PS18   project-state lifecycle (16 methods; PS3/PS4 and PS5-PS7 combined)
+  CG1-CG14   CodeGraph lifecycle & grounding (13 methods)
+  LC1-LC15   lifecycle decision surface (15 methods; init once / sync /
+             grounding + blast radius / never re-init per session)
+  → 44 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
+    fresh Agent B clone). Review-driven: F1 mode A/B lanes (LC11/LC12),
+    F2 fail-closed blast radius (LC13), F3 edit-surface authority (LC14),
+    F4 structural receipts (CG14), F5 durability ladder (PS17),
+    F6 index shape validation (PS18), F7 record-init honesty (LC15).
 
 Run:  python adapters/zcode/tests/test_project_continuity.py
   or  python -m unittest discover -s adapters/zcode/tests
@@ -138,6 +143,27 @@ class ContinuityBase(unittest.TestCase):
 
     def stop(self, repo):
         return self.run_tool(STOP_GUARD, repo=repo, stdin_data=json.dumps({"cwd": str(repo)})).stdout
+
+    def full_ground(self, repo, ticket="T-1", risk="MEDIUM", mode="manual", base=None,
+                    extra=None):
+        """Store a structurally COMPLETE §7 receipt (review F4: every field must
+        exist; NONE/UNKNOWN are honest-gap values). Returns (proc, base_sha)."""
+        head = base if base else git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        fields = {
+            "GRAPH_BASE_SHA": head, "TARGET_SEAM": "src/app.py",
+            "DIRECT_TARGETS": "src/app.py", "UPSTREAM_PRODUCERS": "NONE",
+            "CALLERS": "UNKNOWN", "CALLEES": "UNKNOWN", "DOWNSTREAM_CONSUMERS": "NONE",
+            "IMPACT": "NONE", "AFFECTED": "src/app.py", "STATE_OWNER": "NONE",
+            "IDENTITY_OWNER": "NONE", "VALIDATION_OWNER": "NONE",
+            "EXPECTED_EDIT_SURFACE": "src/app.py", "OUT_OF_SCOPE": "docs/",
+        }
+        if extra:
+            fields.update(extra)
+        args = ["set-grounding", "--ticket", ticket, "--risk", risk,
+                "--base-sha", head, "--mode", mode]
+        for k, v in fields.items():
+            args += ["--field", "%s=%s" % (k, v)]
+        return self.run_tool(CG_STATE, args, repo=repo), head
 
 
 class ProjectStateTests(ContinuityBase):
@@ -348,6 +374,77 @@ class ProjectStateTests(ContinuityBase):
         self.assertEqual(p.returncode, 1)
         self.assertIn("no-secret-like-fields", p.stdout)
 
+    # PS17 — review F5: remote durability ladder + stale/unbound marker handling
+    def test_ps17_remote_durability_ladder(self):
+        repo = self.mk_repo(with_remote=True)
+        head = self.commit_all(repo)
+        self.write_state(repo, remote="https://example.org/org/repo.git", head=head)
+        self.commit_all(repo, "persist")
+        head2 = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        git(["push", "-u", "origin", "main"], str(repo))
+        # (1) LOCAL_DURABLE only → the stop guard demands remote verification
+        self.run_tool(CG_STATE, ["record-event", "TARGET_CHANGED"], repo=repo)
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2], repo=repo)
+        out = self.stop(repo)
+        self.assertIn("REMOTE_VERIFICATION_REQUIRED", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+        # (2) REMOTE_VERIFIED bound to this HEAD → clean terminal
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2,
+                                 "--remote-verified"], repo=repo)
+        out = self.stop(repo)
+        self.assertIn("STATE_FLUSH_GUARD=PASS", out)
+        self.assertIn("REMOTE_VERIFIED=YES", out)
+        # (3) a later meaningful transition invalidates the old receipt
+        self.run_tool(CG_STATE, ["record-event", "ADR_CHANGED"], repo=repo)
+        out = self.stop(repo)
+        self.assertIn("DURABLE_STATE_SYNC_REQUIRED", out)
+        # (4) DEFERRED is the other honest terminal
+        self.run_tool(CG_STATE, ["record-state-sync", "--deferred"], repo=repo)
+        out = self.stop(repo)
+        self.assertIn("REMOTE_STATE_SYNC=DEFERRED", out)
+        # (5) an UNBOUND env marker must not bypass a new transition (review F5)
+        self.run_tool(CG_STATE, ["record-event", "SPEC_CHANGED"], repo=repo)
+        env = hook_env(self.runtime)
+        env["STATE_FLUSH_COMPLETED"] = "1"
+        proc = subprocess.run([sys.executable, STOP_GUARD], cwd=str(repo),
+                              input=json.dumps({"cwd": str(repo)}), capture_output=True,
+                              text=True, timeout=60, errors="replace", env=env)
+        self.assertIn("UNBOUND_FLUSH_MARKER", proc.stdout)
+        self.assertIn("DURABLE_STATE_SYNC_REQUIRED", proc.stdout)
+        # (6) a marker bound to a PREVIOUS HEAD is stale once HEAD moves
+        self.run_tool(CG_STATE, ["record-state-sync", "--remote-verified"], repo=repo)
+        git(["commit", "--allow-empty", "-m", "transition after flush"], str(repo))
+        env["STATE_FLUSH_HEAD_SHA"] = head2
+        proc = subprocess.run([sys.executable, STOP_GUARD], cwd=str(repo),
+                              input=json.dumps({"cwd": str(repo)}), capture_output=True,
+                              text=True, timeout=60, errors="replace", env=env)
+        self.assertIn("STALE_FLUSH_MARKER", proc.stdout)
+        self.assertNotIn("marker bound", proc.stdout)
+
+    # PS18 — review F6: a current-version index missing normative fields is
+    # INVALID — never PROJECT_CONTINUITY_INITIALIZED
+    def test_ps18_invalid_current_contract_index(self):
+        repo = self.mk_repo()
+        # (1) missing required top key
+        st = self.write_state(repo)
+        del st["canonical_documents"]
+        (repo / ".agent" / "project-state.json").write_text(
+            json.dumps(st, indent=1), encoding="utf-8")
+        g = self.guard(repo)
+        self.assertIn("PROJECT_STATE_CONTRACT_INVALID", g)
+        self.assertNotIn("PROJECT_CONTINUITY_INITIALIZED", g)
+        # (2) missing required recovery-snapshot key
+        st = self.write_state(repo)
+        del st["recovery_snapshot"]["next_legal_action"]
+        (repo / ".agent" / "project-state.json").write_text(
+            json.dumps(st, indent=1), encoding="utf-8")
+        self.assertIn("PROJECT_STATE_CONTRACT_INVALID", self.guard(repo))
+        # (3) corrupt JSON → INVALID, never silently destroyed
+        (repo / ".agent" / "project-state.json").write_text("{broken", encoding="utf-8")
+        g = self.guard(repo)
+        self.assertIn("PROJECT_STATE_CONTRACT_INVALID", g)
+        self.assertIn("unparseable-json", g)
+
 
 class CodeGraphLifecycleTests(ContinuityBase):
     def fake_index(self, repo):
@@ -455,10 +552,8 @@ class CodeGraphLifecycleTests(ContinuityBase):
     # after the receipt do NOT stale it: base stays an ancestor of HEAD)
     def test_cg11_grounding_present_write_allowed(self):
         repo = self.mk_repo()
-        head = self.commit_all(repo)
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-1", "--risk", "MEDIUM",
-                                 "--base-sha", head, "--mode", "graph",
-                                 "--seam", "src/app.py"], repo=repo)
+        self.commit_all(repo)
+        self.full_ground(repo, ticket="T-1", risk="MEDIUM", mode="graph")
         p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "MEDIUM"], repo=repo)
         self.assertEqual(p.returncode, 0, p.stdout)
         self.assertIn("GROUNDING_GUARD_DECISION=ALLOW", p.stdout)
@@ -470,19 +565,28 @@ class CodeGraphLifecycleTests(ContinuityBase):
     # CG12 — CodeGraph unavailable → MANUAL grounding receipt unblocks (Mode C)
     def test_cg12_unavailable_manual_fallback(self):
         repo = self.mk_repo()
-        head = self.commit_all(repo)
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-2", "--risk", "MEDIUM",
-                            "--base-sha", head, "--mode", "manual"], repo=repo)
+        self.commit_all(repo)
+        self.full_ground(repo, ticket="T-2", risk="MEDIUM", mode="manual")
         p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "MEDIUM"], repo=repo)
         self.assertEqual(p.returncode, 0, p.stdout)
         self.assertIn("GROUNDING_GUARD_DECISION=ALLOW_MANUAL", p.stdout)
         self.assertIn("MANUAL_GROUNDING_RECEIPT", p.stdout)
         # stale base always blocks, even with a receipt
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-3", "--risk", "HIGH",
-                                 "--base-sha", "0" * 40, "--mode", "graph"], repo=repo)
+        self.full_ground(repo, ticket="T-3", risk="HIGH", mode="graph", base="0" * 40)
         p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "HIGH"], repo=repo)
         self.assertEqual(p.returncode, 2)
         self.assertIn("GROUNDING_RECEIPT_STALE", p.stdout)
+
+    # CG14 — review F4: a §7-incomplete receipt fails CLOSED even when the four
+    # legacy keys are present (structural fields may be NONE/UNKNOWN, not absent)
+    def test_cg14_structurally_incomplete_receipt_rejected(self):
+        repo = self.mk_repo()
+        head = self.commit_all(repo)
+        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-9", "--risk", "HIGH",
+                                 "--base-sha", head, "--mode", "graph"], repo=repo)
+        p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "HIGH"], repo=repo)
+        self.assertEqual(p.returncode, 2, p.stdout)
+        self.assertIn("GROUNDING_RECEIPT_INVALID", p.stdout)
 
     # CG13 — malformed receipts fail CLOSED; a real rebase (base leaving HEAD's
     # ancestry) stales an existing receipt
@@ -490,8 +594,7 @@ class CodeGraphLifecycleTests(ContinuityBase):
         repo = self.mk_repo()
         head = self.commit_all(repo)
         # malformed receipt written straight into runtime state (hand-edit / drift)
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-1", "--risk", "MEDIUM",
-                                 "--base-sha", head, "--mode", "graph"], repo=repo)
+        self.full_ground(repo, ticket="T-1", risk="MEDIUM", mode="graph")
         # truncate the receipt to make it malformed (missing required keys).
         # runtime_root() reads ZCODE_RUNTIME_STATE_DIR at call time, so point it
         # at the test's hermetic runtime dir — otherwise this writes into the
@@ -516,8 +619,7 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.assertEqual(p.returncode, 2)
         self.assertIn("GROUNDING_RECEIPT_INVALID", p.stdout)
         # a valid receipt, then a real history rewrite (amend) → base leaves ancestry
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", "T-4", "--risk", "MEDIUM",
-                                 "--base-sha", head, "--mode", "graph"], repo=repo)
+        self.full_ground(repo, ticket="T-4", risk="MEDIUM", mode="graph")
         git(["commit", "--amend", "-m", "rewritten"], str(repo))
         p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "MEDIUM"], repo=repo)
         self.assertEqual(p.returncode, 2)
@@ -525,13 +627,20 @@ class CodeGraphLifecycleTests(ContinuityBase):
 
 
 class LifecycleDecisionTests(ContinuityBase):
-    """LC1-LC11 — the single canonical lifecycle decision surface (contract §6.7).
+    """LC1-LC15 — the single canonical lifecycle decision surface (contract §6.7).
 
     Rule under test:
         new repo → INIT_ONCE (once) / thereafter → INCREMENTAL_SYNC
         before editing → grounding + blast radius / after editing → mark dirty
         review/handoff/stop → incremental sync when needed
         never → a full init per session
+
+    Review-driven semantics:
+        F1  MODE A lanes reuse the canonical graph — no per-worktree full init;
+            MODE B lanes own their graph and may init once per lane
+        F2  blast radius fails CLOSED (UNRESOLVED blocks production writes)
+        F3  untracked files cannot bypass the approved edit surface
+        F7  record-init requires index health evidence
     """
 
     def fake_index(self, repo):
@@ -547,21 +656,21 @@ class LifecycleDecisionTests(ContinuityBase):
         return self.lc(repo, *args)
 
     def ground(self, repo, ticket="T-1", risk="HIGH", mode="manual"):
-        head = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
-        self.run_tool(CG_STATE, ["set-grounding", "--ticket", ticket, "--risk", risk,
-                                 "--base-sha", head, "--mode", mode], repo=repo)
-        return head
+        return self.full_ground(repo, ticket=ticket, risk=risk, mode=mode)[0]
 
     # LC1 — brand new repo: exactly one full init, then never again
     def test_lc1_new_repo_init_once_then_forbidden(self):
         repo = self.mk_repo()
         self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=INIT_ONCE",
                       self.decide(repo, "session-start"))
+        self.fake_index(repo)  # F7: record-init demands health evidence
         self.lc(repo, "record-init")
         self.assertIn("FULL_INIT_FORBIDDEN", self.decide(repo, "session-start",
                                                          request_full_init=""))
         # a second, unrelated session must not be offered a full init either
-        self.assertIn("FULL_INIT_FORBIDDEN", self.decide(repo, "session-start"))
+        out = self.decide(repo, "session-start")
+        self.assertNotIn("INIT_ONCE", out)
+        self.assertIn("NO_SYNC", out)
 
     # LC2 — session start on an initialized repo is never INIT_ONCE
     def test_lc2_session_start_never_reinits(self):
@@ -600,16 +709,14 @@ class LifecycleDecisionTests(ContinuityBase):
         self.assertIn("BLAST_RADIUS_REQUIRED", out)
         self.assertNotIn("ALLOW_WRITE", out)
 
-    # LC6 — inside the blast radius: allowed; outside (tracked): expansion required
+    # LC6 — inside the blast radius: allowed; outside: expansion required
     def test_lc6_blast_radius_boundary(self):
         repo = self.mk_repo()
         (repo / "src" / "other.py").write_text("def h():\n    pass\n", encoding="utf-8")
-        head = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
         self.commit_all(repo)
         self.fake_index(repo)
         self.ground(repo)
         base = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
-        self.assertTrue(head == "" or base)
         self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
         self.assertIn("ALLOW_WRITE", self.decide(repo, "pre-edit", risk="HIGH",
                                                  file="src/app.py"))
@@ -661,20 +768,106 @@ class LifecycleDecisionTests(ContinuityBase):
         self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
         self.assertNotIn("VIOLATION", p.stdout)
 
-    # LC11 — init bookkeeping is worktree-isolated (contract §6.5)
-    def test_lc11_worktree_isolation_of_init_record(self):
+    # LC11 — MODE A: the canonical graph is initialized once per REPO; ordinary
+    # worktree lanes reuse the base graph + delta-by-diff (review F1)
+    def test_lc11_mode_a_lane_never_reinits(self):
         repo = self.mk_repo()
         self.commit_all(repo)
+        self.fake_index(repo)
+        self.lc(repo, "record-init")            # canonical record in the main checkout
         wt = self.base / "wt-b"
         git(["worktree", "add", "-b", "feature/lc", str(wt)], str(repo))
+        out = self.decide(wt, "session-start")  # ordinary MODE A lane, no lane index
+        self.assertNotIn("INIT_ONCE", out)
+        self.assertIn("MODE A", out)
+        self.assertIn("FULL_INIT_FORBIDDEN",
+                      self.decide(wt, "session-start", request_full_init=""))
+
+    # LC12 — MODE B (explicit candidate-exact): lane-local graph, init once per lane
+    def test_lc12_mode_b_lane_init_once(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
         self.fake_index(repo)
-        self.lc(repo, "record-init")
-        # worktree B has its own runtime state → still legitimately INIT_ONCE
-        self.assertIn("INIT_ONCE", self.decide(wt, "session-start"))
-        # worktree A is initialized → any session-start must never offer INIT_ONCE
-        self.assertNotIn("INIT_ONCE", self.decide(repo, "session-start"))
-        self.assertIn("FULL_INIT_FORBIDDEN", self.decide(repo, "session-start",
-                                                         request_full_init=""))
+        self.lc(repo, "record-init")            # canonical registered
+        wt = self.base / "wt-b"
+        git(["worktree", "add", "-b", "feature/lcb", str(wt)], str(repo))
+        # lane graph missing → the lane may init its own graph EXACTLY ONCE
+        self.assertIn("INIT_ONCE", self.decide(wt, "session-start", lane_mode="B"))
+        (wt / ".codegraph").mkdir(exist_ok=True)
+        out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
+        self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
+        # lane initialized → no more lane init offers
+        self.assertIn("FULL_INIT_FORBIDDEN", self.decide(wt, "session-start", lane_mode="B"))
+        # …while a fresh MODE B lane elsewhere would still legitimately INIT_ONCE
+        wt2 = self.base / "wt-c"
+        git(["worktree", "add", "-b", "feature/lcc", str(wt2)], str(repo))
+        self.assertIn("INIT_ONCE", self.decide(wt2, "session-start", lane_mode="B"))
+
+    # LC13 — blast radius fails CLOSED (review F2)
+    def test_lc13_blast_radius_fail_closed(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.ground(repo)
+        # (1) invalid / unresolvable BASE_SHA → UNRESOLVED recorded → write blocked
+        out = self.lc(repo, "blast-radius", "--base", "deadbeef" * 5, "--target", "src/app.py")
+        self.assertIn("mode=UNRESOLVED", out)
+        self.assertIn("BLAST_RADIUS_REQUIRED",
+                      self.decide(repo, "pre-edit", risk="HIGH", file="src/app.py"))
+        # (2) git cannot see uncommitted changes → UNRESOLVED (in-process mock)
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        cl = importlib.import_module("codegraph_lifecycle")
+        orig_git = cl._git
+
+        class Failing:
+            returncode = 128
+            stdout = ""
+
+        cl._git = lambda args, cwd, timeout=10: (
+            Failing() if args[:1] == ["status"] else orig_git(args, cwd, timeout))
+        try:
+            rec, err = cl.compute_blast_radius(str(repo), "HEAD")
+        finally:
+            cl._git = orig_git
+        self.assertFalse(rec["resolved"])
+        self.assertEqual("UNRESOLVED", rec["mode"])
+        # (3) no base at all → nothing provable → UNRESOLVED
+        rec2, _ = cl.compute_blast_radius(str(repo), "")
+        self.assertFalse(rec2["resolved"])
+        self.assertEqual("UNRESOLVED", rec2["mode"])
+
+    # LC14 — untracked files cannot bypass the edit surface (review F3)
+    def test_lc14_untracked_no_bypass(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.ground(repo)
+        base = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
+        # brand-new UNTRACKED file outside the approved surface → BLOCK
+        (repo / "src" / "unrelated.py").write_text("x = 1\n", encoding="utf-8")
+        out = self.decide(repo, "pre-edit", risk="HIGH", file="src/unrelated.py")
+        self.assertIn("BLAST_RADIUS_EXPANSION_REQUIRED", out)
+        # explicitly expand the intended edit surface → recompute → ALLOW
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py",
+                "--target", "src/expected_new.py")
+        (repo / "src" / "expected_new.py").write_text("y = 2\n", encoding="utf-8")
+        out = self.decide(repo, "pre-edit", risk="HIGH", file="src/expected_new.py")
+        self.assertIn("ALLOW_WRITE", out)
+
+    # LC15 — record-init honesty (review F7)
+    def test_lc15_record_init_requires_index_evidence(self):
+        repo = self.mk_repo()
+        out = self.run_tool(LC, ["record-init"], repo=repo).stdout
+        self.assertIn("ERROR=GRAPH_INIT_REJECTED", out)
+        # the repo is NOT locked: the one-time init offer stays available
+        self.assertIn("INIT_ONCE", self.decide(repo, "session-start"))
+        self.fake_index(repo)
+        self.assertIn("GRAPH_INIT_RECORDED",
+                      self.run_tool(LC, ["record-init"], repo=repo).stdout)
+        self.assertIn("FULL_INIT_FORBIDDEN",
+                      self.decide(repo, "session-start", request_full_init=""))
 
 
 if __name__ == "__main__":
