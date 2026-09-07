@@ -30,6 +30,10 @@ Closed decision enum (contract §6.7):
 
     INIT_ONCE                     init allowed EXACTLY ONCE (canonical in MODE A,
                                   lane-local in MODE B)
+    CANONICAL_INIT_REQUIRED_AT_MAIN  review R4-C: an ordinary MODE A worktree
+                                  lane NEVER inits itself — while the canonical
+                                  graph is missing, every init-offering intent
+                                  points at the main checkout
     FULL_INIT_FORBIDDEN           init record/index present → full init is never legal
     INCREMENTAL_SYNC_ONCE         dirty → sync exactly once, then clear the flag
     NO_SYNC                       clean → nothing to do
@@ -59,6 +63,10 @@ CLI:
   python codegraph_lifecycle.py decide --intent <INTENT> [--risk R] [--file F]
                                        [--request-full-init] [--lane-mode A|B]
   python codegraph_lifecycle.py record-init [--head SHA] [--mode full] [--lane]
+                                       # R4-D: health probe must pass on the exact
+                                       # graph scope (canonical | lane); default probe
+                                       # = real `codegraph status`; tests inject
+                                       # ZCODE_CODEGRAPH_HEALTH_CMD
   python codegraph_lifecycle.py blast-radius [--base SHA] [--target F ...] [--impact-file JSON]
   python codegraph_lifecycle.py record-sync-result --ok|--fail
   python codegraph_lifecycle.py verify          # invariant self-check (exit 1 = breach)
@@ -83,6 +91,7 @@ except Exception:  # pragma: no cover - defensive
 # --- decision enum ------------------------------------------------------------
 
 INIT_ONCE = "INIT_ONCE"
+CANONICAL_INIT_REQUIRED_AT_MAIN = "CANONICAL_INIT_REQUIRED_AT_MAIN"
 FULL_INIT_FORBIDDEN = "FULL_INIT_FORBIDDEN"
 INCREMENTAL_SYNC_ONCE = "INCREMENTAL_SYNC_ONCE"
 NO_SYNC = "NO_SYNC"
@@ -95,7 +104,8 @@ SYNC_FAILED_DEFERRED = "SYNC_FAILED_DEFERRED"
 NO_REPO = "NO_REPO"
 
 DECISIONS = frozenset({
-    INIT_ONCE, FULL_INIT_FORBIDDEN, INCREMENTAL_SYNC_ONCE, NO_SYNC,
+    INIT_ONCE, CANONICAL_INIT_REQUIRED_AT_MAIN, FULL_INIT_FORBIDDEN,
+    INCREMENTAL_SYNC_ONCE, NO_SYNC,
     GROUNDING_REQUIRED, BLAST_RADIUS_REQUIRED, BLAST_RADIUS_EXPANSION_REQUIRED,
     ALLOW_WRITE, MARK_DIRTY, SYNC_FAILED_DEFERRED, NO_REPO,
 })
@@ -103,6 +113,8 @@ DECISIONS = frozenset({
 # intents whose correct answer is "sync once if dirty" (contract §6.6 JIT rule)
 SYNC_INTENTS = frozenset({"query", "review", "blast-radius", "handoff", "stop"})
 ALL_INTENTS = frozenset({"session-start", "pre-edit", "post-edit"}) | SYNC_INTENTS
+# intents that may legitimately offer the one-time init (review R4-C)
+INIT_OFFERING_INTENTS = frozenset({"session-start"}) | SYNC_INTENTS
 
 LOW = "LOW"
 RISK_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
@@ -159,6 +171,33 @@ def lane_mode_of(explicit=None):
     mode = explicit or os.environ.get("ZCODE_CODEGRAPH_LANE_MODE", "A")
     mode = str(mode).upper()
     return mode if mode in ("A", "B") else "A"
+
+
+def graph_health(graph_owner_dir):
+    """(ok, evidence). Injectable mechanical health probe (review R4-D).
+
+    Production default: the REAL `codegraph status` CLI must exit 0 — a bare
+    .codegraph directory is NOT health evidence. Synthetic tests inject a mock
+    probe via ZCODE_CODEGRAPH_HEALTH_CMD (shlex-split command line, run with
+    cwd=graph_owner_dir); production never sets that variable."""
+    custom = os.environ.get("ZCODE_CODEGRAPH_HEALTH_CMD", "")
+    if custom:
+        try:
+            import shlex
+            argv = shlex.split(custom)
+        except ValueError:
+            return False, "HEALTH_CMD_UNPARSEABLE"
+    else:
+        argv = ["codegraph", "status"]
+    try:
+        r = subprocess.run(argv, cwd=graph_owner_dir, capture_output=True, text=True,
+                           timeout=60, errors="replace")
+    except FileNotFoundError:
+        return False, "CODEGRAPH_CLI_NOT_FOUND"
+    except Exception as exc:  # defensive: probe must never crash the hook
+        return False, "PROBE_ERROR:%s" % type(exc).__name__
+    label = "custom-probe" if custom else "codegraph-status"
+    return r.returncode == 0, "%s rc=%d" % (label, r.returncode)
 
 
 # --- blast radius (review F2: fail closed) ------------------------------------
@@ -284,6 +323,7 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
 
     mode = lane_mode_of(lane_mode)
     main_dir = repo_main_dir(worktree) or worktree
+    is_lane = os.path.realpath(worktree) != os.path.realpath(main_dir)
     repo_state = cs.load(main_dir)   # canonical (MODE A) init bookkeeping
     wt_state = cs.load(worktree)     # lane-local runtime state
     canonical_init = init_done(repo_state)
@@ -321,6 +361,13 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
             return (INCREMENTAL_SYNC_ONCE if dirty else NO_SYNC), \
                 ("MODE A: reuse canonical graph + delta-by-diff (lane has no graph of "
                  "its own); graph_dirty=%s" % ("YES" if dirty else "NO"))
+        if is_lane:
+            # review R4-C: a lane must not perform — or offer — the canonical
+            # init for ANY intent; the one-time init belongs to the main checkout
+            return CANONICAL_INIT_REQUIRED_AT_MAIN, ("MODE A: canonical graph not initialized "
+                                                     "— run the one-time init at the main "
+                                                     "checkout (%s); this worktree lane never "
+                                                     "inits itself" % main_dir)
         if main_index or has_index:
             if request_full_init:
                 return FULL_INIT_FORBIDDEN, ("CodeGraph index already present — a full init "
@@ -330,11 +377,6 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                 return SYNC_FAILED_DEFERRED, ("previous sync failed; retry incremental sync")
             return (INCREMENTAL_SYNC_ONCE if dirty else NO_SYNC), \
                 "index present without a canonical record; register via record-init"
-        if worktree and os.path.realpath(worktree) != os.path.realpath(main_dir):
-            # a lane must not perform the canonical init (review F1)
-            return FULL_INIT_FORBIDDEN, ("MODE A canonical graph not initialized yet — the "
-                                         "one-time init belongs to the main checkout, not "
-                                         "this worktree lane")
         return INIT_ONCE, ("no canonical graph, no init record → repo-wide init allowed "
                            "EXACTLY ONCE; run record-init immediately after")
 
@@ -385,8 +427,18 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
     # -- query / review / blast-radius / handoff / stop: JIT sync once (§6.6)
     if mode == "B" and not has_index and not lane_init:
         return INIT_ONCE, "MODE B lane graph missing → init once for this lane, then incremental"
-    if mode == "A" and not canonical_init and not has_index:
-        return INIT_ONCE, "no canonical graph and no index → init once (repo-wide), then incremental"
+    if mode == "A" and not canonical_init:
+        if is_lane:
+            # review R4-C: ALL sync intents on an ordinary MODE A worktree lane
+            # refuse to init — the canonical init belongs at the main checkout
+            return CANONICAL_INIT_REQUIRED_AT_MAIN, ("MODE A lane must not init itself (review "
+                                                     "R4-C) — run the one-time init at the main "
+                                                     "checkout, then sync incrementally")
+        if not has_index and not main_index:
+            return INIT_ONCE, ("no canonical graph and no index → init once (repo-wide, at the "
+                               "main checkout), then incremental")
+        # main checkout with an existing index but no canonical record: fall
+        # through to sync handling; register the graph via record-init
     if wt_state.get("last_sync_failed"):
         return SYNC_FAILED_DEFERRED, ("sync previously failed; retry incremental sync — never "
                                       "escalate to full init")
@@ -435,6 +487,21 @@ def verify(worktree):
             dec, _ = decide(intent, worktree, risk="HIGH", file_path="src/app.py", lane_mode=m)
             if dec not in DECISIONS:
                 findings.append("LC-INV5 mode=%s intent=%s non-enum decision %r" % (m, intent, dec))
+    # LC-INV6  (review R4-C) a MODE A worktree lane NEVER gets INIT_ONCE — for
+    #          ANY intent; while the canonical graph is missing every
+    #          init-offering intent answers CANONICAL_INIT_REQUIRED_AT_MAIN
+    if os.path.realpath(worktree) != os.path.realpath(main_dir):
+        for intent in sorted(ALL_INTENTS):
+            dec, _ = decide(intent, worktree, lane_mode="A")
+            if dec == INIT_ONCE:
+                findings.append("LC-INV6 MODE_A_LANE_NEVER_INIT_ONCE intent=%s returned INIT_ONCE"
+                                % intent)
+        if not canonical_init:
+            for intent in sorted(INIT_OFFERING_INTENTS):
+                dec, _ = decide(intent, worktree, lane_mode="A")
+                if dec != CANONICAL_INIT_REQUIRED_AT_MAIN:
+                    findings.append("LC-INV6 MODE_A_LANE_NEVER_INIT_ONCE intent=%s → %s "
+                                    "(expected CANONICAL_INIT_REQUIRED_AT_MAIN)" % (intent, dec))
     return (not findings), findings
 
 
@@ -472,27 +539,39 @@ def main():
     if cmd == "record-init":
         lane = "--lane" in args
         main_dir = repo_main_dir(worktree) or worktree
-        # review F7: honest init — never persist an init record without minimum
-        # health evidence, or one failed init locks the repo as "initialized"
-        if not index_present(worktree):
-            out("ERROR=GRAPH_INIT_REJECTED INDEX_MISSING — record-init requires an existing "
-                "index (minimum health evidence); a failed init must not permanently mark "
-                "the repo initialized")
+        # review R4-D: record-init verifies ONLY the canonical graph path;
+        # record-init --lane verifies ONLY the lane graph path — a lane index
+        # can never masquerade as the canonical init.
+        graph_owner = worktree if lane else main_dir
+        scope = "lane" if lane else "canonical"
+        # review F7/R4-D: honest init — a bare (or absent) .codegraph directory
+        # is NOT health evidence; a real health probe must succeed, or one
+        # failed init would lock the repo as "initialized"
+        if not os.path.isdir(index_dir(graph_owner)):
+            out("ERROR=GRAPH_INIT_REJECTED INDEX_MISSING scope=%s graph_dir=%s — the graph "
+                "directory does not exist" % (scope, index_dir(graph_owner)))
             return 0
-        target_dir = worktree if lane else main_dir
+        ok, evidence = graph_health(graph_owner)
+        if not ok:
+            out("ERROR=GRAPH_INIT_REJECTED CODEGRAPH_HEALTH_UNPROVEN scope=%s evidence=%s — "
+                "record-init requires real index health (production default: `codegraph status`; "
+                "tests inject ZCODE_CODEGRAPH_HEALTH_CMD)" % (scope, evidence))
+            return 0
+        target_dir = graph_owner
         state = cs.load(target_dir)
         state["graph_init"] = {
             "initialized_at": cs.now_utc(),
             "head": flag(args, "--head") or head_sha(worktree),
             "worktree": os.path.realpath(worktree),
             "mode": flag(args, "--mode", "full"),
-            "scope": "lane" if lane else "canonical",
+            "scope": scope,
+            "health_evidence": evidence,
         }
         state["last_sync_failed"] = False
         cs.save(target_dir, state)
-        out("GRAPH_INIT_RECORDED scope=%s head=%s mode=%s (full init will now be FORBIDDEN)"
-            % (state["graph_init"]["scope"], state["graph_init"]["head"],
-               state["graph_init"]["mode"]))
+        out("GRAPH_INIT_RECORDED scope=%s head=%s mode=%s health=%s (full init will now be "
+            "FORBIDDEN)" % (scope, state["graph_init"]["head"],
+                            state["graph_init"]["mode"], evidence))
         return 0
 
     if cmd == "blast-radius":

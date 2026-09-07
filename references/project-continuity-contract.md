@@ -140,6 +140,8 @@ LOCAL_DURABLE = YES / REMOTE_DURABLE = YES / REMOTE_VERIFIED = YES
 **评审修正 R3（F5/F6，2026-09-07）**：
 
 - **F5 远端持久化是三级阶梯，不得折叠成"完成"**：`LOCAL_DURABLE → REMOTE_PUSHED → REMOTE_VERIFIED`。`record-state-sync` 产出 `remote_durability` 凭据，必须绑定 `HEAD_SHA` + 时间戳；此后任何新 meaningful transition（dirty 置位或 HEAD 前移）都使旧凭据失效（`REMOTE_RECEIPT_STALE`）。Stop guard 在 remote-backed 项目的合法终态只有两种：`REMOTE_VERIFIED = YES` 或 `REMOTE_STATE_SYNC = DEFERRED`；仅有 LOCAL_DURABLE / REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`。环境 flush marker（`STATE_FLUSH_COMPLETED=1`）**必须**经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 且无更新 transition 才被信任；未绑定/过期 marker 一律落穿重估（`UNBOUND_FLUSH_MARKER` / `STALE_FLUSH_MARKER`）。
+- **R4-A1 DEFERRED 失败凭据权威**（2026-09-07）：`REMOTE_STATE_SYNC = DEFERRED` 不得由裸 `--deferred` 无证据产生——必须绑定一次真实 remote failure receipt（至少 `HEAD_SHA` / `REMOTE_OPERATION` / `FAILURE_CLASS` / `ATTEMPTED_AT`，CLI flags：`--head` / `--remote-operation` / `--failure-class` / `--attempted-at`）；缺证据 → 命令拒绝（`REMOTE_DEFERRED_EVIDENCE_REQUIRED`，rc=2），state 不变。remote 正常可达时不得借 DEFERRED 绕过 remote verify；stop guard 对无凭据 deferred receipt 判 `REMOTE_DEFERRED_EVIDENCE_INVALID`。
+- **R4-A2 marker 只是证据、不是 bypass**（2026-09-07）：即使 flush marker 经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD（`BOUND_FLUSH_MARKER`），stop guard 也**不得 early-return PASS**——git dirty / ahead-unpushed / project_state_dirty / graph_dirty / remote durability 全套检查恒执行；marker 只作为证据注记出现在输出中。
 - **F6 contract_version == 1 不足以推出 INITIALIZED**。SessionStart 守卫对当前版本 index 至少执行：parse + 必需 top keys + 必需 recovery_snapshot keys + version 校验；不通过 → `PROJECT_STATE_CONTRACT_INVALID`（绝不算 INITIALIZED，也绝不静默销毁，走 repo discovery 修复）；JSON 不可解析同此。
 
 ## 6. CodeGraph 生命周期合同
@@ -185,10 +187,12 @@ Stop 前若 `GRAPH_DIRTY = YES` 且 index 健康 → sync 一次；**sync 失败
 
 ### 6.7 生命周期决策表（单一规范决策面）
 
-整个生命周期只有一个决策入口（ZCode 参考实现：`adapters/zcode/hooks/codegraph_lifecycle.py`，命令 `decide --intent <I>`），任何 session / hook / orchestrator 都不得自行从散文重新推导规则。判定枚举封闭，共 11 个：
+整个生命周期只有一个决策入口（ZCode 参考实现：`adapters/zcode/hooks/codegraph_lifecycle.py`，命令 `decide --intent <I>`），任何 session / hook / orchestrator 都不得自行从散文重新推导规则。判定枚举封闭，共 12 个：
 
 ```text
-INIT_ONCE                      新仓（无 index 且无 init 记录）→ 允许一次 full init
+INIT_ONCE                      新仓（无 index 且无 init 记录）→ 允许一次 full init（仅限 main checkout 或显式 MODE B lane）
+CANONICAL_INIT_REQUIRED_AT_MAIN  R4-C：普通 MODE A worktree lane 永不自 init——canonical graph 缺失时，
+                                 全部 init-offering intents 都指向 main checkout
 FULL_INIT_FORBIDDEN            已有 init 记录或 index → full init 永远不合法
 INCREMENTAL_SYNC_ONCE          dirty → 增量同步恰好一次，随后清脏
 NO_SYNC                        干净 → 无事可做
@@ -220,6 +224,9 @@ LC-INV2  已 init 仓的 session-start 永不 INIT_ONCE
 LC-INV3  同步失败后永不回落到 INIT_ONCE
 LC-INV4  dirty 状态下 sync 意图必须返回 INCREMENTAL_SYNC_ONCE
 LC-INV5  全部判定都来自封闭枚举
+LC-INV6  MODE_A_LANE_NEVER_INIT_ONCE（R4-C）：普通 MODE A worktree lane 对全部 intents
+         永不返回 INIT_ONCE；canonical 未初始化时 init-offering intents 一律
+         CANONICAL_INIT_REQUIRED_AT_MAIN
 ```
 
 blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
@@ -230,6 +237,13 @@ blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED
 - **F2 blast radius `resolved` 是规范性字段**。base 缺失 / BASE_SHA 无法解析 / git diff 或 status 失败 → `mode=UNRESOLVED, resolved=false` → pre-edit 一律 `BLAST_RADIUS_REQUIRED`，**生产写被阻止**；record 可留作 evidence，但不授权任何写。
 - **F3 编辑面权威与 git index 无关**。tracked/untracked 不决定 scope authority：任何**已跟踪或新建**的生产文件落在已批准 blast radius / EXPECTED_EDIT_SURFACE 之外 → `BLAST_RADIUS_EXPANSION_REQUIRED`；新文件确需修改时必须显式扩张意图编辑面并重算 radius 后方可 ALLOW。
 - **F7 record-init 诚实性**。`record-init` 必须先验证 index 实际存在（最低健康证据）才允许持久化 init 记录；一次失败 init 不得把 repo 永久锁进"已初始化"状态。
+
+**评审修正 R4（external review A1/A2/B1/B2/B3/B4，2026-09-07）**：
+
+- **B1 单一决策面机械成立**。`codegraph_state.py pre-query` 的自有捷径（`.codegraph missing → INIT_ONCE_ALLOWED`）已删除；该入口只委托 `codegraph_lifecycle.decide(intent=query)`。ONE LIFECYCLE → ONE DECISION SURFACE 不得出现第二判定源。
+- **B2 lane 不变量覆盖全部 intents**。对 `session-start / query / review / blast-radius / handoff / stop`：普通 MODE A worktree lane **永不返回 `INIT_ONCE`**；canonical graph 未初始化时返回 `CANONICAL_INIT_REQUIRED_AT_MAIN`（新增封闭枚举），绝不让 lane 自行 init。机械化为 `LC-INV6`。
+- **B3 健康证据真实化**。`.codegraph` 目录存在**不算** health proof：`record-init` 需真实 health probe 通过——生产默认执行真实 `codegraph status`（exit 0）；合成测试经 `ZCODE_CODEGRAPH_HEALTH_CMD` 注入 mock probe。空目录一律拒绝（`CODEGRAPH_HEALTH_UNPROVEN`），且 repo 不被锁死。
+- **B4 init scope 分离**。`record-init` 只验证 **canonical graph path**；`record-init --lane` 只验证 **lane graph path**。lane index 永不能冒充 canonical init。
 
 ## 7. GROUNDING（MEDIUM/HIGH 生产写前置）
 

@@ -6,15 +6,18 @@ Runs the adapter hooks + project-state validator against throwaway synthetic
 repos (temp dirs, deleted afterwards). Never touches any product repository.
 Needs only git + python stdlib — the hooks never invoke CodeGraph themselves.
 
-  PS1-PS18   project-state lifecycle (16 methods; PS3/PS4 and PS5-PS7 combined)
-  CG1-CG14   CodeGraph lifecycle & grounding (13 methods)
-  LC1-LC15   lifecycle decision surface (15 methods; init once / sync /
+  PS1-PS19   project-state lifecycle (17 methods; PS3/PS4 and PS5-PS7 combined)
+  CG1-CG15   CodeGraph lifecycle & grounding (14 methods)
+  LC1-LC17   lifecycle decision surface (17 methods; init once / sync /
              grounding + blast radius / never re-init per session)
-  → 44 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
+  → 48 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
     fresh Agent B clone). Review-driven: F1 mode A/B lanes (LC11/LC12),
     F2 fail-closed blast radius (LC13), F3 edit-surface authority (LC14),
     F4 structural receipts (CG14), F5 durability ladder (PS17),
-    F6 index shape validation (PS18), F7 record-init honesty (LC15).
+    F6 index shape validation (PS18), F7 record-init honesty (LC15);
+    R4 single decision surface (CG15), all-intents lane invariant (LC16),
+    health-proof + init scope (LC17), deferred authority + marker
+    no-bypass (PS19).
 
 Run:  python adapters/zcode/tests/test_project_continuity.py
   or  python -m unittest discover -s adapters/zcode/tests
@@ -48,11 +51,21 @@ def git(args, cwd, timeout=30):
 def hook_env(runtime_dir):
     env = os.environ.copy()
     env["ZCODE_RUNTIME_STATE_DIR"] = str(runtime_dir)
+    # review R4-D: the synthetic matrix mocks the record-init health probe
+    # (production default = the real `codegraph status` CLI). The mock treats a
+    # .codegraph/index.meta.json marker as health evidence, so an EMPTY
+    # .codegraph directory is still honestly rejected in tests.
+    env["ZCODE_CODEGRAPH_HEALTH_CMD"] = _HEALTHY_PROBE
     env.pop("ZCODE_PROJECT_DIR", None)
     env.pop("ZCODE_TICKET_RISK", None)
     env.pop("STATE_FLUSH_COMPLETED", None)
     env.pop("PROJECT_STATE_SYNC_COMPLETED", None)
     return env
+
+
+_HEALTHY_PROBE_CODE = ("import sys, os; sys.exit(0 if os.path.isfile("
+                       "os.path.join('.codegraph', 'index.meta.json')) else 1)")
+_HEALTHY_PROBE = '"%s" -c "%s"' % (sys.executable, _HEALTHY_PROBE_CODE)
 
 
 class ContinuityBase(unittest.TestCase):
@@ -398,8 +411,12 @@ class ProjectStateTests(ContinuityBase):
         self.run_tool(CG_STATE, ["record-event", "ADR_CHANGED"], repo=repo)
         out = self.stop(repo)
         self.assertIn("DURABLE_STATE_SYNC_REQUIRED", out)
-        # (4) DEFERRED is the other honest terminal
-        self.run_tool(CG_STATE, ["record-state-sync", "--deferred"], repo=repo)
+        # (4) DEFERRED is the other honest terminal — WITH a failure receipt
+        #     (review R4-A1: a naked --deferred is rejected outright, see PS19)
+        self.run_tool(CG_STATE, ["record-state-sync", "--deferred", "--head", head2,
+                                 "--remote-operation", "git push origin main",
+                                 "--failure-class", "NETWORK_TIMEOUT",
+                                 "--attempted-at", "2026-09-07T00:00:00Z"], repo=repo)
         out = self.stop(repo)
         self.assertIn("REMOTE_STATE_SYNC=DEFERRED", out)
         # (5) an UNBOUND env marker must not bypass a new transition (review F5)
@@ -445,19 +462,61 @@ class ProjectStateTests(ContinuityBase):
         self.assertIn("PROJECT_STATE_CONTRACT_INVALID", g)
         self.assertIn("unparseable-json", g)
 
+    # PS19 — review R4-A1/A2: DEFERRED needs a real failure receipt; a bound
+    # flush marker is EVIDENCE, never a bypass
+    def test_ps19_deferred_authority_and_marker_no_bypass(self):
+        repo = self.mk_repo(with_remote=True)
+        head = self.commit_all(repo)
+        self.write_state(repo, remote="https://example.org/org/repo.git", head=head)
+        self.commit_all(repo, "persist")
+        head2 = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        git(["push", "-u", "origin", "main"], str(repo))
+        self.run_tool(CG_STATE, ["record-event", "TARGET_CHANGED"], repo=repo)
+        # (A1-1) naked --deferred on a REACHABLE remote → rejected, rc=2
+        p = self.run_tool(CG_STATE, ["record-state-sync", "--deferred"], repo=repo, expect=2)
+        self.assertIn("ERROR=REMOTE_DEFERRED_EVIDENCE_REQUIRED", p.stdout)
+        # no deferred receipt was persisted (state untouched) → guard still blocks
+        out = self.stop(repo)
+        self.assertNotIn("REMOTE_STATE_SYNC=DEFERRED", out)
+        self.assertIn("DURABLE_STATE_SYNC_REQUIRED", out)
+        # (A1-2) a full failure receipt (HEAD_SHA/REMOTE_OPERATION/FAILURE_CLASS/
+        # ATTEMPTED_AT) → DEFERRED accepted as the honest terminal
+        self.run_tool(CG_STATE, ["record-state-sync", "--deferred", "--head", head2,
+                                 "--remote-operation", "git push origin main",
+                                 "--failure-class", "NETWORK_TIMEOUT",
+                                 "--attempted-at", "2026-09-07T00:00:00Z"], repo=repo)
+        self.assertIn("REMOTE_STATE_SYNC=DEFERRED", self.stop(repo))
+        # (A2) a marker bound to the CURRENT HEAD is still NOT a bypass —
+        # re-dirty the project state first, then flush-marker with exact binding
+        self.run_tool(CG_STATE, ["record-event", "SPEC_CHANGED"], repo=repo)
+        env = hook_env(self.runtime)
+        env["STATE_FLUSH_COMPLETED"] = "1"
+        env["STATE_FLUSH_HEAD_SHA"] = head2
+        proc = subprocess.run([sys.executable, STOP_GUARD], cwd=str(repo),
+                              input=json.dumps({"cwd": str(repo)}), capture_output=True,
+                              text=True, timeout=60, errors="replace", env=env)
+        self.assertIn("BOUND_FLUSH_MARKER", proc.stdout)
+        self.assertIn("DURABLE_STATE_SYNC_REQUIRED", proc.stdout)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", proc.stdout)
+
 
 class CodeGraphLifecycleTests(ContinuityBase):
     def fake_index(self, repo):
-        (repo / ".codegraph").mkdir(exist_ok=True)
+        # review R4-D: health = directory + probe evidence (index.meta.json);
+        # a bare directory alone is NOT a healthy index
+        d = repo / ".codegraph"
+        d.mkdir(exist_ok=True)
+        (d / "index.meta.json").write_text('{"status": "synthetic-healthy"}',
+                                           encoding="utf-8")
 
-    # CG1 — healthy index, no change → no sync / no init
+    # CG1 — healthy index, no change → no sync / no init (pre-query DELEGATES
+    # to the lifecycle decision surface — review R4-B)
     def test_cg1_healthy_no_change(self):
         repo = self.mk_repo()
         self.fake_index(repo)
         out = self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout
-        self.assertIn("NO_SYNC", out)
-        self.assertIn("NO_INIT_REQUIRED", out)
-        self.assertNotIn("INIT_ONCE_ALLOWED", out)
+        self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=NO_SYNC", out)
+        self.assertNotIn("INIT_ONCE", out)
         self.assertIn("GRAPH_DIRTY=NO", self.status(repo))
 
     # CG2/CG3 — edits mark dirty, repeatedly, without any sync
@@ -478,19 +537,19 @@ class CodeGraphLifecycleTests(ContinuityBase):
         repo = self.mk_repo()
         self.fake_index(repo)
         self.hook(repo, "src/app.py")
-        self.assertIn("CODEGRAPH_SYNC_REQUIRED_ONCE",
+        self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=INCREMENTAL_SYNC_ONCE",
                       self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout)
         head = self.commit_all(repo)
         self.run_tool(CG_STATE, ["mark-graph-synced", "--head", head], repo=repo)
         out = self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout
-        self.assertIn("NO_SYNC", out)
+        self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=NO_SYNC", out)
 
-    # CG5 — missing index on a code repo → init allowed once
+    # CG5 — missing index at the MAIN checkout → init allowed once
+    # (a lane would be pointed at the main checkout instead — CG15)
     def test_cg5_missing_index_init_once(self):
         repo = self.mk_repo()
         out = self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout
-        self.assertIn("CODEGRAPH_INDEX_MISSING", out)
-        self.assertIn("INIT_ONCE_ALLOWED", out)
+        self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=INIT_ONCE", out)
 
     # CG6 — existing index → full init prohibited
     def test_cg6_existing_index_init_prohibited(self):
@@ -498,8 +557,8 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.fake_index(repo)
         self.hook(repo, "src/app.py")  # even dirty
         out = self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout
-        self.assertIn("NO_INIT_REQUIRED", out)
-        self.assertNotIn("INIT_ONCE_ALLOWED", out)
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertNotIn("INIT_ONCE", out)
 
     # CG7 — branch switch means incremental sync, never init
     def test_cg7_branch_switch_incremental(self):
@@ -509,8 +568,8 @@ class CodeGraphLifecycleTests(ContinuityBase):
         git(["checkout", "-b", "feature/x"], str(repo))
         self.hook(repo, "src/app.py")
         out = self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout
-        self.assertIn("CODEGRAPH_SYNC_REQUIRED_ONCE", out)
-        self.assertNotIn("INIT_ONCE_ALLOWED", out)
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertNotIn("INIT_ONCE", out)
 
     # CG8 — sync failure must not fall back to full init (stop guard stays honest)
     def test_cg8_sync_failure_no_full_init_fallback(self):
@@ -518,9 +577,9 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.fake_index(repo)
         self.hook(repo, "src/app.py")
         # agent attempts sync and it fails: flag stays dirty; re-check still incremental
-        self.assertIn("CODEGRAPH_SYNC_REQUIRED_ONCE",
+        self.assertIn("INCREMENTAL_SYNC_ONCE",
                       self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout)
-        self.assertNotIn("INIT_ONCE_ALLOWED",
+        self.assertNotIn("INIT_ONCE",
                          self.run_tool(CG_STATE, ["pre-query"], repo=repo).stdout)
         stop_out = self.stop(repo)
         self.assertIn("CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP", stop_out)
@@ -625,6 +684,28 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.assertEqual(p.returncode, 2)
         self.assertIn("GROUNDING_RECEIPT_STALE", p.stdout)
 
+    # CG15 — review R4-B: ONE LIFECYCLE → ONE DECISION SURFACE. The legacy
+    # pre-query shortcut (".codegraph missing → INIT_ONCE_ALLOWED") is gone;
+    # a MODE A lane without .codegraph must NEVER see INIT_ONCE.
+    def test_cg15_pre_query_delegates_never_lane_init(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.run_tool(LC, ["record-init"], repo=repo)   # canonical MODE A graph initialized
+        wt = self.base / "wt-b"
+        git(["worktree", "add", "-b", "feature/cg15", str(wt)], str(repo))
+        out = self.run_tool(CG_STATE, ["pre-query"], repo=wt).stdout
+        self.assertNotIn("INIT_ONCE", out)              # old shortcut would have said INIT_ONCE_ALLOWED
+        self.assertIn("CODEGRAPH_LIFECYCLE_DECISION=NO_SYNC", out)
+        # canonical graph missing → the lane is pointed at the main checkout
+        repo2 = self.mk_repo(name="repo2")
+        self.commit_all(repo2)
+        wt2 = self.base / "wt-c"
+        git(["worktree", "add", "-b", "feature/cg15b", str(wt2)], str(repo2))
+        out2 = self.run_tool(CG_STATE, ["pre-query"], repo=wt2).stdout
+        self.assertNotIn("INIT_ONCE", out2)
+        self.assertIn("CANONICAL_INIT_REQUIRED_AT_MAIN", out2)
+
 
 class LifecycleDecisionTests(ContinuityBase):
     """LC1-LC15 — the single canonical lifecycle decision surface (contract §6.7).
@@ -644,7 +725,11 @@ class LifecycleDecisionTests(ContinuityBase):
     """
 
     def fake_index(self, repo):
-        (repo / ".codegraph").mkdir(exist_ok=True)
+        # review R4-D: health = directory + probe evidence (index.meta.json)
+        d = repo / ".codegraph"
+        d.mkdir(exist_ok=True)
+        (d / "index.meta.json").write_text('{"status": "synthetic-healthy"}',
+                                           encoding="utf-8")
 
     def lc(self, repo, *args):
         return self.run_tool(LC, list(args), repo=repo).stdout
@@ -793,7 +878,7 @@ class LifecycleDecisionTests(ContinuityBase):
         git(["worktree", "add", "-b", "feature/lcb", str(wt)], str(repo))
         # lane graph missing → the lane may init its own graph EXACTLY ONCE
         self.assertIn("INIT_ONCE", self.decide(wt, "session-start", lane_mode="B"))
-        (wt / ".codegraph").mkdir(exist_ok=True)
+        self.fake_index(wt)
         out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
         self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
         # lane initialized → no more lane init offers
@@ -868,6 +953,58 @@ class LifecycleDecisionTests(ContinuityBase):
                       self.run_tool(LC, ["record-init"], repo=repo).stdout)
         self.assertIn("FULL_INIT_FORBIDDEN",
                       self.decide(repo, "session-start", request_full_init=""))
+
+    # LC16 — review R4-C: the MODE A lane invariant covers ALL intents —
+    # an ordinary worktree lane NEVER gets INIT_ONCE while the canonical
+    # graph is missing; every init-offering intent points at the main checkout
+    def test_lc16_mode_a_lane_all_intents_never_init(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        wt = self.base / "wt-b"
+        git(["worktree", "add", "-b", "feature/lc16", str(wt)], str(repo))
+        for intent in ("session-start", "query", "review", "blast-radius", "handoff", "stop"):
+            out = self.decide(wt, intent)
+            self.assertNotIn("INIT_ONCE", out)
+            self.assertIn("CANONICAL_INIT_REQUIRED_AT_MAIN", out)
+        # write intents never offer an init either
+        self.assertNotIn("INIT_ONCE",
+                         self.decide(wt, "pre-edit", risk="LOW", file="src/app.py"))
+        self.assertIn("MARK_DIRTY", self.decide(wt, "post-edit"))
+        # the mechanical invariant check agrees (LC-INV6, no violations)
+        p = self.run_tool(LC, ["verify"], repo=wt, expect=0)
+        self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
+        self.assertNotIn("LC-INV6", p.stdout)
+
+    # LC17 — review R4-D: real health evidence + canonical/lane scope separation
+    def test_lc17_record_init_health_and_scope(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        # (1) a bare .codegraph directory is NOT health evidence → rejected
+        (repo / ".codegraph").mkdir()
+        out = self.run_tool(LC, ["record-init"], repo=repo).stdout
+        self.assertIn("ERROR=GRAPH_INIT_REJECTED", out)
+        self.assertIn("CODEGRAPH_HEALTH_UNPROVEN", out)
+        # (2) the repo is NOT locked: no INIT_ONCE is offered (the directory
+        # exists), and record-init remains retryable once health is real
+        out2 = self.decide(repo, "session-start")
+        self.assertNotIn("INIT_ONCE", out2)
+        self.assertIn("register via record-init", out2)
+        # (3) healthy evidence (mocked probe sees index.meta.json) → recorded
+        (repo / ".codegraph" / "index.meta.json").write_text("{}", encoding="utf-8")
+        out = self.run_tool(LC, ["record-init"], repo=repo).stdout
+        self.assertIn("GRAPH_INIT_RECORDED scope=canonical", out)
+        # (4) a healthy LANE index can NEVER satisfy the canonical record-init
+        repo2 = self.mk_repo(name="repo2")
+        self.commit_all(repo2)
+        wt = self.base / "wt-r17"
+        git(["worktree", "add", "-b", "feature/lc17", str(wt)], str(repo2))
+        self.fake_index(wt)
+        out = self.run_tool(LC, ["record-init"], repo=wt).stdout
+        self.assertIn("ERROR=GRAPH_INIT_REJECTED", out)
+        self.assertIn("INDEX_MISSING scope=canonical", out)
+        # …while the lane's OWN graph records scope=lane
+        out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
+        self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
 
 
 if __name__ == "__main__":

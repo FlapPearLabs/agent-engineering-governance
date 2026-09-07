@@ -14,7 +14,9 @@ CLI mode (for orchestrators and the synthetic test matrix):
   python codegraph_state.py mark-graph-synced      clear GRAPH_DIRTY (--head SHA to record)
   python codegraph_state.py record-state-sync      clear PROJECT_STATE_DIRTY (receipt)
   python codegraph_state.py set-grounding ...      store GROUNDING_RECEIPT (runtime-local)
-  python codegraph_state.py pre-query              JIT rule: SYNC_REQUIRED once / NO_SYNC / INDEX_MISSING
+  python codegraph_state.py pre-query              legacy JIT entry — DELEGATES to
+                                                   codegraph_lifecycle decide(intent=query)
+                                                   (ONE LIFECYCLE → ONE DECISION SURFACE)
 
 Any failure exits 0 (hooks must never block the runtime).
 """
@@ -35,6 +37,11 @@ def git_head(worktree):
         return r.stdout.strip() if r.returncode == 0 else ""
     except Exception:
         return ""
+
+
+def _flag(args, name, default=""):
+    return args[args.index(name) + 1] if name in args and len(args) > args.index(name) + 1 \
+        else default
 
 
 def stdin_json() -> dict:
@@ -130,16 +137,42 @@ def cli(args: list[str]) -> int:
             level = "REMOTE_PUSHED"
         deferred = "--deferred" in args
         head = state.get("last_state_sync_head") or git_head(worktree)
+        receipt_extra = {}
+        if deferred:
+            # review R4-A1: REMOTE_STATE_SYNC=DEFERRED is a FAILURE receipt,
+            # never a naked bypass — it must bind a real remote failure
+            # (HEAD_SHA + REMOTE_OPERATION + FAILURE_CLASS + ATTEMPTED_AT) or
+            # it is rejected outright; a reachable remote can never be
+            # "deferred" away from remote verify.
+            evidence = {
+                "HEAD_SHA": head,
+                "REMOTE_OPERATION": _flag(args, "--remote-operation"),
+                "FAILURE_CLASS": _flag(args, "--failure-class"),
+                "ATTEMPTED_AT": _flag(args, "--attempted-at"),
+            }
+            missing = sorted(k for k, v in evidence.items() if not v)
+            if missing:
+                out("ERROR=REMOTE_DEFERRED_EVIDENCE_REQUIRED missing=%s REMOTE_SYNC=NOT_DEFERRED "
+                    "(flags: --head/--remote-operation/--failure-class/--attempted-at; a naked "
+                    "--deferred is rejected)" % ",".join(missing))
+                return 2
+            receipt_extra = {
+                "remote_operation": evidence["REMOTE_OPERATION"],
+                "failure_class": evidence["FAILURE_CLASS"],
+                "attempted_at": evidence["ATTEMPTED_AT"],
+            }
         state["remote_durability"] = {
-            "level": level,
+            "level": "DEFERRED" if deferred else level,
             "deferred": deferred,
             "head_sha": head,
             "at": cs.now_utc(),
         }
+        state["remote_durability"].update(receipt_extra)
         cs.save(worktree, state)
         out("PROJECT_STATE_SYNC_RECEIPT RECORDED LOCAL_DURABLE=YES "
             "REMOTE_DURABILITY=%s REMOTE_SYNC=%s HEAD_SHA=%s"
-            % (level, "DEFERRED" if deferred else "PENDING_VERIFY", head))
+            % (state["remote_durability"]["level"],
+               "DEFERRED" if deferred else "PENDING_VERIFY", head))
         return 0
 
     if cmd == "set-grounding":
@@ -186,17 +219,19 @@ def cli(args: list[str]) -> int:
         return 0
 
     if cmd == "pre-query":
-        # JIT sync rule (contract §6.6): query/review/blast-radius/Stop while dirty
-        # → sync once; sync failure must NEVER fall back to full init (§6.6).
-        index_dir = os.path.join(worktree, ".codegraph")
-        if not os.path.isdir(index_dir):
-            out("CODEGRAPH_INDEX_MISSING INIT_ONCE_ALLOWED")
+        # review R4-B: ONE LIFECYCLE → ONE DECISION SURFACE. This legacy entry
+        # point no longer owns any init/sync decision (its old
+        # ".codegraph missing → INIT_ONCE_ALLOWED" shortcut violated the
+        # single-decision-surface rule and the MODE A lane invariants); it
+        # delegates to the canonical lifecycle decide(intent=query).
+        try:
+            import codegraph_lifecycle as cl
+        except Exception:
+            out("CODEGRAPH_LIFECYCLE_UNAVAILABLE SYNC_DECISION=UNKNOWN "
+                "(fail-closed: no local init/sync judgement)")
             return 0
-        if state.get("graph_dirty"):
-            out("CODEGRAPH_SYNC_REQUIRED_ONCE")
-        else:
-            out("NO_SYNC")
-        out("NO_INIT_REQUIRED")
+        dec, detail = cl.decide("query", worktree)
+        out("CODEGRAPH_LIFECYCLE_DECISION=%s INTENT=query %s" % (dec, detail))
         return 0
 
     out("ERROR=UNKNOWN_COMMAND %s" % cmd)

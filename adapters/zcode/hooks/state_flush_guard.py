@@ -4,9 +4,10 @@
 
 Mechanical checks only (no network, no writes):
 
-- STATE_FLUSH_COMPLETED=1 / PROJECT_STATE_SYNC_COMPLETED=1 env markers are only
-  trusted when they bind the current HEAD via STATE_FLUSH_HEAD_SHA (review F5:
-  a stale unbound marker must never permanently bypass later transitions).
+- STATE_FLUSH_COMPLETED=1 / PROJECT_STATE_SYNC_COMPLETED=1 env markers are
+  EVIDENCE ONLY (review R4-A2): even when bound to the current HEAD via
+  STATE_FLUSH_HEAD_SHA they never early-return — git dirty, ahead/unpushed,
+  project_state_dirty, graph_dirty and remote durability are ALWAYS evaluated.
 - uncommitted changes / unpushed commits            → STATE_FLUSH_REQUIRED (existing semantics)
 - runtime project_state_dirty flag set              → DURABLE_STATE_SYNC_REQUIRED
   (a new meaningful transition also stales any earlier remote_durability receipt)
@@ -64,21 +65,21 @@ def main() -> int:
     if hr is not None and hr.returncode == 0:
         head = hr.stdout.strip()
 
-    # Review F5: env flush markers are trusted ONLY when bound to the current
-    # HEAD AND no later meaningful transition has re-dirtied the state.
+    # review F5: env flush markers are only meaningful when bound to the
+    # current HEAD. review R4-A2: a marker is EVIDENCE, never a BYPASS — even
+    # a perfectly bound marker must not early-return; every durability check
+    # below always runs.
     marker = (os.environ.get("STATE_FLUSH_COMPLETED") == "1"
               or os.environ.get("PROJECT_STATE_SYNC_COMPLETED") == "1")
     note = ""
     if marker:
         bound = os.environ.get("STATE_FLUSH_HEAD_SHA", "")
-        pre_state = cs.load(root)
-        if head and bound == head and not pre_state.get("project_state_dirty") \
-                and not pre_state.get("graph_dirty"):
-            print_ctx("STATE_FLUSH_GUARD=PASS (marker bound to HEAD_SHA=%s)" % head)
-            return 0
-        # unbound / stale marker → fall through and re-evaluate honestly
-        note = "UNBOUND_FLUSH_MARKER (marker present without HEAD binding)" if not bound \
-            else "STALE_FLUSH_MARKER bound=%s head=%s" % (bound, head)
+        if head and bound == head:
+            note = "BOUND_FLUSH_MARKER evidence HEAD_SHA=%s (marker is evidence, not bypass)" % head
+        elif not bound:
+            note = "UNBOUND_FLUSH_MARKER (marker present without HEAD binding)"
+        else:
+            note = "STALE_FLUSH_MARKER bound=%s head=%s" % (bound, head)
 
     issues = []
     st = git(["status", "--porcelain"], root)
@@ -105,7 +106,15 @@ def main() -> int:
             issues.append("REMOTE_RECEIPT_STALE bound=%s head=%s — a later meaningful "
                           "transition invalidates the receipt; re-sync and re-verify"
                           % (rd.get("head_sha"), head))
-        elif not rd.get("deferred") and rd.get("level") != "REMOTE_VERIFIED":
+        elif rd.get("deferred"):
+            # review R4-A1: a DEFERRED terminal is only honest when it carries
+            # the failure receipt; a naked deferred must not satisfy stop
+            if not (rd.get("remote_operation") and rd.get("failure_class")
+                    and rd.get("attempted_at")):
+                issues.append("REMOTE_DEFERRED_EVIDENCE_INVALID (deferred without a failure "
+                              "receipt HEAD_SHA/REMOTE_OPERATION/FAILURE_CLASS/ATTEMPTED_AT — "
+                              "run the remote sync or record the failure honestly)")
+        elif rd.get("level") != "REMOTE_VERIFIED":
             issues.append("REMOTE_VERIFICATION_REQUIRED level=%s" % rd.get("level"))
 
     if state.get("graph_dirty"):
