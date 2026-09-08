@@ -47,7 +47,22 @@ Closed decision enum (contract §6.7):
     ALLOW_WRITE                   pre-edit gate satisfied
     MARK_DIRTY                    post-edit: flag set, sync deferred
     SYNC_FAILED_DEFERRED          sync failed → report; NEVER fall back to full init
+    CODEGRAPH_REBUILD_REQUIRED    review R6-F6: a REGISTERED graph that no longer
+                                  passes its health probe is CORRUPT / PARTIAL /
+                                  INCOMPATIBLE — report the reason, NEVER auto
+                                  delete, NEVER auto full init; an explicit
+                                  orchestrator rebuild authority is required
+                                  (record-rebuild). While unresolved MEDIUM/HIGH
+                                  falls back to MODE C manual grounding.
     NO_REPO                       not a git worktree → no-op
+
+Surface-coherence signal (NOT a lifecycle decision — it is emitted by
+`blast-radius` and by the invariant checker, review R6-F4):
+
+    UNAPPROVED_DELTA_DETECTED     OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE. An
+                                  already-changed file never authorises itself
+                                  on recompute; widening requires an explicit
+                                  authority action (--target / EXPECTED_EDIT_SURFACE).
 
 Runtime-local state additions (contract §6.4 — machine-local, never committed):
 
@@ -81,6 +96,14 @@ CLI:
                                        # graph scope (canonical | lane); default probe
                                        # = real `codegraph status`; tests inject
                                        # ZCODE_CODEGRAPH_HEALTH_CMD
+                                       # R6-F2: WRITE-ONCE — a second record-init on
+                                       # an already-registered scope is rejected
+                                       # (GRAPH_INIT_ALREADY_RECORDED)
+  python codegraph_lifecycle.py record-rebuild --authority CODEGRAPH_REBUILD_AUTHORIZED
+                                       [--lane]   # R6-F6: the ONLY path that may
+                                       rewrite an existing graph_init record; it is
+                                       the explicit orchestrator rebuild authority.
+                                       It is never reached silently by record-init.
   python codegraph_lifecycle.py blast-radius [--base SHA] [--target F ...] [--impact-file JSON]
   python codegraph_lifecycle.py record-sync-result --ok|--fail
   python codegraph_lifecycle.py verify          # invariant self-check (exit 1 = breach)
@@ -115,14 +138,24 @@ BLAST_RADIUS_EXPANSION_REQUIRED = "BLAST_RADIUS_EXPANSION_REQUIRED"
 ALLOW_WRITE = "ALLOW_WRITE"
 MARK_DIRTY = "MARK_DIRTY"
 SYNC_FAILED_DEFERRED = "SYNC_FAILED_DEFERRED"
+CODEGRAPH_REBUILD_REQUIRED = "CODEGRAPH_REBUILD_REQUIRED"
 NO_REPO = "NO_REPO"
+# review R6-F4: a SURFACE-COHERENCE SIGNAL, not a lifecycle decision. Emitted by
+# `blast-radius` (recompute) and by the LC-INV8 invariant; it deliberately stays
+# outside DECISIONS so the lifecycle enum remains closed.
+UNAPPROVED_DELTA_DETECTED = "UNAPPROVED_DELTA_DETECTED"
 
 DECISIONS = frozenset({
     INIT_ONCE, CANONICAL_INIT_REQUIRED_AT_MAIN, FULL_INIT_FORBIDDEN,
     INCREMENTAL_SYNC_ONCE, NO_SYNC,
     GROUNDING_REQUIRED, BLAST_RADIUS_REQUIRED, BLAST_RADIUS_EXPANSION_REQUIRED,
-    ALLOW_WRITE, MARK_DIRTY, SYNC_FAILED_DEFERRED, NO_REPO,
+    ALLOW_WRITE, MARK_DIRTY, SYNC_FAILED_DEFERRED, CODEGRAPH_REBUILD_REQUIRED,
+    NO_REPO,
 })
+
+# review R6-F2 / R6-F6: the explicit rebuild authority token. Without it no code
+# path may rewrite an existing graph_init record.
+REBUILD_AUTHORITY = "CODEGRAPH_REBUILD_AUTHORIZED"
 
 # intents whose correct answer is "sync once if dirty" (contract §6.6 JIT rule)
 SYNC_INTENTS = frozenset({"query", "review", "blast-radius", "handoff", "stop"})
@@ -226,14 +259,35 @@ def graph_freshness(worktree, mode=None):
     return stale, index_sha, owner_head, scope
 
 
+_HEALTH_CACHE = {}
+
+
 def graph_health(graph_owner_dir):
     """(ok, evidence). Injectable mechanical health probe (review R4-D).
 
     Production default: the REAL `codegraph status` CLI must exit 0 — a bare
     .codegraph directory is NOT health evidence. Synthetic tests inject a mock
     probe via ZCODE_CODEGRAPH_HEALTH_CMD (shlex-split command line, run with
-    cwd=graph_owner_dir); production never sets that variable."""
+    cwd=graph_owner_dir); production never sets that variable.
+
+    Memoised per process (review R6-F6): the invariant checker and `decide()` may
+    consult health many times in one process; re-running the real CLI that often
+    would be both slow and non-deterministic. One process = one probe result per
+    (directory, probe command)."""
     custom = os.environ.get("ZCODE_CODEGRAPH_HEALTH_CMD", "")
+    try:
+        key = (os.path.realpath(graph_owner_dir), custom)
+    except Exception:  # pragma: no cover - defensive
+        key = (str(graph_owner_dir), custom)
+    if key in _HEALTH_CACHE:
+        return _HEALTH_CACHE[key]
+    result = _graph_health_uncached(graph_owner_dir, custom)
+    _HEALTH_CACHE[key] = result
+    return result
+
+
+def _graph_health_uncached(graph_owner_dir, custom):
+    """Uncached health probe — see graph_health()."""
     if custom:
         try:
             import shlex
@@ -253,6 +307,50 @@ def graph_health(graph_owner_dir):
     return r.returncode == 0, "%s rc=%d" % (label, r.returncode)
 
 
+def _rebuild_detail(scope, graph_dir, evidence):
+    """Review R6-F6 detail string — the corrupt/partial index recovery state."""
+    return ("%s graph at %s is CORRUPT / PARTIAL / INCOMPATIBLE (%s) — "
+            "CODEGRAPH_REBUILD_REQUIRED: report the reason, NEVER auto-delete the index, NEVER "
+            "auto full init; an explicit orchestrator rebuild authority is required "
+            "(`record-rebuild --authority %s%s`). Until it is resolved MEDIUM/HIGH grounding "
+            "falls back to MODE C manual grounding (never blocked, never silently graph-backed)."
+            % (scope, graph_dir, evidence, REBUILD_AUTHORITY,
+               " --lane" if scope == "lane" else ""))
+
+
+def mode_a_base_coherence(worktree, wt_state):
+    """(mismatch, detail) — review R6-F5 mechanical Mode A coherence invariant.
+
+    An honest Mode A structural grounding requires the canonical graph base to
+    be the SAME base as the lane:
+
+        LANE_BASE_SHA (TICKET_BASE_SHA / grounding BASE_SHA)
+        == CANONICAL_GRAPH_INDEX_SHA (the base graph the lane would consume)
+
+    When main and the canonical graph advance A → B while the lane stays at A,
+    calling the lane's coverage "BASE_ONLY + DELTA_BY_DIFF" would be dishonest —
+    the canonical graph is now the graph of a DIFFERENT base. Mismatch means
+    MODE_A_BASE_MISMATCH: the orchestrator must reconcile (update/integrate the
+    lane, upgrade to MODE B candidate-exact, or MODE C manual grounding) before
+    any MEDIUM/HIGH production write/review may claim Mode A grounding."""
+    main_dir = repo_main_dir(worktree) or worktree
+    _stale, index_sha, _owner_head, _scope = graph_freshness(worktree, "A")
+    canonical_graph_sha = str(cs.load(main_dir).get("last_sync_head") or index_sha or "")
+    lane_base = str((wt_state.get("grounding_receipt") or {}).get("BASE_SHA")
+                    or wt_state.get("ticket_base_sha") or "")
+    if not lane_base or not canonical_graph_sha:
+        return False, ""  # nothing to compare → not decidable here, not a mismatch
+    if lane_base != canonical_graph_sha:
+        return True, ("MODE_A_BASE_MISMATCH LANE_BASE_SHA=%s CANONICAL_GRAPH_INDEX_SHA=%s — the "
+                      "canonical graph has advanced past the lane base; do NOT silently present "
+                      "the latest-main graph as this lane's base graph (review R6-F5). Reconcile "
+                      "FIRST: (A) update/integrate the lane onto the current authorized base, "
+                      "(B) upgrade to MODE B candidate-exact graph, or (C) MODE C manual "
+                      "candidate grounding."
+                      % (lane_base[:12], canonical_graph_sha[:12]))
+    return False, ""
+
+
 # --- blast radius (review F2: fail closed) ------------------------------------
 
 def _in_runtime_state(worktree, rel_path):
@@ -264,6 +362,25 @@ def _in_runtime_state(worktree, rel_path):
         return target == rr or target.startswith(rr + os.sep)
     except Exception:
         return False
+
+
+def _in_graph_index(worktree, rel_path):
+    """The CodeGraph index directory is a machine-local build artifact (contract
+    §6.4) — like runtime state it can never be part of an edit surface or of a
+    production source delta (review R6-F3/F4)."""
+    try:
+        idx = os.path.realpath(index_dir(worktree))
+        target = os.path.realpath(os.path.join(os.path.realpath(worktree), rel_path))
+        return target == idx or target.startswith(idx + os.sep)
+    except Exception:
+        return False
+
+
+def _surface_path(worktree, rel_path):
+    """True when a git-visible path belongs to a real edit surface / production
+    delta (runtime-local state and the graph index are machine-local)."""
+    return (not _in_runtime_state(worktree, rel_path)
+            and not _in_graph_index(worktree, rel_path))
 
 
 def _parse_status_z(raw):
@@ -321,7 +438,11 @@ def changed_files(worktree, base):
             r = _git(["diff", "--name-only", "-z", base, "HEAD"], worktree)
         if r is not None and r.returncode == 0:
             for p in r.stdout.split("\x00"):
-                p = p.strip()
+                # review R6-F7b: `git diff --name-only -z` already supplies NUL
+                # boundaries — stripping would mutate legal filenames (leading /
+                # trailing spaces are legal on every mainstream filesystem).
+                # Only the empty NUL field (the terminating one) is skipped; the
+                # exact bytes between NULs are preserved.
                 if p:
                     files.add(p.replace("\\", "/"))
         else:
@@ -349,6 +470,26 @@ def mechanical_delta_present(worktree):
         return bool(_parse_status_z(st.stdout))
     except ValueError:
         return None
+
+
+def production_delta_present(worktree):
+    """(present, paths) — uncommitted PRODUCTION SOURCE delta (review R6-F3:
+    defense in depth for the shell gap). Tracked edits, untracked production
+    files, deletes and BOTH rename endpoints count; runtime-local state and the
+    CodeGraph index directory do not (machine-local artifacts).
+
+    present is None when git cannot answer → the caller must fail closed
+    ("cannot prove a clean tree"), never silently report clean."""
+    st = _git(["status", "--porcelain=v1", "-z"], worktree)
+    if st is None or st.returncode != 0:
+        return None, []
+    try:
+        files = _parse_status_z(st.stdout)
+    except ValueError:
+        return None, []
+    prod = sorted(p for p in files
+                  if _surface_path(worktree, p) and cs.classify(p) == "graph")
+    return (bool(prod), prod)
 
 
 def norm_rel(worktree, file_path):
@@ -382,11 +523,25 @@ def br_fresh(worktree, br):
 
 
 def compute_blast_radius(worktree, base, impact_files=None, targets=None):
-    """Returns (record, error). The blast radius is the intended edit surface,
-    NOT merely 'what already changed' — at ticket start base == HEAD, so a
-    delta-only radius would be empty and would reject every legitimate write.
+    """Returns (record, error). Authority and observation are SEPARATE sets
+    (review R6-F4) — overloading one set let an already-illegal edit authorise
+    itself on recompute:
 
-    impact set = TARGETS ∪ (git delta base..HEAD) ∪ (CodeGraph impact, optional)
+        APPROVED_EDIT_SURFACE  AUTHORITY. Derived ONLY from explicit intended
+                               targets / EXPECTED_EDIT_SURFACE / an explicit
+                               authorized expansion. NEVER from observed git
+                               changes, NEVER from CodeGraph impact.
+        OBSERVED_DELTA         EVIDENCE ONLY. Tracked changes, untracked
+                               changes, deletes, renames (both endpoints).
+        IMPACT_SURFACE         STRUCTURAL AWARENESS ONLY. CodeGraph
+                               callers/callees/impact — it does NOT authorise
+                               editing every impacted file.
+
+    Invariant: OBSERVED_DELTA ⊆ APPROVED_EDIT_SURFACE, else
+    UNAPPROVED_DELTA_DETECTED and the record carries surface_coherent=False.
+
+    At ticket start base == HEAD, so a delta-only radius would be empty — the
+    authority side is what makes a legitimate first write possible.
 
     Fail closed (review F2): a missing base, an unresolvable base, or a git
     failure sets resolved=False / mode=UNRESOLVED — the record may exist as
@@ -399,20 +554,27 @@ def compute_blast_radius(worktree, base, impact_files=None, targets=None):
         delta, resolved = changed_files(worktree, base)
     else:
         delta, resolved = [], False  # no base → no provable delta
-    files = set(delta)
+    observed = sorted(p for p in set(delta) if _surface_path(worktree, p))
+    approved = sorted({norm_rel(worktree, t) for t in (targets or []) if t})
+    impact = sorted({str(x) for x in (impact_files or [])})
+    unapproved = sorted(set(observed) - set(approved))
+    files = sorted(set(approved) | set(observed) | set(impact))
     mode = "GIT_DELTA"
     if targets:
-        files |= set(targets)
         mode = "TARGETS_PLUS_GIT_DELTA"
     if impact_files:
-        files |= set(impact_files)
         mode = "TARGETS_PLUS_GRAPH" if targets else "GIT_DELTA_PLUS_GRAPH"
-    files = sorted(f for f in files if not _in_runtime_state(worktree, f))
     rec = {
         "base": base or "",
         "head": head,
         "mode": mode if resolved else "UNRESOLVED",
         "resolved": resolved,
+        # R6-F4: authority, observation and impact are three distinct surfaces
+        "approved_edit_surface": approved,
+        "observed_delta": observed,
+        "impact_surface": impact,
+        "unapproved_delta": unapproved,
+        "surface_coherent": not unapproved,
         "files": files,
         "count": len(files),
         "computed_at": cs.now_utc(),
@@ -455,6 +617,12 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                 if wt_state.get("last_sync_failed"):
                     return SYNC_FAILED_DEFERRED, ("previous lane sync failed; retry incremental "
                                                   "sync — failure never escalates to full init")
+                # review R6-F6: a REGISTERED lane graph that no longer passes its
+                # health probe is CORRUPT/PARTIAL — explicit rebuild authority,
+                # never a silent re-init and never an auto-delete.
+                ok, evidence = graph_health(worktree)
+                if not ok:
+                    return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail("lane", worktree, evidence)
                 stale, index_sha, owner_head, _ = graph_freshness(worktree, "B")
                 if dirty or stale:
                     why = "lane graph_dirty=YES" if dirty else \
@@ -485,6 +653,11 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
             if wt_state.get("last_sync_failed"):
                 return SYNC_FAILED_DEFERRED, ("previous sync failed; retry incremental sync — "
                                               "failure never escalates to full init")
+            # review R6-F6: a REGISTERED canonical graph that no longer passes
+            # its health probe is CORRUPT/PARTIAL/INCOMPATIBLE.
+            ok, evidence = graph_health(main_dir)
+            if not ok:
+                return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail("canonical", main_dir, evidence)
             stale, index_sha, owner_head, _ = graph_freshness(worktree, "A")
             if dirty or stale:
                 why = "graph_dirty=YES" if dirty else \
@@ -538,28 +711,51 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                                             "unavailable; conservative)" % risk_u)
 
         br = wt_state.get("blast_radius")
-        if not isinstance(br, dict) or not br.get("files") or not br.get("base"):
-            return BLAST_RADIUS_REQUIRED, ("no blast radius on record — run `blast-radius "
-                                           "--base <BASE_SHA> --target <files>` before the write")
+        # review R6-F4: authority is APPROVED_EDIT_SURFACE, not "files" (the
+        # union) and never the observed git delta.
+        if not isinstance(br, dict) or not br.get("approved_edit_surface") or not br.get("base"):
+            return BLAST_RADIUS_REQUIRED, ("no APPROVED_EDIT_SURFACE on record — run `blast-radius "
+                                           "--base <BASE_SHA> --target <files>` before the write "
+                                           "(review R6-F4: OBSERVED_DELTA is evidence, never "
+                                           "authority)")
         if not br.get("resolved", False) or br.get("mode") == "UNRESOLVED":
             return BLAST_RADIUS_REQUIRED, ("blast radius UNRESOLVED (git could not prove the "
                                            "delta) — production write blocked (review F2)")
+        # review R6-F5: Mode A base/graph coherence — at grounding/review time
+        # the lane base and the canonical graph base must be the SAME base, or
+        # the coverage claim "BASE_ONLY + DELTA_BY_DIFF" is dishonest.
         if not br_fresh(worktree, br):
             return BLAST_RADIUS_REQUIRED, ("blast radius computed at head=%s left HEAD ancestry "
                                            "(head=%s) — recompute incrementally, not a full init"
                                            % (br.get("head"), head_sha(worktree)))
+        # review R6-F5: Mode A base/graph coherence — at grounding/review time
+        # the lane base and the canonical graph base must be the SAME base, or
+        # the coverage claim "BASE_ONLY + DELTA_BY_DIFF" is dishonest. Blocked
+        # until the orchestrator reconciles (integrate / MODE B / MODE C).
+        mismatch, mdetail = mode_a_base_coherence(worktree, wt_state)
+        if mismatch:
+            return BLAST_RADIUS_REQUIRED, mdetail
+        approved = set(br.get("approved_edit_surface") or [])
         if file_path:
             rel = norm_rel(worktree, file_path)
-            if rel not in set(br.get("files") or []):
+            if rel not in approved:
                 # review F3: tracked/untracked must not decide scope authority
                 return BLAST_RADIUS_EXPANSION_REQUIRED, (
-                    "%s is outside the approved blast radius / EXPECTED_EDIT_SURFACE "
-                    "(%d files) — tracked or new, the approved surface is the authority; "
-                    "explicitly expand the intended edit surface and recompute blast-radius "
-                    "before widening the edit" % (rel, br.get("count", 0)))
-        return ALLOW_WRITE, ("grounding + blast radius satisfied TICKET=%s files=%d"
-                             % (wt_state.get("grounding_receipt", {}).get("TICKET", ""),
-                                br.get("count", 0)))
+                    "%s is outside the APPROVED_EDIT_SURFACE (%d approved files) — tracked or "
+                    "new, the approved surface is the authority; explicitly expand the intended "
+                    "edit surface (`blast-radius --target %s`) and recompute before widening "
+                    "the edit (review R6-F4)" % (rel, len(approved), rel))
+        detail = ("grounding + approved edit surface satisfied TICKET=%s approved=%d"
+                  % (wt_state.get("grounding_receipt", {}).get("TICKET", ""), len(approved)))
+        # review R6-F4: an already-changed file never authorises itself. The
+        # write on an APPROVED target proceeds, but the incoherence is emitted
+        # on every pre-edit decision (never silent) and LC-INV8 fails `verify`.
+        unapproved = sorted(br.get("unapproved_delta") or [])
+        if unapproved:
+            detail += (" UNAPPROVED_DELTA_DETECTED=%s (OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE — "
+                       "reconcile before review/handoff; an already-changed file never "
+                       "authorises itself on recompute)" % ",".join(unapproved))
+        return ALLOW_WRITE, detail
 
     # -- after editing: mark dirty only (contract §6.6 — never a per-edit sync)
     if intent == "post-edit":
@@ -600,8 +796,36 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                          "BASE_ONLY+DELTA_BY_DIFF, no lane CodeGraph sync exists, the canonical "
                          "graph remains BASE_ONLY + DELTA_BY_DIFF (review R5-F2)%s"
                          % (label, marked, git_delta, stale_note))
+    # Everything below is a GRAPH OWNER context: MODE A at the main checkout, or
+    # a MODE B lane (which owns its own graph).
+    owner_dir = worktree if mode == "B" else main_dir
+    owner_state = wt_state if mode == "B" else repo_state
+    owner_scope = "lane" if mode == "B" else "canonical"
+    # review R6-F6: a registered graph that fails its health probe is
+    # CORRUPT / PARTIAL / INCOMPATIBLE — an explicit fail-safe lifecycle state,
+    # never a deadlock and never a silent full re-init.
+    if init_done(owner_state):
+        ok, evidence = graph_health(owner_dir)
+        if not ok:
+            return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail(owner_scope, owner_dir, evidence)
     if dirty:
         return INCREMENTAL_SYNC_ONCE, "graph_dirty=YES → sync once, then record-sync-result --ok"
+    # review R6-F3 (defense in depth): a production source delta a worker made
+    # through Bash never fires a PostToolUse marker. Lifecycle boundaries must
+    # therefore inspect the Git source delta mechanically, so the graph sync is
+    # required even when HEAD is unchanged and graph_dirty is absent.
+    if init_done(owner_state):
+        present, paths = production_delta_present(worktree)
+        if present is None:
+            return INCREMENTAL_SYNC_ONCE, (
+                "graph delta UNRESOLVED (git could not prove a clean tree) — fail closed: "
+                "incremental sync once, then record-sync-result --ok (review R6-F3)")
+        if present:
+            return INCREMENTAL_SYNC_ONCE, (
+                "uncommitted PRODUCTION source delta (review R6-F3 mechanical git evidence, no "
+                "PostToolUse marker fired): %s — HEAD unchanged and graph_dirty=NO, the graph "
+                "still needs an incremental sync, then record-sync-result --ok"
+                % ",".join(paths[:5]))
     # review R5-F1: mechanical graph freshness — GRAPH_INDEX_SHA must equal
     # GRAPH_OWNER_HEAD even when no Edit marker ever fired (pull / merge /
     # fast-forward / checkout / external commit)
@@ -637,7 +861,12 @@ def verify(worktree):
     # LC-INV3  a failed sync never degrades into a full init
     wt_state = cs.load(worktree)
     graph_exists = index_present(worktree) or canonical_init or init_done(wt_state)
-    if wt_state.get("last_sync_failed") and graph_exists:
+    # review R6-F6: while the registered graph is corrupt, decide() honestly
+    # answers CODEGRAPH_REBUILD_REQUIRED — the sync-posture invariants below
+    # (LC-INV3/4/7) presuppose a healthy graph and must not fire against the
+    # recovery state.
+    rebuild_required = canonical_init and not graph_health(main_dir)[0]
+    if wt_state.get("last_sync_failed") and graph_exists and not rebuild_required:
         for intent in sorted(SYNC_INTENTS):
             dec, _ = decide(intent, worktree)
             if dec == INIT_ONCE:
@@ -645,7 +874,8 @@ def verify(worktree):
     # LC-INV4  dirty ⇒ the next sync-intent decision is INCREMENTAL_SYNC_ONCE
     #          (review R5-F2: EXCEPT an ordinary MODE A lane, where a source
     #          edit is candidate delta — the honest graph answer is NO_SYNC)
-    if wt_state.get("graph_dirty") and not wt_state.get("last_sync_failed") and graph_exists:
+    if (wt_state.get("graph_dirty") and not wt_state.get("last_sync_failed")
+            and graph_exists and not rebuild_required):
         lane_a = os.path.realpath(worktree) != os.path.realpath(main_dir) \
             and lane_mode_of() == "A"
         for intent in sorted(SYNC_INTENTS):
@@ -685,13 +915,26 @@ def verify(worktree):
     stale, index_sha, owner_head, _fscope = graph_freshness(worktree)
     owner_here = os.path.realpath(worktree) == os.path.realpath(main_dir) \
         or lane_mode_of() == "B"
-    if graph_exists and stale and owner_here and not wt_state.get("last_sync_failed"):
+    if (graph_exists and stale and owner_here and not wt_state.get("last_sync_failed")
+            and not rebuild_required):
         for intent in sorted(SYNC_INTENTS):
             dec, _ = decide(intent, worktree)
             if dec != INCREMENTAL_SYNC_ONCE:
                 findings.append("LC-INV7 GRAPH_OWNER_HEAD_FRESHNESS intent=%s returned %s "
                                 "(GRAPH_INDEX_SHA=%s != GRAPH_OWNER_HEAD=%s)"
                                 % (intent, dec, index_sha[:12], owner_head[:12]))
+    # LC-INV8  (review R6-F4) OBSERVED_DELTA ⊆ APPROVED_EDIT_SURFACE. An
+    #          already-changed file is evidence, never authority: a recorded
+    #          blast radius whose observed delta spills outside the approved
+    #          surface is an invariant breach, not a recompute away.
+    br = wt_state.get("blast_radius")
+    if isinstance(br, dict) and br.get("approved_edit_surface") is not None:
+        unapproved = sorted(set(br.get("observed_delta") or [])
+                            - set(br.get("approved_edit_surface") or []))
+        if unapproved:
+            findings.append("LC-INV8 %s files=%s (OBSERVED_DELTA is not a subset of "
+                            "APPROVED_EDIT_SURFACE — an already-changed file never authorises "
+                            "itself)" % (UNAPPROVED_DELTA_DETECTED, ",".join(unapproved)))
     return (not findings), findings
 
 
@@ -734,6 +977,26 @@ def main():
         # can never masquerade as the canonical init.
         graph_owner = worktree if lane else main_dir
         scope = "lane" if lane else "canonical"
+        # review R6-F2: record-init is REGISTRATION of a successfully initialized
+        # graph — it is WRITE-ONCE and is NOT a freshness-update mechanism.
+        # Freshness advances ONLY through a successful incremental sync
+        # (`codegraph sync` → `record-sync-result --ok` → last_sync_head = the
+        # graph owner's actual HEAD). An explicit rebuild is a SEPARATE recovery
+        # path (record-rebuild) and must never be reachable silently from here.
+        existing = cs.load(graph_owner)
+        if init_done(existing):
+            owner_head = head_sha(graph_owner)
+            out("ERROR=GRAPH_INIT_ALREADY_RECORDED scope=%s head=%s recorded_at=%s — record-init "
+                "is WRITE-ONCE (review R6-F2); graph indexed at %s while the graph owner HEAD is "
+                "%s is a FRESHNESS problem, not an init problem: run `codegraph sync` then "
+                "`record-sync-result --ok`. A corrupt/incompatible graph is an explicit rebuild "
+                "(`record-rebuild --authority %s%s`)."
+                % (scope, existing["graph_init"].get("head", ""),
+                   existing["graph_init"].get("initialized_at", ""),
+                   (existing["graph_init"].get("head", "") or "?")[:12],
+                   (owner_head or "?")[:12], REBUILD_AUTHORITY,
+                   " --lane" if lane else ""))
+            return 0
         # review F7/R4-D: honest init — a bare (or absent) .codegraph directory
         # is NOT health evidence; a real health probe must succeed, or one
         # failed init would lock the repo as "initialized"
@@ -771,8 +1034,76 @@ def main():
         state["last_sync_failed"] = False
         cs.save(target_dir, state)
         out("GRAPH_INIT_RECORDED scope=%s head=%s mode=%s health=%s (full init will now be "
-            "FORBIDDEN)" % (scope, state["graph_init"]["head"],
-                            state["graph_init"]["mode"], evidence))
+            "FORBIDDEN; record-init is WRITE-ONCE per review R6-F2)"
+            % (scope, state["graph_init"]["head"],
+               state["graph_init"]["mode"], evidence))
+        return 0
+
+    if cmd == "record-rebuild":
+        # review R6-F6: the SEPARATE, EXPLICIT recovery path for a corrupt /
+        # partial / incompatible graph. It is the only operation allowed to
+        # rewrite an existing graph_init record, and only when the orchestrator
+        # states the rebuild authority verbatim.
+        lane = "--lane" in args
+        main_dir = repo_main_dir(worktree) or worktree
+        graph_owner = worktree if lane else main_dir
+        scope = "lane" if lane else "canonical"
+        if flag(args, "--authority") != REBUILD_AUTHORITY:
+            out("ERROR=CODEGRAPH_REBUILD_AUTHORITY_REQUIRED scope=%s — a rebuild is an explicit "
+                "orchestrator authority action; pass `--authority %s` (review R6-F6: record-init "
+                "must never rebuild silently)" % (scope, REBUILD_AUTHORITY))
+            return 0
+        state = cs.load(graph_owner)
+        rec = state.get("graph_init")
+        # review R6-F6: rebuild is RECOVERY of an existing registration at the
+        # SAME scope — a lane rebuild requires a lane record, a canonical
+        # rebuild requires a canonical record (a same-file canonical record
+        # must never silently authorise a lane rebuild, or vice versa).
+        if not (isinstance(rec, dict) and rec.get("initialized_at")
+                and rec.get("scope") == scope):
+            out("ERROR=CODEGRAPH_REBUILD_REQUIRES_EXISTING_RECORD scope=%s — no graph_init record "
+                "exists at this scope; a first-time graph is registered with `record-init%s`, "
+                "rebuild is recovery only" % (scope, " --lane" if lane else ""))
+            return 0
+        if not os.path.isdir(index_dir(graph_owner)):
+            out("ERROR=GRAPH_REBUILD_REJECTED INDEX_MISSING scope=%s graph_dir=%s — rebuild the "
+                "index first, then record it" % (scope, index_dir(graph_owner)))
+            return 0
+        ok, evidence = graph_health(graph_owner)
+        if not ok:
+            out("ERROR=GRAPH_REBUILD_REJECTED CODEGRAPH_HEALTH_UNPROVEN scope=%s evidence=%s — "
+                "a rebuild is only recorded after the index is actually healthy"
+                % (scope, evidence))
+            return 0
+        owner_head = head_sha(graph_owner)
+        explicit = flag(args, "--head")
+        if explicit and owner_head and explicit != owner_head:
+            out("ERROR=GRAPH_REBUILD_HEAD_MISMATCH scope=%s --head=%s graph_owner_head=%s"
+                % (scope, explicit, owner_head))
+            return 0
+        if not owner_head:
+            out("ERROR=GRAPH_REBUILD_HEAD_UNAVAILABLE scope=%s — cannot record a rebuild without "
+                "a resolvable graph-owner HEAD" % scope)
+            return 0
+        prev = rec
+        rec = {
+            "initialized_at": prev.get("initialized_at") or cs.now_utc(),
+            "head": owner_head,
+            "worktree": os.path.realpath(worktree),
+            "mode": flag(args, "--mode", prev.get("mode", "full")),
+            "scope": scope,
+            "health_evidence": evidence,
+            "rebuilt_at": cs.now_utc(),
+            "rebuild_count": int(prev.get("rebuild_count") or 0) + 1,
+            "rebuild_reason": flag(args, "--reason", "UNSPECIFIED"),
+        }
+        state["graph_init"] = rec
+        state["last_sync_failed"] = False
+        state["last_sync_head"] = owner_head
+        state["graph_dirty"] = False
+        cs.save(graph_owner, state)
+        out("GRAPH_REBUILD_RECORDED scope=%s head=%s rebuild_count=%s reason=%s health=%s"
+            % (scope, rec["head"], rec["rebuild_count"], rec["rebuild_reason"], evidence))
         return 0
 
     if cmd == "blast-radius":
@@ -808,8 +1139,20 @@ def main():
         state = cs.load(worktree)
         state["blast_radius"] = rec
         cs.save(worktree, state)
-        out("BLAST_RADIUS=RECORDED mode=%s resolved=%s base=%s count=%d"
-            % (rec["mode"], rec["resolved"], rec["base"], rec["count"]))
+        out("BLAST_RADIUS=RECORDED mode=%s resolved=%s base=%s count=%d APPROVED=%d OBSERVED=%d "
+            "IMPACT=%d SURFACE_COHERENT=%s"
+            % (rec["mode"], rec["resolved"], rec["base"], rec["count"],
+               len(rec["approved_edit_surface"]), len(rec["observed_delta"]),
+               len(rec["impact_surface"]), "YES" if rec["surface_coherent"] else "NO"))
+        if not rec["surface_coherent"]:
+            # review R6-F4: an already-changed file is EVIDENCE, never authority.
+            # Recomputing without an explicit expansion leaves it unauthorized,
+            # and the incoherence is emitted instead of being absorbed.
+            out("%s files=%s — OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE (review R6-F4); these "
+                "files stay UNAUTHORIZED until an explicit authority action widens the surface: "
+                "`blast-radius --target <file>` (or EXPECTED_EDIT_SURFACE) then recompute. "
+                "Recomputing alone never approves an already-changed file."
+                % (UNAPPROVED_DELTA_DETECTED, ",".join(rec["unapproved_delta"])))
         return 0
 
     if cmd == "record-sync-result":
@@ -818,6 +1161,10 @@ def main():
         state["last_sync_failed"] = not ok
         if ok:
             state["graph_dirty"] = False
+            state["candidate_delta_dirty"] = False
+            # review R6-F2: freshness advances ONLY through a successful
+            # incremental sync — last_sync_head binds the ACTUAL graph owner
+            # HEAD (never a stale cached value).
             state["last_sync_head"] = head_sha(worktree) or state.get("last_sync_head", "")
             state["last_sync_at"] = cs.now_utc()
         cs.save(worktree, state)

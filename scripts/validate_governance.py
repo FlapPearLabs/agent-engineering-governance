@@ -50,6 +50,7 @@ REQUIRED_FILES = [
     "adapters/zcode/hooks/codegraph_state.py",
     "adapters/zcode/hooks/state_flush_guard.py",
     "adapters/zcode/hooks/grounding_guard.py",
+    "adapters/zcode/hooks/bash_preflight_guard.py",
     "adapters/zcode/hooks/codegraph_lifecycle.py",
     "adapters/zcode/hooks/_continuity_state.py",
     "adapters/zcode/tests/test_project_continuity.py",
@@ -373,7 +374,8 @@ def main() -> int:
     ad_text = ad.read_text(encoding="utf-8") if ad.is_file() else ""
     ad_ok = all(k in ad_text for k in (
         "project_state_guard.py", "codegraph_state.py", "state_flush_guard.py",
-        "grounding_guard.py", "runtime-state", "contract_version",
+        "grounding_guard.py", "bash_preflight_guard.py", "runtime-state",
+        "contract_version",
     ))
     check("zcode-adapter-reference-present", ad_ok, f"ok={ad_ok}")
 

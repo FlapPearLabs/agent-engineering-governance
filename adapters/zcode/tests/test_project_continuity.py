@@ -10,7 +10,13 @@ Needs only git + python stdlib — the hooks never invoke CodeGraph themselves.
   CG1-CG15   CodeGraph lifecycle & grounding (14 methods)
   LC1-LC21   lifecycle decision surface (21 methods; init once / sync /
              grounding + blast radius / never re-init per session)
-  → 53 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
+  R6         convergence repair regressions (PR #5 review round 6):
+             F1 stop marker is evidence not an issue / F2 record-init
+             write-once + record-rebuild recovery path / F3 Bash pre-grounding
+             allowlist + mechanical source delta / F4 approved vs observed
+             surface / F5 Mode A base coherence / F6 corrupt-graph rebuild
+             state / F7 receipt HEAD binding + NUL diff path exactness
+  → 60 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
     fresh Agent B clone). Review-driven: F1 mode A/B lanes (LC11/LC12),
     F2 fail-closed blast radius (LC13), F3 edit-surface authority (LC14),
     F4 structural receipts (CG14), F5 durability ladder (PS17),
@@ -44,6 +50,7 @@ CG_STATE = str(HOOKS / "codegraph_state.py")
 STOP_GUARD = str(HOOKS / "state_flush_guard.py")
 GROUND_GUARD = str(HOOKS / "grounding_guard.py")
 LC = str(HOOKS / "codegraph_lifecycle.py")
+BASH_GUARD = str(HOOKS / "bash_preflight_guard.py")
 
 
 def git(args, cwd, timeout=30):
@@ -135,11 +142,15 @@ class ContinuityBase(unittest.TestCase):
             json.dumps(state, indent=1), encoding="utf-8")
         return state
 
-    def run_tool(self, script, args=(), repo=None, stdin_data="", expect=None):
+    def run_tool(self, script, args=(), repo=None, stdin_data="", expect=None,
+                 extra_env=None):
+        env = hook_env(self.runtime)
+        if extra_env:
+            env.update(extra_env)
         proc = subprocess.run(
             [sys.executable, script] + list(args), cwd=str(repo or self.base),
             input=stdin_data, capture_output=True, text=True, timeout=60,
-            errors="replace", env=hook_env(self.runtime))
+            errors="replace", env=env)
         if expect is not None:
             self.assertEqual(proc.returncode, expect,
                              "rc=%s stdout=%s stderr=%s" % (proc.returncode, proc.stdout, proc.stderr))
@@ -157,8 +168,9 @@ class ContinuityBase(unittest.TestCase):
     def guard(self, repo):
         return self.run_tool(GUARD, repo=repo, stdin_data=json.dumps({"cwd": str(repo)})).stdout
 
-    def stop(self, repo):
-        return self.run_tool(STOP_GUARD, repo=repo, stdin_data=json.dumps({"cwd": str(repo)})).stdout
+    def stop(self, repo, extra_env=None):
+        return self.run_tool(STOP_GUARD, repo=repo, stdin_data=json.dumps({"cwd": str(repo)}),
+                             extra_env=extra_env).stdout
 
     def full_ground(self, repo, ticket="T-1", risk="MEDIUM", mode="manual", base=None,
                     extra=None):
@@ -219,6 +231,10 @@ class ProjectStateTests(ContinuityBase):
     def test_ps5_to_ps7_execution_events_dirty(self):
         repo = self.mk_repo()
         self.write_state(repo)
+        # review R6-F7a: a durability receipt binds the CURRENT git HEAD — the
+        # repo must have at least one commit (resolvable HEAD) for
+        # record-state-sync to record anything (fail-closed otherwise).
+        self.commit_all(repo, "bootstrap HEAD")
         for event in ("TICKET_STARTED", "PR_CREATED_OR_UPDATED",
                       "IMPORTANT_DEFECT_FIXED_WITH_REGRESSION"):
             out = self.run_tool(CG_STATE, ["record-event", event], repo=repo).stdout
@@ -1249,6 +1265,389 @@ class LifecycleDecisionTests(ContinuityBase):
         out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
         self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
         self.assertIn("head=%s" % lane_head, out)
+
+
+class R6ConvergenceTests(ContinuityBase):
+    """R6 convergence repair regressions (PR #5 review round 6).
+
+    F1  stop marker is evidence, not an issue (clean + BOUND marker → PASS)
+    F2  graph init record is WRITE-ONCE (second record-init rejected; freshness
+        only via incremental sync; record-rebuild is the separate recovery path)
+    F3  shell/Bash cannot bypass MEDIUM/HIGH grounding (strict pre-grounding
+        read-only allowlist; fail-closed UNKNOWN_BASH_MUTABILITY) + mechanical
+        git source delta forces graph sync even with no marker and HEAD unchanged
+    F4  authority (APPROVED_EDIT_SURFACE) separated from observation
+        (OBSERVED_DELTA) and impact (IMPACT_SURFACE); unapproved delta never
+        self-authorises on recompute
+    F5  MODE A base/graph coherence (lane base must equal canonical graph base)
+    F6  corrupt/partial index has an explicit CODEGRAPH_REBUILD_REQUIRED state
+        (never auto delete / auto full init; manual grounding stays possible)
+    F7  receipt HEAD binding (current HEAD is the default truth) + NUL diff
+        path exactness (no .strip() on diff paths)
+    """
+
+    def fake_index(self, repo):
+        d = repo / ".codegraph"
+        d.mkdir(exist_ok=True)
+        (d / "index.meta.json").write_text('{"status": "synthetic-healthy"}',
+                                           encoding="utf-8")
+
+    def ground(self, repo, ticket="T-1", risk="HIGH", mode="manual"):
+        return self.full_ground(repo, ticket=ticket, risk=risk, mode=mode)[0]
+
+    def in_process_state(self, repo):
+        """The hermetic in-process runtime state for `repo` (same key the hook
+        subprocesses use): ZCODE_RUNTIME_STATE_DIR must be pointed at the test
+        runtime BEFORE importing _continuity_state, or the load lands in the
+        real ~/.zcode/runtime-state instead of the synthetic one."""
+        prev = os.environ.get("ZCODE_RUNTIME_STATE_DIR")
+        os.environ["ZCODE_RUNTIME_STATE_DIR"] = str(self.runtime)
+        self.addCleanup(self._restore_runtime_env, prev)
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        return importlib.import_module("_continuity_state")
+
+    @staticmethod
+    def _restore_runtime_env(prev):
+        if prev is None:
+            os.environ.pop("ZCODE_RUNTIME_STATE_DIR", None)
+        else:
+            os.environ["ZCODE_RUNTIME_STATE_DIR"] = prev
+
+    def lc(self, repo, *args):
+        return self.run_tool(LC, list(args), repo=repo).stdout
+
+    def decide(self, repo, intent, **flags):
+        args = ["decide", "--intent", intent]
+        for k, v in flags.items():
+            args += ["--" + k.replace("_", "-"), v]
+        return self.lc(repo, *args)
+
+    def bash_guard(self, repo, command, risk="HIGH"):
+        return self.run_tool(BASH_GUARD, ["--command", command, "--risk", risk],
+                             repo=repo)
+
+    # R6-F1 — clean valid BOUND_FLUSH_MARKER must reach the PASS branch
+    def test_r6_f1_clean_bound_marker_is_pass(self):
+        repo = self.mk_repo(with_remote=True)
+        head = self.commit_all(repo)
+        self.write_state(repo, remote="https://example.org/org/repo.git", head=head)
+        self.commit_all(repo, "persist state")
+        head2 = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        git(["push", "-u", "origin", "main"], str(repo))
+        self.run_tool(CG_STATE, ["record-event", "TARGET_CHANGED"], repo=repo)
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2,
+                                 "--remote-verified"], repo=repo)
+        # before any marker: clean repo + REMOTE_VERIFIED receipt → PASS
+        out = self.stop(repo)
+        self.assertIn("STATE_FLUSH_GUARD=PASS", out)
+        # with a bound marker: STILL PASS — the marker is evidence, never an
+        # issue (the pre-R6 code path turned exactly this state into
+        # STATE_FLUSH_REQUIRED). extra_env is required: hook_env() pops the
+        # marker variables for every other test (hermetic default).
+        out = self.stop(repo, extra_env={"STATE_FLUSH_COMPLETED": "1",
+                                         "STATE_FLUSH_HEAD_SHA": head2})
+        self.assertIn("STATE_FLUSH_GUARD=PASS", out)
+        self.assertIn("BOUND_FLUSH_MARKER", out)
+        self.assertNotIn("STATE_FLUSH_REQUIRED", out)
+
+    # R6-F2 — record-init is WRITE-ONCE; freshness only via incremental sync
+    def test_r6_f2_record_init_write_once(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)                       # HEAD = A
+        self.fake_index(repo)
+        self.lc(repo, "record-init")                # graph indexed at A
+        head_a = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        # HEAD moves to B with no sync
+        (repo / "src" / "app.py").write_text("def main():\n    return 2\n", encoding="utf-8")
+        self.commit_all(repo, "advance to B")
+        head_b = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.assertNotEqual(head_a, head_b)
+        # a second normal record-init must be REJECTED — never a freshness update
+        out = self.lc(repo, "record-init")
+        self.assertIn("ERROR=GRAPH_INIT_ALREADY_RECORDED", out)
+        self.assertNotIn("GRAPH_INIT_RECORDED scope=canonical head=%s" % head_b, out)
+        # query still detects the graph stale → incremental sync required
+        out = self.decide(repo, "query")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertNotIn("INIT_ONCE", out)
+        # freshness advances ONLY through record-sync-result --ok
+        self.lc(repo, "record-sync-result", "--ok")
+        out = self.decide(repo, "query")
+        self.assertIn("NO_SYNC", out)
+        # the recorded init head was NEVER mutated by the second record-init
+        cs = self.in_process_state(repo)
+        st = cs.load(str(repo))
+        self.assertEqual(head_a, st["graph_init"]["head"])
+        self.assertEqual(head_b, st["last_sync_head"])  # freshness, not init
+        # the explicit rebuild path is separate and authority-gated
+        self.assertIn("ERROR=CODEGRAPH_REBUILD_AUTHORITY_REQUIRED",
+                      self.lc(repo, "record-rebuild"))
+        self.assertIn("ERROR=CODEGRAPH_REBUILD_REQUIRES_EXISTING_RECORD",
+                      self.lc(repo, "record-rebuild", "--authority",
+                              "CODEGRAPH_REBUILD_AUTHORIZED",
+                              "--lane"))
+
+    # R6-F3 — shell/Bash cannot bypass MEDIUM/HIGH grounding pre-grounding
+    def test_r6_f3_bash_preflight_allowlist(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        # HIGH + no receipt + read-only git status → ALLOW
+        p = self.bash_guard(repo, "git status")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("BASH_PREFLIGHT_DECISION=ALLOW", p.stdout)
+        p = self.bash_guard(repo, "git log --oneline -5")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        p = self.bash_guard(repo, "rg -n 'def main' src")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        p = self.bash_guard(repo, "git branch --show-current")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        # HIGH + no receipt + Bash write / redirection / chaining → BLOCK
+        for bad in ("echo x > src/app.py",
+                    "cat in.txt >> src/app.py",
+                    "git status && rm -rf src",
+                    "python script.py",
+                    "git commit -m x",
+                    "mv a b",
+                    "sed -i s/a/b/ src/app.py",
+                    "git push origin main",
+                    "ls | wc -l",
+                    "curl https://example.org"):
+            p = self.bash_guard(repo, bad)
+            self.assertEqual(p.returncode, 2, "expected BLOCK for %r" % bad)
+            self.assertIn("BASH_PREFLIGHT_DECISION=BLOCK", p.stdout)
+            self.assertIn("UNKNOWN_BASH_MUTABILITY", p.stdout)
+        # LOW risk below the threshold → ALLOW even pre-grounding
+        p = self.bash_guard(repo, "npm test", risk="LOW")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        # a valid grounding receipt exists → normal authorized Bash returns
+        self.full_ground(repo, ticket="T-R6", risk="HIGH", mode="manual")
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("normal Bash", p.stdout)
+
+    # R6-F3 — canonical source changed via Bash (no marker, HEAD unchanged)
+    #        → incremental sync required; MODE B same; MODE A lane → candidate
+    #        delta only (no lane graph sync)
+    def test_r6_f3_mechanical_delta_forces_graph_sync(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.lc(repo, "record-init")                # canonical graph healthy at HEAD
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        # Bash-made edit: write the file directly (no PostToolUse hook fires)
+        (repo / "src" / "bash_edit.py").write_text("x = 1\n", encoding="utf-8")
+        self.assertIn("GRAPH_DIRTY=NO", self.status(repo))
+        out = self.decide(repo, "query")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertIn("R6-F3", out)
+        # MODE B: the same mechanical evidence demands a LANE graph sync
+        wtb = self.base / "wt-r6b"
+        git(["worktree", "add", "-b", "feature/r6b", str(wtb)], str(repo))
+        self.fake_index(wtb)
+        self.lc(wtb, "record-init", "--lane")
+        self.assertIn("NO_SYNC", self.decide(wtb, "review", lane_mode="B"))
+        (wtb / "src" / "bash_edit2.py").write_text("y = 2\n", encoding="utf-8")
+        out = self.decide(wtb, "review", lane_mode="B")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertIn("R6-F3", out)
+        # MODE A ordinary lane: candidate delta detected → NO lane graph sync
+        wta = self.base / "wt-r6a"
+        git(["worktree", "add", "-b", "feature/r6a", str(wta)], str(repo))
+        self.lc(repo, "record-sync-result", "--ok")  # canonical fresh again
+        self.assertIn("NO_SYNC", self.decide(wta, "handoff"))
+        (wta / "src" / "bash_edit3.py").write_text("z = 3\n", encoding="utf-8")
+        out = self.decide(wta, "handoff")
+        self.assertIn("NO_SYNC", out)
+        self.assertIn("CANDIDATE_DELTA_DIRTY=YES", out)
+        self.assertIn("BASE_ONLY+DELTA_BY_DIFF", out)
+
+    # R6-F4 — authority vs observation: recompute never approves an
+    #         already-changed file; explicit expansion is the only widening path
+    def test_r6_f4_approved_vs_observed_surface(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.ground(repo)
+        base = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
+        # Bash writes a file OUTSIDE the approved surface
+        (repo / "src" / "unrelated.py").write_text("x = 1\n", encoding="utf-8")
+        out = self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
+        self.assertIn("BLAST_RADIUS=RECORDED", out)
+        self.assertIn("UNAPPROVED_DELTA_DETECTED", out)
+        self.assertIn("SURFACE_COHERENT=NO", out)
+        cs = self.in_process_state(repo)
+        st = cs.load(str(repo))
+        self.assertNotIn("src/unrelated.py", st["blast_radius"]["approved_edit_surface"])
+        # the file REMAINS unauthorized — recompute did not self-approve it
+        out = self.decide(repo, "pre-edit", risk="HIGH", file="src/unrelated.py")
+        self.assertIn("BLAST_RADIUS_EXPANSION_REQUIRED", out)
+        # …and the invariant checker reports the breach (LC-INV8)
+        p = self.run_tool(LC, ["verify"], repo=repo, expect=1)
+        self.assertIn("LC-INV8", p.stdout)
+        # explicit authority action: widen the surface → recompute → coherent
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py",
+                "--target", "src/unrelated.py")
+        out = self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py",
+                      "--target", "src/unrelated.py")
+        self.assertIn("SURFACE_COHERENT=YES", out)
+        out = self.decide(repo, "pre-edit", risk="HIGH", file="src/unrelated.py")
+        self.assertIn("ALLOW_WRITE", out)
+        p = self.run_tool(LC, ["verify"], repo=repo, expect=0)
+        self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
+
+    # R6-F5 — Mode A base/graph coherence: lane base must equal the canonical
+    #         graph base; a moved main/graph must NOT masquerade as the lane's
+    #         base graph
+    def test_r6_f5_mode_a_base_coherence(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)                        # HEAD = A
+        self.fake_index(repo)
+        self.lc(repo, "record-init")                 # canonical graph at A
+        wt = self.base / "wt-r6f5"
+        git(["worktree", "add", "-b", "feature/r6f5", str(wt)], str(repo))
+        base_a = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.full_ground(wt, ticket="T-A", risk="HIGH", mode="manual", base=base_a)
+        self.lc(wt, "blast-radius", "--base", base_a, "--target", "src/app.py")
+        # lane base A + canonical graph A → MODE A valid
+        self.assertIn("ALLOW_WRITE", self.decide(wt, "pre-edit", risk="HIGH",
+                                                 file="src/app.py"))
+        # main + canonical graph advance to B; the lane remains at A
+        (repo / "src" / "app.py").write_text("def main():\n    return 9\n", encoding="utf-8")
+        self.commit_all(repo, "main advances to B")
+        self.lc(repo, "record-sync-result", "--ok")  # graph synced to B
+        head_b = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.assertNotEqual(base_a, head_b)
+        # the lane must NOT get a false BASE_ONLY + DELTA_BY_DIFF PASS
+        out = self.decide(wt, "pre-edit", risk="HIGH", file="src/app.py")
+        self.assertIn("BLAST_RADIUS_REQUIRED", out)
+        self.assertIn("MODE_A_BASE_MISMATCH", out)
+        self.assertNotIn("ALLOW_WRITE", out)
+        # …and the honest answer on the lane is the reconcile instruction
+        self.assertIn("MODE C", out)
+
+    # R6-F6 — corrupt/partial index has an explicit recovery state
+    def test_r6_f6_corrupt_graph_recovery_state(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.lc(repo, "record-init")                 # healthy registration
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        # the graph becomes unhealthy (probe now fails)
+        (repo / ".codegraph" / "index.meta.json").unlink()
+        out = self.decide(repo, "query")
+        self.assertIn("CODEGRAPH_REBUILD_REQUIRED", out)
+        self.assertNotIn("INIT_ONCE", out)
+        self.assertNotIn("NO_SYNC", out)
+        self.assertIn("NEVER auto-delete", out)
+        self.assertIn("NEVER auto full init", out)
+        # session-start agrees (no silent re-init either)
+        self.assertIn("CODEGRAPH_REBUILD_REQUIRED", self.decide(repo, "session-start"))
+        # no silent full rebuild: record-init is write-once → rejected with the
+        # explicit rebuild pointer
+        self.assertIn("ERROR=GRAPH_INIT_ALREADY_RECORDED", self.lc(repo, "record-init"))
+        # the explicit rebuild path records the recovery once health is restored
+        (repo / ".codegraph" / "index.meta.json").write_text("{}", encoding="utf-8")
+        out = self.lc(repo, "record-rebuild", "--authority", "CODEGRAPH_REBUILD_AUTHORIZED",
+                      "--reason", "INDEX_CORRUPTION")
+        self.assertIn("GRAPH_REBUILD_RECORDED", out)
+        self.assertIn("rebuild_count=1", out)
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        # manual grounding fallback remains possible while corrupt (MODE C)
+        (repo / ".codegraph" / "index.meta.json").unlink()
+        self.full_ground(repo, ticket="T-M", risk="HIGH", mode="manual")
+        p = self.run_tool(GROUND_GUARD, ["--file", "src/app.py", "--risk", "HIGH"], repo=repo)
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("ALLOW_MANUAL", p.stdout)
+        # the invariant checker stays consistent in the recovery state: the
+        # sync-posture invariants presuppose a healthy graph and must not fire
+        # against CODEGRAPH_REBUILD_REQUIRED (verify PASS, no findings)
+        p = self.run_tool(LC, ["verify"], repo=repo, expect=0)
+        self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
+        self.assertNotIn("LC-INV", p.stdout)
+
+    # R6-F7a — a newly recorded durability receipt binds the CURRENT HEAD;
+    #          an explicit --head contradicting it is rejected; a cached
+    #          last_state_sync_head is never reused as default truth
+    def test_r6_f7a_state_sync_receipt_head(self):
+        repo = self.mk_repo(with_remote=True)
+        self.commit_all(repo)
+        self.write_state(repo, remote="https://example.org/org/repo.git",
+                         head="x" * 40)
+        self.commit_all(repo, "persist")
+        head1 = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        # (1) an explicit --head contradicting current HEAD → rejected
+        p = self.run_tool(CG_STATE, ["record-state-sync", "--head", "0" * 40],
+                          repo=repo, expect=2)
+        self.assertIn("ERROR=STATE_SYNC_HEAD_MISMATCH", p.stdout)
+        # (2) no --head → CURRENT HEAD is the default truth (cached head NEVER)
+        self.run_tool(CG_STATE, ["record-state-sync"], repo=repo)
+        cs = self.in_process_state(repo)
+        st = cs.load(str(repo))
+        self.assertEqual(head1, st["remote_durability"]["head_sha"])
+        self.assertEqual(head1, st["last_state_sync_head"])
+        # (3) explicit --head == current HEAD → accepted
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head1,
+                                 "--remote-verified"], repo=repo)
+        st = cs.load(str(repo))
+        self.assertEqual(head1, st["remote_durability"]["head_sha"])
+        self.assertEqual("REMOTE_VERIFIED", st["remote_durability"]["level"])
+
+    # R6-F7b — git diff -z paths are preserved EXACTLY (no .strip()); leading /
+    #          trailing space filenames survive; only empty NUL fields skipped.
+    #          Note: the FILESYSTEM leg exercises leading spaces + rename pairs
+    #          (Windows removes trailing spaces from names at creation, so the
+    #          trailing-space exactness claim is proven by the SYNTHETIC diff
+    #          leg below, which is where the old .strip() bug actually lived).
+    def test_r6_f7b_nul_diff_path_exactness(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        # filename with a leading space (legal on NTFS/ext4)
+        lead = repo / "src" / " lead-space.py"
+        lead.write_text("a = 1\n", encoding="utf-8")
+        git(["add", "-A"], str(repo))
+        self.commit_all(repo, "space names")
+        lead.write_text("a = 2\n", encoding="utf-8")
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        cl = importlib.import_module("codegraph_lifecycle")
+        files, resolved = cl.changed_files(str(repo), "")
+        self.assertTrue(resolved)
+        self.assertIn("src/ lead-space.py", files)
+        # staged rename with spaces: both endpoints represented exactly.
+        # The source must be COMMITTED first — git folds an add-then-rename of
+        # a never-committed file into a plain "A new" record (the old endpoint
+        # legitimately never existed in any revision).
+        (repo / "docs").mkdir(exist_ok=True)
+        spaced = repo / "docs" / "my notes file.md"
+        spaced.write_text("n1\n", encoding="utf-8")
+        git(["add", "docs/my notes file.md"], str(repo))
+        self.commit_all(repo, "commit source name")
+        git(["mv", "docs/my notes file.md", "docs/renamed notes file.md"], str(repo))
+        files2, resolved2 = cl.changed_files(str(repo), "")
+        self.assertTrue(resolved2)
+        self.assertIn("docs/renamed notes file.md", files2)
+        self.assertIn("docs/my notes file.md", files2)
+        # SYNTHETIC probe (the exact F7b defect shape): diff lines with
+        # leading/trailing spaces must survive byte-exact; empty NUL fields
+        # are the ONLY thing skipped — no .strip(), no path mutation
+        orig_git = cl._git
+
+        class SpacyDiff:
+            returncode = 0
+            stdout = "src/ pad both.py\x00src/x.py \x00\x00"
+
+        cl._git = lambda args, cwd, timeout=10: (
+            SpacyDiff() if args[:2] == ["diff", "--name-only"] else orig_git(args, cwd, timeout))
+        try:
+            files3, resolved3 = cl.changed_files(str(repo), "HEAD")
+        finally:
+            cl._git = orig_git
+        self.assertTrue(resolved3)
+        self.assertIn("src/ pad both.py", files3)
+        self.assertIn("src/x.py ", files3)
+        self.assertNotIn("src/x.py", files3)  # exactness — no silent mutation
 
 
 if __name__ == "__main__":

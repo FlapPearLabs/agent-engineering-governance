@@ -8,6 +8,9 @@ Mechanical checks only (no network, no writes):
   EVIDENCE ONLY (review R4-A2): even when bound to the current HEAD via
   STATE_FLUSH_HEAD_SHA they never early-return — git dirty, ahead/unpushed,
   project_state_dirty, graph_dirty and remote durability are ALWAYS evaluated.
+- review R6-F1: a marker (bound, unbound or stale) is EVIDENCE, never an ISSUE.
+  A valid HEAD-bound BOUND_FLUSH_MARKER on an otherwise clean repo therefore
+  reaches the PASS terminal; only real issues produce STATE_FLUSH_REQUIRED.
 - uncommitted changes / unpushed commits            → STATE_FLUSH_REQUIRED (existing semantics)
 - runtime project_state_dirty flag set              → DURABLE_STATE_SYNC_REQUIRED
   (a new meaningful transition also stales any earlier remote_durability receipt)
@@ -151,22 +154,29 @@ def main() -> int:
     if state.get("graph_dirty"):
         issues.append("CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP")
 
-    if note:
-        issues.insert(0, note)
+    # review R6-F1: A MARKER IS EVIDENCE, NOT AN ISSUE.
+    # The previous `issues.insert(0, note)` made `issues` non-empty on a clean,
+    # valid, HEAD-bound BOUND_FLUSH_MARKER — so the intended PASS branch was
+    # structurally unreachable and every clean stop was reported as
+    # STATE_FLUSH_REQUIRED. Real issues are now evaluated independently of the
+    # marker; the marker is only ever appended as context.
+    marker_suffix = (" | %s" % note) if note else ""
 
     if issues:
-        ctx = "STATE_FLUSH_REQUIRED: " + " ".join(issues) + \
+        ctx = "STATE_FLUSH_REQUIRED: " + " ".join(issues) + marker_suffix + \
               " — run canonical STATE_FLUSH before ending session"
-    elif note:
-        ctx = "STATE_FLUSH_GUARD=PASS (%s re-evaluated)" % note
     elif has_remote:
         rd = state.get("remote_durability") or {}
         ctx = ("STATE_FLUSH_GUARD=PASS REMOTE_VERIFIED=YES HEAD_SHA=%s"
                % (rd.get("head_sha") or head)) if rd.get("level") == "REMOTE_VERIFIED" \
             else "STATE_FLUSH_GUARD=PASS REMOTE_STATE_SYNC=DEFERRED"
+        if note:
+            ctx += " (%s re-evaluated — marker is evidence, not an issue)" % note
     else:
         ctx = ("STATE_FLUSH_GUARD=PASS REMOTE_STATE_SYNC=DEFERRED (no remote configured; "
                "honest no-remote failure receipt on file)")
+        if note:
+            ctx += " (%s re-evaluated — marker is evidence, not an issue)" % note
     print_ctx(ctx)
     return 0
 

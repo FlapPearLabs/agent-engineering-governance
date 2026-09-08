@@ -9,9 +9,10 @@
 | `hooks/governance_sync.py` | SessionStart | 治理仓同步 | SYNCED / BEHIND_FAST_FORWARDABLE / DIRTY / DIVERGED / REMOTE_UNAVAILABLE；不覆盖 dirty/diverged |
 | `hooks/project_state_guard.py` | SessionStart | 合同 §2 初始化 | 缺 `.agent/project-state.json` → `PROJECT_CONTINUITY_INITIALIZATION_REQUIRED`（orchestrator 自动执行 lazy adoption / 新仓 bootstrap，不问用户）；版本不兼容 → `PROJECT_STATE_CONTRACT_MIGRATION_REQUIRED` |
 | `hooks/codegraph_state.py`（`--hook`） | PostToolUse | 合同 §6.6 / §3 | 生产源码编辑 → `CODEGRAPH_DIRTY`；状态文档编辑 → `PROJECT_STATE_DIRTY`；只标脏，绝无 per-edit sync / full index |
-| `hooks/state_flush_guard.py` | Stop | 合同 §5 / §9 durability gate | 未提交/未推 → `STATE_FLUSH_REQUIRED`；project_state_dirty → `DURABLE_STATE_SYNC_REQUIRED`；remote-backed 项目按 F5 阶梯判定：无凭据/LOCAL_DURABLE/REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`，凭据缺 HEAD 绑定或绑定已前移的 HEAD → `REMOTE_RECEIPT_INVALID`（R5-F6 fail-closed），无凭据 deferred → `REMOTE_DEFERRED_EVIDENCE_INVALID`，合法终态仅 `REMOTE_VERIFIED=YES` 或带凭据 `REMOTE_STATE_SYNC=DEFERRED`；**未配置 remote → `REMOTE_REQUIRED`（R5-F4：REMOTE IS REQUIRED, NOT OPTIONAL——no-remote Stop 永非 PASS）**，唯一诚实替代终态为绑定 HEAD 的 no-remote DEFERRED failure receipt；env flush marker **只是证据不是 bypass**（R4-A2）——即使经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 也照常执行全套检查，未绑定/过期 → `UNBOUND/STALE_FLUSH_MARKER`；graph_dirty → `CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP`（sync 一次，禁止 fallback init） |
+| `hooks/state_flush_guard.py` | Stop | 合同 §5 / §9 durability gate | 未提交/未推 → `STATE_FLUSH_REQUIRED`；project_state_dirty → `DURABLE_STATE_SYNC_REQUIRED`；remote-backed 项目按 F5 阶梯判定：无凭据/LOCAL_DURABLE/REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`，凭据缺 HEAD 绑定或绑定已前移的 HEAD → `REMOTE_RECEIPT_INVALID`（R5-F6 fail-closed），无凭据 deferred → `REMOTE_DEFERRED_EVIDENCE_INVALID`，合法终态仅 `STATE_FLUSH_GUARD=PASS` 下 `REMOTE_VERIFIED=YES` 或带凭据 `REMOTE_STATE_SYNC=DEFERRED`；**未配置 remote → `REMOTE_REQUIRED`（R5-F4：REMOTE IS REQUIRED, NOT OPTIONAL——no-remote Stop 永非 PASS）**，唯一诚实替代终态为绑定 HEAD 的 no-remote DEFERRED failure receipt；env flush marker **只是证据不是 bypass 也不是 issue**（R4-A2 + R6-F1）——即使经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 也照常执行全套检查，且干净 + BOUND marker 直达 PASS 分支（R6-F1：note 不再插入 issues），未绑定/过期 → `UNBOUND/STALE_FLUSH_MARKER`（仅上下文）；graph_dirty → `CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP`（sync 一次，禁止 fallback init） |
 | `hooks/grounding_guard.py` | PreToolUse | 合同 §7 | RISK≥MEDIUM + 生产写 + 无 receipt → block（exit 2）`CODEGRAPH_GROUNDING_REQUIRED`；receipt 的 BASE_SHA 不在 HEAD 祖先链（base 被重写/换底）→ `GROUNDING_RECEIPT_STALE`——worker 自身的新 commit 不失效 receipt；MANUAL receipt（mode=manual）→ 放行 |
-| `hooks/codegraph_lifecycle.py` | CLI（orchestrator 决策入口） | 合同 §6.7 | 生命周期单一规范决策面：`INIT_ONCE / FULL_INIT_FORBIDDEN / INCREMENTAL_SYNC_ONCE / NO_SYNC / GROUNDING_REQUIRED / BLAST_RADIUS_REQUIRED / BLAST_RADIUS_EXPANSION_REQUIRED / ALLOW_WRITE / MARK_DIRTY / SYNC_FAILED_DEFERRED / NO_REPO`；`verify` 输出 LC-INV1..INV5 不变量（exit 1 = 违规，可接 CI 门禁） |
+| `hooks/bash_preflight_guard.py` | PreToolUse（Bash 命令） | 合同 §7 + R6-F3 | 有有效 grounding receipt → 正常 Bash 放行；RISK < MEDIUM → 放行；否则仅放行**严格只读白名单**（git status/diff/log/show/rev-parse/merge-base/ls-files/branch --show-current、rg/grep/find/ls/dir/cat/Get-Content）；重定向 / 链接 / 任意脚本 / git 变更 / 文件变更 / 未知命令族 → exit 2 `UNKNOWN_BASH_MUTABILITY`（fail closed，pre-grounding 不存在"看不懂但可能是只读"） |
+| `hooks/codegraph_lifecycle.py` | CLI（orchestrator 决策入口） | 合同 §6.7 | 生命周期单一规范决策面：`INIT_ONCE / FULL_INIT_FORBIDDEN / INCREMENTAL_SYNC_ONCE / NO_SYNC / GROUNDING_REQUIRED / BLAST_RADIUS_REQUIRED / BLAST_RADIUS_EXPANSION_REQUIRED / ALLOW_WRITE / MARK_DIRTY / SYNC_FAILED_DEFERRED / CODEGRAPH_REBUILD_REQUIRED（R6-F6 损坏图恢复态）/ NO_REPO`；`record-init` WRITE-ONCE（R6-F2，二次 → `GRAPH_INIT_ALREADY_RECORDED`），rebuild 走 `record-rebuild --authority CODEGRAPH_REBUILD_AUTHORIZED`；R6-F3 纵深防御：生命周期边界机械检查 git 生产源码 delta（无 marker / HEAD 不变也强制 sync；MODE A lane = candidate delta 证据）；R6-F5 `MODE_A_BASE_MISMATCH` 拒绝虚假 BASE_ONLY+DELTA_BY_DIFF PASS；R6-F4 blast radius 三面分离（APPROVED_EDIT_SURFACE 权威 / OBSERVED_DELTA 证据 / IMPACT_SURFACE 感知），`UNAPPROVED_DELTA_DETECTED` + LC-INV8；`verify` 输出 LC-INV1..INV8 不变量（exit 1 = 违规，可接 CI 门禁） |
 
 共享状态：`hooks/_continuity_state.py`（runtime-local，见下）。
 
@@ -22,7 +23,7 @@
 ```
 
 - 键 = **repo realpath + worktree realpath**（worktree 隔离，合同 §6.5）。
-- 内容：`graph_dirty / project_state_dirty / last_sync_head / last_sync_at / last_state_sync_* / grounding_receipt / graph_init / blast_radius / last_sync_failed`（后三项由生命周期决策面写入，合同 §6.7）。
+- 内容：`graph_dirty / project_state_dirty / candidate_delta_dirty / last_sync_head / last_sync_at / last_state_sync_* / grounding_receipt / graph_init / blast_radius / last_sync_failed / remote_durability`（后四项由生命周期决策面与 durability CLI 写入，合同 §6.7；R6-F4 起 blast_radius 含 `approved_edit_surface / observed_delta / impact_surface / unapproved_delta / surface_coherent`；R6-F2 起 graph_init 可能携带 `rebuilt_at / rebuild_count / rebuild_reason`）。
 - 测试覆盖根：环境变量 `ZCODE_RUNTIME_STATE_DIR`（合成测试矩阵用它保持 hermetic）。
 - **这些字段是 machine-only runtime state，绝不进入 Git / project-state index**（合同 §6.4；validator 会拒绝混入）。
 
@@ -36,6 +37,8 @@ record-state-sync [--head SHA] [--event E]
                   [--deferred --remote-operation OP --failure-class C --attempted-at AT]
                   # R4-A1: 裸 --deferred 拒绝（rc=2 REMOTE_DEFERRED_EVIDENCE_REQUIRED）；
                   #        DEFERRED 必须绑定真实失败凭据 HEAD_SHA+OP+C+AT
+                  # R6-F7a: 当前 git HEAD 是默认真相——receipt HEAD 必须等于当前 HEAD，
+                  #        显式 --head 矛盾 → rc=2 STATE_SYNC_HEAD_MISMATCH，缓存 head 永不默认复用
 set-grounding --ticket T --risk RISK --base-sha SHA --mode graph|manual
               [--seam S] [--surface S] [--out-of-scope S] | --clear
 pre-query   # R4-B: 仅委托 codegraph_lifecycle decide(intent=query)——ONE LIFECYCLE →
@@ -59,11 +62,19 @@ record-init [--head SHA] [--mode full] [--lane]
        # graph path；lane index 永不能冒充 canonical init。
        # R5-F5: 记录的 init SHA = graph owner 的实际 HEAD（canonical 从 lane 调用绑定
        # 主 checkout HEAD）；显式 --head 与 owner HEAD 矛盾 → GRAPH_INIT_HEAD_MISMATCH
+       # R6-F2: WRITE-ONCE——已有 graph_init 记录后再调用 → ERROR=GRAPH_INIT_ALREADY_RECORDED
+       #（新鲜度问题走 sync，损坏问题走 record-rebuild，绝不静默覆写）
+record-rebuild --authority CODEGRAPH_REBUILD_AUTHORIZED [--lane] [--reason R]
+       # R6-F6: 损坏/不完整/不兼容图的唯一恢复路径——显式 orchestrator 权限动作；
+       # 只能重写"同 scope 已存在"的记录；重建后绑定 owner HEAD 并清 dirty
 blast-radius [--base SHA] [--target F ...] [--impact-file JSON]
        # R5-F3: porcelain 解析 NUL 安全（git status --porcelain=v1 -z / diff -z）；
        # unstaged/staged/untracked/rename/空格文件名全支持；解析失败 → resolved=false
+       # R6-F7b: diff -z 路径逐字保留（无 .strip()），仅空 NUL 字段跳过
+       # R6-F4: 三面分离 APPROVED_EDIT_SURFACE / OBSERVED_DELTA / IMPACT_SURFACE，
+       # 出界 → UNAPPROVED_DELTA_DETECTED（重算不自我授权；显式扩张是唯一加宽途径）
 record-sync-result --ok | --fail                  # fail → SYNC_FAILED_DEFERRED，绝不回落 init
-verify                                            # LC-INV1..INV7；exit 1 = 违规
+verify                                            # LC-INV1..INV8；exit 1 = 违规
 ```
 
 规则一句话版：**新仓 init 一次 → 以后只增量 sync → 改前 grounding + blast radius → 改后标 dirty → review/handoff/stop 必要时增量 sync → 永远不在每个 session 再 full init。**
@@ -92,11 +103,22 @@ verify                                            # LC-INV1..INV7；exit 1 = 违
 - **鲁棒性**：lifecycle 边界用廉价 git 机械证据（`status --porcelain=v1 -z`）补足 Edit marker（JIT 不 per-edit）；git spawn 瞬时失败重试一次后如实失败。
 - **B3/B4**：`record-init` 需真实 graph health evidence（生产默认 `codegraph status`；测试注入 `ZCODE_CODEGRAPH_HEALTH_CMD` mock），空 `.codegraph` 目录不再算健康；canonical/lane scope 严格分离，lane index 不能冒充 canonical init。
 
+评审修正 R6（PR #5 convergence repair F1–F7，2026-09-09）：
+
+- **F1 marker = evidence, not issue**：Stop guard 不再把 marker note 插入 issues（旧代码使干净 BOUND marker 结构性挡住 PASS）。测试：R6-F1。
+- **F2 init record WRITE-ONCE**：二次 `record-init` → `GRAPH_INIT_ALREADY_RECORDED`；freshness 只经 `record-sync-result --ok`；恢复走 `record-rebuild --authority CODEGRAPH_REBUILD_AUTHORIZED`（同 scope 才可重建）。测试：R6-F2。
+- **F3 shell 缺口**：新增 `bash_preflight_guard.py`（严格只读白名单，未知/变更/链接 → `UNKNOWN_BASH_MUTABILITY` BLOCK；有 receipt 后正常放行）；生命周期边界机械检查 git 生产源码 delta——Bash 编辑、无 marker、HEAD 不变也强制 graph sync（MODE B lane 同理；MODE A lane = candidate delta 证据）。测试：R6-F3（×2）。
+- **F4 权威/观测分离**：`APPROVED_EDIT_SURFACE`（权威）/ `OBSERVED_DELTA`（证据）/ `IMPACT_SURFACE`（感知）三面分离；`OBSERVED_DELTA ⊄ APPROVED` → `UNAPPROVED_DELTA_DETECTED`，重算不自我授权，显式扩张是唯一加宽途径；机械化为 LC-INV8。测试：R6-F4。
+- **F5 Mode A base 一致性**：`LANE_BASE_SHA != CANONICAL_GRAPH_INDEX_SHA` → `MODE_A_BASE_MISMATCH`，拒绝虚假 BASE_ONLY+DELTA_BY_DIFF PASS；和解三选项（integrate / MODE B / MODE C）；不做 graph snapshot versioning。测试：R6-F5。
+- **F6 损坏图恢复态**：已注册图健康探测失败 → 第 13 个封闭枚举 `CODEGRAPH_REBUILD_REQUIRED`；绝不 auto delete / auto full init；MODE C manual grounding 保持可用；LC-INV3/4/7 在恢复态不误触发。测试：R6-F6。
+- **F7a receipt HEAD**：`record-state-sync` 以当前 HEAD 为默认真相，`--head` 矛盾 → rc=2 `STATE_SYNC_HEAD_MISMATCH`，缓存 head 永不默认复用。测试：R6-F7a。
+- **F7b NUL diff 路径**：`git diff -z` 路径逐字保留（删除 `.strip()`），仅空 NUL 字段跳过；trailing-space 精确保真由合成 diff 探针证明（Windows 文件系统在创建时即剥离文件名尾随空格，无法落盘构造）。测试：R6-F7b。
+
 ## Install（新 ZCode 环境重建）
 
 1. 取本仓（fresh clone `FlapPearLabs/agent-engineering-governance`）。
 2. 把 `hooks/*.py` 拷到本机 hook 目录（如 `~/.zcode/hooks/`）；共享模块 `_continuity_state.py` 必须同目录。
-3. 在 runtime config 的 hooks 节接线：SessionStart → `project_state_guard.py`；PostToolUse → `codegraph_state.py --hook`；Stop → `state_flush_guard.py`；PreToolUse → `grounding_guard.py`。
+3. 在 runtime config 的 hooks 节接线：SessionStart → `project_state_guard.py`；PostToolUse → `codegraph_state.py --hook`；Stop → `state_flush_guard.py`；PreToolUse → `grounding_guard.py`（结构化 Edit/Write）+ `bash_preflight_guard.py`（Bash 命令，R6-F3）。
 4. 验证：`python3 ../../scripts/validate_project_state.py <any-governed-repo>` + `python3 -m unittest discover -s tests`（合成矩阵）。
 
 ## Version alignment（LOCAL_HOOK_CONTRACT_VERSION == REMOTE）

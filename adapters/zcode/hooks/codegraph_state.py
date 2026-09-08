@@ -152,10 +152,28 @@ def cli(args: list[str]) -> int:
         # Review F5: durability is a three-level ladder, never collapsed into
         # "done". A receipt is always bound to the exact HEAD it flushed and a
         # timestamp, so any later meaningful transition stales it.
+        # Review R6-F7a: CURRENT GIT HEAD IS THE DEFAULT TRUTH for a newly
+        # recorded durability receipt. The old `state["last_state_sync_head"] or
+        # git_head(...)` reused a CACHED head and could therefore manufacture a
+        # fresh receipt bound to an OLD head — a receipt that looks current and
+        # is not. Rules: current HEAD must exist; an explicit --head that
+        # contradicts it is rejected; the cached head is never the default.
+        cur_head = git_head(worktree)
+        explicit_head = args[args.index("--head") + 1] if "--head" in args else ""
+        if not cur_head:
+            out("ERROR=STATE_SYNC_HEAD_UNAVAILABLE — cannot record a durability receipt without "
+                "a resolvable current git HEAD (review R6-F7a: current HEAD is the default "
+                "truth; nothing was recorded)")
+            return 2
+        if explicit_head and explicit_head != cur_head:
+            out("ERROR=STATE_SYNC_HEAD_MISMATCH --head=%s current_head=%s — a durability receipt "
+                "must bind the CURRENT git HEAD (review R6-F7a); nothing was recorded"
+                % (explicit_head, cur_head))
+            return 2
+        head = cur_head
         state["project_state_dirty"] = False
         state["last_state_sync_at"] = cs.now_utc()
-        if "--head" in args:
-            state["last_state_sync_head"] = args[args.index("--head") + 1]
+        state["last_state_sync_head"] = head
         if "--event" in args:
             state["last_state_sync_event"] = args[args.index("--event") + 1]
         level = "LOCAL_DURABLE"
@@ -164,7 +182,8 @@ def cli(args: list[str]) -> int:
         elif "--pushed" in args:
             level = "REMOTE_PUSHED"
         deferred = "--deferred" in args
-        head = state.get("last_state_sync_head") or git_head(worktree)
+        # review R6-F7a: `head` is already the CURRENT git HEAD (never a cached
+        # one) — do not re-derive it from last_state_sync_head here.
         receipt_extra = {}
         if deferred:
             # review R4-A1: REMOTE_STATE_SYNC=DEFERRED is a FAILURE receipt,

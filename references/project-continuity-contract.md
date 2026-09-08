@@ -187,7 +187,7 @@ Stop 前若 `GRAPH_DIRTY = YES` 且 index 健康 → sync 一次；**sync 失败
 
 ### 6.7 生命周期决策表（单一规范决策面）
 
-整个生命周期只有一个决策入口（ZCode 参考实现：`adapters/zcode/hooks/codegraph_lifecycle.py`，命令 `decide --intent <I>`），任何 session / hook / orchestrator 都不得自行从散文重新推导规则。判定枚举封闭，共 12 个：
+整个生命周期只有一个决策入口（ZCode 参考实现：`adapters/zcode/hooks/codegraph_lifecycle.py`，命令 `decide --intent <I>`），任何 session / hook / orchestrator 都不得自行从散文重新推导规则。判定枚举封闭，共 13 个：
 
 ```text
 INIT_ONCE                      新仓（无 index 且无 init 记录）→ 允许一次 full init（仅限 main checkout 或显式 MODE B lane）
@@ -197,11 +197,15 @@ FULL_INIT_FORBIDDEN            已有 init 记录或 index → full init 永远�
 INCREMENTAL_SYNC_ONCE          dirty → 增量同步恰好一次，随后清脏
 NO_SYNC                        干净 → 无事可做
 GROUNDING_REQUIRED             MEDIUM/HIGH 生产写且无 receipt（§7）
-BLAST_RADIUS_REQUIRED          有 receipt 但无 blast radius / 失效 / UNRESOLVED
+BLAST_RADIUS_REQUIRED          有 receipt 但无 blast radius / 失效 / UNRESOLVED / MODE_A_BASE_MISMATCH
 BLAST_RADIUS_EXPANSION_REQUIRED  写入已跟踪但不在 blast radius 内的文件
 ALLOW_WRITE                    pre-edit 门禁满足
 MARK_DIRTY                     改完只标脏，同步延后（§6.6）
 SYNC_FAILED_DEFERRED           同步失败如实报告，绝不升级为 full init
+CODEGRAPH_REBUILD_REQUIRED     R6-F6：已注册 graph 健康探测失败 = 损坏/不完整/不兼容 →
+                               报告原因；绝不 auto delete、绝不 auto full init；必须由
+                               orchestrator 显式 rebuild 权限（record-rebuild）裁决；
+                               未决期间 MEDIUM/HIGH 可走 MODE C manual grounding
 NO_REPO                        非 git worktree → no-op
 ```
 
@@ -233,7 +237,20 @@ LC-INV7  GRAPH_OWNER_HEAD_FRESHNESS（R5-F1）：GRAPH_INDEX_SHA != GRAPH_OWNER_
          全部 sync intents 返回 INCREMENTAL_SYNC_ONCE，即使 GRAPH_DIRTY=NO
          （在 graph owner checkout 处强制；MODE A lane 在 NO_SYNC 注记中上报
          staleness，绝不把 canonical sync 伪装成 lane sync）
+LC-INV8  UNAPPROVED_DELTA_DETECTED（R6-F4）：OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE
+         ⇒ `verify` FAIL——已变更文件是证据不是权威，重算不会自我授权
 ```
+
+**评审修正 R6（PR #5 convergence repair F1–F7，2026-09-09）**：
+
+- **F1 stop marker 是证据不是 issue**。Stop guard 不再把 marker note 塞进 issues 集合——旧代码 `issues.insert(0, note)` 使干净有效的 BOUND_FLUSH_MARKER 令 issues 非空，PASS 分支结构上不可达。真实 issue 独立评估；`BOUND marker + clean git + 无未推送 + state/graph clean + 有效 remote 终态` → `STATE_FLUSH_GUARD=PASS`。
+- **F2 graph init record 是 WRITE-ONCE**。`record-init` 是"成功初始化的注册"，不是新鲜度更新：已有 `graph_init` 记录后再调用一律拒绝（`GRAPH_INIT_ALREADY_RECORDED`）。新鲜度只经 `codegraph sync → record-sync-result --ok → last_sync_head = graph owner 实际 HEAD` 推进。显式 rebuild 是独立恢复路径（`record-rebuild --authority CODEGRAPH_REBUILD_AUTHORIZED`），绝不从 record-init 静默可达。
+- **F3 shell/Bash 不可绕过 MEDIUM/HIGH grounding**。新增 `bash_preflight_guard.py`（PreToolUse）：有有效 receipt → 正常放行；RISK < MEDIUM → 放行；否则仅放行严格只读白名单（git status/diff/log/show/rev-parse/merge-base/ls-files/branch --show-current、rg/grep/find/ls/dir/cat/Get-Content），重定向 / 链接 / 任意脚本 / git 变更 / 文件变更命令 / 未知命令族一律 `UNKNOWN_BASH_MUTABILITY` → BLOCK（fail closed）。纵深防御：生命周期边界机械检查 git 源码 delta（tracked/untracked/rename 双端点，排除 runtime state 与 .codegraph）——即使 HEAD 不变、graph_dirty 缺失，生产源码 delta 也要求 graph 增量 sync（MODE B lane 同理要求 lane sync；MODE A lane 仍是 candidate delta 证据、无 lane sync）。
+- **F4 权威与观测分离**。blast radius 三面分离：`APPROVED_EDIT_SURFACE`（权威：仅来自显式 targets / EXPECTED_EDIT_SURFACE / 显式授权扩张，绝不来自观测 git 变更，也绝不来自 CodeGraph impact）、`OBSERVED_DELTA`（证据：tracked/untracked/deletes/renames）、`IMPACT_SURFACE`（结构感知，不自动授权编辑每个受影响文件）。不变量 `OBSERVED_DELTA ⊆ APPROVED_EDIT_SURFACE`，违反 → `UNAPPROVED_DELTA_DETECTED`；扩张唯一途径是显式 authority action（--target / EXPECTED_EDIT_SURFACE）后重算——"已改过的文件重算后自动获批"被机制性禁止。机械化为 `LC-INV8`。
+- **F5 MODE A base/graph 一致性**。grounding/review 时比较 `LANE_BASE_SHA（TICKET_BASE_SHA）` 与 `CANONICAL_GRAPH_INDEX_SHA`：不等 → `MODE_A_BASE_MISMATCH`，绝不静默把最新 main 的 graph 当作旧 lane 的 base graph。Orchestrator 三选项：(A) lane 更新/整合到当前授权 base、(B) 升级 MODE B candidate-exact graph、(C) MODE C manual grounding。未和解前 MEDIUM/HIGH 生产写/review 不得声称有效 Mode A 结构 grounding；grounding receipt 绑定 `BASE_SHA / GRAPH_BASE_SHA / GRAPH_MODE` 且校验实际比较这些字段。**不实现 graph snapshot versioning**，保持最小修复。
+- **F6 损坏/不完整 index 有显式恢复态**。`.codegraph` 存在但健康探测失败且 init 记录已存在 → `CODEGRAPH_REBUILD_REQUIRED`（第 13 个封闭枚举值）：报告原因、绝不 auto delete、绝不 auto full init、必须 orchestrator 显式 rebuild 权限；未决期间 MEDIUM/HIGH 可走 MODE C manual grounding（不阻塞、不静默降级）。同时防止 LC-INV3/4/7 在恢复态误触发。
+- **F7a state-sync receipt 的 HEAD 绑定**。`record-state-sync` 以**当前 git HEAD 为默认真相**：当前 HEAD 必须存在、receipt HEAD 必须等于当前 HEAD；显式 `--head` 与当前 HEAD 矛盾 → `STATE_SYNC_HEAD_MISMATCH` 拒绝（rc=2）；旧缓存的 `last_state_sync_head` 绝不再充当新 receipt 的默认值——绝不制造绑定旧 HEAD 的"新鲜" receipt。
+- **F7b NUL diff 路径逐字保留**。`git diff --name-only -z` 已提供 NUL 边界——不做 `.strip()`（首/尾空格是合法文件名字符）；NUL 之间字节逐字保留，仅空 NUL 字段被跳过；绝不变异文件名却返回 resolved=true。
 
 blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
 
@@ -311,7 +328,8 @@ Fresh Agent 只需知道 `FlapPearLabs/agent-engineering-governance` 即可发�
 
 ## 12. 测试矩阵（canonical 证据）
 
-- **PS1–PS15**（project state）：新仓初始化 / lazy adoption / TARGET·ADR 变更 / ticket·PR·CI·回归事件 / 只读会话不脏 / Stop 脏未 flush / 成功 flush / 远端不可用 / fresh Agent 仅凭 remote 恢复 / 合同版本升级 / 绝对路径拒绝 / secret-like 拒绝。
-- **CG1–CG12**（CodeGraph）：健康无变更不 sync / 编辑标脏 / 重复编辑仍只脏 / 查询前 JIT sync 一次 / 缺 index 才 init / 已有 index 禁 init / 分支切换=增量 / sync 失败不 fallback init / 双 worktree 状态隔离 / MEDIUM 无 grounding 阻止 / 有 receipt 放行 / UNAVAILABLE → MANUAL fallback。
+- **PS1–PS20**（project state）：新仓初始化 / lazy adoption / TARGET·ADR 变更 / ticket·PR·CI·回归事件 / 只读会话不脏 / Stop 脏未 flush / 成功 flush / 远端不可用 / fresh Agent 仅凭 remote 恢复 / 合同版本升级 / 绝对路径拒绝 / secret-like 拒绝 / remote durability 阶梯 / marker 无 bypass / receipt HEAD 绑定（R6-F7a 收口）。
+- **CG1–CG15**（CodeGraph）：健康无变更不 sync / 编辑标脏 / 重复编辑仍只脏 / 查询前 JIT sync 一次 / 缺 index 才 init / 已有 index 禁 init / 分支切换=增量 / sync 失败不 fallback init / 双 worktree 状态隔离 / MEDIUM 无 grounding 阻止 / 有 receipt 放行 / UNAVAILABLE → MANUAL fallback / 结构不完整 receipt 拒绝 / pre-query 单一决策面。
+- **R6 回归**（PR #5 convergence repair，9 个）：F1 干净 BOUND marker → PASS；F2 record-init write-once + freshness 只经 sync + rebuild 权限门；F3 Bash pre-grounding 白名单（只读放行 / 变更与链接 BLOCK）+ Bash 制造的生产 delta 机械强制 graph sync（A canonical / B lane / A lane candidate）；F4 观测 delta 不自我授权 + LC-INV8；F5 MODE A base/graph 一致性（MODE_A_BASE_MISMATCH 拒绝虚假 BASE_ONLY PASS）；F6 损坏 index 显式恢复态（不自动重建、manual fallback 保留、verify 一致）；F7 receipt 绑当前 HEAD + NUL diff 路径逐字保留（含合成 trailing-space 探针）。
 - **CROSS-AGENT RESTORE**：Agent A 初始化→产生状态→STATE_FLUSH→remote simulation；丢弃 A 的全部 context 后 fresh Agent B 仅凭 remote 恢复 target/canonical docs/current state/legal frontier/next legal action，不依赖人工重讲。
 - 实现位置：`../adapters/zcode/tests/`（合成本地 synthetic repos，不触碰任何产品仓；CI 接入 `../.github/workflows/governance-ci.yml`）。
