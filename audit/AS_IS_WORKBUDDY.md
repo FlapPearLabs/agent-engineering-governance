@@ -132,10 +132,10 @@
 ## 12. CURRENT_GIT_FLOW
 
 - 项目级红线（RULES §8）：禁 force push / amend / rebase-after-review / squash；ff-only；master 串行集成；merge 前 fresh fetch + remote master 核验；`MASTER_DRIFT != CONTENT_CONFLICT`。
-- 全局 git 身份：`git config --global user.name/user.email` **为空**；凭据走 `credential.https://github.com.helper = !/opt/homebrew/bin/gh auth git-credential`。
+- 全局 git 身份：`git config --global user.name/user.email` **为空**；凭据走 `credential.https://github.com.helper = !<PATH_TO_GH> auth git-credential`（绝对路径属宿主事实，模板见 deployment/deployment-profile.md）。
 - 署名纪律（AUTHOR_NAME=FlapPearLabs / GITHUB_NOREPLY）存在于用户工程记忆，未落任何全局文件；逐仓 repo-local config 维持。
 - 代理依赖：外网统一走 `http://127.0.0.1:<port>`（git push / gh / npm 均依赖），**未写入任何持久配置**，每次操作需显式 env —— 机器特定、易碎、无文档。
-- `gh` CLI 在 `/opt/homebrew/bin/gh`（v2.89.0，已认证 FlapPearLabs），**但不在 agent sandbox 默认 PATH 中**（裸 `gh` 报 command not found；绝对路径可用）。
+- `gh` CLI 在 `<PATH_TO_GH>`（版本见 local-only 机器档案，公开产物不登记），**但不在 agent sandbox 默认 PATH 中**（裸 `gh` 报 command not found；绝对路径可用）。
 
 ## 13. CURRENT_MULTI_AGENT_CAPABILITY
 

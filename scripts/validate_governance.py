@@ -30,6 +30,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Single source of truth for public-release policy. Imported, not duplicated:
+# the patterns below must never drift from the public-release gate.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import validate_public_release as vpr  # noqa: E402
+
 REQUIRED_FILES = [
     "README.md", "AGENTS.md", "RULES.md",
     "references/execution-stage.md", "references/ticket-lane.md",
@@ -52,27 +57,20 @@ REQUIRED_FILES = [
 CANONICAL_MCP = ["codegraph", "context7", "gh_grep"]
 
 # Tier 1 (RULES R2 layer-1): credentials/secrets AND local OS/personal identity
-# (e.g. host login username) — banned in EVERY file, designated files included.
+# (e.g. a concrete host login home directory) — banned in EVERY file, designated
+# files included.
 # Note: repository/account identifiers (git author name, account handle,
 # noreply email) are legitimate and NOT scanned here (R2 terminology, B2 fix).
-CREDENTIAL_PATTERNS = [
-    r"ghp_[A-Za-z0-9]{20,}",   # GitHub PAT
-    r"github_pat_",
-    r"sk-[A-Za-z0-9]{20,}",    # generic API key
-    r"-----BEGIN [A-Z ]*PRIVATE KEY",
-    r"(?i)cookie\s*=",
-    r"(?i)password\s*=",
-    r"songshiyao",             # local OS login identity of the current host
-]
+# The patterns are generic: NO concrete host login name is hard-coded here —
+# hard-coding one in a PUBLIC repository would itself be the leak.
+CREDENTIAL_PATTERNS = [p.pattern for _name, p in vpr.TIER_A_PATTERNS]
 # Tier 2 (RULES R2 layer-2): host-specific facts — banned in general governance
-# artifacts; allowed ONLY in designated deployment files carrying the marker
-# "MACHINE-SPECIFIC ALLOWED" (private repo, purpose = machine recovery).
-MACHINE_PATTERNS = [
-    r"/Users/",
-    r"127\.0\.0\.1:7897",
-]
-DESIGNATED_MARKER = "MACHINE-SPECIFIC ALLOWED"
-DESIGNATED_DIR = "deployment"
+# artifacts; in a PRIVATE repository they may appear in designated deployment
+# files carrying the marker "MACHINE-SPECIFIC ALLOWED". In a PUBLIC repository
+# that exception does not exist (see validate_public_release.public_mode).
+MACHINE_PATTERNS = [p.pattern for _name, p in vpr.TIER_B_PATTERNS]
+DESIGNATED_MARKER = vpr.DESIGNATED_MARKER
+DESIGNATED_DIR = vpr.DESIGNATED_DIR
 
 PLATFORM_MARKERS = [
     r"(基线|baseline)\s*[=＝:：]\s*(macOS|PowerShell|Windows|pwsh|zsh)",
@@ -132,31 +130,37 @@ def main() -> int:
     check("json-parses", not json_bad, f"bad={json_bad}")
 
     # 4. secrets / machine-private paths (two-tier, RULES R2)
-    #    The scanner itself is exempt: it embeds its own detection regexes.
-    def is_designated(f: Path) -> bool:
-        try:
-            head = "\n".join(f.read_text(encoding="utf-8", errors="ignore").splitlines()[:10])
-        except Exception:  # noqa: BLE001
-            return False
-        return DESIGNATED_MARKER in head and str(f.relative_to(ROOT)).startswith(DESIGNATED_DIR)
-
-    cred_leaks: list[str] = []
-    mach_leaks: list[str] = []
-    scan_files = [p for p in ROOT.rglob("*")
-                  if p.is_file() and p.suffix in {".md", ".json", ".py", ".sh", ".txt", ".yml", ".yaml"}
-                  and ".git" not in p.parts
-                  and p.name != "validate_governance.py"]
-    for f in scan_files:
-        text = f.read_text(encoding="utf-8", errors="ignore")
-        for pat in CREDENTIAL_PATTERNS:
-            if re.search(pat, text):
-                cred_leaks.append(f"{f.relative_to(ROOT)} matches {pat}")
-        if not is_designated(f):
-            for pat in MACHINE_PATTERNS:
-                if re.search(pat, text):
-                    mach_leaks.append(f"{f.relative_to(ROOT)} matches {pat}")
+    #    Delegated to the public-release gate so there is exactly ONE scanning
+    #    implementation. Consequences of the external audit (F1/F2):
+    #      - NO file is exempt, the two validator sources included. Excluding
+    #        detector source is precisely how host identity leaked before.
+    #      - Selection is content-based (text/binary + size cap), never a file
+    #        extension allowlist, so .env / Dockerfile / Makefile /
+    #        extensionless config are covered.
+    #      - Tier B (machine facts) is skipped only for a designated
+    #        deployment profile in PRIVATE mode; PUBLIC mode has no exception.
+    tier_findings = vpr.scan_tree(ROOT)
+    cred_leaks = [v.render() for v in tier_findings
+                  if v.severity in ("SECRET", "LOCAL_IDENTITY")]
+    mach_leaks = [v.render() for v in tier_findings
+                  if v.severity == "MACHINE_FINGERPRINT"]
     check("no-credentials-anywhere", not cred_leaks, f"leaks={cred_leaks[:5]}")
     check("machine-facts-only-in-designated-files", not mach_leaks, f"leaks={mach_leaks[:5]}")
+
+    # 4b. PUBLIC_ACCOUNT_IDENTITY: HEAD commit metadata must carry the
+    #     intentional public project identity, not a secondary account handle.
+    head_meta = vpr.head_commit_metadata(ROOT)
+    if head_meta:
+        ident_problems = (
+            vpr.identity_problems("author", head_meta["author_name"],
+                                  head_meta["author_email"])
+            + vpr.identity_problems("committer", head_meta["committer_name"],
+                                    head_meta["committer_email"]))
+        check("head-commit-metadata-is-public-project-identity",
+              not ident_problems, f"problems={ident_problems}")
+    else:
+        check("head-commit-metadata-is-public-project-identity", True,
+              "no git metadata available (non-repo checkout)")
 
     # 5. MEMORY pointer budget
     pointer = ROOT / "deployment/MEMORY_POINTER_CANDIDATE.md"

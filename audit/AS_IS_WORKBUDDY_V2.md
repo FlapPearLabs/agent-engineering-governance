@@ -42,7 +42,7 @@
 - FACT：当前全局层 = MEMORY.md（截断注入）+ 身份文件 + 系统提示（含 skills 清单）。
 - FACT：工程宪法语义当前实际宿主 = 项目仓（zhihu AGENTS/RULES 全文），而非任何全局文件。
 - FACT：机器私有事实散落处 = MEMORY.md 内绝对路径（`~/…/.local/bin/codegraph`）、mcp.json 绝对路径、git credential helper 的 gh 绝对路径、代理端口仅存在于用户操作习惯（无持久配置文件）。
-- FACT：`gh` 2.89.0 位于 `/opt/homebrew/bin/gh`，已认证 FlapPearLabs；agent sandbox PATH 中无 `gh`（裸命令 miss，绝对路径可用）。
+- FACT：`gh` 位于 `<PATH_TO_GH>`（版本属宿主事实，登记在 local-only 机器档案），已认证 FlapPearLabs；agent sandbox PATH 中无 `gh`（裸命令 miss，绝对路径可用）。
 - FACT：全局 git config：credential.helper 走 gh；user.name/email 为空；无 http.proxy 配置。
 - FACT：zhihu 仓 5 个 linked worktree（wt-p1-reform/t08/t08-reform/t09/t11）——每 lane 独立目录/分支。
 - FACT：a'gen't'resume 仓同样采用 AGENTS.md+RULES.md 模式（内容与 zhihu 不同，未共享文件）。
@@ -64,8 +64,8 @@
 
 ## 7. Git/GitHub/网络现状
 
-- FACT：git 2.50.1；credential 走 gh auth git-credential；gh 已认证（FlapPearLabs 活跃 + panglihaoshuai）。
-- FACT：治理仓 bootstrap（本会话）通过显式 `HTTPS_PROXY=http://127.0.0.1:<port>` 注入完成 push/PR——该代理仅存在于操作时刻的环境变量，无持久配置。
+- FACT：git 2.50.1；credential 走 gh auth git-credential；gh 已认证（FlapPearLabs 活跃账号）。**其他已认证账号属账号关联事实，公开产物不登记。**
+- FACT：治理仓 bootstrap（本会话）通过显式 `HTTPS_PROXY=<LOCAL_PROXY_URL>` 注入完成 push/PR——该代理仅存在于操作时刻的环境变量，无持久配置（端点属宿主事实，公开产物不登记）。
 - INFERENCE：本机外网操作依赖本地代理（多项目记忆与本次成功操作一致指向该结论）。
 - UNKNOWN：无代理时各端点的可达性（未测）。
 
