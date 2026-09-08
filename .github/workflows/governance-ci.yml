@@ -16,3 +16,11 @@ jobs:
           python-version: "3.12"
       - name: Run governance self-validation
         run: python3 scripts/validate_governance.py
+      - name: Run public-release current-tree scan
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py
+      - name: Run public-release policy self-tests
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py --selftest

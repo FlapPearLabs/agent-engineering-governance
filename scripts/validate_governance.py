@@ -30,6 +30,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Single source of truth for public-release policy. Imported, not duplicated:
+# the patterns below must never drift from the public-release gate.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import validate_public_release as vpr  # noqa: E402
+
 REQUIRED_FILES = [
     "README.md", "AGENTS.md", "RULES.md",
     "references/execution-stage.md", "references/ticket-lane.md",
@@ -52,27 +57,20 @@ REQUIRED_FILES = [
 CANONICAL_MCP = ["codegraph", "context7", "gh_grep"]
 
 # Tier 1 (RULES R2 layer-1): credentials/secrets AND local OS/personal identity
-# (e.g. host login username) — banned in EVERY file, designated files included.
+# (e.g. a concrete host login home directory) — banned in EVERY file, designated
+# files included.
 # Note: repository/account identifiers (git author name, account handle,
 # noreply email) are legitimate and NOT scanned here (R2 terminology, B2 fix).
-CREDENTIAL_PATTERNS = [
-    r"ghp_[A-Za-z0-9]{20,}",   # GitHub PAT
-    r"github_pat_",
-    r"sk-[A-Za-z0-9]{20,}",    # generic API key
-    r"-----BEGIN [A-Z ]*PRIVATE KEY",
-    r"(?i)cookie\s*=",
-    r"(?i)password\s*=",
-    r"songshiyao",             # local OS login identity of the current host
-]
+# The patterns are generic: NO concrete host login name is hard-coded here —
+# hard-coding one in a PUBLIC repository would itself be the leak.
+CREDENTIAL_PATTERNS = [p.pattern for _name, p in vpr.TIER_A_PATTERNS]
 # Tier 2 (RULES R2 layer-2): host-specific facts — banned in general governance
-# artifacts; allowed ONLY in designated deployment files carrying the marker
-# "MACHINE-SPECIFIC ALLOWED" (private repo, purpose = machine recovery).
-MACHINE_PATTERNS = [
-    r"/Users/",
-    r"127\.0\.0\.1:7897",
-]
-DESIGNATED_MARKER = "MACHINE-SPECIFIC ALLOWED"
-DESIGNATED_DIR = "deployment"
+# artifacts; in a PRIVATE repository they may appear in designated deployment
+# files carrying the marker "MACHINE-SPECIFIC ALLOWED". In a PUBLIC repository
+# that exception does not exist (see validate_public_release.public_mode).
+MACHINE_PATTERNS = [p.pattern for _name, p in vpr.TIER_B_PATTERNS]
+DESIGNATED_MARKER = vpr.DESIGNATED_MARKER
+DESIGNATED_DIR = vpr.DESIGNATED_DIR
 
 PLATFORM_MARKERS = [
     r"(基线|baseline)\s*[=＝:：]\s*(macOS|PowerShell|Windows|pwsh|zsh)",
@@ -132,8 +130,11 @@ def main() -> int:
     check("json-parses", not json_bad, f"bad={json_bad}")
 
     # 4. secrets / machine-private paths (two-tier, RULES R2)
-    #    The scanner itself is exempt: it embeds its own detection regexes.
+    #    The scanners themselves are exempt: they embed their own detection
+    #    regexes. In PUBLIC release mode the designated escape hatch is closed.
     def is_designated(f: Path) -> bool:
+        if vpr.public_mode():
+            return False
         try:
             head = "\n".join(f.read_text(encoding="utf-8", errors="ignore").splitlines()[:10])
         except Exception:  # noqa: BLE001
@@ -145,7 +146,7 @@ def main() -> int:
     scan_files = [p for p in ROOT.rglob("*")
                   if p.is_file() and p.suffix in {".md", ".json", ".py", ".sh", ".txt", ".yml", ".yaml"}
                   and ".git" not in p.parts
-                  and p.name != "validate_governance.py"]
+                  and p.name not in vpr.SELF_EXEMPT]
     for f in scan_files:
         text = f.read_text(encoding="utf-8", errors="ignore")
         for pat in CREDENTIAL_PATTERNS:

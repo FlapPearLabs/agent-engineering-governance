@@ -23,6 +23,13 @@
 
 > 本仓是 FlapPearLabs 全部软件工程项目的 **canonical 治理 owner**：`audit/` 目录全部为**历史证据**，不是 runtime 权威；canonical runtime 权威 = `RULES.md` + `AGENTS.md` + `references/` + `deployment/` setup 文档。
 
+> **本仓是 PUBLIC 仓库。** 因此公开产物只承载治理语义，不承载任何一台机器的身份或恢复细节：
+>
+> - **提交入库的**：治理文档、`references/`、`deployment/` setup 文档、校验器与测试——全部为公开治理产物。
+> - **占位符形态的机器配置**：`deployment/deployment-profile.md` 是 PUBLIC-SAFE 模板，值一律写 `<PATH_TO_GH>` / `<LOCAL_PROXY_URL>` / `${HOME}` 等占位符（约定见该文件与 [mcp/README.md](mcp/README.md)）。
+> - **local-only / 私有恢复数据**：真实机器档案 `deployment/deployment-profile.local.md` 已被 `.gitignore` 忽略，永不入库；旧 MEMORY 原始备份同样只存 Git 之外的私有存储（RULES R2）。
+> - **公开发布校验**：`python3 scripts/validate_public_release.py`（当前树扫描，CI 强制；`--history` 做全历史扫描；`--selftest` 跑合成策略测试）。PUBLIC 模式下 `MACHINE-SPECIFIC ALLOWED` 标记**不产生任何豁免**；判定不依赖 GitHub API（`PUBLIC_RELEASE=1` 可离线强制）。
+
 ---
 
 ## 目录
@@ -594,6 +601,13 @@ RULES R2 双层分区：机器事实只允许出现在 `deployment/` 下 designa
 - Skills 安装/升级：更新 [skills/README.md](skills/README.md) 对应行（SOURCE 证据如实），走治理变更评审。
 - MCP server 变更：更新 [mcp/README.md](mcp/README.md) 并走治理变更评审。
 - 所有变更 push 前跑 `python3 scripts/validate_governance.py`，CI 强制。
+- 公开发布安全：所有变更 push 前跑 `python3 scripts/validate_public_release.py`（当前树扫描；CI 强制）。全历史扫描与合成策略测试：
+
+  ```bash
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py              # CURRENT_TREE_SCAN
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --history     # GIT_HISTORY_SCAN
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --selftest    # 合成策略测试
+  ```
 - 报告 novelty-first：先新发现（NEW_*），再 delta；`NONE` 合法，禁止编造。
 
 ---

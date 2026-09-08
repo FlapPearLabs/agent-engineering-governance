@@ -1,0 +1,3 @@
+# Local-only machine recovery profile.
+# Contains real host paths / ports / runtime versions. NEVER commit.
+deployment/deployment-profile.local.md

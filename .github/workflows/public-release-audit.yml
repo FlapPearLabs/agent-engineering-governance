@@ -1,0 +1,37 @@
+name: public-release-audit
+
+# DEDICATED PUBLIC/HISTORY AUDIT.
+# The full-history scan walks every blob in the object store and is therefore
+# deliberately NOT part of every push: governance-ci already runs the cheap
+# CURRENT_TREE_SCAN on every commit. Run this job when release-hardening
+# changes land, on demand, or weekly.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "security/**"]
+    paths:
+      - "scripts/validate_public_release.py"
+      - "scripts/validate_governance.py"
+      - ".github/workflows/public-release-audit.yml"
+      - "deployment/**"
+      - "audit/**"
+  schedule:
+    - cron: "0 4 * * 1"
+
+jobs:
+  history-audit:
+    name: public-release-history-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history is required for the blob walk
+          fetch-tags: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run full-history public-release scan
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py --history
