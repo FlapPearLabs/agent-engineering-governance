@@ -1,3 +1,9 @@
 # Local-only machine recovery profile.
 # Contains real host paths / ports / runtime versions. NEVER commit.
 deployment/deployment-profile.local.md
+
+# Generated Python bytecode / caches. Never part of the public candidate
+# surface, and keeping them ignored is what makes CURRENT_TREE scope
+# deterministic between a workstation and CI (audit F5).
+__pycache__/
+*.pyc

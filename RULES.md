@@ -24,9 +24,11 @@
 - **历史原文归档（B2 修复）**：被迁移/替换的旧 MEMORY 等 raw 历史文件**默认不进 Git**——原始备份 local-only（Git 之外，如本机私有目录）；治理仓 `deployment/archive/` 只保存 **sanitized/redacted 迁移快照**。任何 raw 归档提交前必须过 R2 第一层扫描 + 人工 redaction，**任何凭据/secret/local identity 命中即阻止 commit**；designated 目录不豁免第一层。
 - 提交到 Git 的工具/MCP 配置必须是占位符模板形态（`${HOME}`、`${TOKEN_FROM_ENV}`、`<PATH_TO_BINARY>`）。
 - 为什么普适：泄漏不可撤回；分区 + 归档规则让"机器可恢复、历史可追溯"与"共享产物干净"兼容。
-- V: `scripts/validate_governance.py` 双层扫描——凭据/local-identity 模式全库零命中（designated 文件不豁免本层）；machine 模式在非 designated 文件零命中；designated 文件必须带头标记。扫描实现单一来源（委托 `validate_public_release.scan_tree`），避免两套判定漂移。
+- V: `scripts/validate_governance.py` 双层扫描——凭据/local-identity 模式在公开候选面零命中（designated 文件不豁免本层）；machine 模式在非 designated 文件零命中；designated 文件必须带头标记；公开候选面不得存在 `UNSCANNED_OVERSIZE_PUBLIC_FILE`。扫描实现单一来源（委托 `validate_public_release.scan_tree`），避免两套判定漂移。
 - **V（无自我豁免，F1 修复）**：扫描器**不得**存在整体文件级豁免清单。`scripts/validate_governance.py` 与 `scripts/validate_public_release.py` 自身与其他文件同等受第一层/第二层检查；测试用**运行时合成** fixture（敏感字面量不出现在源码中），并含"向校验器源码副本注入具体本机路径 → 公开扫描必须 FAIL"的回归。
-- **V（不依赖文件后缀，F2 修复）**：当前树与历史扫描**不得**按扩展名白名单跳过任何文件。文本/二进制判定基于**内容**（blob 大小上限 + NUL/非文本字节比例分类 + 流式读取）；`.env`、`Dockerfile`、无扩展名文件命中凭据必须 FAIL。扫描 scope 必须诚实记账（`refs/objects/blobs/text_scanned/skipped_binary/skipped_oversize/size_cap_bytes`）。
+- **V（不依赖文件后缀，F2 修复）**：当前树与历史扫描**不得**按扩展名白名单跳过任何文件。文本/二进制判定基于**内容**（单对象读取上限 + NUL/非文本字节比例分类）；`.env`、`Dockerfile`、无扩展名文件命中凭据必须 FAIL。读取是**有界读取，不是流式扫描**：候选在上限内整体读入，超限者拒扫而非部分检查。扫描 scope 必须诚实记账（`enum/refs/objects/blobs/text_scanned/skipped_binary/skipped_oversize/skipped_unreadable/size_cap_bytes`）。
+- **V（CURRENT_TREE = 公开候选面，F5 修复）**：当前树扫描的对象**不是**"磁盘上的一切"，而是**公开候选面** = tracked + untracked 且未被忽略（等价于 `git ls-files --cached --others --exclude-standard`），读取这些路径的**工作区当前内容**。被 Git 忽略的机器本地产物（local-only 恢复档案 `deployment/deployment-profile.local.md`、`__pycache__/`、`*.pyc`、各类缓存）**不属于**公开候选面——它们从不发布，纳入扫描既违背 local-only 档案契约，也会让本地与 CI 的 scope 不确定。非 Git 工作区根的回退按文件系统枚举，但必须在 scope 中**显式分类**（`enum=`）。
+- **V（未扫描 ≠ 干净，F6 修复）**：CURRENT_TREE 候选文件超过读取上限时**必须 fail-closed**，分类为 `UNSCANNED_OVERSIZE_PUBLIC_FILE`，且**不得打印其内容**。历史模式可将超限 blob 记为**已计量的跳过证据**，前提是：`skipped_oversize` 显式上报、不作 full-history clean 声明、保留限定措辞。
 - **V（PUBLIC 模式）**：`PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py` —— designated 标记在 PUBLIC 模式下不产生任何豁免；`--history` 做 GIT_HISTORY_SCAN（与 CURRENT_TREE_SCAN 分开计量，结论措辞为 `CONFIRMED_SECRET_LEAKS = NONE_FOUND_WITHIN_SCANNED_REACHABLE_TEXT_OBJECTS`，不得声称 full-history clean）；`--commit-metadata` 做 `CURRENT_HEAD_COMMIT_METADATA` 公开身份门；`--selftest` 跑合成策略测试。PUBLIC 判定不依赖 GitHub API（离线确定性）。
 
 ## R3 证据真实性
