@@ -30,6 +30,20 @@ import _continuity_state as cs
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Replace"}
 
 
+def repo_main_dir(worktree):
+    """Canonical repo working dir (the MODE A graph owner). Local copy so the
+    PostToolUse marker never depends on importing the lifecycle module."""
+    try:
+        r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           cwd=worktree, capture_output=True, text=True, timeout=10,
+                           errors="replace")
+        if r.returncode == 0 and r.stdout.strip():
+            return os.path.dirname(r.stdout.strip()) or worktree
+    except Exception:
+        pass
+    return worktree
+
+
 def git_head(worktree):
     try:
         r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=worktree, capture_output=True,
@@ -74,8 +88,21 @@ def hook_mode() -> int:
         if kind:
             state = cs.load(worktree)
             if kind == "graph":
-                state["graph_dirty"] = True
-                mark = "CODEGRAPH_DIRTY=YES"
+                # review R5-F2: the dirty-state truth table — a canonical (main
+                # checkout) or MODE B lane source edit marks the graph that
+                # edit actually dirties; an ordinary MODE A lane edit is
+                # CANDIDATE DELTA (fresh git diff is the evidence), never a
+                # lane CodeGraph sync requirement (coverage=BASE_ONLY+DELTA_BY_DIFF).
+                main_dir = repo_main_dir(worktree)
+                is_lane = os.path.realpath(worktree) != os.path.realpath(main_dir)
+                lane_mode = (os.environ.get("ZCODE_CODEGRAPH_LANE_MODE") or "A").upper()
+                if is_lane and lane_mode == "A":
+                    state["candidate_delta_dirty"] = True
+                    mark = ("CANDIDATE_DELTA_DIRTY=YES (MODE A lane — no lane CodeGraph sync "
+                            "exists; canonical graph coverage=BASE_ONLY+DELTA_BY_DIFF)")
+                else:
+                    state["graph_dirty"] = True
+                    mark = "CODEGRAPH_DIRTY=YES"
             else:
                 state["project_state_dirty"] = True
                 mark = "PROJECT_STATE_DIRTY=YES"
@@ -96,6 +123,7 @@ def cli(args: list[str]) -> int:
 
     if cmd == "status":
         out("GRAPH_DIRTY=%s" % ("YES" if state.get("graph_dirty") else "NO"),
+            "CANDIDATE_DELTA_DIRTY=%s" % ("YES" if state.get("candidate_delta_dirty") else "NO"),
             "PROJECT_STATE_DIRTY=%s" % ("YES" if state.get("project_state_dirty") else "NO"),
             "LAST_SYNC_HEAD=%s" % state.get("last_sync_head", ""),
             "GROUNDING_RECEIPT=%s" % ("present" if state.get("grounding_receipt") else "absent"))

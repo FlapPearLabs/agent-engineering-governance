@@ -6,18 +6,21 @@ Runs the adapter hooks + project-state validator against throwaway synthetic
 repos (temp dirs, deleted afterwards). Never touches any product repository.
 Needs only git + python stdlib — the hooks never invoke CodeGraph themselves.
 
-  PS1-PS19   project-state lifecycle (17 methods; PS3/PS4 and PS5-PS7 combined)
+  PS1-PS20   project-state lifecycle (18 methods; PS3/PS4 and PS5-PS7 combined)
   CG1-CG15   CodeGraph lifecycle & grounding (14 methods)
-  LC1-LC17   lifecycle decision surface (17 methods; init once / sync /
+  LC1-LC21   lifecycle decision surface (21 methods; init once / sync /
              grounding + blast radius / never re-init per session)
-  → 48 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
+  → 53 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
     fresh Agent B clone). Review-driven: F1 mode A/B lanes (LC11/LC12),
     F2 fail-closed blast radius (LC13), F3 edit-surface authority (LC14),
     F4 structural receipts (CG14), F5 durability ladder (PS17),
     F6 index shape validation (PS18), F7 record-init honesty (LC15);
     R4 single decision surface (CG15), all-intents lane invariant (LC16),
     health-proof + init scope (LC17), deferred authority + marker
-    no-bypass (PS19).
+    no-bypass (PS19); R5 graph-owner-head freshness (LC18 + LC-INV7),
+    MODE A candidate-delta semantics (CG9/LC19), NUL-safe porcelain
+    parsing (LC20), remote-required stop + receipt HEAD binding (PS10/
+    PS11/PS20), record-init owner-SHA binding (LC21).
 
 Run:  python adapters/zcode/tests/test_project_continuity.py
   or  python -m unittest discover -s adapters/zcode/tests
@@ -244,19 +247,32 @@ class ProjectStateTests(ContinuityBase):
         self.assertIn("DURABLE_STATE_SYNC_REQUIRED", out)
         self.assertIn("STATE_FLUSH_REQUIRED", out)
 
-    # PS10 — successful State Flush clears the gate
+    # PS10 — successful State Flush clears the gate (review R5-F4: remote
+    # semantics — a governed repo ends REMOTE_VERIFIED, never "no remote → PASS")
     def test_ps10_successful_state_flush(self):
-        repo = self.mk_repo()
+        repo = self.mk_repo(with_remote=True)
         head = self.commit_all(repo)
-        self.write_state(repo, head=head)
+        self.write_state(repo, remote="https://example.org/org/repo.git", head=head)
         self.commit_all(repo, "persist state")  # flush includes durable commit
         head2 = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        git(["push", "-u", "origin", "main"], str(repo))
         self.run_tool(CG_STATE, ["record-event", "TARGET_CHANGED"], repo=repo)
         self.run_tool(CG_STATE, ["record-state-sync", "--head", head2], repo=repo)
+        # LOCAL_DURABLE alone is not a clean stop (remote required)
+        out = self.stop(repo)
+        self.assertIn("REMOTE_VERIFICATION_REQUIRED", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+        # remote-verified receipt bound to this HEAD → the honest clean terminal
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2,
+                                 "--remote-verified"], repo=repo)
         out = self.stop(repo)
         self.assertIn("STATE_FLUSH_GUARD=PASS", out)
+        self.assertIn("REMOTE_VERIFIED=YES", out)
 
-    # PS11 — remote unavailable: DEFERRED semantics, work never blocked
+    # PS11 — remote unavailable: DEFERRED semantics, work never blocked.
+    # Review R5-F4: SessionStart AND Stop use the SAME remote semantics —
+    # a no-remote Stop is NOT a PASS (REMOTE_REQUIRED); the honest terminal
+    # is a no-remote DEFERRED failure receipt bound to HEAD.
     def test_ps11_remote_unavailable_deferred(self):
         repo = self.mk_repo()  # no origin configured
         self.write_state(repo, remote="", head="")  # deferred-mode index
@@ -265,6 +281,19 @@ class ProjectStateTests(ContinuityBase):
         g = self.guard(repo)
         self.assertIn("PROJECT_CONTINUITY_INITIALIZED", g)
         self.assertIn("REMOTE_STATE_SYNC=DEFERRED", g)
+        # Stop side: same remote semantics
+        self.commit_all(repo, "bootstrap")
+        out = self.stop(repo)
+        self.assertIn("REMOTE_REQUIRED", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+        head = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.run_tool(CG_STATE, ["record-state-sync", "--deferred", "--head", head,
+                                 "--remote-operation", "git push origin main",
+                                 "--failure-class", "REMOTE_NOT_CONFIGURED",
+                                 "--attempted-at", "2026-09-08T00:00:00Z"], repo=repo)
+        out = self.stop(repo)
+        self.assertIn("STATE_FLUSH_GUARD=PASS", out)
+        self.assertIn("REMOTE_STATE_SYNC=DEFERRED", out)
 
     # PS12 — CROSS-AGENT RESTORE: fresh Agent B recovers from remote only
     def test_ps12_cross_agent_restore_from_remote(self):
@@ -499,6 +528,55 @@ class ProjectStateTests(ContinuityBase):
         self.assertIn("DURABLE_STATE_SYNC_REQUIRED", proc.stdout)
         self.assertNotIn("STATE_FLUSH_GUARD=PASS", proc.stdout)
 
+    # PS20 — review R5-F4/F6: REMOTE IS REQUIRED, NOT OPTIONAL; terminal
+    # durability receipts fail CLOSED on HEAD binding (missing binding or a
+    # moved HEAD must never PASS — transient broken HEAD refs are realistic)
+    def test_ps20_remote_required_and_receipt_head_binding(self):
+        # (F4) no remote + no receipt → NOT a clean stop
+        repo = self.mk_repo()  # no origin
+        self.commit_all(repo)
+        self.write_state(repo, remote="", head="")
+        self.commit_all(repo, "persist")
+        out = self.stop(repo)
+        self.assertIn("REMOTE_REQUIRED", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+        # (F6-1) remote-backed: a REMOTE_VERIFIED receipt WITHOUT a HEAD
+        # binding (hand-edited / drifted state) must never PASS
+        repo2 = self.mk_repo(name="repo2", with_remote=True)
+        head = self.commit_all(repo2)
+        self.write_state(repo2, remote="https://example.org/org/repo2.git", head=head)
+        self.commit_all(repo2, "persist")
+        head2 = git(["rev-parse", "HEAD"], str(repo2)).stdout.strip()
+        git(["push", "-u", "origin", "main"], str(repo2))
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2,
+                                 "--remote-verified"], repo=repo2)
+        prev = os.environ.get("ZCODE_RUNTIME_STATE_DIR")
+        os.environ["ZCODE_RUNTIME_STATE_DIR"] = str(self.runtime)
+
+        def _restore():
+            if prev is None:
+                os.environ.pop("ZCODE_RUNTIME_STATE_DIR", None)
+            else:
+                os.environ["ZCODE_RUNTIME_STATE_DIR"] = prev
+        self.addCleanup(_restore)
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        cs = importlib.import_module("_continuity_state")
+        sp = cs.state_path(str(repo2))
+        data = json.loads(sp.read_text(encoding="utf-8"))
+        del data["remote_durability"]["head_sha"]  # strip the HEAD binding
+        sp.write_text(json.dumps(data), encoding="utf-8")
+        out = self.stop(repo2)
+        self.assertIn("REMOTE_RECEIPT_INVALID", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+        # (F6-2) a receipt bound to a HEAD that has since moved → INVALID
+        self.run_tool(CG_STATE, ["record-state-sync", "--head", head2,
+                                 "--remote-verified"], repo=repo2)
+        git(["commit", "--amend", "-m", "rewritten"], str(repo2))
+        out = self.stop(repo2)
+        self.assertIn("REMOTE_RECEIPT_INVALID", out)
+        self.assertNotIn("STATE_FLUSH_GUARD=PASS", out)
+
 
 class CodeGraphLifecycleTests(ContinuityBase):
     def fake_index(self, repo):
@@ -584,7 +662,8 @@ class CodeGraphLifecycleTests(ContinuityBase):
         stop_out = self.stop(repo)
         self.assertIn("CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP", stop_out)
 
-    # CG9 — two worktrees have isolated dirty state
+    # CG9 — two worktrees have isolated runtime state (review R5-F2: a MODE A
+    # lane edit is CANDIDATE DELTA, never lane graph dirty)
     def test_cg9_worktree_isolation(self):
         repo = self.mk_repo()
         self.commit_all(repo)
@@ -594,10 +673,12 @@ class CodeGraphLifecycleTests(ContinuityBase):
         self.assertIn("GRAPH_DIRTY=YES", self.status(repo))
         self.assertIn("GRAPH_DIRTY=NO", self.status(wt2))
         self.hook(wt2, "src/other.py")
-        self.assertIn("GRAPH_DIRTY=YES", self.status(wt2))
+        st2 = self.status(wt2)
+        self.assertIn("CANDIDATE_DELTA_DIRTY=YES", st2)   # MODE A lane: candidate delta
+        self.assertIn("GRAPH_DIRTY=NO", st2)              # …never a lane graph dirty flag
         self.run_tool(CG_STATE, ["mark-graph-synced"], repo=repo)
         self.assertIn("GRAPH_DIRTY=NO", self.status(repo))
-        self.assertIn("GRAPH_DIRTY=YES", self.status(wt2))
+        self.assertIn("CANDIDATE_DELTA_DIRTY=YES", self.status(wt2))  # isolated state
 
     # CG10 — MEDIUM production write without grounding receipt → blocked
     def test_cg10_medium_write_without_grounding_blocked(self):
@@ -708,7 +789,7 @@ class CodeGraphLifecycleTests(ContinuityBase):
 
 
 class LifecycleDecisionTests(ContinuityBase):
-    """LC1-LC15 — the single canonical lifecycle decision surface (contract §6.7).
+    """LC1-LC21 — the single canonical lifecycle decision surface (contract §6.7).
 
     Rule under test:
         new repo → INIT_ONCE (once) / thereafter → INCREMENTAL_SYNC
@@ -722,6 +803,10 @@ class LifecycleDecisionTests(ContinuityBase):
         F2  blast radius fails CLOSED (UNRESOLVED blocks production writes)
         F3  untracked files cannot bypass the approved edit surface
         F7  record-init requires index health evidence
+        R5-F1  graph freshness tracks the GRAPH-OWNER HEAD (LC18, LC-INV7)
+        R5-F2  MODE A lane edits are candidate delta, not lane syncs (LC19)
+        R5-F3  NUL-safe porcelain parsing (LC20)
+        R5-F5  record-init binds the graph owner's actual HEAD (LC21)
     """
 
     def fake_index(self, repo):
@@ -881,8 +966,11 @@ class LifecycleDecisionTests(ContinuityBase):
         self.fake_index(wt)
         out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
         self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
-        # lane initialized → no more lane init offers
-        self.assertIn("FULL_INIT_FORBIDDEN", self.decide(wt, "session-start", lane_mode="B"))
+        # lane initialized → no more lane init offers (R5-F1: the no-request
+        # session-start answers the SYNC posture, not an init prohibition)
+        self.assertIn("FULL_INIT_FORBIDDEN",
+                      self.decide(wt, "session-start", lane_mode="B", request_full_init=""))
+        self.assertIn("NO_SYNC", self.decide(wt, "session-start", lane_mode="B"))
         # …while a fresh MODE B lane elsewhere would still legitimately INIT_ONCE
         wt2 = self.base / "wt-c"
         git(["worktree", "add", "-b", "feature/lcc", str(wt2)], str(repo))
@@ -1005,6 +1093,162 @@ class LifecycleDecisionTests(ContinuityBase):
         # …while the lane's OWN graph records scope=lane
         out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
         self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
+
+    # LC18 — review R5-F1: graph freshness tracks the GRAPH-OWNER HEAD, not
+    # only the PostToolUse dirty marker (pull / merge / fast-forward /
+    # checkout / external commit never fire an Edit marker)
+    def test_lc18_graph_owner_head_freshness(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)                      # HEAD = A
+        self.fake_index(repo)
+        self.lc(repo, "record-init")               # index anchored at A
+        # (1) HEAD advances to B with NO Edit hook → mechanical freshness wins
+        (repo / "src" / "app.py").write_text("def main():\n    return 2\n", encoding="utf-8")
+        self.commit_all(repo, "advance to B")
+        out = self.decide(repo, "query")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertIn("R5-F1", out)
+        self.assertNotIn("INIT_ONCE", out)
+        self.assertIn("INCREMENTAL_SYNC_ONCE", self.decide(repo, "session-start"))
+        self.lc(repo, "record-sync-result", "--ok")     # sync once → fresh again
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        # (2) a branch switch without any Edit hook → incremental sync
+        git(["checkout", "-b", "feature/lc18"], str(repo))
+        (repo / "src" / "other.py").write_text("x = 1\n", encoding="utf-8")
+        self.commit_all(repo, "feature commit C")       # feature HEAD = C
+        git(["checkout", "main"], str(repo))            # back to synced B
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        git(["checkout", "feature/lc18"], str(repo))    # HEAD moves to C, no marker
+        out = self.decide(repo, "review")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)
+        self.assertIn("R5-F1", out)
+        # (3) same HEAD + no dirty → NO_SYNC (and the invariant checker agrees)
+        self.lc(repo, "record-sync-result", "--ok")
+        self.assertIn("NO_SYNC", self.decide(repo, "handoff"))
+        p = self.run_tool(LC, ["verify"], repo=repo, expect=0)
+        self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
+        self.assertNotIn("LC-INV7", p.stdout)
+
+    # LC19 — review R5-F2: a MODE A lane edit is CANDIDATE DELTA, never a lane
+    # CodeGraph sync (review/handoff/stop must not demand an impossible lane
+    # sync); a MODE B lane edit IS a lane graph sync. Mechanical git evidence
+    # detects Bash-made edits with no Edit marker (JIT at boundaries, not
+    # per-edit).
+    def test_lc19_mode_a_candidate_delta_vs_mode_b_lane_sync(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.lc(repo, "record-init")               # canonical graph healthy
+        # (1) MODE A lane: PostToolUse marker → candidate delta, NOT graph dirty
+        wt = self.base / "wt-a19"
+        git(["worktree", "add", "-b", "feature/lc19a", str(wt)], str(repo))
+        self.hook(wt, "src/app.py")
+        st = self.status(wt)
+        self.assertIn("CANDIDATE_DELTA_DIRTY=YES", st)
+        self.assertIn("GRAPH_DIRTY=NO", st)
+        for intent in ("query", "review", "handoff", "stop"):
+            out = self.decide(wt, intent)
+            self.assertIn("NO_SYNC", out)
+            self.assertNotIn("INCREMENTAL_SYNC_ONCE", out)
+            self.assertIn("BASE_ONLY+DELTA_BY_DIFF", out)   # coverage stays explicit
+        # (2) NO marker at all (worker used Bash) → git evidence still detects
+        wt2 = self.base / "wt-a19b"
+        git(["worktree", "add", "-b", "feature/lc19b", str(wt2)], str(repo))
+        (wt2 / "src" / "bash_edit.py").write_text("x = 1\n", encoding="utf-8")
+        out = self.decide(wt2, "handoff")
+        self.assertIn("NO_SYNC", out)
+        self.assertIn("CANDIDATE_DELTA_DIRTY=YES", out)     # marker=False git=True
+        # (3) MODE B lane: the same edit IS a lane graph sync
+        wtb = self.base / "wt-b19"
+        git(["worktree", "add", "-b", "feature/lc19c", str(wtb)], str(repo))
+        env = hook_env(self.runtime)
+        env["ZCODE_CODEGRAPH_LANE_MODE"] = "B"
+        payload = json.dumps({"tool_name": "Edit",
+                              "tool_input": {"file_path": "src/app.py"},
+                              "cwd": str(wtb)})
+        proc = subprocess.run([sys.executable, CG_STATE, "--hook"], cwd=str(wtb),
+                              input=payload, capture_output=True, text=True, timeout=60,
+                              errors="replace", env=env)
+        self.assertIn("CODEGRAPH_DIRTY=YES", proc.stdout)
+        self.fake_index(wtb)
+        self.lc(wtb, "record-init", "--lane")
+        out = self.decide(wtb, "handoff", lane_mode="B")
+        self.assertIn("INCREMENTAL_SYNC_ONCE", out)         # lane graph sync demanded
+
+    # LC20 — review R5-F3: NUL-safe porcelain parsing — unstaged / staged /
+    # untracked / rename / space-filename all resolve correctly; a parser
+    # failure yields resolved=False (never wrong-path resolved evidence)
+    def test_lc20_porcelain_parsing(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        # staged modification
+        (repo / "src" / "app.py").write_text("def main():\n    return 3\n", encoding="utf-8")
+        git(["add", "src/app.py"], str(repo))
+        # unstaged tracked modification (the exact shape R4 parsing corrupted)
+        (repo / "docs" / "target.md").write_text("target v2\n", encoding="utf-8")
+        # untracked file
+        (repo / "src" / "untracked.py").write_text("u = 1\n", encoding="utf-8")
+        # staged rename (both endpoints belong to the delta)
+        git(["mv", "docs/adr/ADR-001.md", "docs/adr/RENAMED-001.md"], str(repo))
+        # tracked filename containing spaces, staged then modified unstaged
+        spaced = repo / "docs" / "my notes file.md"
+        spaced.write_text("notes v1\n", encoding="utf-8")
+        git(["add", "docs/my notes file.md"], str(repo))
+        spaced.write_text("notes v2\n", encoding="utf-8")
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        cl = importlib.import_module("codegraph_lifecycle")
+        files, resolved = cl.changed_files(str(repo), "")
+        self.assertTrue(resolved)
+        for expected in ("src/app.py", "docs/target.md", "src/untracked.py",
+                         "docs/adr/ADR-001.md", "docs/adr/RENAMED-001.md",
+                         "docs/my notes file.md"):
+            self.assertIn(expected, files)
+        # a record the parser cannot trust → resolved=False, no corrupt paths
+        orig_git = cl._git
+
+        class Corrupt:
+            returncode = 0
+            stdout = "R  docs/adr/RENAMED-001.md\x00"   # rename without its pair record
+
+        cl._git = lambda args, cwd, timeout=10: (
+            Corrupt() if args[:1] == ["status"] else orig_git(args, cwd, timeout))
+        try:
+            files2, resolved2 = cl.changed_files(str(repo), "")
+        finally:
+            cl._git = orig_git
+        self.assertFalse(resolved2)
+        self.assertNotIn("rc/app.py", files2)   # the historic corruption shape
+
+    # LC21 — review R5-F5: record-init binds the GRAPH OWNER's actual HEAD —
+    # canonical record-init invoked from a lane records the MAIN checkout's
+    # HEAD; an explicit --head may never silently contradict the owner HEAD
+    def test_lc21_record_init_binds_graph_owner_head(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)                       # main HEAD = A
+        self.fake_index(repo)
+        wt = self.base / "wt-lc21"
+        git(["worktree", "add", "-b", "feature/lc21", str(wt)], str(repo))
+        (wt / "src" / "lane_only.py").write_text("x = 1\n", encoding="utf-8")
+        git(["add", "-A"], str(wt))
+        git(["commit", "-m", "lane B"], str(wt))    # lane HEAD = B ≠ A
+        main_head = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        lane_head = git(["rev-parse", "HEAD"], str(wt)).stdout.strip()
+        self.assertNotEqual(main_head, lane_head)
+        # canonical record-init FROM the lane → binds the canonical owner HEAD
+        out = self.run_tool(LC, ["record-init"], repo=wt).stdout
+        self.assertIn("GRAPH_INIT_RECORDED scope=canonical", out)
+        self.assertIn("head=%s" % main_head, out)
+        # a lane index can never satisfy the canonical init, and an explicit
+        # --head contradicting the owner HEAD is rejected outright
+        self.fake_index(wt)
+        out = self.run_tool(LC, ["record-init", "--lane", "--head", main_head],
+                            repo=wt).stdout
+        self.assertIn("ERROR=GRAPH_INIT_HEAD_MISMATCH", out)
+        # lane record-init binds the LANE owner's own HEAD
+        out = self.run_tool(LC, ["record-init", "--lane"], repo=wt).stdout
+        self.assertIn("GRAPH_INIT_RECORDED scope=lane", out)
+        self.assertIn("head=%s" % lane_head, out)
 
 
 if __name__ == "__main__":

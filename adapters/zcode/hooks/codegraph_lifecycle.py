@@ -54,9 +54,23 @@ Runtime-local state additions (contract §6.4 — machine-local, never committed
     graph_init      = {"initialized_at", "head", "worktree", "mode", "scope"}
                       scope="canonical" lives in the repo-level state file
                       (keyed by the main checkout); scope="lane" is worktree-local.
+                      The recorded head is ALWAYS the graph owner's actual HEAD
+                      (review R5-F5: canonical record-init binds the main
+                      checkout's HEAD even when invoked from a lane).
     blast_radius    = {"base", "head", "mode", "resolved", "files", "count",
                        "computed_at"}  — review F2: `resolved` is normative.
     last_sync_failed = bool      → keeps a failed sync from degrading into a re-init
+    candidate_delta_dirty = bool (MODE A lanes only; review R5-F2) — a source
+                      edit inside an ordinary MODE A lane is CANDIDATE DELTA
+                      (fresh git diff is the evidence), NEVER a lane CodeGraph
+                      sync requirement. Dirty-state truth table:
+                          canonical source change → graph_dirty (canonical graph)
+                          MODE B lane source edit → graph_dirty (lane graph)
+                          MODE A lane source edit → candidate_delta_dirty (no lane sync)
+                      Lifecycle boundaries additionally consult cheap mechanical
+                      git evidence (status --porcelain=v1 -z) so Bash-made
+                      edits are not missed when no Edit marker fired — JIT,
+                      never per-edit.
 
 CLI:
 
@@ -121,11 +135,19 @@ RISK_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
 
 
 def _git(args, cwd, timeout=10):
-    try:
-        return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True,
-                              timeout=timeout, errors="replace")
-    except Exception:
-        return None
+    # One retry on spawn/transport failure (review R5 DIRTY-DETECTION
+    # ROBUSTNESS): a transient Windows git-spawn failure must not be mistaken
+    # for mechanical evidence (e.g. is_repo → NO_REPO, or "cannot see
+    # uncommitted changes"). Two attempts, then fail honestly.
+    last = None
+    for _ in range(2):
+        try:
+            return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True,
+                                  timeout=timeout, errors="replace")
+        except Exception as exc:
+            last = exc
+    del last  # both attempts failed — the caller receives None (fail-honest)
+    return None
 
 
 def head_sha(worktree):
@@ -173,6 +195,37 @@ def lane_mode_of(explicit=None):
     return mode if mode in ("A", "B") else "A"
 
 
+def graph_freshness(worktree, mode=None):
+    """(stale, index_sha, owner_head, scope) — mechanical freshness evidence
+    for the graph this worktree consumes (review R5-F1).
+
+    GRAPH_OWNER_HEAD = git rev-parse HEAD at the ACTUAL graph owner
+                       (main checkout for MODE A, the lane itself for MODE B).
+    GRAPH_INDEX_SHA  = last successful sync SHA, else graph_init.head.
+    stale            = both SHAs exist and differ → the healthy existing graph
+                       must be answered INCREMENTAL_SYNC_ONCE even when
+                       GRAPH_DIRTY = NO (pull / merge / ff / checkout /
+                       external commit never fire an Edit marker).
+    """
+    mode = lane_mode_of(mode)
+    main_dir = repo_main_dir(worktree) or worktree
+    if mode == "B":
+        owner = worktree
+        owner_state = cs.load(worktree)
+        scope = "lane"
+    else:
+        owner = main_dir
+        owner_state = cs.load(main_dir)
+        scope = "canonical"
+    owner_head = head_sha(owner)
+    rec = owner_state.get("graph_init") if init_done(owner_state) else {}
+    index_sha = str(owner_state.get("last_sync_head") or "")
+    if not index_sha and isinstance(rec, dict):
+        index_sha = str(rec.get("head") or "")
+    stale = bool(owner_head and index_sha and index_sha != owner_head)
+    return stale, index_sha, owner_head, scope
+
+
 def graph_health(graph_owner_dir):
     """(ok, evidence). Injectable mechanical health probe (review R4-D).
 
@@ -213,32 +266,89 @@ def _in_runtime_state(worktree, rel_path):
         return False
 
 
+def _parse_status_z(raw):
+    """NUL-safe porcelain v1 parse → set of paths (both rename endpoints).
+
+    Review R5-F3: the previous `ln.strip(); ln[3:]` slice corrupted the common
+    unstaged form " M src/app.py" into "rc/app.py". This parser NEVER strips
+    before slicing, handles unstaged/staged/untracked/rename records and
+    filenames containing spaces, and RAISES ValueError on any record it cannot
+    mechanically trust — a parser failure must become resolved=False /
+    mode=UNRESOLVED evidence, never wrong-path resolved evidence.
+    """
+    files = set()
+    records = raw.split("\x00")
+    if records and records[-1] == "":
+        records.pop()
+    i = 0
+    while i < len(records):
+        rec = records[i]
+        i += 1
+        if not rec:
+            continue
+        if len(rec) < 4 or rec[2] != " ":
+            raise ValueError("malformed porcelain record %r" % rec[:80])
+        xy = rec[:2]
+        path = rec[3:]
+        if not path:
+            raise ValueError("empty path in porcelain record")
+        if "R" in xy or "C" in xy:
+            files.add(path)
+            if i >= len(records):
+                raise ValueError("rename/copy record without its pair record")
+            pair = records[i]
+            i += 1
+            if not pair:
+                raise ValueError("empty rename/copy pair record")
+            files.add(pair)
+        else:
+            files.add(path)
+    return files
+
+
 def changed_files(worktree, base):
     """(files, resolved). Git-visible delta base..HEAD plus uncommitted changes.
-    resolved=False when git cannot PROVE the delta (diff unavailable) or cannot
-    see uncommitted changes (status unavailable) — the caller must then mark the
-    radius UNRESOLVED (review F2: an unprovable radius is not a radius)."""
+    NUL-safe throughout (review R5-F3): `git status --porcelain=v1 -z` and
+    `git diff --name-only -z`. resolved=False when git cannot PROVE the delta
+    (diff unavailable), cannot see uncommitted changes (status unavailable), or
+    the porcelain parse fails — the caller must then mark the radius UNRESOLVED
+    (review F2: an unprovable radius is not a radius)."""
     files = set()
     diff_ok = True
     if base:
-        r = _git(["diff", "--name-only", "%s...HEAD" % base], worktree)
+        r = _git(["diff", "--name-only", "-z", "%s...HEAD" % base], worktree)
+        if not (r is not None and r.returncode == 0):
+            r = _git(["diff", "--name-only", "-z", base, "HEAD"], worktree)
         if r is not None and r.returncode == 0:
-            files |= {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
+            for p in r.stdout.split("\x00"):
+                p = p.strip()
+                if p:
+                    files.add(p.replace("\\", "/"))
         else:
-            r2 = _git(["diff", "--name-only", base, "HEAD"], worktree)
-            if r2 is not None and r2.returncode == 0:
-                files |= {ln.strip() for ln in r2.stdout.splitlines() if ln.strip()}
-            else:
-                diff_ok = False  # base unresolvable → cannot prove the delta
-    st = _git(["status", "--porcelain"], worktree)
-    if st is not None and st.returncode == 0:
-        for ln in st.stdout.splitlines():
-            ln = ln.strip()
-            if len(ln) > 3:
-                files.add(ln[3:].split(" -> ")[-1].strip().strip('"'))
-    else:
+            diff_ok = False  # base unresolvable → cannot prove the delta
+    st = _git(["status", "--porcelain=v1", "-z"], worktree)
+    if st is None or st.returncode != 0:
         return sorted(files), False  # cannot see uncommitted changes either
+    try:
+        files |= _parse_status_z(st.stdout)
+    except ValueError:
+        return sorted(files), False  # untrustworthy parse → fail closed
     return sorted(f for f in files if not _in_runtime_state(worktree, f)), diff_ok
+
+
+def mechanical_delta_present(worktree):
+    """Cheap git mechanical evidence of an uncommitted source delta (review R5
+    DIRTY-DETECTION ROBUSTNESS: lifecycle boundaries must not rely solely on
+    PostToolUse Edit/Write markers — a worker may edit via Bash). Returns
+    True/False; None when git cannot answer (fail-honest, never silently
+    'clean'). Not run per-edit — only at lifecycle boundaries."""
+    st = _git(["status", "--porcelain=v1", "-z"], worktree)
+    if st is None or st.returncode != 0:
+        return None
+    try:
+        return bool(_parse_status_z(st.stdout))
+    except ValueError:
+        return None
 
 
 def norm_rel(worktree, file_path):
@@ -337,15 +447,32 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
         if mode == "B":
             # explicit candidate-exact lane: its OWN graph, init once per lane
             if lane_init:
-                return FULL_INIT_FORBIDDEN, ("MODE B lane graph already initialized "
-                                             "(initialized_at=%s); incremental sync only"
-                                             % wt_state["graph_init"].get("initialized_at", ""))
+                if request_full_init:
+                    return FULL_INIT_FORBIDDEN, ("MODE B lane graph already initialized "
+                                                 "(initialized_at=%s); full init is never "
+                                                 "legal again"
+                                                 % wt_state["graph_init"].get("initialized_at", ""))
+                if wt_state.get("last_sync_failed"):
+                    return SYNC_FAILED_DEFERRED, ("previous lane sync failed; retry incremental "
+                                                  "sync — failure never escalates to full init")
+                stale, index_sha, owner_head, _ = graph_freshness(worktree, "B")
+                if dirty or stale:
+                    why = "lane graph_dirty=YES" if dirty else \
+                        ("lane GRAPH_INDEX_SHA=%s != GRAPH_OWNER_HEAD=%s (review R5-F1)"
+                         % (index_sha[:12], owner_head[:12]))
+                    return INCREMENTAL_SYNC_ONCE, \
+                        "MODE B lane graph initialized; %s → incremental sync once" % why
+                return NO_SYNC, "MODE B lane graph initialized; incremental sync only"
             if not has_index:
                 return INIT_ONCE, ("MODE B lane graph missing → lane init allowed EXACTLY "
                                    "ONCE; run record-init --lane immediately after")
-            return (FULL_INIT_FORBIDDEN if request_full_init else
-                    (INCREMENTAL_SYNC_ONCE if dirty else NO_SYNC)), \
-                "MODE B lane index present; incremental sync only"
+            if request_full_init:
+                return FULL_INIT_FORBIDDEN, \
+                    "MODE B lane index present; a full init is not a session-start action"
+            stale, index_sha, owner_head, _ = graph_freshness(worktree, "B")
+            if dirty or stale:
+                return INCREMENTAL_SYNC_ONCE, "MODE B lane index present; sync needed"
+            return NO_SYNC, "MODE B lane index present; incremental sync only"
         # MODE A (default): one canonical graph per repo — review F1
         if canonical_init:
             if request_full_init:
@@ -358,9 +485,17 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
             if wt_state.get("last_sync_failed"):
                 return SYNC_FAILED_DEFERRED, ("previous sync failed; retry incremental sync — "
                                               "failure never escalates to full init")
-            return (INCREMENTAL_SYNC_ONCE if dirty else NO_SYNC), \
-                ("MODE A: reuse canonical graph + delta-by-diff (lane has no graph of "
-                 "its own); graph_dirty=%s" % ("YES" if dirty else "NO"))
+            stale, index_sha, owner_head, _ = graph_freshness(worktree, "A")
+            if dirty or stale:
+                why = "graph_dirty=YES" if dirty else \
+                    ("GRAPH_INDEX_SHA=%s != GRAPH_OWNER_HEAD=%s (review R5-F1: pull/merge/"
+                     "ff/checkout/external commit never fire an Edit marker)"
+                     % (index_sha[:12], owner_head[:12]))
+                return INCREMENTAL_SYNC_ONCE, \
+                    ("MODE A: reuse canonical graph + delta-by-diff; %s → incremental sync "
+                     "once, never a full init" % why)
+            return NO_SYNC, ("MODE A: reuse canonical graph + delta-by-diff (lane has no graph "
+                             "of its own); graph clean at owner head=%s" % head_sha(main_dir))
         if is_lane:
             # review R4-C: a lane must not perform — or offer — the canonical
             # init for ANY intent; the one-time init belongs to the main checkout
@@ -375,8 +510,14 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                                              "run record-init to canonically register it")
             if wt_state.get("last_sync_failed"):
                 return SYNC_FAILED_DEFERRED, ("previous sync failed; retry incremental sync")
-            return (INCREMENTAL_SYNC_ONCE if dirty else NO_SYNC), \
-                "index present without a canonical record; register via record-init"
+            stale, index_sha, owner_head, _ = graph_freshness(worktree, "A")
+            if dirty or stale:
+                why = "graph_dirty=YES" if dirty else \
+                    "graph stale: GRAPH_INDEX_SHA=%s != GRAPH_OWNER_HEAD=%s (review R5-F1)" \
+                    % (index_sha[:12], owner_head[:12])
+                return INCREMENTAL_SYNC_ONCE, \
+                    "index present without a canonical record; %s; register via record-init" % why
+            return NO_SYNC, "index present without a canonical record; register via record-init"
         return INIT_ONCE, ("no canonical graph, no init record → repo-wide init allowed "
                            "EXACTLY ONCE; run record-init immediately after")
 
@@ -442,8 +583,34 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
     if wt_state.get("last_sync_failed"):
         return SYNC_FAILED_DEFERRED, ("sync previously failed; retry incremental sync — never "
                                       "escalate to full init")
+    # review R5-F2: an ordinary MODE A worktree lane never owns a graph — a
+    # source edit there (marker OR cheap mechanical git evidence; the worker
+    # may edit via Bash) is CANDIDATE DELTA, not a lane CodeGraph sync. The
+    # canonical graph stays BASE_ONLY + DELTA_BY_DIFF; review/handoff/stop
+    # never demand an impossible lane sync.
+    if mode == "A" and is_lane:
+        marked = bool(wt_state.get("candidate_delta_dirty") or wt_state.get("graph_dirty"))
+        git_delta = mechanical_delta_present(worktree)
+        label = "YES" if (marked or git_delta) else ("UNKNOWN" if git_delta is None else "NO")
+        stale_note = ""
+        if graph_freshness(worktree, "A")[0]:
+            stale_note = (" canonical graph is stale (graph-owner HEAD moved) — its "
+                          "incremental sync belongs at the main checkout")
+        return NO_SYNC, ("MODE A lane: CANDIDATE_DELTA_DIRTY=%s (marker=%s git=%s) — coverage="
+                         "BASE_ONLY+DELTA_BY_DIFF, no lane CodeGraph sync exists, the canonical "
+                         "graph remains BASE_ONLY + DELTA_BY_DIFF (review R5-F2)%s"
+                         % (label, marked, git_delta, stale_note))
     if dirty:
         return INCREMENTAL_SYNC_ONCE, "graph_dirty=YES → sync once, then record-sync-result --ok"
+    # review R5-F1: mechanical graph freshness — GRAPH_INDEX_SHA must equal
+    # GRAPH_OWNER_HEAD even when no Edit marker ever fired (pull / merge /
+    # fast-forward / checkout / external commit)
+    stale, index_sha, owner_head, fscope = graph_freshness(worktree, mode)
+    if stale:
+        return INCREMENTAL_SYNC_ONCE, ("graph freshness (review R5-F1): GRAPH_INDEX_SHA=%s != "
+                                       "GRAPH_OWNER_HEAD=%s (scope=%s) → incremental sync once, "
+                                       "never a full init"
+                                       % (index_sha[:12], owner_head[:12], fscope))
     return NO_SYNC, "graph clean at head=%s" % (wt_state.get("last_sync_head", "") or head_sha(worktree))
 
 
@@ -476,10 +643,19 @@ def verify(worktree):
             if dec == INIT_ONCE:
                 findings.append("LC-INV3 intent=%s fell back to INIT_ONCE after sync failure" % intent)
     # LC-INV4  dirty ⇒ the next sync-intent decision is INCREMENTAL_SYNC_ONCE
+    #          (review R5-F2: EXCEPT an ordinary MODE A lane, where a source
+    #          edit is candidate delta — the honest graph answer is NO_SYNC)
     if wt_state.get("graph_dirty") and not wt_state.get("last_sync_failed") and graph_exists:
+        lane_a = os.path.realpath(worktree) != os.path.realpath(main_dir) \
+            and lane_mode_of() == "A"
         for intent in sorted(SYNC_INTENTS):
             dec, _ = decide(intent, worktree)
-            if dec != INCREMENTAL_SYNC_ONCE:
+            if lane_a:
+                if dec != NO_SYNC:
+                    findings.append("LC-INV4 mode=A lane intent=%s returned %s while "
+                                    "candidate-dirty (expected NO_SYNC — no lane graph "
+                                    "sync exists)" % (intent, dec))
+            elif dec != INCREMENTAL_SYNC_ONCE:
                 findings.append("LC-INV4 intent=%s returned %s while dirty" % (intent, dec))
     # LC-INV5  decisions are drawn from the closed enum (both modes)
     for m in ("A", "B"):
@@ -502,6 +678,20 @@ def verify(worktree):
                 if dec != CANONICAL_INIT_REQUIRED_AT_MAIN:
                     findings.append("LC-INV6 MODE_A_LANE_NEVER_INIT_ONCE intent=%s → %s "
                                     "(expected CANONICAL_INIT_REQUIRED_AT_MAIN)" % (intent, dec))
+    # LC-INV7  (review R5-F1) GRAPH_INDEX_SHA != GRAPH_OWNER_HEAD ⇒ every sync
+    #          intent answers INCREMENTAL_SYNC_ONCE even when GRAPH_DIRTY=NO —
+    #          enforced at the graph owner's checkout (a MODE A lane reports
+    #          staleness in its NO_SYNC note without demanding a lane sync)
+    stale, index_sha, owner_head, _fscope = graph_freshness(worktree)
+    owner_here = os.path.realpath(worktree) == os.path.realpath(main_dir) \
+        or lane_mode_of() == "B"
+    if graph_exists and stale and owner_here and not wt_state.get("last_sync_failed"):
+        for intent in sorted(SYNC_INTENTS):
+            dec, _ = decide(intent, worktree)
+            if dec != INCREMENTAL_SYNC_ONCE:
+                findings.append("LC-INV7 GRAPH_OWNER_HEAD_FRESHNESS intent=%s returned %s "
+                                "(GRAPH_INDEX_SHA=%s != GRAPH_OWNER_HEAD=%s)"
+                                % (intent, dec, index_sha[:12], owner_head[:12]))
     return (not findings), findings
 
 
@@ -557,11 +747,22 @@ def main():
                 "record-init requires real index health (production default: `codegraph status`; "
                 "tests inject ZCODE_CODEGRAPH_HEALTH_CMD)" % (scope, evidence))
             return 0
+        # review R5-F5: the recorded init SHA is the GRAPH OWNER's actual HEAD —
+        # canonical record-init invoked from a lane binds the MAIN checkout's
+        # HEAD, lane record-init binds the lane's own HEAD; an explicit --head
+        # must never silently contradict the graph owner's actual HEAD.
+        owner_head = head_sha(graph_owner)
+        explicit = flag(args, "--head")
+        if explicit and owner_head and explicit != owner_head:
+            out("ERROR=GRAPH_INIT_HEAD_MISMATCH scope=%s --head=%s graph_owner_head=%s — the "
+                "recorded init SHA must be the graph owner's actual HEAD (review R5-F5)"
+                % (scope, explicit, owner_head))
+            return 0
         target_dir = graph_owner
         state = cs.load(target_dir)
         state["graph_init"] = {
             "initialized_at": cs.now_utc(),
-            "head": flag(args, "--head") or head_sha(worktree),
+            "head": explicit or owner_head,
             "worktree": os.path.realpath(worktree),
             "mode": flag(args, "--mode", "full"),
             "scope": scope,

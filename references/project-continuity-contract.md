@@ -139,7 +139,7 @@ LOCAL_DURABLE = YES / REMOTE_DURABLE = YES / REMOTE_VERIFIED = YES
 
 **评审修正 R3（F5/F6，2026-09-07）**：
 
-- **F5 远端持久化是三级阶梯，不得折叠成"完成"**：`LOCAL_DURABLE → REMOTE_PUSHED → REMOTE_VERIFIED`。`record-state-sync` 产出 `remote_durability` 凭据，必须绑定 `HEAD_SHA` + 时间戳；此后任何新 meaningful transition（dirty 置位或 HEAD 前移）都使旧凭据失效（`REMOTE_RECEIPT_STALE`）。Stop guard 在 remote-backed 项目的合法终态只有两种：`REMOTE_VERIFIED = YES` 或 `REMOTE_STATE_SYNC = DEFERRED`；仅有 LOCAL_DURABLE / REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`。环境 flush marker（`STATE_FLUSH_COMPLETED=1`）**必须**经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 且无更新 transition 才被信任；未绑定/过期 marker 一律落穿重估（`UNBOUND_FLUSH_MARKER` / `STALE_FLUSH_MARKER`）。
+- **F5 远端持久化是三级阶梯，不得折叠成"完成"**：`LOCAL_DURABLE → REMOTE_PUSHED → REMOTE_VERIFIED`。`record-state-sync` 产出 `remote_durability` 凭据，必须绑定 `HEAD_SHA` + 时间戳；此后任何新 meaningful transition（dirty 置位或 HEAD 前移）都使旧凭据失效（R5-F6：一律 `REMOTE_RECEIPT_INVALID`，fail-closed）。Stop guard 在 remote-backed 项目的合法终态只有两种：`REMOTE_VERIFIED = YES` 或 `REMOTE_STATE_SYNC = DEFERRED`；仅有 LOCAL_DURABLE / REMOTE_PUSHED → `REMOTE_VERIFICATION_REQUIRED`。**未配置 remote 的受管 repo，Stop 同样不是 PASS**（R5-F4：`REMOTE_REQUIRED`）。环境 flush marker（`STATE_FLUSH_COMPLETED=1`）**必须**经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD 且无更新 transition 才被信任；未绑定/过期 marker 一律落穿重估（`UNBOUND_FLUSH_MARKER` / `STALE_FLUSH_MARKER`），且 marker 只是证据、永不 early-return 绕过其余 durability 检查（R4-A2）。
 - **R4-A1 DEFERRED 失败凭据权威**（2026-09-07）：`REMOTE_STATE_SYNC = DEFERRED` 不得由裸 `--deferred` 无证据产生——必须绑定一次真实 remote failure receipt（至少 `HEAD_SHA` / `REMOTE_OPERATION` / `FAILURE_CLASS` / `ATTEMPTED_AT`，CLI flags：`--head` / `--remote-operation` / `--failure-class` / `--attempted-at`）；缺证据 → 命令拒绝（`REMOTE_DEFERRED_EVIDENCE_REQUIRED`，rc=2），state 不变。remote 正常可达时不得借 DEFERRED 绕过 remote verify；stop guard 对无凭据 deferred receipt 判 `REMOTE_DEFERRED_EVIDENCE_INVALID`。
 - **R4-A2 marker 只是证据、不是 bypass**（2026-09-07）：即使 flush marker 经 `STATE_FLUSH_HEAD_SHA` 绑定当前 HEAD（`BOUND_FLUSH_MARKER`），stop guard 也**不得 early-return PASS**——git dirty / ahead-unpushed / project_state_dirty / graph_dirty / remote durability 全套检查恒执行；marker 只作为证据注记出现在输出中。
 - **F6 contract_version == 1 不足以推出 INITIALIZED**。SessionStart 守卫对当前版本 index 至少执行：parse + 必需 top keys + 必需 recovery_snapshot keys + version 校验；不通过 → `PROJECT_STATE_CONTRACT_INVALID`（绝不算 INITIALIZED，也绝不静默销毁，走 repo discovery 修复）；JSON 不可解析同此。
@@ -222,11 +222,17 @@ NO_REPO                        非 git worktree → no-op
 LC-INV1  一旦存在 init 记录，任何 intent 都不得再返回 INIT_ONCE
 LC-INV2  已 init 仓的 session-start 永不 INIT_ONCE
 LC-INV3  同步失败后永不回落到 INIT_ONCE
-LC-INV4  dirty 状态下 sync 意图必须返回 INCREMENTAL_SYNC_ONCE
+LC-INV4  dirty 状态下 sync 意图必须返回 INCREMENTAL_SYNC_ONCE（R5-F2 例外：普通
+         MODE A lane 的源码编辑是 candidate delta，图判定诚实答案为 NO_SYNC——
+         不存在可要求的 lane graph sync）
 LC-INV5  全部判定都来自封闭枚举
 LC-INV6  MODE_A_LANE_NEVER_INIT_ONCE（R4-C）：普通 MODE A worktree lane 对全部 intents
          永不返回 INIT_ONCE；canonical 未初始化时 init-offering intents 一律
          CANONICAL_INIT_REQUIRED_AT_MAIN
+LC-INV7  GRAPH_OWNER_HEAD_FRESHNESS（R5-F1）：GRAPH_INDEX_SHA != GRAPH_OWNER_HEAD ⇒
+         全部 sync intents 返回 INCREMENTAL_SYNC_ONCE，即使 GRAPH_DIRTY=NO
+         （在 graph owner checkout 处强制；MODE A lane 在 NO_SYNC 注记中上报
+         staleness，绝不把 canonical sync 伪装成 lane sync）
 ```
 
 blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
@@ -244,6 +250,16 @@ blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED
 - **B2 lane 不变量覆盖全部 intents**。对 `session-start / query / review / blast-radius / handoff / stop`：普通 MODE A worktree lane **永不返回 `INIT_ONCE`**；canonical graph 未初始化时返回 `CANONICAL_INIT_REQUIRED_AT_MAIN`（新增封闭枚举），绝不让 lane 自行 init。机械化为 `LC-INV6`。
 - **B3 健康证据真实化**。`.codegraph` 目录存在**不算** health proof：`record-init` 需真实 health probe 通过——生产默认执行真实 `codegraph status`（exit 0）；合成测试经 `ZCODE_CODEGRAPH_HEALTH_CMD` 注入 mock probe。空目录一律拒绝（`CODEGRAPH_HEALTH_UNPROVEN`），且 repo 不被锁死。
 - **B4 init scope 分离**。`record-init` 只验证 **canonical graph path**；`record-init --lane` 只验证 **lane graph path**。lane index 永不能冒充 canonical init。
+
+**评审修正 R5（external review F1–F6，2026-09-08）**：
+
+- **F1 graph freshness 追踪 graph-owner HEAD**。脏标记只覆盖 Edit/PostToolUse 路径，git pull / merge / fast-forward / checkout / 外部 commit 不触发任何 marker。机械不变量：`GRAPH_OWNER_HEAD` = 实际 graph owner 的 `git rev-parse HEAD`（MODE A = 主 checkout，MODE B = lane 自身）；`GRAPH_INDEX_SHA` = 最近一次成功 sync 的 SHA，否则 `graph_init.head`。两者不等（且均存在）→ **健康既有图必须回答 `INCREMENTAL_SYNC_ONCE`，即使 `GRAPH_DIRTY = NO`**——绝不 full init。机械化为 `LC-INV7`。
+- **F2 MODE A lane 的 delta 不是 graph dirty**。脏状态真值表：canonical（主 checkout）源码变更 → `graph_dirty`（canonical graph）→ 增量 sync canonical；MODE B lane 源码编辑 → lane `graph_dirty` → 增量 sync lane；**普通 MODE A lane 源码编辑 → `candidate_delta_dirty` → NO CodeGraph sync**——新鮮 git diff + changed-file 证据即 candidate 证据，canonical graph 始终 `BASE_ONLY + DELTA_BY_DIFF`。review/handoff/stop 在 MODE A lane 绝不要求不可能的 lane sync；coverage 显式标注 `CANDIDATE_GRAPH_COVERAGE = BASE_ONLY + DELTA_BY_DIFF`。
+- **F3 porcelain 路径解析 NUL 安全**。`changed_files()` 改用 `git status --porcelain=v1 -z` + `git diff --name-only -z` 解析（旧 `ln.strip(); ln[3:]` 把 unstaged 的 `" M src/app.py"` 切坏成 `"rc/app.py"`）。必须正确处理 unstaged / staged / untracked / rename（两端点都入集）/ 含空格文件名；**解析失败 → `resolved=false` / `mode=UNRESOLVED`**，绝不产出错误路径的 resolved 证据。
+- **F4 REMOTE IS REQUIRED, NOT OPTIONAL**。受管 repo 中**未配置 remote 的 Stop 不是 PASS**：Stop 合法终态仅 `REMOTE_VERIFIED=YES` 或携带 failure/no-remote evidence 且绑定 HEAD 的 `REMOTE_STATE_SYNC=DEFERRED`；否则 `REMOTE_REQUIRED`。新仓 bootstrap 应先 establish remote → push → verify 再宣告 durable 完成。SessionStart 与 Stop 使用同一 remote 语义。
+- **F5 record-init 的 SHA 绑定 graph owner**。canonical `record-init`（即使从 lane 调用）记录 **主 checkout 的实际 HEAD**；`record-init --lane` 记录 lane 自身 HEAD；显式 `--head` 与 graph owner 实际 HEAD 矛盾 → 拒绝（`GRAPH_INIT_HEAD_MISMATCH`），绝不静默记录矛盾 SHA。
+- **F6 终态 remote receipt 对 HEAD fail-closed**。`REMOTE_VERIFIED` / `DEFERRED` receipt 必须 `receipt.head_sha` 存在、当前 HEAD 存在、且两者相等；否则 `REMOTE_RECEIPT_INVALID`——缺失 HEAD 绑定永不 PASS（本环境已多次观测瞬时 broken HEAD ref，此为现实威胁而非理论）。R4 的 `REMOTE_RECEIPT_STALE` 判定并入 `REMOTE_RECEIPT_INVALID`（fail-closed 语义不变）。
+- **脏检测鲁棒性（F1/F2 配套）**：生命周期边界（query / review / handoff / stop）用廉价 git 机械证据（`status --porcelain=v1 -z`）补足 Edit/PostToolUse marker——worker 可能用 Bash 改文件；**JIT at boundaries，绝不 per-edit sync**；git spawn 瞬时失败重试一次后如实失败（不误报为机械证据）。
 
 ## 7. GROUNDING（MEDIUM/HIGH 生产写前置）
 

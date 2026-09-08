@@ -11,11 +11,18 @@ Mechanical checks only (no network, no writes):
 - uncommitted changes / unpushed commits            → STATE_FLUSH_REQUIRED (existing semantics)
 - runtime project_state_dirty flag set              → DURABLE_STATE_SYNC_REQUIRED
   (a new meaningful transition also stales any earlier remote_durability receipt)
-- remote_durability receipt (review F5 ladder):
+- remote_durability receipt (review F5 ladder + R5-F4/F6):
     missing on a remote-backed project              → REMOTE_VERIFICATION_REQUIRED
-    bound HEAD != current HEAD                      → REMOTE_RECEIPT_STALE
-    level REMOTE_VERIFIED                           → REMOTE_VERIFIED=YES (clean terminal)
-    deferred                                        → REMOTE_STATE_SYNC=DEFERRED (honest terminal)
+    no configured remote at all                     → REMOTE_REQUIRED
+                                                      (REMOTE IS REQUIRED, NOT OPTIONAL —
+                                                      a no-remote stop is never PASS; the
+                                                      only honest terminal is a no-remote
+                                                      DEFERRED failure receipt bound to HEAD)
+    receipt without a HEAD binding / bound to a moved HEAD
+                                                    → REMOTE_RECEIPT_INVALID
+                                                      (R5-F6: fail closed on HEAD — never PASS)
+    level REMOTE_VERIFIED (head-bound)              → REMOTE_VERIFIED=YES (clean terminal)
+    deferred + failure receipt (head-bound)         → REMOTE_STATE_SYNC=DEFERRED (honest terminal)
     LOCAL_DURABLE / REMOTE_PUSHED                   → REMOTE_VERIFICATION_REQUIRED level=…
 - runtime graph_dirty flag set                      → CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP
                                                       (sync ONCE; never a full init — contract §6.6)
@@ -102,9 +109,18 @@ def main() -> int:
         rd = state.get("remote_durability")
         if not isinstance(rd, dict) or not rd.get("level"):
             issues.append("REMOTE_VERIFICATION_REQUIRED (no durability receipt)")
-        elif rd.get("head_sha") and head and rd.get("head_sha") != head:
-            issues.append("REMOTE_RECEIPT_STALE bound=%s head=%s — a later meaningful "
-                          "transition invalidates the receipt; re-sync and re-verify"
+        elif not rd.get("head_sha") or not head:
+            # review R5-F6: terminal receipts fail CLOSED on HEAD — a receipt
+            # without a HEAD binding must never become PASS (this environment
+            # has repeatedly observed transient broken HEAD refs)
+            issues.append("REMOTE_RECEIPT_INVALID (terminal durability receipt without a HEAD "
+                          "binding — review R5-F6: missing binding must never PASS)")
+        elif rd.get("head_sha") != head:
+            # review R5-F6: a receipt bound to a HEAD that has since moved is
+            # INVALID (a later meaningful transition staled it) — fail closed
+            issues.append("REMOTE_RECEIPT_INVALID bound=%s head=%s — the receipt is stale "
+                          "(a later meaningful transition moved HEAD); re-sync and re-verify "
+                          "(review R5-F6: fail closed on HEAD)"
                           % (rd.get("head_sha"), head))
         elif rd.get("deferred"):
             # review R4-A1: a DEFERRED terminal is only honest when it carries
@@ -116,6 +132,21 @@ def main() -> int:
                               "run the remote sync or record the failure honestly)")
         elif rd.get("level") != "REMOTE_VERIFIED":
             issues.append("REMOTE_VERIFICATION_REQUIRED level=%s" % rd.get("level"))
+    else:
+        # review R5-F4: REMOTE IS REQUIRED, NOT OPTIONAL — a governed repo with
+        # no configured remote is NOT a clean stop. New-repo bootstrap should
+        # establish remote → push → verify before durable completion; the only
+        # honest alternative terminal is a no-remote DEFERRED failure receipt
+        # bound to the current HEAD.
+        rd = state.get("remote_durability")
+        honest = (isinstance(rd, dict) and rd.get("deferred")
+                  and rd.get("remote_operation") and rd.get("failure_class")
+                  and rd.get("attempted_at")
+                  and bool(head) and rd.get("head_sha") == head)
+        if not honest:
+            issues.append("REMOTE_REQUIRED (no remote configured — REMOTE IS REQUIRED, NOT "
+                          "OPTIONAL; establish remote → push → verify, or record an honest "
+                          "no-remote DEFERRED failure receipt bound to HEAD)")
 
     if state.get("graph_dirty"):
         issues.append("CODEGRAPH_SYNC_REQUIRED_BEFORE_STOP")
@@ -134,7 +165,8 @@ def main() -> int:
                % (rd.get("head_sha") or head)) if rd.get("level") == "REMOTE_VERIFIED" \
             else "STATE_FLUSH_GUARD=PASS REMOTE_STATE_SYNC=DEFERRED"
     else:
-        ctx = "STATE_FLUSH_GUARD=PASS"
+        ctx = ("STATE_FLUSH_GUARD=PASS REMOTE_STATE_SYNC=DEFERRED (no remote configured; "
+               "honest no-remote failure receipt on file)")
     print_ctx(ctx)
     return 0
 
