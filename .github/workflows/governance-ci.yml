@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Pin to the real candidate commit. On pull_request the default ref is
+          # GitHub's synthetic merge commit (committer "GitHub <noreply@github.com>"),
+          # which is not the commit whose metadata the public identity gate judges.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -18,3 +23,15 @@ jobs:
         run: python3 scripts/validate_governance.py
       - name: Run PROJECT_CONTINUITY_CONTRACT synthetic matrix (PS1-20 / CG1-15 / R6 F1-F7 / R6.1 F1-F3)
         run: python3 -m unittest discover -s adapters/zcode/tests
+      - name: Run public-release current-tree scan
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py
+      - name: Run public-release commit metadata gate
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py --commit-metadata
+      - name: Run public-release policy self-tests
+        env:
+          PUBLIC_RELEASE: "1"
+        run: python3 scripts/validate_public_release.py --selftest

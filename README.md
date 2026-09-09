@@ -23,6 +23,13 @@
 
 > 本仓是 FlapPearLabs 全部软件工程项目的 **canonical 治理 owner**：`audit/` 目录全部为**历史证据**，不是 runtime 权威；canonical runtime 权威 = `RULES.md` + `AGENTS.md` + `references/` + `deployment/` setup 文档。
 
+> **本仓是 PUBLIC 仓库。** 因此公开产物只承载治理语义，不承载任何一台机器的身份或恢复细节：
+>
+> - **提交入库的**：治理文档、`references/`、`deployment/` setup 文档、校验器与测试——全部为公开治理产物。
+> - **占位符形态的机器配置**：`deployment/deployment-profile.md` 是 PUBLIC-SAFE 模板，值一律写 `<PATH_TO_GH>` / `<LOCAL_PROXY_URL>` / `${HOME}` 等占位符（约定见该文件与 [mcp/README.md](mcp/README.md)）。
+> - **local-only / 私有恢复数据**：真实机器档案 `deployment/deployment-profile.local.md` 已被 `.gitignore` 忽略，永不入库，也**不属于**公开发布校验的候选面（Git-aware 枚举按构造排除，而非靠豁免清单）；旧 MEMORY 原始备份同样只存 Git 之外的私有存储（RULES R2）。
+> - **公开发布校验**：`python3 scripts/validate_public_release.py`（当前树扫描，CI 强制；`--commit-metadata` 做 HEAD 公开身份门；`--history` 做全历史扫描；`--selftest` 跑合成策略测试）。PUBLIC 模式下 `MACHINE-SPECIFIC ALLOWED` 标记**不产生任何豁免**；判定不依赖 GitHub API（`PUBLIC_RELEASE=1` 可离线强制）。扫描器**无整体文件级自我豁免**（自身与其他文件同等受检），文本判定**基于内容而非扩展名**（`.env` / `Dockerfile` / 无扩展名文件同样覆盖）。当前树扫描的对象是**公开候选面** = tracked + untracked 且未被忽略（Git-aware 枚举），被忽略的 local-only 恢复档案与生成物（`__pycache__/`、`*.pyc`）不在其中；每个候选路径覆盖**两个内容面**——**INDEX/staged 快照**（下一次提交将实际发布的内容）与**工作区/untracked 内容**（尚未暂存的可发布变更），等价时去重、不等价时以 `index:` / `worktree:` 标注（tracked symlink 扫描其 **target 字符串 blob**，不解引用）；候选超过读取上限时 **fail-closed** 为 `UNSCANNED_OVERSIZE_PUBLIC_FILE`（未扫描 ≠ 干净），上限由元数据先行判定，超限内容从不物化，也不打印。
+
 ---
 
 ## 目录
@@ -483,7 +490,7 @@ REQUIRED MCP 全集 = **codegraph / context7 / gh_grep**（平台连接器不是
 
 ### 7.5 治理自检与 CI
 
-[scripts/validate_governance.py](scripts/validate_governance.py) 校验族（以运行时输出为准，文档不硬编码检查数）：canonical 文件存在性、markdown 内链、JSON 解析、**双层 R2 扫描**（凭据/local identity 全库零命中；machine 事实仅限 designated 文件）、MEMORY 指针预算、平台注入卫生、canonical MCP 集合、doctrine 与 CodeGraph 模式语义、stale 状态扫描、无 vendor skill 源码、无 raw MEMORY 归档、状态持久化接线等。
+[scripts/validate_governance.py](scripts/validate_governance.py) 校验族（以运行时输出为准，文档不硬编码检查数）：canonical 文件存在性、markdown 内链、JSON 解析、**双层 R2 扫描**（凭据/local identity 在公开候选面零命中；machine 事实仅限 designated 文件；公开候选面无 `UNSCANNED_OVERSIZE_PUBLIC_FILE`；扫描实现单一来源，委托 `validate_public_release.scan_tree`，覆盖 INDEX 与工作区双内容面，无整体文件级自我豁免）、**HEAD 提交元数据公开身份门**、MEMORY 指针预算、平台注入卫生、canonical MCP 集合、doctrine 与 CodeGraph 模式语义、stale 状态扫描、无 vendor skill 源码、无 raw MEMORY 归档、状态持久化接线等。
 
 CI：[.github/workflows/governance-ci.yml](.github/workflows/governance-ci.yml) 在所有 push / PR 上运行自检。本地等效命令：
 
@@ -493,7 +500,16 @@ python3 scripts/validate_governance.py   # exit 0 = 全部 PASS
 
 ### 7.6 机器专属事实与部署档案
 
-宿主路径 / 端口 / 二进制位置等 machine-specific 事实**只允许**出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated 文件（如 [deployment/deployment-profile.md](deployment/deployment-profile.md)）；一般治理产物中禁止；凭据 / secret / local OS identity 则**任何位置**绝对禁止（RULES R2 双层）。当前部署档案登记了 macOS 工作站的宿主事实与网络出口约定；换机/换环境时复核改写，不构成对任何仓的平台约束（RULES R7）。
+RULES R2 第二层（宿主路径 / 端口 / 二进制位置等 machine-specific 事实）按**仓库可见性**分区，且 designated 豁免是**两条件合取的窄豁免**——路径在 `deployment/` 下 **AND** 文件头带 `MACHINE-SPECIFIC ALLOWED` 标记，缺一不可：
+
+| 可见性 | designated deployment profile（`deployment/` + 头标记） | 一般治理 / 审计 / README（含 `deployment/` 下无标记文件） |
+| --- | --- | --- |
+| **PUBLIC（本仓即 PUBLIC）** | 无豁免——标记不创造豁免，世界可读 | 禁止，仅允许占位符（`<PATH_TO_GH>`、`<LOCAL_PROXY_URL>`、`${HOME}`） |
+| **PRIVATE** | 允许保留机器语义（机器恢复 / 环境复现） | 禁止（PRIVATE 可见性本身不产生豁免） |
+
+第一层（凭据 / secret / local OS identity）在**任何可见性、任何路径、任何文件**下绝对禁止，designated 目录与校验器源码均不豁免。本仓为 PUBLIC，故 [deployment/deployment-profile.md](deployment/deployment-profile.md) 只保留占位符形态的环境契约，真实机器档案 local-only（Git 之外或被 `.gitignore` 忽略）；该档案不构成对任何仓的平台约束（RULES R7）。
+
+公开身份策略（单点约束，非通用身份框架）：`PUBLIC_PROJECT_IDENTITY = FlapPearLabs`，同时约束文件内容与 **HEAD 提交元数据**（author/committer 的 name 与 email）。canonical 形态 `(<uid>+)?FlapPearLabs@users.noreply.github.com` 通过；`author.name = FlapPearLabs` 但邮箱指向其他账号 handle 的组合**不通过**；公开仓账号身份本身不被归类为 secret。
 
 ---
 
@@ -575,7 +591,7 @@ MODE C：手工 Relevant Surface Manifest + 定向源码阅读，如实报告 `C
 本仓 = D 层全局默认；项目仓 = C 层仓库本地权威。C 层可通过显式 `OVERRIDE = ...` 覆盖 D 层默认，加严永远合法。两处都读，冲突按 AUTHORITY_MAP_V2 算法调和。
 
 **Q4：为什么 README 里没有代理端口、宿主路径这类配置？**
-RULES R2 双层分区：机器事实只允许出现在 `deployment/` 下 designated 文件；凭据任何位置禁止。这是校验器机械强制的（§7.5）。
+RULES R2 双层分区：机器事实的豁免要求 `deployment/` 路径 **AND** `MACHINE-SPECIFIC ALLOWED` 头标记两条件同时成立（PUBLIC 仓则连该豁免也不存在）；凭据 / local OS identity 任何位置禁止。这是校验器机械强制的（§7.5、§7.6）。
 
 **Q5：WorkBuddy 新会话会自动加载本治理吗？**
 不会自动加载项目 AGENTS/RULES（实测无证据支持）。可靠通道 = MEMORY 指针（§7.4）+ 会话开工清单；其他 runtime 在会话首条消息粘贴 §3 提示词即可。
@@ -598,6 +614,16 @@ RULES R2 双层分区：机器事实只允许出现在 `deployment/` 下 designa
 - Skills 安装/升级：更新 [skills/README.md](skills/README.md) 对应行（SOURCE 证据如实），走治理变更评审。
 - MCP server 变更：更新 [mcp/README.md](mcp/README.md) 并走治理变更评审。
 - 所有变更 push 前跑 `python3 scripts/validate_governance.py`，CI 强制。
+- 公开发布安全：所有变更 push 前跑 `python3 scripts/validate_public_release.py`（当前树 = 公开候选面扫描；CI 强制）。全历史扫描与合成策略测试：
+
+  ```bash
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py                    # CURRENT_TREE_SCAN
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --commit-metadata  # CURRENT_HEAD_COMMIT_METADATA
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --history          # GIT_HISTORY_SCAN
+  PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --selftest         # 合成策略测试
+  ```
+
+  CURRENT_TREE 与 GIT_HISTORY 的处置**不对称，且是有意的**：当前树是**将要发布**的候选面（含 INDEX/staged 与工作区两个内容面，因为 `git commit` 发布的是 INDEX 而非工作区），超限候选 fail-closed 为 `UNSCANNED_OVERSIZE_PUBLIC_FILE`（未扫描 ≠ 干净，内容不打印，且上限在物化前由元数据判定）；历史是**已不可变**的对象存储，超限 blob 记为已计量的跳过证据。因此历史扫描的结论措辞受约束：只允许 `CONFIRMED_SECRET_LEAKS = NONE_FOUND_WITHIN_SCANNED_REACHABLE_TEXT_OBJECTS`，**不得**声称 full-history secret clean——skipped_binary / skipped_oversize / unreachable objects 不在已扫描证据范围内，scope 行（含 `enum=` 枚举方式）须原样保留。
 - 报告 novelty-first：先新发现（NEW_*），再 delta；`NONE` 合法，禁止编造。
 
 ---

@@ -16,11 +16,21 @@
 
 - **第一层（任何文件、任何位置，绝对禁止）**：Cookie/Secret/Token/API key/登录凭证/SSH 私钥、以及**本机登录名/系统用户身份等 local OS identity**（如宿主登录用户名）绝不进入 repo、log、聊天、产物、长期记忆、报告。凭据探测输出只允许布尔/错误类型。
   - 术语澄清：本层禁的是 **local OS/personal identity**；**repository/account identity**（git 署名如 `FlapPearLabs`、GitHub 账号名、`@users.noreply` 邮箱等公开仓身份）不属于本层禁令，按署名约定正常使用（B2 修复）。
-- **第二层（宿主机事实，分区管理）**：宿主路径、端口、二进制位置等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；**仅**允许出现在 `deployment/` 下带 `MACHINE-SPECIFIC ALLOWED` 头标记的 designated profile 文件中（私有仓、用途 = 机器恢复与环境复现）。未带标记的文件一律按一般产物对待。
+  - **公开身份单一性（F4 修复）**：PUBLIC 仓库对外暴露的身份必须是**单一 intentional 公开身份** `PUBLIC_PROJECT_IDENTITY = FlapPearLabs`。该约束**同时适用于文件内容与提交元数据**（HEAD 的 author/committer 的 name 与 email）——`author.name = FlapPearLabs` 配上指向**其他账号 handle** 的 `@users.noreply` 邮箱**不满足**本条。canonical noreply 形态 `(<uid>+)?FlapPearLabs@users.noreply.github.com` 允许。此为公开身份策略的单点约束，不构成通用身份管理框架。
+- **第二层（宿主机事实，按仓库可见性分区管理）**：宿主路径、端口、二进制位置、运行时版本等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；其余按可见性判定：
+  - **PUBLIC 仓库（本仓即 PUBLIC）**：`MACHINE-SPECIFIC ALLOWED` 例外**不存在**。公开产物只允许占位符形态（`<PATH_TO_GH>`、`<LOCAL_PROXY_URL>`、`${HOME}`）；真实机器档案必须 local-only（Git 之外或被 `.gitignore` 忽略，如 `deployment/deployment-profile.local.md`）。理由：被 designated 标记的文件同样世界可读，标记不能创造豁免。
+  - **PRIVATE 仓库**：豁免是**两条件合取的窄豁免**（F3 修复）——路径位于 `deployment/` 下 **AND** 文件头带 `MACHINE-SPECIFIC ALLOWED` 标记，二者缺一不可，才构成 designated deployment profile 并保留第二层语义（用途 = 机器恢复与环境复现）。PRIVATE 可见性本身**不**产生豁免：PRIVATE 仓中的一般治理/审计/README 文件（含 `deployment/` 下未带标记的文件）仍按一般产物对待，第二层命中即违规。第一层在任何可见性、任何路径下均无豁免。
+  - 机器身份**不得**硬编码进校验器/规则：检测模式必须通用（`<用户名>` 形态由模式匹配，不写具体登录名）。
 - **历史原文归档（B2 修复）**：被迁移/替换的旧 MEMORY 等 raw 历史文件**默认不进 Git**——原始备份 local-only（Git 之外，如本机私有目录）；治理仓 `deployment/archive/` 只保存 **sanitized/redacted 迁移快照**。任何 raw 归档提交前必须过 R2 第一层扫描 + 人工 redaction，**任何凭据/secret/local identity 命中即阻止 commit**；designated 目录不豁免第一层。
 - 提交到 Git 的工具/MCP 配置必须是占位符模板形态（`${HOME}`、`${TOKEN_FROM_ENV}`、`<PATH_TO_BINARY>`）。
 - 为什么普适：泄漏不可撤回；分区 + 归档规则让"机器可恢复、历史可追溯"与"共享产物干净"兼容。
-- V: `scripts/validate_governance.py` 双层扫描——凭据/local-identity 模式全库零命中（designated 文件不豁免本层）；machine 模式在非 designated 文件零命中；designated 文件必须带头标记。
+- V: `scripts/validate_governance.py` 双层扫描——凭据/local-identity 模式在公开候选面零命中（designated 文件不豁免本层）；machine 模式在非 designated 文件零命中；designated 文件必须带头标记；公开候选面不得存在 `UNSCANNED_OVERSIZE_PUBLIC_FILE`。公开候选面同时覆盖 **INDEX（staged）内容面**与**工作区内容面**（F7 修复）。扫描实现单一来源（委托 `validate_public_release.scan_tree`），避免两套判定漂移。
+- **V（无自我豁免，F1 修复）**：扫描器**不得**存在整体文件级豁免清单。`scripts/validate_governance.py` 与 `scripts/validate_public_release.py` 自身与其他文件同等受第一层/第二层检查；测试用**运行时合成** fixture（敏感字面量不出现在源码中），并含"向校验器源码副本注入具体本机路径 → 公开扫描必须 FAIL"的回归。
+- **V（不依赖文件后缀，F2 修复）**：当前树与历史扫描**不得**按扩展名白名单跳过任何文件。文本/二进制判定基于**内容**（单对象读取上限 + NUL/非文本字节比例分类）；`.env`、`Dockerfile`、无扩展名文件命中凭据必须 FAIL。读取是**有界读取，不是流式扫描**：大小先由元数据判定（文件系统候选取 `lstat` 尺寸，index/blob 候选取 Git object 尺寸），超限者**内容根本不物化**（F7 修复），未超限者在上限内整体读入。扫描 scope 必须诚实记账（`enum/refs/objects/blobs/text_scanned/skipped_binary/skipped_oversize/skipped_unreadable/size_cap_bytes/surfaces_index/surfaces_worktree/deduped_paths/eol_only_dedup`）。
+- **V（CURRENT_TREE = 公开候选面，F5 修复）**：当前树扫描的对象**不是**"磁盘上的一切"，而是**公开候选面** = tracked + untracked 且未被忽略（等价于 `git ls-files --cached --others --exclude-standard`）。被 Git 忽略的机器本地产物（local-only 恢复档案 `deployment/deployment-profile.local.md`、`__pycache__/`、`*.pyc`、各类缓存）**不属于**公开候选面——它们从不发布，纳入扫描既违背 local-only 档案契约，也会让本地与 CI 的 scope 不确定。非 Git 工作区根的回退按文件系统枚举，但必须在 scope 中**显式分类**（`enum=`）。
+- **V（未扫描 ≠ 干净，F6 修复）**：CURRENT_TREE 候选超过读取上限时**必须 fail-closed**，分类为 `UNSCANNED_OVERSIZE_PUBLIC_FILE`，且**不得打印其内容**。上限判定发生在物化之前（F7），因此超限候选的完整内容从不被读入。历史模式可将超限 blob 记为**已计量的跳过证据**，前提是：`skipped_oversize` 显式上报、不作 full-history clean 声明、保留限定措辞。
+- **V（扫描 Git 将要发布的内容，F7 修复）**：`git commit` 发布的是 **INDEX 内容**，不是工作区内容——只读工作区会漏掉"暂存了凭据、随后把工作区文件改回干净"这一可达反例。因此 CURRENT_TREE 对每个公开候选路径枚举**至多两个内容面**：(A) **INDEX/staged 快照** = 下一次提交将实际发布的内容（`git ls-files --stage` 取 blob；unmerged 路径保留全部 stage，不静默丢弃）；(B) **工作区 + untracked 未忽略内容** = 尚未暂存的当前可发布变更。两面内容等价（含仅 EOL 差异的归一化等价，避免 `core.autocrlf` 造成本地/CI scope 漂移）时去重为一次扫描，不等价时分别以 `index:` / `worktree:` 前缀标注上报；policy 判定始终基于去标签后的仓库相对路径，标签不得改变规则适用。**tracked symlink 不解引用**：Git 发布的是 symlink 的 **target 字符串 blob**，故扫描该字符串本身——target 内含具体本机路径必须 FAIL（`skipped_unreadable` 处置不可接受，那会把可发布内容当作不可读）。
+- **V（PUBLIC 模式）**：`PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py` —— designated 标记在 PUBLIC 模式下不产生任何豁免；`--history` 做 GIT_HISTORY_SCAN（与 CURRENT_TREE_SCAN 分开计量，结论措辞为 `CONFIRMED_SECRET_LEAKS = NONE_FOUND_WITHIN_SCANNED_REACHABLE_TEXT_OBJECTS`，不得声称 full-history clean）；`--commit-metadata` 做 `CURRENT_HEAD_COMMIT_METADATA` 公开身份门；`--selftest` 跑合成策略测试。PUBLIC 判定不依赖 GitHub API（离线确定性）。
 
 ## R3 证据真实性
 

@@ -376,7 +376,7 @@ class ProjectStateTests(ContinuityBase):
     def test_ps14_absolute_path_rejection(self):
         repo = self.mk_repo()
         self.write_state(repo, canonical_documents={
-            "targets": ["/home/dev/elsewhere/target.md"], "specs": ["NONE"],
+            "targets": ["/home/<LOCAL_OS_USERNAME>/elsewhere/target.md"], "specs": ["NONE"],
             "architecture": ["NONE"], "adrs": ["NONE"], "spikes": ["NONE"],
             "environment": ["NONE"]})
         p = self.run_tool(str(VALIDATOR), [str(repo)], repo=repo)
