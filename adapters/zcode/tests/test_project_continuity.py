@@ -1900,5 +1900,70 @@ class R61FinalConvergenceTests(ContinuityBase):
         self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
 
 
+class R62FindPreGroundingTests(ContinuityBase):
+    """R6.2 single-blocker convergence regression (PR #5 review round 6.2).
+
+    `find` is a traversal DSL, not a reader: -delete, -exec/-execdir/-ok … +
+    and -fprint/-fprintf/-fls all mutate or execute, and a `+`-terminated
+    -exec carries no chain marker at all — so one bare `find . -exec sh -c … +`
+    runs an arbitrary command before grounding. No safe subset of find
+    primaries is maintained at this gate.
+
+    Pre-grounding (no valid receipt)  → every find form BLOCKS with
+                                        UNKNOWN_BASH_MUTABILITY.
+    Complete + fresh grounding receipt → normal Bash semantics return, so
+                                        `find .` is ALLOW again.
+    """
+
+    def bash_guard(self, repo, command, risk="HIGH"):
+        return self.run_tool(BASH_GUARD, ["--command", command, "--risk", risk],
+                             repo=repo)
+
+    def test_r62_find_is_not_pre_grounding(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+
+        find_forms = (
+            "find .",
+            'find . -name "*.py"',
+            "find . -exec rm -rf {} +",
+            "find . -execdir rm -rf {} +",
+            "find . -exec sh -c id {} +",
+            "find . -delete",
+            "find . -ok rm {} +",
+            "find . -fprintf out.txt %p",
+            "find . -fls out.txt",
+        )
+        # (1) no grounding receipt → ALL find forms BLOCK, including the plain
+        #     discovery forms and the `+`-terminated -exec that carries no
+        #     chain marker.
+        for cmd in find_forms:
+            p = self.bash_guard(repo, cmd)
+            self.assertEqual(p.returncode, 2,
+                             "expected BLOCK for %r (got rc=%s): %s"
+                             % (cmd, p.returncode, p.stdout))
+            self.assertIn("BASH_PREFLIGHT_DECISION=BLOCK", p.stdout,
+                          "missing BLOCK decision for %r: %s" % (cmd, p.stdout))
+            self.assertIn("UNKNOWN_BASH_MUTABILITY", p.stdout,
+                          "missing UNKNOWN_BASH_MUTABILITY for %r: %s"
+                          % (cmd, p.stdout))
+
+        # (2) the documented safe discovery alternatives still work
+        #     pre-grounding — `find` is not the only way to look around.
+        for cmd in ("git ls-files", "rg -n main src", "ls src", "cat src/app.py"):
+            p = self.bash_guard(repo, cmd)
+            self.assertEqual(p.returncode, 0,
+                             "expected ALLOW for %r: %s" % (cmd, p.stdout))
+            self.assertIn("BASH_PREFLIGHT_DECISION=ALLOW", p.stdout)
+
+        # (3) complete + fresh grounding receipt → normal Bash semantics return
+        #     and `find .` is ALLOW again (this gate is pre-grounding only).
+        self.full_ground(repo, ticket="T-R62", risk="HIGH", mode="manual")
+        p = self.bash_guard(repo, "find .")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("BASH_PREFLIGHT_DECISION=ALLOW", p.stdout)
+        self.assertIn("normal Bash", p.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

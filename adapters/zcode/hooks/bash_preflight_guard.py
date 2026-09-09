@@ -20,7 +20,12 @@ Semantics (fail closed before grounding, normal afterwards):
 - otherwise, the command must belong to a STRICT read-only allowlist:
     git status / diff / log / show / rev-parse / merge-base / ls-files /
     branch --show-current
-    rg / grep / find / ls / dir / cat / Get-Content
+    rg / grep / ls / dir / cat / Get-Content
+  `find` is deliberately NOT on the allowlist (review R6.2): it is a traversal
+  DSL whose primaries mutate and execute (-delete, -exec/-execdir/-ok … +,
+  -fprint*, -fls), and a `+`-terminated -exec needs no chain marker at all, so
+  maintaining a "safe subset" of find primaries is not worth the complexity at
+  this gate. After a valid receipt, normal Bash semantics unlock it.
   AND must not contain any of:
     redirection (> >> < << | & ; && || newline backtick $()   ...)
     git mutation subcommands (add/commit/push/checkout/reset/clean/...)
@@ -75,10 +80,20 @@ GIT_READONLY_SUBCOMMANDS = {
     "branch",  # branch is further restricted below: --show-current only
 }
 # non-git commands that are mechanically read-only
+#
+# review R6.2: `find` is NOT here. It is a traversal DSL, not a reader: its
+# primaries delete (-delete), execute (-exec / -execdir / -ok … +) and write
+# (-fprint / -fprintf / -fls). A `+`-terminated -exec carries no chain marker,
+# so one bare `find . -exec sh -c … +` runs an arbitrary command before
+# grounding. No safe subset of find is maintained here — the whole family is
+# simply not pre-grounding. Safe discovery stays available via
+# rg / grep / git ls-files / ls / dir / cat / Get-Content.
 READONLY_COMMANDS = {
-    "rg", "grep", "find", "ls", "dir", "cat", "Get-Content", "type", "head",
+    "rg", "grep", "ls", "dir", "cat", "Get-Content", "type", "head",
     "tail", "wc", "pwd", "which", "where", "git",
 }
+# command families that are NOT pre-grounding but deserve a precise reason
+FIND_LIKE_COMMANDS = {"find"}
 # command families that mutate files / state and can never pass pre-grounding
 MUTATION_COMMANDS = {
     "rm", "del", "rd", "rmdir", "mv", "move", "cp", "copy", "xcopy",
@@ -132,6 +147,10 @@ def is_readonly_command(tokens):
     if cmd0 in ("sed", "awk", "perl", "python", "python3", "node", "pwsh",
                 "powershell", "bash", "sh", "cmd", "tee", "xargs", "findstr"):
         return False  # arbitrary script execution families → never pre-grounding
+    # review R6.2 — `find` is a mutation/execution-capable traversal DSL, not a
+    # reader; it is not on the pre-grounding allowlist at any flag combination.
+    if cmd0 in FIND_LIKE_COMMANDS:
+        return False
     if cmd0 in READONLY_COMMANDS:
         # a read-only reader may not spawn anything either: every further token
         # must not be a chained command (already enforced by CHAIN_MARKERS scan)
@@ -295,14 +314,30 @@ def decide(command_text, risk, worktree):
         return "ALLOW", ("TRUSTED_RECEIPT_BOOTSTRAP — canonical codegraph_state.py "
                          "set-grounding allowed to record the produced receipt (review R6.1-1)")
     if not is_readonly_command(tokens):
+        if tokens and tokens[0] in FIND_LIKE_COMMANDS:
+            # review R6.2 — name the real defect instead of the generic
+            # allowlist rejection, so the worker sees why `find` is refused
+            # even though it "looks like" discovery.
+            find_detail = (
+                "UNKNOWN_BASH_MUTABILITY — `find` is a traversal DSL with "
+                "mutation/execution primaries (-delete, -exec/-execdir/-ok, "
+                "-fprint/-fprintf/-fls); no safe subset is maintained at this "
+                "gate (review R6.2), so `find` is not pre-grounding at any flag "
+                "combination. Ground first, then normal Bash semantics return "
+                "and `find` may execute. Pre-grounding discovery: rg / grep / "
+                "git ls-files / ls / dir / cat / Get-Content")
+            if receipt_problem:
+                return "BLOCK", "%s — %s" % (receipt_problem, find_detail)
+            return "BLOCK", find_detail
         if receipt_problem:
             return "BLOCK", ("%s — %r is also not on the strict pre-grounding read-only "
                              "allowlist (review R6.1-1)"
                              % (receipt_problem, " ".join(tokens[:3])))
         return "BLOCK", ("UNKNOWN_BASH_MUTABILITY — %r is not on the strict pre-grounding "
                          "read-only allowlist (allowed: git status/diff/log/show/rev-parse/"
-                         "merge-base/ls-files/branch --show-current, rg/grep/find/ls/dir/cat/"
-                         "Get-Content, and exactly `python <hooks>/codegraph_state.py "
+                         "merge-base/ls-files/branch --show-current, rg/grep/ls/dir/cat/"
+                         "Get-Content (NOT find — review R6.2), and exactly "
+                         "`python <hooks>/codegraph_state.py "
                          "set-grounding ...`); ground first, then run normal Bash "
                          "(review R6-F3)" % " ".join(tokens[:3]))
     return "ALLOW", "read-only allowlist pre-grounding (%s)" % tokens[0]
