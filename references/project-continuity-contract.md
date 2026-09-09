@@ -206,6 +206,10 @@ CODEGRAPH_REBUILD_REQUIRED     R6-F6：已注册 graph 健康探测失败 = 损�
                                报告原因；绝不 auto delete、绝不 auto full init；必须由
                                orchestrator 显式 rebuild 权限（record-rebuild）裁决；
                                未决期间 MEDIUM/HIGH 可走 MODE C manual grounding
+CODEGRAPH_UNAVAILABLE          R6.1-2：CodeGraph CLI/工具本身不可用（CLI 未安装 /
+                               探测进程错误）——与"健康工具报告损坏 index"（→
+                               CODEGRAPH_REBUILD_REQUIRED）分类区分；同为 MODE C
+                               manual grounding，绝不 auto-init、绝不 auto-rebuild
 NO_REPO                        非 git worktree → no-op
 ```
 
@@ -251,6 +255,12 @@ LC-INV8  UNAPPROVED_DELTA_DETECTED（R6-F4）：OBSERVED_DELTA ⊄ APPROVED_EDIT
 - **F6 损坏/不完整 index 有显式恢复态**。`.codegraph` 存在但健康探测失败且 init 记录已存在 → `CODEGRAPH_REBUILD_REQUIRED`（第 13 个封闭枚举值）：报告原因、绝不 auto delete、绝不 auto full init、必须 orchestrator 显式 rebuild 权限；未决期间 MEDIUM/HIGH 可走 MODE C manual grounding（不阻塞、不静默降级）。同时防止 LC-INV3/4/7 在恢复态误触发。
 - **F7a state-sync receipt 的 HEAD 绑定**。`record-state-sync` 以**当前 git HEAD 为默认真相**：当前 HEAD 必须存在、receipt HEAD 必须等于当前 HEAD；显式 `--head` 与当前 HEAD 矛盾 → `STATE_SYNC_HEAD_MISMATCH` 拒绝（rc=2）；旧缓存的 `last_state_sync_head` 绝不再充当新 receipt 的默认值——绝不制造绑定旧 HEAD 的"新鲜" receipt。
 - **F7b NUL diff 路径逐字保留**。`git diff --name-only -z` 已提供 NUL 边界——不做 `.strip()`（首/尾空格是合法文件名字符）；NUL 之间字节逐字保留，仅空 NUL 字段被跳过；绝不变异文件名却返回 resolved=true。
+
+**评审修正 R6.1（PR #5 final convergence patch F1–F3，2026-09-09）**：
+
+- **R6.1-1 Bash receipt 校验复用 grounding 语义**。`bash_preflight_guard` 不再把"存在 `{BASE_SHA: ...}` 形状的字段"当作充分 grounding：receipt 有效性/新鲜度直接复用 `grounding_guard` 的语义（`REQUIRED_RECEIPT_KEYS` / `base_is_fresh` / 当前 HEAD 比较）。partial receipt → BLOCK（`GROUNDING_RECEIPT_INVALID` + 具体缺陷）；曾经有效但已 stale（HEAD 前移）→ BLOCK；完整且新鲜 → 正常 Bash。防死锁：仅精确放行 canonical 内部命令 `python <hooks>/codegraph_state.py set-grounding ...`（token[0] 为 python/`sys.executable`、token[1] 为本 hook 目录 realpath 下的 `codegraph_state.py`、token[2] == `set-grounding`、其余仅允许 flags；链式/重定向/任意脚本一律拒绝）。验证走真实 Bash preflight 路径：readonly grounding → trusted set-grounding → receipt 存在 → 正常 Bash 放行。
+- **R6.1-2 Mode A 一致性覆盖 review；Mode C 真实逃逸；工具不可用分类**。graph-backed Mode A 声称 `BASE_ONLY + DELTA_BY_DIFF` 前（pre-edit / review / grounding 校验至少三处）强制 `BASE_SHA == GRAPH_BASE_SHA == CANONICAL_GRAPH_INDEX_SHA`。长寿命 lane（lane base ≠ canonical graph base）的 review 绝不返回正常 `BASE_ONLY + DELTA_BY_DIFF PASS`。`GRAPH_MODE=manual` → MODE C → canonical graph/base 相等不作要求（真实和解路径，不被 mode_a_base_coherence 阻塞）。分类区分：CodeGraph CLI/工具不可用（CLI 未安装 / 探测进程错误）→ `CODEGRAPH_UNAVAILABLE`（第 14 个封闭枚举值，MODE C manual grounding，绝不 auto-init / auto-rebuild）；健康工具 + 损坏/不完整 index → `CODEGRAPH_REBUILD_REQUIRED`（R6-F6 恢复态不变）。
+- **R6.1-3 未批准观测 delta 是运行时门**。`OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE` → `UNAPPROVED_DELTA_DETECTED` 机械阻塞：至少 MEDIUM/HIGH 进一步生产写（pre-edit）、review / handoff / stop（review/handoff/stop 门仅要求存在带 unapproved delta 的 blast_radius 记录，不要求 canonical graph 已 init，也不要求 graph-backed receipt），直至未授权 delta 移除或显式扩张批准面。LC-INV8 保持纵深防御，但不再是唯一强制路径。
 
 blast radius 语义：影响集 = **意图编辑面（targets / receipt EXPECTED_EDIT_SURFACE）∪ git delta（base..HEAD + 未提交）∪（可选）CodeGraph impact**——不是"自 base 以来已改了什么"（票务开始时 base == HEAD，delta 为空是常态）。`--impact-file` 缺失时 mode 诚实标注 `GIT_DELTA` / `TARGETS_PLUS_GIT_DELTA`；git 无法作答 → `UNRESOLVED`（fail-closed，不静默降级）。runtime-local 状态新增 `graph_init` / `blast_radius` / `last_sync_failed`，遵守 §6.4 绝不 commit。
 
@@ -331,5 +341,6 @@ Fresh Agent 只需知道 `FlapPearLabs/agent-engineering-governance` 即可发�
 - **PS1–PS20**（project state）：新仓初始化 / lazy adoption / TARGET·ADR 变更 / ticket·PR·CI·回归事件 / 只读会话不脏 / Stop 脏未 flush / 成功 flush / 远端不可用 / fresh Agent 仅凭 remote 恢复 / 合同版本升级 / 绝对路径拒绝 / secret-like 拒绝 / remote durability 阶梯 / marker 无 bypass / receipt HEAD 绑定（R6-F7a 收口）。
 - **CG1–CG15**（CodeGraph）：健康无变更不 sync / 编辑标脏 / 重复编辑仍只脏 / 查询前 JIT sync 一次 / 缺 index 才 init / 已有 index 禁 init / 分支切换=增量 / sync 失败不 fallback init / 双 worktree 状态隔离 / MEDIUM 无 grounding 阻止 / 有 receipt 放行 / UNAVAILABLE → MANUAL fallback / 结构不完整 receipt 拒绝 / pre-query 单一决策面。
 - **R6 回归**（PR #5 convergence repair，9 个）：F1 干净 BOUND marker → PASS；F2 record-init write-once + freshness 只经 sync + rebuild 权限门；F3 Bash pre-grounding 白名单（只读放行 / 变更与链接 BLOCK）+ Bash 制造的生产 delta 机械强制 graph sync（A canonical / B lane / A lane candidate）；F4 观测 delta 不自我授权 + LC-INV8；F5 MODE A base/graph 一致性（MODE_A_BASE_MISMATCH 拒绝虚假 BASE_ONLY PASS）；F6 损坏 index 显式恢复态（不自动重建、manual fallback 保留、verify 一致）；F7 receipt 绑当前 HEAD + NUL diff 路径逐字保留（含合成 trailing-space 探针）。
+- **R6.1 回归**（PR #5 final convergence patch，5 个）：F1 Bash receipt 校验（partial/stale → `GROUNDING_RECEIPT_INVALID` BLOCK，完整新鲜 → 放行）+ trusted `set-grounding` bootstrap 端到端（readonly grounding → trusted set-grounding → receipt 存在 → 正常 Bash 解锁）；F2 graph-backed Mode A review 一致性（lane base ≠ canonical graph base → review BLOCK）+ MODE C（manual receipt）逃逸 + `CODEGRAPH_UNAVAILABLE` 分类（CLI 不存在 → UNAVAILABLE，健康工具报告损坏 index → REBUILD_REQUIRED）；F3 未批准观测 delta 运行时门（pre-edit BLOCK → review BLOCK → 显式扩张 → recompute → 放行）。
 - **CROSS-AGENT RESTORE**：Agent A 初始化→产生状态→STATE_FLUSH→remote simulation；丢弃 A 的全部 context 后 fresh Agent B 仅凭 remote 恢复 target/canonical docs/current state/legal frontier/next legal action，不依赖人工重讲。
 - 实现位置：`../adapters/zcode/tests/`（合成本地 synthetic repos，不触碰任何产品仓；CI 接入 `../.github/workflows/governance-ci.yml`）。

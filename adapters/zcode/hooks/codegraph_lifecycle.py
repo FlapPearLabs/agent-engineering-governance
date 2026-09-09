@@ -54,6 +54,13 @@ Closed decision enum (contract §6.7):
                                   orchestrator rebuild authority is required
                                   (record-rebuild). While unresolved MEDIUM/HIGH
                                   falls back to MODE C manual grounding.
+    CODEGRAPH_UNAVAILABLE         review R6.1-2: the CodeGraph TOOL ITSELF is
+                                  missing / unreachable (CLI not found, probe
+                                  spawn failure) — graph-backed coverage cannot
+                                  be proven → MODE C manual grounding; never
+                                  auto-init, never auto-rebuild a tool that is
+                                  not installed. Distinct from a RUNNING tool
+                                  reporting a broken index (→ REBUILD_REQUIRED).
     NO_REPO                       not a git worktree → no-op
 
 Surface-coherence signal (NOT a lifecycle decision — it is emitted by
@@ -139,6 +146,10 @@ ALLOW_WRITE = "ALLOW_WRITE"
 MARK_DIRTY = "MARK_DIRTY"
 SYNC_FAILED_DEFERRED = "SYNC_FAILED_DEFERRED"
 CODEGRAPH_REBUILD_REQUIRED = "CODEGRAPH_REBUILD_REQUIRED"
+# review R6.1-2: tool-level unavailability (CLI missing / probe spawn failure)
+# is a DIFFERENT fact from a running tool reporting a corrupt/partial index.
+# The former is honest MODE C territory; the latter is the rebuild state.
+CODEGRAPH_UNAVAILABLE = "CODEGRAPH_UNAVAILABLE"
 NO_REPO = "NO_REPO"
 # review R6-F4: a SURFACE-COHERENCE SIGNAL, not a lifecycle decision. Emitted by
 # `blast-radius` (recompute) and by the LC-INV8 invariant; it deliberately stays
@@ -150,7 +161,7 @@ DECISIONS = frozenset({
     INCREMENTAL_SYNC_ONCE, NO_SYNC,
     GROUNDING_REQUIRED, BLAST_RADIUS_REQUIRED, BLAST_RADIUS_EXPANSION_REQUIRED,
     ALLOW_WRITE, MARK_DIRTY, SYNC_FAILED_DEFERRED, CODEGRAPH_REBUILD_REQUIRED,
-    NO_REPO,
+    CODEGRAPH_UNAVAILABLE, NO_REPO,
 })
 
 # review R6-F2 / R6-F6: the explicit rebuild authority token. Without it no code
@@ -287,7 +298,12 @@ def graph_health(graph_owner_dir):
 
 
 def _graph_health_uncached(graph_owner_dir, custom):
-    """Uncached health probe — see graph_health()."""
+    """Uncached health probe — see graph_health(). Returns (ok, evidence) where
+    evidence distinguishes review R6.1-2 classes:
+      CODEGRAPH_CLI_NOT_FOUND / PROBE_ERROR:*  → the TOOL is missing/unreachable
+      <label> rc=<n>                          → the tool RAN and answered (a
+                                                nonzero rc from a running tool
+                                                reports a broken index)"""
     if custom:
         try:
             import shlex
@@ -318,28 +334,88 @@ def _rebuild_detail(scope, graph_dir, evidence):
                " --lane" if scope == "lane" else ""))
 
 
+def _unavailable_detail(scope, graph_dir, evidence):
+    """Review R6.1-2 detail string — the TOOL-LEVEL unavailability state.
+
+    A missing / unspawnable CodeGraph tool is NOT a corrupt index: there is no
+    registered graph health to repair, and `record-rebuild` would be a lie
+    (a rebuild needs a working tool to rebuild with). The honest answer is
+    CODEGRAPH_UNAVAILABLE → MODE C manual grounding; when the tool returns, a
+    corrupt index then becomes REBUILD territory."""
+    return ("%s graph at %s is UNAVAILABLE — the CodeGraph tool itself could not be reached "
+            "(%s; review R6.1-2). This is tool-level unavailability, NOT a corrupt index: "
+            "never auto-init, never auto-rebuild. MEDIUM/HIGH proceeds via MODE C manual "
+            "grounding (MANUAL_GROUNDING_RECEIPT); graph-backed coverage is UNPROVEN until the "
+            "tool is installed / reachable and `record-init` (or record-rebuild) is completed."
+            % (scope, graph_dir, evidence))
+
+
+def _tool_unavailable(evidence):
+    """True when a failed health probe means the CodeGraph TOOL is missing /
+    unreachable (review R6.1-2) rather than a running tool reporting a corrupt
+    index. Tool-level failure → CODEGRAPH_UNAVAILABLE / MODE C; a running tool
+    answering nonzero → CODEGRAPH_REBUILD_REQUIRED."""
+    return str(evidence).startswith(("CODEGRAPH_CLI_NOT_FOUND", "PROBE_ERROR:"))
+
+
+def _rebuild_or_unavailable(scope, owner_dir, evidence):
+    """(decision, detail) — the R6.1-2 health classification split. A corrupt /
+    partial index under a RUNNING tool is the rebuild recovery state; a missing
+    tool is honest MODE C territory."""
+    if _tool_unavailable(evidence):
+        return CODEGRAPH_UNAVAILABLE, _unavailable_detail(scope, owner_dir, evidence)
+    return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail(scope, owner_dir, evidence)
+
+
+def _receipt_is_manual(receipt):
+    """Review R6.1-2: MODE C is a REAL reconciliation path. A manual grounding
+    receipt (mode=manual / MANUAL_GROUNDING_RECEIPT) means graph-backed coverage
+    was NOT claimed — the canonical-graph base equality is therefore NOT
+    required, and coherence checks must never deadlock the manual path."""
+    if not isinstance(receipt, dict):
+        return False
+    return str(receipt.get("GRAPH_MODE", "")).lower() == "manual"
+
+
 def mode_a_base_coherence(worktree, wt_state):
-    """(mismatch, detail) — review R6-F5 mechanical Mode A coherence invariant.
+    """(mismatch, detail) — review R6-F5 + R6.1-2 mechanical Mode A coherence
+    invariant.
 
-    An honest Mode A structural grounding requires the canonical graph base to
-    be the SAME base as the lane:
+    An honest graph-backed Mode A structural grounding requires ALL of:
 
-        LANE_BASE_SHA (TICKET_BASE_SHA / grounding BASE_SHA)
-        == CANONICAL_GRAPH_INDEX_SHA (the base graph the lane would consume)
+        BASE_SHA == GRAPH_BASE_SHA            (the receipt binds one base)
+        BASE_SHA == CANONICAL_GRAPH_INDEX_SHA (the canonical graph this lane
+                                               consumes is the SAME base)
+
+    before any "BASE_ONLY + DELTA_BY_DIFF" coverage claim (pre-edit AND review,
+    R6.1-2).
 
     When main and the canonical graph advance A → B while the lane stays at A,
     calling the lane's coverage "BASE_ONLY + DELTA_BY_DIFF" would be dishonest —
     the canonical graph is now the graph of a DIFFERENT base. Mismatch means
     MODE_A_BASE_MISMATCH: the orchestrator must reconcile (update/integrate the
     lane, upgrade to MODE B candidate-exact, or MODE C manual grounding) before
-    any MEDIUM/HIGH production write/review may claim Mode A grounding."""
+    any MEDIUM/HIGH production write/review may claim Mode A grounding.
+
+    Review R6.1-2: GRAPH_MODE=manual (MODE C) → canonical graph/base equality
+    is NOT required — MODE C genuinely escapes the coherence invariant."""
+    receipt = wt_state.get("grounding_receipt") or {}
+    if _receipt_is_manual(receipt):
+        return False, ""  # MODE C: no graph-backed claim → nothing to reconcile
     main_dir = repo_main_dir(worktree) or worktree
     _stale, index_sha, _owner_head, _scope = graph_freshness(worktree, "A")
     canonical_graph_sha = str(cs.load(main_dir).get("last_sync_head") or index_sha or "")
-    lane_base = str((wt_state.get("grounding_receipt") or {}).get("BASE_SHA")
-                    or wt_state.get("ticket_base_sha") or "")
+    lane_base = str(receipt.get("BASE_SHA") or wt_state.get("ticket_base_sha") or "")
+    graph_base = str(receipt.get("GRAPH_BASE_SHA") or lane_base or "")
     if not lane_base or not canonical_graph_sha:
         return False, ""  # nothing to compare → not decidable here, not a mismatch
+    if lane_base != graph_base:
+        return True, ("MODE_A_BASE_MISMATCH BASE_SHA=%s GRAPH_BASE_SHA=%s — a graph-backed "
+                      "grounding receipt must bind ONE base (BASE_SHA == GRAPH_BASE_SHA, "
+                      "review R6.1-2); reconcile FIRST: (A) update/integrate the lane onto the "
+                      "current authorized base, (B) upgrade to MODE B candidate-exact graph, "
+                      "or (C) MODE C manual grounding."
+                      % (lane_base[:12], graph_base[:12]))
     if lane_base != canonical_graph_sha:
         return True, ("MODE_A_BASE_MISMATCH LANE_BASE_SHA=%s CANONICAL_GRAPH_INDEX_SHA=%s — the "
                       "canonical graph has advanced past the lane base; do NOT silently present "
@@ -620,9 +696,12 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                 # review R6-F6: a REGISTERED lane graph that no longer passes its
                 # health probe is CORRUPT/PARTIAL — explicit rebuild authority,
                 # never a silent re-init and never an auto-delete.
+                # review R6.1-2: a MISSING tool is CODEGRAPH_UNAVAILABLE (MODE C),
+                # not a rebuild state.
                 ok, evidence = graph_health(worktree)
                 if not ok:
-                    return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail("lane", worktree, evidence)
+                    dec, det = _rebuild_or_unavailable("lane", worktree, evidence)
+                    return dec, det
                 stale, index_sha, owner_head, _ = graph_freshness(worktree, "B")
                 if dirty or stale:
                     why = "lane graph_dirty=YES" if dirty else \
@@ -655,9 +734,12 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                                               "failure never escalates to full init")
             # review R6-F6: a REGISTERED canonical graph that no longer passes
             # its health probe is CORRUPT/PARTIAL/INCOMPATIBLE.
+            # review R6.1-2: a MISSING tool is CODEGRAPH_UNAVAILABLE (MODE C),
+            # not a rebuild state.
             ok, evidence = graph_health(main_dir)
             if not ok:
-                return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail("canonical", main_dir, evidence)
+                dec, det = _rebuild_or_unavailable("canonical", main_dir, evidence)
+                return dec, det
             stale, index_sha, owner_head, _ = graph_freshness(worktree, "A")
             if dirty or stale:
                 why = "graph_dirty=YES" if dirty else \
@@ -745,16 +827,22 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
                     "new, the approved surface is the authority; explicitly expand the intended "
                     "edit surface (`blast-radius --target %s`) and recompute before widening "
                     "the edit (review R6-F4)" % (rel, len(approved), rel))
-        detail = ("grounding + approved edit surface satisfied TICKET=%s approved=%d"
-                  % (wt_state.get("grounding_receipt", {}).get("TICKET", ""), len(approved)))
-        # review R6-F4: an already-changed file never authorises itself. The
-        # write on an APPROVED target proceeds, but the incoherence is emitted
-        # on every pre-edit decision (never silent) and LC-INV8 fails `verify`.
+        # review R6.1-3: an unapproved observed delta is a RUNTIME GATE, not a
+        # note. OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE mechanically blocks
+        # further MEDIUM/HIGH production writes until the unauthorized delta is
+        # removed or the surface is explicitly expanded. LC-INV8 remains
+        # defense in depth — this is the primary enforcement path.
         unapproved = sorted(br.get("unapproved_delta") or [])
         if unapproved:
-            detail += (" UNAPPROVED_DELTA_DETECTED=%s (OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE — "
-                       "reconcile before review/handoff; an already-changed file never "
-                       "authorises itself on recompute)" % ",".join(unapproved))
+            return BLAST_RADIUS_REQUIRED, (
+                "UNAPPROVED_DELTA_DETECTED — OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE "
+                "(unapproved: %s). Further MEDIUM/HIGH production writes are BLOCKED until the "
+                "unauthorized delta is removed or the approved surface is explicitly expanded "
+                "(`blast-radius --base <BASE> --target <each approved file> ...` recompute). "
+                "Recomputing alone never approves an already-changed file (review R6.1-3; "
+                "LC-INV8 stays as defense in depth)" % ",".join(unapproved))
+        detail = ("grounding + approved edit surface satisfied TICKET=%s approved=%d"
+                  % (wt_state.get("grounding_receipt", {}).get("TICKET", ""), len(approved)))
         return ALLOW_WRITE, detail
 
     # -- after editing: mark dirty only (contract §6.6 — never a per-edit sync)
@@ -762,6 +850,40 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
         return MARK_DIRTY, "dirty flag set; sync deferred to query/review/handoff/stop"
 
     # -- query / review / blast-radius / handoff / stop: JIT sync once (§6.6)
+    # review R6.1-2: graph-backed Mode A coverage coherence applies to REVIEW
+    # and HANDOFF/STOP too, not only pre-edit. A long-lived lane whose base is
+    # not the canonical graph base must NEVER receive a normal
+    # "BASE_ONLY + DELTA_BY_DIFF PASS" from review; review surfaces the
+    # mismatch (BLAST_RADIUS_REQUIRED / MODE_A_BASE_MISMATCH) until reconciled.
+    # Review R6.1-2: the COHERENCE half is graph-backed only — MODE C (manual
+    # grounding receipt) is a real reconciliation path and escapes it.
+    # Review R6.1-3: the UNAPPROVED-DELTA half applies to ALL receipt modes —
+    # an unauthorized observed delta is the same blocking fact regardless of
+    # how the edits were grounded.
+    # review R6.1-3: an unapproved observed delta blocks review/handoff/stop
+    # too — NO canonical graph required. The blocking fact is
+    # OBSERVED_DELTA ⊄ APPROVED_EDIT_SURFACE; it exists the moment a
+    # blast_radius record shows unapproved delta, in any receipt mode. This
+    # mirrors the pre-edit gate above and stays independent of graph state.
+    if intent in ("review", "handoff", "stop"):
+        br = wt_state.get("blast_radius")
+        if isinstance(br, dict) and br.get("approved_edit_surface") is not None:
+            unapproved = sorted(br.get("unapproved_delta") or [])
+            if unapproved:
+                return BLAST_RADIUS_REQUIRED, (
+                    "review/handoff blocked: UNAPPROVED_DELTA_DETECTED — OBSERVED_DELTA ⊄ "
+                    "APPROVED_EDIT_SURFACE (unapproved: %s). Remove the unauthorized delta or "
+                    "explicitly expand the approved surface, then recompute, before review or "
+                    "handoff (review R6.1-3)" % ",".join(unapproved))
+    # review R6.1-2: graph-backed Mode A coherence — review/handoff/stop must
+    # never return a normal BASE_ONLY + DELTA_BY_DIFF PASS while
+    # BASE_SHA != GRAPH_BASE_SHA or != CANONICAL_GRAPH_INDEX_SHA. MODE C
+    # (manual grounding receipt) is a real reconciliation path and escapes.
+    if intent in ("review", "handoff", "stop") and mode == "A" and canonical_init:
+        if _receipt_is_manual(wt_state.get("grounding_receipt")) is False:
+            mismatch, mdetail = mode_a_base_coherence(worktree, wt_state)
+            if mismatch:
+                return BLAST_RADIUS_REQUIRED, ("review/handoff blocked: %s" % mdetail)
     if mode == "B" and not has_index and not lane_init:
         return INIT_ONCE, "MODE B lane graph missing → init once for this lane, then incremental"
     if mode == "A" and not canonical_init:
@@ -804,10 +926,13 @@ def decide(intent, worktree, risk=LOW, file_path="", request_full_init=False,
     # review R6-F6: a registered graph that fails its health probe is
     # CORRUPT / PARTIAL / INCOMPATIBLE — an explicit fail-safe lifecycle state,
     # never a deadlock and never a silent full re-init.
+    # review R6.1-2: a MISSING tool is CODEGRAPH_UNAVAILABLE (MODE C), not a
+    # rebuild state — there is no running tool to repair an index with.
     if init_done(owner_state):
         ok, evidence = graph_health(owner_dir)
         if not ok:
-            return CODEGRAPH_REBUILD_REQUIRED, _rebuild_detail(owner_scope, owner_dir, evidence)
+            dec, det = _rebuild_or_unavailable(owner_scope, owner_dir, evidence)
+            return dec, det
     if dirty:
         return INCREMENTAL_SYNC_ONCE, "graph_dirty=YES → sync once, then record-sync-result --ok"
     # review R6-F3 (defense in depth): a production source delta a worker made
@@ -861,10 +986,11 @@ def verify(worktree):
     # LC-INV3  a failed sync never degrades into a full init
     wt_state = cs.load(worktree)
     graph_exists = index_present(worktree) or canonical_init or init_done(wt_state)
-    # review R6-F6: while the registered graph is corrupt, decide() honestly
-    # answers CODEGRAPH_REBUILD_REQUIRED — the sync-posture invariants below
-    # (LC-INV3/4/7) presuppose a healthy graph and must not fire against the
-    # recovery state.
+    # review R6-F6/R6.1-2: while the registered graph is corrupt OR the tool is
+    # unavailable, decide() honestly answers CODEGRAPH_REBUILD_REQUIRED /
+    # CODEGRAPH_UNAVAILABLE — the sync-posture invariants below (LC-INV3/4/7)
+    # presuppose a healthy graph and must not fire against either recovery
+    # state.
     rebuild_required = canonical_init and not graph_health(main_dir)[0]
     if wt_state.get("last_sync_failed") and graph_exists and not rebuild_required:
         for intent in sorted(SYNC_INTENTS):
@@ -962,6 +1088,12 @@ def main():
         risk = flag(args, "--risk", LOW)
         file_path = flag(args, "--file", "")
         req_full = "--request-full-init" in args
+        # review R6.1-2 (test seam): --codegraph-health-cmd overrides the health
+        # probe for THIS invocation (same channel as ZCODE_CODEGRAPH_HEALTH_CMD;
+        # production default stays the real `codegraph status` CLI).
+        health_cmd = flag(args, "--codegraph-health-cmd")
+        if health_cmd:
+            os.environ["ZCODE_CODEGRAPH_HEALTH_CMD"] = health_cmd
         dec, detail = decide(intent, worktree, risk=risk, file_path=file_path,
                              request_full_init=req_full,
                              lane_mode=flag(args, "--lane-mode"))

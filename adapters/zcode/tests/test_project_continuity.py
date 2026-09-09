@@ -16,7 +16,12 @@ Needs only git + python stdlib — the hooks never invoke CodeGraph themselves.
              allowlist + mechanical source delta / F4 approved vs observed
              surface / F5 Mode A base coherence / F6 corrupt-graph rebuild
              state / F7 receipt HEAD binding + NUL diff path exactness
-  → 60 tests total. PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
+  R61        final convergence patch (review round 6.1): Bash receipt
+             validation (partial/stale BLOCK, complete fresh ALLOW) + trusted
+             set-grounding bootstrap end-to-end / Mode A REVIEW coherence +
+             MODE C escape + CODEGRAPH_UNAVAILABLE classification /
+             UNAPPROVED_DELTA runtime gate on writes + review
+  → 67 tests total (62 through R6 + 5 R6.1). PS12 = CROSS-AGENT RESTORE (Agent A flush → remote →
     fresh Agent B clone). Review-driven: F1 mode A/B lanes (LC11/LC12),
     F2 fail-closed blast radius (LC13), F3 edit-surface authority (LC14),
     F4 structural receipts (CG14), F5 durability ladder (PS17),
@@ -1038,7 +1043,9 @@ class LifecycleDecisionTests(ContinuityBase):
         (repo / "src" / "unrelated.py").write_text("x = 1\n", encoding="utf-8")
         out = self.decide(repo, "pre-edit", risk="HIGH", file="src/unrelated.py")
         self.assertIn("BLAST_RADIUS_EXPANSION_REQUIRED", out)
-        # explicitly expand the intended edit surface → recompute → ALLOW
+        # R6.1-3: the unapproved observed delta is a RUNTIME GATE with two exits.
+        # (a) REMOVE the unauthorized delta → recompute → coherent → continue
+        (repo / "src" / "unrelated.py").unlink()
         self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py",
                 "--target", "src/expected_new.py")
         (repo / "src" / "expected_new.py").write_text("y = 2\n", encoding="utf-8")
@@ -1499,7 +1506,9 @@ class R6ConvergenceTests(ContinuityBase):
 
     # R6-F5 — Mode A base/graph coherence: lane base must equal the canonical
     #         graph base; a moved main/graph must NOT masquerade as the lane's
-    #         base graph
+    #         base graph. R6.1-2: the coherence invariant is GRAPH-BACKED only
+    #         — a manual (MODE C) receipt escapes it, so this regression is
+    #         driven by a graph-backed receipt (mode="graph").
     def test_r6_f5_mode_a_base_coherence(self):
         repo = self.mk_repo()
         self.commit_all(repo)                        # HEAD = A
@@ -1508,7 +1517,7 @@ class R6ConvergenceTests(ContinuityBase):
         wt = self.base / "wt-r6f5"
         git(["worktree", "add", "-b", "feature/r6f5", str(wt)], str(repo))
         base_a = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
-        self.full_ground(wt, ticket="T-A", risk="HIGH", mode="manual", base=base_a)
+        self.full_ground(wt, ticket="T-A", risk="HIGH", mode="graph", base=base_a)
         self.lc(wt, "blast-radius", "--base", base_a, "--target", "src/app.py")
         # lane base A + canonical graph A → MODE A valid
         self.assertIn("ALLOW_WRITE", self.decide(wt, "pre-edit", risk="HIGH",
@@ -1648,6 +1657,247 @@ class R6ConvergenceTests(ContinuityBase):
         self.assertIn("src/ pad both.py", files3)
         self.assertIn("src/x.py ", files3)
         self.assertNotIn("src/x.py", files3)  # exactness — no silent mutation
+
+
+class R61FinalConvergenceTests(ContinuityBase):
+    """R6.1 final convergence patch regressions (PR #5 review round 6.1).
+
+    F1  Bash receipt validation — `{"BASE_SHA": ...}` alone is NOT grounding;
+        the Bash preflight reuses grounding_guard's structural + freshness
+        semantics (partial receipt BLOCKS; stale receipt BLOCKS; complete
+        fresh receipt unlocks normal Bash)
+    B   trusted receipt bootstrap — before grounding, EXACTLY the canonical
+        `python <hooks>/codegraph_state.py set-grounding ...` command is
+        narrowly allowed (exact script path, exact subcommand, flags only);
+        chaining / redirection / arbitrary scripts stay BLOCKED; the REAL
+        path readonly grounding → trusted set-grounding → receipt → normal
+        Bash unlocks end to end
+    F2  graph-backed Mode A coherence covers REVIEW (not only pre-edit): a
+        long-lived lane with a moved canonical graph gets NO review PASS;
+        MODE C (manual) genuinely escapes coherence; a MISSING tool is
+        CODEGRAPH_UNAVAILABLE (MODE C) vs a running tool + broken index =
+        CODEGRAPH_REBUILD_REQUIRED
+    F3  UNAPPROVED_DELTA_DETECTED is a runtime gate: blocks further MEDIUM/HIGH
+        writes AND review until the delta is removed or the surface is
+        explicitly expanded; LC-INV8 stays as defense in depth
+    """
+
+    def fake_index(self, repo):
+        d = repo / ".codegraph"
+        d.mkdir(exist_ok=True)
+        (d / "index.meta.json").write_text('{"status": "synthetic-healthy"}',
+                                           encoding="utf-8")
+
+    def ground(self, repo, ticket="T-1", risk="HIGH", mode="manual"):
+        return self.full_ground(repo, ticket=ticket, risk=risk, mode=mode)[0]
+
+    def in_process_state(self, repo):
+        prev = os.environ.get("ZCODE_RUNTIME_STATE_DIR")
+        os.environ["ZCODE_RUNTIME_STATE_DIR"] = str(self.runtime)
+        self.addCleanup(self._restore_runtime_env, prev)
+        sys.path.insert(0, str(HOOKS))
+        import importlib
+        return importlib.import_module("_continuity_state")
+
+    @staticmethod
+    def _restore_runtime_env(prev):
+        if prev is None:
+            os.environ.pop("ZCODE_RUNTIME_STATE_DIR", None)
+        else:
+            os.environ["ZCODE_RUNTIME_STATE_DIR"] = prev
+
+    def lc(self, repo, *args):
+        return self.run_tool(LC, list(args), repo=repo).stdout
+
+    def decide(self, repo, intent, **flags):
+        args = ["decide", "--intent", intent]
+        for k, v in flags.items():
+            args += ["--" + k.replace("_", "-"), v]
+        return self.lc(repo, *args)
+
+    def bash_guard(self, repo, command, risk="HIGH"):
+        return self.run_tool(BASH_GUARD, ["--command", command, "--risk", risk],
+                             repo=repo)
+
+    def set_grounding_cmd(self, repo, extra=()):
+        """The canonical trusted bootstrap command shape. The script path is
+        quoted with FORWARD slashes: shlex.split(posix=True) is the guard's
+        tokenizer and would eat Windows backslashes as escapes (a mechanical
+        fact the guard itself documents)."""
+        return 'python "%s" set-grounding --ticket T-B --risk HIGH --base-sha %s --mode manual %s' \
+            % (str(HOOKS / "codegraph_state.py").replace("\\", "/"),
+               git(["rev-parse", "HEAD"], str(repo)).stdout.strip(),
+               " ".join(extra))
+
+    # R6.1-1 — Bash receipt validation: partial / stale BLOCK, complete fresh ALLOW
+    def test_r61_f1_bash_receipt_validation(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        cs = self.in_process_state(repo)
+        sp = cs.state_path(str(repo))
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        # (1) partial receipt {BASE_SHA: ...} only → normal Bash still BLOCKS
+        sp.write_text(json.dumps({"grounding_receipt": {"BASE_SHA": "a" * 40}}),
+                      encoding="utf-8")
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 2, p.stdout)
+        self.assertIn("GROUNDING_RECEIPT_INVALID", p.stdout)
+        # (2) structurally complete but STALE receipt → still BLOCKS
+        self.full_ground(repo, ticket="T-S", risk="HIGH", mode="graph", base="0" * 40)
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 2, p.stdout)
+        self.assertIn("GROUNDING_RECEIPT_STALE", p.stdout)
+        # (3) complete + fresh receipt → normal Bash unlocks
+        self.full_ground(repo, ticket="T-F", risk="HIGH", mode="manual")
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("normal Bash", p.stdout)
+
+    # R6.1-1 — trusted set-grounding bootstrap: exact shape ALLOW, everything
+    #          else (chaining, redirection, arbitrary scripts) BLOCKED; then
+    #          the REAL end-to-end path: readonly → trusted set-grounding →
+    #          receipt exists → normal Bash unlocks
+    def test_r61_f1_trusted_receipt_bootstrap_end_to_end(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        # (1) the canonical trusted command is the ONLY python-shaped ALLOW
+        p = self.bash_guard(repo, self.set_grounding_cmd(repo))
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("TRUSTED_RECEIPT_BOOTSTRAP", p.stdout)
+        # (2) chaining / redirection / arbitrary python stay BLOCKED
+        for bad in (
+            self.set_grounding_cmd(repo) + " && echo pwned",
+            self.set_grounding_cmd(repo) + " > out.txt",
+            'python "%s" set-grounding --ticket X --risk HIGH --base-sha %s --mode manual'
+            % (str(HOOKS / "nonexistent.py").replace("\\", "/"), "b" * 40),  # wrong script
+            "python -c \"import os; os.remove('src/app.py')\"",
+            "python script.py",
+        ):
+            p = self.bash_guard(repo, bad)
+            self.assertEqual(p.returncode, 2, "expected BLOCK for %r" % bad)
+            self.assertIn("UNKNOWN_BASH_MUTABILITY", p.stdout)
+        # (3) REAL path end-to-end: no receipt → normal Bash BLOCKS; readonly
+        #     grounding discovery ALLOWED; trusted set-grounding records the
+        #     receipt; normal Bash unlocks
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 2, p.stdout)
+        self.assertIn("UNKNOWN_BASH_MUTABILITY", p.stdout)
+        p = self.bash_guard(repo, "rg -n 'def main' src")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("read-only allowlist pre-grounding", p.stdout)
+        cmd = self.set_grounding_cmd(repo, extra=(
+            "--field GRAPH_BASE_SHA=%s" % git(["rev-parse", "HEAD"], str(repo)).stdout.strip(),
+            "--field TARGET_SEAM=src/app.py", "--field DIRECT_TARGETS=src/app.py",
+            "--field UPSTREAM_PRODUCERS=NONE", "--field CALLERS=UNKNOWN",
+            "--field CALLEES=UNKNOWN", "--field DOWNSTREAM_CONSUMERS=NONE",
+            "--field IMPACT=NONE", "--field AFFECTED=src/app.py",
+            "--field STATE_OWNER=NONE", "--field IDENTITY_OWNER=NONE",
+            "--field VALIDATION_OWNER=NONE", "--field EXPECTED_EDIT_SURFACE=src/app.py",
+            "--field OUT_OF_SCOPE=docs/"))
+        # run the REAL command through the REAL guard (the hook would allow it;
+        # here we also execute it so the receipt actually lands)
+        p = self.bash_guard(repo, cmd)
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("TRUSTED_RECEIPT_BOOTSTRAP", p.stdout)
+        subprocess.run(cmd, shell=True, cwd=str(repo), capture_output=True, text=True,
+                       timeout=60,
+                       env={**os.environ, "ZCODE_RUNTIME_STATE_DIR": str(self.runtime)})
+        cst = self.in_process_state(repo)
+        st = cst.load(str(repo))
+        self.assertIsInstance(st.get("grounding_receipt"), dict)
+        self.assertIn("BASE_SHA", st["grounding_receipt"])
+        p = self.bash_guard(repo, "npm test")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn("normal Bash", p.stdout)
+
+    # R6.1-2 — graph-backed Mode A coherence covers REVIEW; MODE C escapes it
+    def test_r61_f2_mode_a_review_coherence_and_mode_c_escape(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)                        # HEAD = A
+        self.fake_index(repo)
+        self.lc(repo, "record-init")                 # canonical graph at A
+        wt = self.base / "wt-r61"
+        git(["worktree", "add", "-b", "feature/r61", str(wt)], str(repo))
+        base_a = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        # graph-backed receipt at base A (BASE_SHA == GRAPH_BASE_SHA)
+        self.full_ground(wt, ticket="T-G", risk="HIGH", mode="graph", base=base_a)
+        self.lc(wt, "blast-radius", "--base", base_a, "--target", "src/app.py")
+        self.assertIn("NO_SYNC", self.decide(wt, "review"))
+        # canonical graph advances A → B; the long-lived lane stays at A
+        (repo / "src" / "app.py").write_text("def main():\n    return 9\n", encoding="utf-8")
+        self.commit_all(repo, "main advances to B")
+        self.lc(repo, "record-sync-result", "--ok")
+        # review MUST NOT return a normal BASE_ONLY+DELTA_BY_DIFF PASS
+        out = self.decide(wt, "review")
+        self.assertIn("BLAST_RADIUS_REQUIRED", out)
+        self.assertIn("MODE_A_BASE_MISMATCH", out)
+        self.assertNotIn("NO_SYNC", out)
+        # MODE C (manual receipt) genuinely escapes the coherence invariant
+        self.full_ground(wt, ticket="T-M", risk="HIGH", mode="manual", base=base_a)
+        out = self.decide(wt, "review")
+        self.assertNotIn("MODE_A_BASE_MISMATCH", out)
+        # handoff/stop are covered by the same review-time gate (still manual)
+        self.assertIn("NO_SYNC", self.decide(wt, "handoff"))
+
+    # R6.1-2 — tool unavailable vs corrupt index are DIFFERENT classifications
+    def test_r61_f2_codegraph_unavailable_classification(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.lc(repo, "record-init")
+        # healthy registered graph → NO_SYNC
+        self.assertIn("NO_SYNC", self.decide(repo, "query"))
+        # corrupt index under a RUNNING (mock) tool → CODEGRAPH_REBUILD_REQUIRED
+        (repo / ".codegraph" / "index.meta.json").unlink()
+        out = self.decide(repo, "query")
+        self.assertIn("CODEGRAPH_REBUILD_REQUIRED", out)
+        self.assertNotIn("CODEGRAPH_UNAVAILABLE", out)
+        # the mock probe is REMOVED entirely → the TOOL itself is unreachable
+        # → CODEGRAPH_UNAVAILABLE / MODE C (never a rebuild state).
+        # hook_env() injects the mock probe into every subprocess, so the
+        # probe-less leg must EXPLICITLY override it with a CLI that cannot
+        # exist — the mechanical shape of "codegraph tool not installed".
+        out2 = self.decide(repo, "query", **{
+            "codegraph-health-cmd": "definitely-not-a-real-codegraph-cli-xyz status"})
+        self.assertIn("CODEGRAPH_UNAVAILABLE", out2)
+        self.assertNotIn("CODEGRAPH_REBUILD_REQUIRED", out2)
+        self.assertIn("MODE C", out2)
+        self.assertIn("never auto-init", out2)
+        self.assertIn("never auto-rebuild", out2)
+
+    # R6.1-3 — unapproved observed delta is a RUNTIME GATE on writes AND review;
+    #          explicit expansion recomputes → coherent → continue
+    def test_r61_f3_unapproved_delta_runtime_gate(self):
+        repo = self.mk_repo()
+        self.commit_all(repo)
+        self.fake_index(repo)
+        self.ground(repo)
+        base = git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
+        # unauthorized unrelated.py ALREADY changed (outside approved surface)
+        (repo / "src" / "unrelated.py").write_text("x = 1\n", encoding="utf-8")
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py")
+        # (1) another approved-file write BLOCKS (runtime gate, not a note)
+        out = self.decide(repo, "pre-edit", risk="HIGH", file="src/app.py")
+        self.assertIn("BLAST_RADIUS_REQUIRED", out)
+        self.assertIn("UNAPPROVED_DELTA_DETECTED", out)
+        self.assertNotIn("ALLOW_WRITE", out)
+        # (2) review BLOCKS too
+        self.assertIn("BLAST_RADIUS_REQUIRED", self.decide(repo, "review"))
+        self.assertIn("UNAPPROVED_DELTA_DETECTED", self.decide(repo, "review"))
+        # (3) explicit authority expansion INCLUDING unrelated.py → recompute
+        #     → coherent → writes and review continue
+        self.lc(repo, "blast-radius", "--base", base, "--target", "src/app.py",
+                "--target", "src/unrelated.py")
+        self.assertIn("SURFACE_COHERENT=YES", self.lc(
+            repo, "blast-radius", "--base", base, "--target", "src/app.py",
+            "--target", "src/unrelated.py"))
+        self.assertIn("ALLOW_WRITE", self.decide(repo, "pre-edit", risk="HIGH",
+                                                 file="src/app.py"))
+        self.assertIn("NO_SYNC", self.decide(repo, "review"))
+        # LC-INV8 remains as defense in depth (no breach in the coherent state)
+        p = self.run_tool(LC, ["verify"], repo=repo, expect=0)
+        self.assertIn("LIFECYCLE_INVARIANTS=PASS", p.stdout)
 
 
 if __name__ == "__main__":
