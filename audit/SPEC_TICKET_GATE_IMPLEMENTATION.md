@@ -6,7 +6,7 @@
 - Target: `FlapPearLabs/agent-engineering-governance`.
 - Base: `0ba2c7351d45dba1459a391b0d43e418ecf55280` (fresh remote main).
 - Feature branch: `fix/spec-ticket-semantic-gates-20260916`.
-- Approved Spec input (owner identifies it as approved): [exact Spec](https://github.com/FlapPearLabs/agent-engineering-governance/blob/60209cdaf2beeaa718fadcc4028a41c2f0f07db1/docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md). Read-only; not present on this base main. No Spec or parallel ticket content is copied or modified.
+- Owner-designated external compatibility input for this governance design/review (owner identifies it as approved): [exact Spec](https://github.com/FlapPearLabs/agent-engineering-governance/blob/60209cdaf2beeaa718fadcc4028a41c2f0f07db1/docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md), `P1_SPEC_SHA = 60209cdaf2beeaa718fadcc4028a41c2f0f07db1`. Read-only; not this feature branch's in-tree canonical Spec pointer. The branch has no in-tree P1 Spec, so `canonical_documents.specs = ["NONE"]`. No Spec or parallel ticket content is copied or modified.
 - This authorization is separate from that Spec's implementation authorization. No claim that its W1–W5 work is implemented here.
 - Independent governance review remains required: two independent axes on the same exact candidate under AGENTS §8. This document is executor evidence, never reviewer approval.
 

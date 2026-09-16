@@ -72,7 +72,15 @@ def is_pointer_slot_ok(value) -> bool:
         return value in ("NONE", "NOT_APPLICABLE")
     if not isinstance(value, list):
         return False
-    return all(isinstance(p, str) for p in value)
+    # Canonical documents are repo-relative paths, not remote locations.
+    # The prefix check covers URI schemes, drive letters and SCP-style remotes.
+    return all(
+        isinstance(p, str) and bool(p.strip())
+        and not p.startswith(("/", "\\"))
+        and not re.match(r"^(?:[A-Za-z][A-Za-z0-9+.-]*|[^/\\]+@[^/\\]+):", p)
+        and not TRAVERSAL.search(p)
+        for p in value
+    )
 
 
 def walk_strings(node):

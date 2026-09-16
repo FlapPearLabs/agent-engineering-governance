@@ -391,6 +391,31 @@ class ProjectStateTests(ContinuityBase):
         self.assertEqual(p.returncode, 1)
         self.assertIn("no-local-absolute-paths", p.stdout)
 
+    def test_document_pointer_contract(self):
+        repo = self.mk_repo()
+        docs = self.write_state(repo)["canonical_documents"]
+        accepted = (
+            ["docs/specs/example.md"], ["NONE"], [], "NONE", "NOT_APPLICABLE",
+            ["RULES.md", "AGENTS.md", "deployment/PORTABLE_SETUP.md"],
+        )
+        rejected = (
+            ["https://github.com/example/repo/blob/" + "a" * 40 + "/spec.md"],
+            ["https://example.com/spec.md"], ["http://example.com/spec.md"],
+            ["ssh://host/path"], ["git@host:repo"], ["/absolute/path"],
+            ["//network-or-protocol-relative"], ["C:" + "\\absolute\\path"],
+            ["C:" + "/absolute/path"], ["../outside.md"],
+            ["a/../../outside.md"], [""], ["   "], [None],
+        )
+        for values, expected in ((accepted, 0), (rejected, 1)):
+            for value in values:
+                with self.subTest(pointer=value):
+                    docs["specs"] = value
+                    self.write_state(repo, canonical_documents=docs)
+                    p = self.run_tool(str(VALIDATOR), [str(repo)], repo=repo,
+                                      expect=expected)
+                    verdict = "PASS" if expected == 0 else "FAIL"
+                    self.assertIn(verdict + "  canonical-documents-pointers", p.stdout)
+
     # PS16 — recovery snapshot required keys cannot be silently omitted
     def test_ps16_recovery_snapshot_required_keys(self):
         repo = self.mk_repo()
