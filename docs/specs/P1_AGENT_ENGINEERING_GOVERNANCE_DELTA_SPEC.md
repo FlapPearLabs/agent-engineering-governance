@@ -892,34 +892,36 @@ requirement → producer → interface → consumer → evidence → acceptance
 
 | REQ | Producer | Interface | Consumer | Evidence | AC（语义绑定） |
 |---|---|---|---|---|---|
-| `REQ-W1-01` | 拆票主体（authority/design 侧冻结①类）+ 执行侧（产生②类） | `references/ticket-lane.md` §3 seam 合同块（①/② 分区） | 票内 worker、L1 reviewer、integrator | 冻结的 seam 字段组 + 关闭证据字段；`EVIDENCE_REF` | AC-01/02/03/12/20 |
-| `REQ-W1-02` | 拆票主体 | `references/execution-stage.md` §6 拆票前识别清单 | ticket authorization 后的票内执行者 | 拆票前 8 字段记录 + 票内 RED 执行记录（owner = `RED_EXECUTION_OWNER`） | AC-21/12 |
-| `REQ-W1-03` | 执行侧（集成票） | `references/git-ci-integration.md` §4/§5 + AGENTS §6 | integrator | `REAL_ENTRYPOINT`/`PRODUCTION_CALL_CHAIN`/`OBSERVED_PRODUCTION_EFFECT`/`PRODUCTION_CALLERS`/`RUNTIME_REACHABLE`/`EVIDENCE_REF` | AC-04/05/23/20 |
-| `REQ-W1-04` | worker / native harness；L0；reviewer；integrator | 既有角色分离（AGENTS §3/§6） | 同上 | 各方产出物分离，互不代替 | AC-01 |
-| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source） | AC-06/10/42 |
-| `REQ-W2-02` | producer（`scripts/review_evidence.py` collect） | `unverified[]` + 信任/取回边界 | validator、L1 | 收集到的事实 + 未验证项 + 不执行/不取回的边界证明 | **AC-24/25/26/27** + AC-06/42 |
-| `REQ-W2-03` | validator | 三条正交轴（`STRUCTURALLY_VALID` / `SOURCE_VERIFICATION_STATE` / `EVIDENCE_SUFFICIENCY`） | L0/L1 gate | 三轴各自取值 + 轴间处置 + 失败分类 | **AC-39** + AC-06/07/10/22 |
-| `REQ-W2-04` | 本 Spec（字段合同）→ producer/validator 实现 | `schemas/review-evidence.schema.json` + `templates/review-evidence.json` | validator、L1、integrator | (a)–(g) 子合同逐条可判 | **AC-28/29/30**（a/g）+ **AC-24/25/26/27**（b/d）+ **AC-31/32**（e）+ **AC-39**（c）+ **AC-42** + AC-06/07/10/22 |
-| `REQ-W2-05` | reviewer（语义 scope 结论） | `semanticScopeStatus` 字段（reviewer 写入） | L1/L2、integrator | reviewer 权威写入；观测不自动升格 | **AC-35** |
-| `REQ-W2-06` | consumer 侧（L1/L2/integrator/Stage） | `reviewerDecisionRefs` 与机器事实分字段 | L1/L2/integrator/Stage packet | 不自批证据 + Stage 只引用不复制 | **AC-36** + AC-08 |
-| `REQ-W2-07` | 仓政策 + producer | `subject commit` / `report commit` 显式区分 | integrator、后续 reviewer | 两 commit 身份分离；新报告提交不继承旧 PASS | **AC-37** |
-| `REQ-W3-01` | 证据各类型 owner | 各类型独立有效期（五类） | L1/L2/CI/integrator | 各 receipt 与其绑定对象 | **AC-33/34** + AC-11 |
-| `REQ-W3-02` | 复用声明者 | `reuse` 依赖描述符（`REQ-W2-04(e)`） | L1/L2 | `VALID_FOR` + `VERIFICATION_STATE != UNKNOWN` | **AC-31/32** + AC-11 |
-| `REQ-W3-03` | canonical（`git-ci-integration.md`） | 失效触发清单（四项） | L1/L2/CI | 命中记录 + 定向失效范围 | **AC-33** |
-| `REQ-W3-04` | canonical（既有） | 既有 `CI_STATUS` 七值集 | CI/L1/consumer | CI 原始状态 + 非 PASS 独立接受记录 | **AC-30** + AC-11/22 |
-| `REQ-W4-01` | 本 Spec（冻结预算）→ 未来实现 | `deployment/BOOTSTRAP_CONTRACT.md` §2.1 + 候选 + `scripts/validate_governance.py` | 校验器、部署者 | `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES=3500` 契约 + UTF-8 byte 检查 + 实测反例 | AC-17 |
-| `REQ-W4-02a` | canonical owner（`review-and-repair-saturation.md`） | audit visibility recipe（字段组 + 两个 completeness 输出） | 外审/审计执行者、reviewer | recipe 记录 + `CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT` / `FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS` | AC-13 + **AC-38** |
-| `REQ-W4-02b` | canonical owner（`git-ci-integration.md`） | destructive transaction recipe（`status → 保全 → 操作 → post-state`） | 执行者、reviewer | 保全前后状态记录 | AC-14 + **AC-38** |
-| `REQ-W4-02c` | canonical owner（`ticket-lane.md`） | single-writer + readback recipe | 票内执行者、L1 | 聚合修改记录 + **最终回读**核验结果 | AC-15 + **AC-38** |
-| `REQ-W4-02d` | canonical owner（`engineering-memory.md`） | learning closure 条件 | 执行者、reviewer | 采纳/拒绝理由 + 验证引用 | AC-16 + **AC-38** |
-| `REQ-W4-02e` | canonical owner（`skills-and-model-routing.md`） | model dispatch 字段组 | 派发者、reviewer | 字段齐备 + 型号可更新 profile | AC-19 + **AC-38** |
-| `REQ-W4-03` | adapter/hook 实现（S1） | `grounding_guard.py` 退出码合同 + adapter deny 映射合同 | 宿主 runtime bridge、L0/L1 | exit 0/2 语义 + adapter deny 映射合同 + 合成/reference 测试；无映射 → ADVISORY | AC-18 |
-| `REQ-W4-03-D` | live 宿主（W5） | 真实 runtime deny 路径 | integrator（live） | 真实工具事件 → block → deny → 目标未修改 | AC-18-D |
-| `REQ-W4-04` | gate 脚本实现 | CLI 入口自测（`argv → main`、退出码、结构化输出、探针） | consumer / CI | 真实命令入口测试（非 import 冒充）+ 副作用的探针 | AC-09 |
-| `REQ-W5-01` | live 宿主 + 部署者 | fresh neutral session / project session 验收协议 | PRODUCT OWNER | session 记录 + authority load/override/state restore/auto-advance + deny 实测 + 降级如实记录 | **AC-40**（+ AC-18-D 作为其中一项） |
-| `REQ-W5-02` | 仓部署政策 / PRODUCT OWNER | GitHub 保护配置（未来） | PRODUCT OWNER | 授权的 settings/API 证据；权限不可得 → `NOT_VERIFIED` | **AC-41** |
+| `REQ-W1-01` | 拆票主体（authority/design 侧冻结①类）+ 执行侧（产生②类） | `references/ticket-lane.md` §3 seam 合同块（①/② 分区） | 票内 worker、L1 reviewer、integrator | 冻结的 seam 字段组 + 关闭证据字段；`EVIDENCE_REF` | `AC-01`, `AC-02`, `AC-03`, `AC-12`, `AC-20` |
+| `REQ-W1-02` | 拆票主体 | `references/execution-stage.md` §6 拆票前识别清单 | ticket authorization 后的票内执行者 | 拆票前 8 字段记录 + 票内 RED 执行记录（owner = `RED_EXECUTION_OWNER`） | `AC-21`, `AC-12` |
+| `REQ-W1-03` | 执行侧（集成票） | `references/git-ci-integration.md` §4/§5 + AGENTS §6 | integrator | `REAL_ENTRYPOINT`/`PRODUCTION_CALL_CHAIN`/`OBSERVED_PRODUCTION_EFFECT`/`PRODUCTION_CALLERS`/`RUNTIME_REACHABLE`/`EVIDENCE_REF` | `AC-04`, `AC-05`, `AC-23`, `AC-20` |
+| `REQ-W1-04` | worker / native harness；L0；reviewer；integrator | 既有角色分离（AGENTS §3/§6） | 同上 | 各方产出物分离，互不代替 | `AC-01` |
+| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source） | `AC-06`, `AC-10`, `AC-42` |
+| `REQ-W2-02` | producer（`scripts/review_evidence.py` collect） | `unverified[]` + 信任/取回边界 | validator、L1 | 收集到的事实 + 未验证项 + 不执行/不取回的边界证明 | `AC-24`, `AC-25`, `AC-26`, `AC-27`, `AC-06`, `AC-42` |
+| `REQ-W2-03` | validator | 三条正交轴（`STRUCTURALLY_VALID` / `SOURCE_VERIFICATION_STATE` / `EVIDENCE_SUFFICIENCY`） | L0/L1 gate | 三轴各自取值 + 轴间处置 + 失败分类 | `AC-39`, `AC-06`, `AC-07`, `AC-10`, `AC-22` |
+| `REQ-W2-04` | 本 Spec（字段合同）→ producer/validator 实现 | `schemas/review-evidence.schema.json` + `templates/review-evidence.json` | validator、L1、integrator | (a)–(g) 子合同逐条可判 | (a)(g) `AC-28`, `AC-29`, `AC-30`；(b)(d) `AC-24`, `AC-25`, `AC-26`, `AC-27`；(c) `AC-39`；(e) `AC-31`, `AC-32`；(f) `AC-42`；通用 `AC-06`, `AC-07`, `AC-10`, `AC-22` |
+| `REQ-W2-05` | reviewer（语义 scope 结论） | `semanticScopeStatus` 字段（reviewer 写入） | L1/L2、integrator | reviewer 权威写入；观测不自动升格 | `AC-35` |
+| `REQ-W2-06` | consumer 侧（L1/L2/integrator/Stage） | `reviewerDecisionRefs` 与机器事实分字段 | L1/L2/integrator/Stage packet | 不自批证据 + Stage 只引用不复制 | `AC-36`, `AC-08` |
+| `REQ-W2-07` | 仓政策 + producer | `subject commit` / `report commit` 显式区分 | integrator、后续 reviewer | 两 commit 身份分离；新报告提交不继承旧 PASS | `AC-37` |
+| `REQ-W3-01` | 证据各类型 owner | 各类型独立有效期（五类） | L1/L2/CI/integrator | 各 receipt 与其绑定对象 | `AC-33`, `AC-34`, `AC-11` |
+| `REQ-W3-02` | 复用声明者 | `reuse` 依赖描述符（`REQ-W2-04(e)`） | L1/L2 | `VALID_FOR` + `VERIFICATION_STATE != UNKNOWN` | `AC-31`, `AC-32`, `AC-11` |
+| `REQ-W3-03` | canonical（`git-ci-integration.md`） | 失效触发清单（四项） | L1/L2/CI | 命中记录 + 定向失效范围 | `AC-33` |
+| `REQ-W3-04` | canonical（既有） | 既有 `CI_STATUS` 七值集 | CI/L1/consumer | CI 原始状态 + 非 PASS 独立接受记录 | `AC-30`, `AC-11`, `AC-22` |
+| `REQ-W4-01` | 本 Spec（冻结预算）→ 未来实现 | `deployment/BOOTSTRAP_CONTRACT.md` §2.1 + 候选 + `scripts/validate_governance.py` | 校验器、部署者 | `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES=3500` 契约 + UTF-8 byte 检查 + 实测反例 | `AC-17` |
+| `REQ-W4-02a` | canonical owner（`review-and-repair-saturation.md`） | audit visibility recipe（字段组 + 两个 completeness 输出） | 外审/审计执行者、reviewer | recipe 记录 + `CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT` / `FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS` | `AC-13`, `AC-38` |
+| `REQ-W4-02b` | canonical owner（`git-ci-integration.md`） | destructive transaction recipe（`status → 保全 → 操作 → post-state`） | 执行者、reviewer | 保全前后状态记录 | `AC-14`, `AC-38` |
+| `REQ-W4-02c` | canonical owner（`ticket-lane.md`） | single-writer + readback recipe | 票内执行者、L1 | 聚合修改记录 + **最终回读**核验结果 | `AC-15`, `AC-38` |
+| `REQ-W4-02d` | canonical owner（`engineering-memory.md`） | learning closure 条件 | 执行者、reviewer | 采纳/拒绝理由 + 验证引用 | `AC-16`, `AC-38` |
+| `REQ-W4-02e` | canonical owner（`skills-and-model-routing.md`） | model dispatch 字段组 | 派发者、reviewer | 字段齐备 + 型号可更新 profile | `AC-19`, `AC-38` |
+| `REQ-W4-03` | adapter/hook 实现（S1） | `grounding_guard.py` 退出码合同 + adapter deny 映射合同 | 宿主 runtime bridge、L0/L1 | exit 0/2 语义 + adapter deny 映射合同 + 合成/reference 测试；无映射 → ADVISORY | `AC-18` |
+| `REQ-W4-03-D` | live 宿主（W5） | 真实 runtime deny 路径 | integrator（live） | 真实工具事件 → block → deny → 目标未修改 | `AC-18-D` |
+| `REQ-W4-04` | gate 脚本实现 | CLI 入口自测（`argv → main`、退出码、结构化输出、探针） | consumer / CI | 真实命令入口测试（非 import 冒充）+ 副作用的探针 | `AC-09` |
+| `REQ-W5-01` | live 宿主 + 部署者 | fresh neutral session / project session 验收协议 | PRODUCT OWNER | session 记录 + authority load/override/state restore/auto-advance + deny 实测 + 降级如实记录 | `AC-40`（并含 `AC-18-D` 作为其中第 7 项） |
+| `REQ-W5-02` | 仓部署政策 / PRODUCT OWNER | GitHub 保护配置（未来） | PRODUCT OWNER | 授权的 settings/API 证据；权限不可得 → `NOT_VERIFIED` | `AC-41` |
 
-**共 AC 说明**：`AC-01` 由 `REQ-W1-01` 与 `REQ-W1-04` 共用；`AC-06/07/10/22/42` 由 W2 多条共用；`AC-11` 由 W3 四条共用；`AC-31/32` 由 `REQ-W2-04(e)` 与 `REQ-W3-02` 共用；`AC-33` 由 `REQ-W3-01` 与 `REQ-W3-03` 共用；`AC-38` 由 `REQ-W4-02a..02e` 五条共用；`AC-18` / `AC-18-D` 分别承担 `REQ-W4-03` 的 S1 与 W5 两面。**共用不表示可省略任一 requirement 的映射行，也不表示可用语义无关的 AC 充数。**
+**AC 引用为完整显式 ID**（不用 `AC-28/29/30` 之类缩写），以便审查方机械核验每条绑定存在且语义相关。
+
+**共 AC 说明**：`AC-01` 由 `REQ-W1-01` 与 `REQ-W1-04` 共用；`AC-06`、`AC-07`、`AC-10`、`AC-22`、`AC-42` 由 W2 多条共用；`AC-11` 由 W3 四条共用；`AC-31`、`AC-32` 由 `REQ-W2-04(e)` 与 `REQ-W3-02` 共用；`AC-33` 由 `REQ-W3-01` 与 `REQ-W3-03` 共用；`AC-30` 由 `REQ-W2-04(a)` 与 `REQ-W3-04` 共用；`AC-38` 由 `REQ-W4-02a`..`REQ-W4-02e` 五条共用；`AC-18` / `AC-18-D` 分别承担 `REQ-W4-03` 的 S1 与 W5 两面。**共用不表示可省略任一 requirement 的映射行，也不表示可用语义无关的 AC 充数。**
 
 **R3 纠正记录（原语义错配 → 现绑定）**：
 
