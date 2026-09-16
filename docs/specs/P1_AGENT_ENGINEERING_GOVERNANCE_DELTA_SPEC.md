@@ -2,7 +2,7 @@
 
 ```text
 SPEC_ID              = P1_AGENT_ENGINEERING_GOVERNANCE_DELTA
-SPEC_VERSION         = 1 (draft, final finding-scoped micro-repair)
+SPEC_VERSION         = 1 (draft, adversarial finding micro-repair)
 STATUS               = DRAFT_FOR_INDEPENDENT_REVIEW
 IMPLEMENTATION_AUTHORIZED = NO
 REVIEW_GATE          = CHATGPT_INDEPENDENT_EXACT_SHA_SPEC_REVIEW
@@ -15,8 +15,9 @@ ZHIHU_REPO           = FlapPearLabs/zhihu-grabber-toolkit
 ZHIHU_ROLE           = EVIDENCE_SOURCE_REPO（只读，本 Spec 不修改其任何文件或状态）
 BASE_SHA             = 0ba2c7351d45dba1459a391b0d43e418ecf55280
 BASELINE_DRIFT       = NONE（远端 main == 本地 HEAD == BASE_SHA；open PRs = 0）
-PRIOR_REVIEWED_SHA   = 83b714c2cc35db1523f4e6593b67ef7dc8b2e67c（repaired: M1–M3，见 §16.7）
-REPAIR_HISTORY       = 458ed253 → 7d4887b6 (F1–F6) → c7de399/83b714c (R1–R4) → 本轮 (M1–M3)
+PRIOR_REVIEWED_SHA   = 3803518a3c6c40578a6e31a69be95bd4fb7de1fd（repaired: F-A1/A2/A3，见 §16.8）
+REPAIR_HISTORY       = 458ed253 → 7d4887b6 (F1–F6) → c7de399/83b714c (R1–R4)
+                       → 3803518a (M1–M3) → 本轮 (F-A1/A2/A3)
 ```
 
 ## 0. 阅读契约与证据纪律
@@ -215,7 +216,20 @@ scripts/review_evidence.py               # 薄 collect/validate CLI
 4  template 符合 schema
 5  CLI collect / validate 消费同一 schema / 合同
 6  其它 canonical surface 只指针 / 链接，不定义竞争性 Review Evidence 接口
+7  新增的 references/review-evidence.md **满足仓内全部既有 reference-file 不变量**，
+   包括 `scripts/validate_governance.py` 要求的字面 `Canonical owner` 声明（A3）
 ```
+
+**既有机械合同的采纳（A3，不是新机制）**：`scripts/validate_governance.py` **已存在**检查 #7 `references-declare-canonical-owner` —— 它对 `references/*.md` 做 glob，**每个文件必须包含字面标记 `Canonical owner`**：
+
+```python
+for ref in sorted((ROOT / "references").glob("*.md")):
+    if "Canonical owner" not in ref.read_text(encoding="utf-8"):
+        owner_missing.append(ref.name)
+check("references-declare-canonical-owner", not owner_missing, f"missing={owner_missing}")
+```
+
+因此未来由本 requirement 创建的 `references/review-evidence.md` **MUST 满足该既有仓级不变量**，其中包含 **validator 所要求的 `Canonical owner` 声明**。**不得修改 validator 来豁免新文件**；这是**采纳既有仓内不变量**，**不是**新治理机制。
 
 **边界约束**：不修改 `project-state` 的状态职责，不复制其全文，不建立第二状态源或第二 tracker。接口一致性由 `AC-44` 验收；**`review-evidence.md` 的单一 owner 地位与 `REQ-W4-02a` 的"只引用"要求同源**（区别于 recipe owner，不冲突）。
 
@@ -458,10 +472,52 @@ SCOPE    本 profile 内有效；**不是跨 runtime 通用不变量**
 
 **校验器语义必须是 UTF-8 编码字节长度**，即对实际部署正文取 `len(body.encode("utf-8"))`，**不得**使用 `len(body)`（字符数）。当前实现为 `len(body) <= 3500`（字符），是本 Spec 要修正的缺陷（GAP-06 / §8.1）。
 
+**完整 canonical change surface（F-A1 修正 —— 不得遗漏宿主面）**
+
+本 Spec 冻结了 `UNIT = UTF-8 bytes`，因此未来 S1 实现若**只改**此前枚举的三个文件，会留下 `AGENTS.md → characters` 与 `canonical contract / validator → UTF-8 bytes` 的**残留冲突**——这正是本 Spec `INV-22`（`ROW_PRESENT != BEHAVIOR_ACCEPTED`，含 incomplete change surface）所禁止的同类问题。
+
+**因此未来 S1 change surface 必须完整覆盖以下四个 surface（此前遗漏 `AGENTS.md`）**：
+
+```text
+1  AGENTS.md §10 BOOTSTRAP                     ← 本轮新增纳入（此前遗漏，F-A1）
+2  deployment/BOOTSTRAP_CONTRACT.md            （语义 owner）
+3  deployment/MEMORY_POINTER_CANDIDATE.md
+4  scripts/validate_governance.py              （消费方）
+```
+
+**`AGENTS.md` §10 的未来目标语义（冻结，二选一，优先 A）**：
+
+```text
+A（优先）pointer / derived-summary 模式：
+  AGENTS.md §10 不再自行声明字符数预算；
+  改为引用由 deployment/BOOTSTRAP_CONTRACT.md 拥有的 canonical WorkBuddy byte budget。
+
+B（次选）显式 derived summary：
+  若必须在 AGENTS.md 内给出摘要，则明确写成 "≤ 3500 UTF-8 bytes"，
+  且 deployment/BOOTSTRAP_CONTRACT.md 仍为语义 owner。
+```
+
+**硬约束**：**`AGENTS.md` 不得成为第二预算 authority**。无论 A 或 B，**语义 owner 始终是 `deployment/BOOTSTRAP_CONTRACT.md`**；`AGENTS.md` 只能是 pointer 或显式 derived summary。优先 adopt **A**。
+
+**BOOTSTRAP_CONTRACT 措辞对齐（A2 修正）**
+
+当前 canonical 文本仍含等价于 "≤3,500 字符" 与 "预算 4,028 减安全余量" 的措辞，与本 Spec 已冻结的区分冲突。**未来 S1 实现必须把 canonical 措辞对齐为下述目标语义**：
+
+```text
+3500 bytes  = 当前 WorkBuddy profile 安全预算（BUDGET；由 BOOTSTRAP_CONTRACT 拥有）
+4028 bytes  = 历史观测到的实际截断点（TRUNCATION；观测事实）
+
+3500 **不是**在数学上或规范上被定义为 "4028 减去某个隐含安全余量"。
+两者是不同性质的量：前者是主动规范预算，后者是被动观测边界。
+```
+
+**不新增机制、不新增 profile 系统**；A2 仅为 **canonical 措辞同步**（把已批准的区分落到正文措辞）。
+
 **授权边界（F5 措辞修正）**：
 
 - 本轮为 **Spec 写作**，`IMPLEMENTATION_AUTHORIZED = NO`（见文件头）。**本 Spec 不授权任何实现动作。**
-- 本 Spec 将上述**静态修正**（校验器单位 + 文档措辞对齐）纳入**未来 S1 core scope**；**只有 `SPEC_REVIEW = PASS` 且 owner 明确授权后方可实施**（见 §12）。
+- 本 Spec 将上述**静态修正**（校验器单位 + 文档措辞对齐 + `AGENTS.md` 宿主面纳入）纳入**未来 S1 core scope**；**只有 `SPEC_REVIEW = PASS` 且 owner 明确授权后方可实施**（见 §12）。
+- **本轮不修改** `AGENTS.md` / `deployment/BOOTSTRAP_CONTRACT.md` / `scripts/validate_governance.py` / `references/*`；它们是被纳入 Spec 的**未来实现面**，不是本轮改动对象。
 - **未来真实部署**（live bootstrap 落地）与静态修正分开处理，属 `DEPLOYMENT_ONLY` / S3（见 `REQ-W5-01`）。
 - 迁移与兼容见 §8.1。
 
@@ -626,7 +682,7 @@ M1–M3 为验收补全与 prose 消歧（无新增不变量）：
 | Guard 退出码 / deny 映射合同（core） | `adapters/zcode/hooks/grounding_guard.py` + adapter 合同 | `EXTEND`（`REQ-W4-03`，S1） |
 | Live host deny 映射实测 | 真实宿主运行环境 | `DEPLOYMENT_ONLY`（`REQ-W4-03-D`，W5） |
 | 状态索引 / grounding 生命周期 | `references/project-continuity-contract.md`（canonical owner = AGENTS §7.1） | `EXISTING` |
-| Bootstrap 机制 | `deployment/BOOTSTRAP_CONTRACT.md` | `EXTEND`（单位对齐） |
+| Bootstrap 机制 | `deployment/BOOTSTRAP_CONTRACT.md`（预算语义 owner）；**`AGENTS.md` §10 为 pointer/derived-summary 消费者，非第二 authority（F-A1）** | `EXTEND`（单位对齐 + 完整 change surface） |
 | GitHub 保护设置 | 仓部署政策 / PRODUCT OWNER | `DEPLOYMENT_ONLY` |
 
 ### 4.2 冲突处理
@@ -798,7 +854,7 @@ CI_STATUS（CI 运行整体状态，既有七值集，不新增）
 | 模型派发 / 技能路由 | `references/skills-and-model-routing.md` | `EXTEND` model dispatch metadata 单一 owner（`REQ-W4-02e`） |
 | Guard 退出码 / deny 映射合同 | `adapters/zcode/hooks/grounding_guard.py` + `adapters/zcode/README.md` | `EXTEND` core 合同 + 合成/reference 测试（`REQ-W4-03`，S1） |
 | 状态索引契约 | `references/project-continuity-contract.md` | `EXISTING`（不修改语义，只被引用） |
-| Bootstrap 预算 | `deployment/BOOTSTRAP_CONTRACT.md` §2.1、`deployment/MEMORY_POINTER_CANDIDATE.md`、`scripts/validate_governance.py`（`memory-pointer-within-budget` 检查） | `EXTEND` 单位对齐 + 预算值冻结（`REQ-W4-01`） |
+| Bootstrap 预算 | **`AGENTS.md` §10**（F-A1 新增纳入）+ `deployment/BOOTSTRAP_CONTRACT.md` §2.1（语义 owner）+ `deployment/MEMORY_POINTER_CANDIDATE.md` + `scripts/validate_governance.py`（`memory-pointer-within-budget` 检查） | `EXTEND` 单位对齐 + 预算值冻结 + 措辞对齐 + **完整 change surface（四 surface，不得只改校验器）** |
 | 公开发布扫描 | `scripts/validate_public_release.py` | `EXISTING`（复用，不改判定） |
 | CI 接入 | `.github/workflows/governance-ci.yml` | `EXTEND`（新增 evidence CLI 自测步骤；不新建 runner） |
 | GitHub 保护 | repo settings | `DEPLOYMENT_ONLY` |
@@ -843,14 +899,37 @@ MIG-04  当前正文（1804 byte）在新条件下保持 PASS（无回归）
 MIG-05  预算阈值来源必须显式标注为观测/profile，不是规范常数
 MIG-06  BUDGET 值冻结为 WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500（见 REQ-W4-01），
         实现票不得自行选定；profile override 须显式记录（值+来源+观测依据）
+MIG-07  完整 change surface 覆盖四个 surface（F-A1）：
+          AGENTS.md §10 / deployment/BOOTSTRAP_CONTRACT.md /
+          deployment/MEMORY_POINTER_CANDIDATE.md / scripts/validate_governance.py
+        任一面保留 "3500 字符" 作为有效预算语义 = 未完成
+MIG-08  AGENTS.md §10 改为 pointer（优先）或显式 derived summary "≤ 3500 UTF-8 bytes"；
+        语义 owner 仍为 deployment/BOOTSTRAP_CONTRACT.md，
+        AGENTS.md 不得成为第二预算 authority（A1）
+MIG-09  canonical 措辞对齐（A2）：去除 "≤3,500 字符" 与 "预算 4,028 减安全余量" 式表述，
+        明确 3500 bytes = WorkBuddy profile 安全预算、4028 bytes = 历史观测截断点，
+        且 3500 不被定义为 "4028 减去隐含安全余量"
 ```
 
-**预算值 vs 截断点的显式区分（F5）**：
+**新增 canonical surface 的实测证据（F-A1，本轮候选核验）**：
+
+```text
+AGENTS.md:138                      含 "≤3,500 字符"                          ← F-A1 残留冲突（此前未纳入 change surface）
+BOOTSTRAP_CONTRACT.md:25           含 "≤3,500 字符（预算 4,028 减安全余量）"    ← A2 措辞冲突
+BOOTSTRAP_CONTRACT.md:46           含 "指针预算（≤3,500 字符）"                ← A2 措辞冲突
+MEMORY_POINTER_CANDIDATE.md:5      含 "全文 ≤3,500 字符"                      ← 单位冲突
+scripts/validate_governance.py     当前用 len(body) <= 3500（字符）           ← 单位冲突
+```
+
+即：**若 S1 只改此前枚举的三个文件，`AGENTS.md` 会留下字符预算语义**，与冻结的 UTF-8 byte 语义形成残留冲突（`INV-22` 同类：incomplete change surface）。
+
+**预算值 vs 截断点的显式区分（F5；A2 措辞目标）**：
 
 ```text
 WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500   # 规范预算（主动留余量），本 profile
 DOC_CLAIMED_TRUNCATION                = 4028   # 观测到的实际截断点（被动边界）
 两者不是同一个量；预算 ≠ 截断点；预算不得被反推为"4028 是预算"。
+3500 **不是**在数学上或规范上被定义为 "4028 减去某个隐含安全余量"。
 ```
 
 **兼容性**：当前正文两条件均 PASS，故本修正**不产生 breaking change**；修正后用户若未来写入更多 CJK 文本，将在真正超限时被拒绝而非静默截断。
@@ -947,7 +1026,7 @@ requirement → producer → interface → consumer → evidence → acceptance
 | `REQ-W1-02` | 拆票主体 | `references/execution-stage.md` §6 拆票前识别清单 | ticket authorization 后的票内执行者 | 拆票前 8 字段记录 + 票内 RED 执行记录（owner = `RED_EXECUTION_OWNER`） | `AC-21`, `AC-12` |
 | `REQ-W1-03` | 执行侧（集成票） | `references/git-ci-integration.md` §4/§5 + AGENTS §6 | integrator | `REAL_ENTRYPOINT`/`PRODUCTION_CALL_CHAIN`/`OBSERVED_PRODUCTION_EFFECT`/`PRODUCTION_CALLERS`/`RUNTIME_REACHABLE`/`EVIDENCE_REF` | `AC-04`, `AC-05`, `AC-23`, `AC-20` |
 | `REQ-W1-04` | worker / native harness；L0；reviewer；integrator | 既有角色分离（AGENTS §3/§6） | 同上 | 各方产出物分离，互不代替 | `AC-01` |
-| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source） | **`AC-44`**（接口一致性，M3）, `AC-06`, `AC-10`, `AC-42` |
+| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source）；**新 `references/review-evidence.md` 通过既有 `references-declare-canonical-owner` 检查**（A3） | **`AC-44`**（接口一致性，M3/A3）, `AC-06`, `AC-10`, `AC-42` |
 | `REQ-W2-02` | producer（`scripts/review_evidence.py` collect） | `unverified[]` + 信任/取回边界 | validator、L1 | 收集到的事实 + 未验证项 + 不执行/不取回的边界证明 | `AC-24`, `AC-25`, `AC-26`, `AC-27`, `AC-06`, `AC-42` |
 | `REQ-W2-03` | validator | 三条正交轴（`STRUCTURALLY_VALID` / `SOURCE_VERIFICATION_STATE` / `EVIDENCE_SUFFICIENCY`） | L0/L1 gate | 三轴各自取值 + 轴间处置 + 失败分类 | `AC-39`, `AC-06`, `AC-07`, `AC-10`, `AC-22` |
 | `REQ-W2-04` | 本 Spec（字段合同）→ producer/validator 实现 | `schemas/review-evidence.schema.json` + `templates/review-evidence.json` | validator、L1、integrator | (a)–(g) 子合同逐条可判 | (a)(g) `AC-28`, `AC-29`, `AC-30`；(b)(d) `AC-24`, `AC-25`, `AC-26`, `AC-27`；(c) `AC-39`；(e) `AC-31`, `AC-32`；(f) `AC-42`；通用 `AC-06`, `AC-07`, `AC-10`, `AC-22` |
@@ -958,7 +1037,7 @@ requirement → producer → interface → consumer → evidence → acceptance
 | `REQ-W3-02` | 复用声明者 | `reuse` 依赖描述符（`REQ-W2-04(e)`） | L1/L2 | `VALID_FOR` + `VERIFICATION_STATE != UNKNOWN` | `AC-31`, `AC-32`, `AC-11` |
 | `REQ-W3-03` | canonical（`git-ci-integration.md`） | 失效触发清单（四项） | L1/L2/CI | 命中记录 + 定向失效范围 | `AC-33` |
 | `REQ-W3-04` | canonical（既有） | 既有 `CI_STATUS` 七值集 | CI/L1/consumer | CI 原始状态 + 非 PASS 独立接受记录 | `AC-30`, `AC-11`, `AC-22` |
-| `REQ-W4-01` | 本 Spec（冻结预算）→ 未来实现 | `deployment/BOOTSTRAP_CONTRACT.md` §2.1 + 候选 + `scripts/validate_governance.py` | 校验器、部署者 | `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES=3500` 契约 + UTF-8 byte 检查 + 实测反例 | `AC-17` |
+| `REQ-W4-01` | 本 Spec（冻结预算）→ 未来实现 | **`AGENTS.md` §10**（F-A1 新增）+ `deployment/BOOTSTRAP_CONTRACT.md` §2.1（语义 owner）+ 候选 + `scripts/validate_governance.py` | 校验器、部署者、**AGENTS.md 读者** | `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES=3500` 契约 + UTF-8 byte 检查 + 实测反例 + **四 surface 无残留字符预算语义** | `AC-17` |
 | `REQ-W4-02a` | canonical owner（`review-and-repair-saturation.md`） | audit visibility recipe（字段组 + 两个 completeness 输出） | 外审/审计执行者、reviewer | recipe 记录 + `CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT` / `FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS` | `AC-13`, `AC-38` |
 | `REQ-W4-02b` | canonical owner（`git-ci-integration.md`） | destructive transaction recipe（`status → 保全 → 操作 → post-state`） | 执行者、reviewer | 保全前后状态记录 | `AC-14`, `AC-38` |
 | `REQ-W4-02c` | canonical owner（`ticket-lane.md`） | single-writer + readback recipe | 票内执行者、L1 | 聚合修改记录 + **最终回读**核验结果 | `AC-15`, `AC-38` |
@@ -1033,7 +1112,7 @@ REQ-W4-02a..02e  原无 owner 唯一性验收            → 现 AC-38
 | AC-14 | 保全操作不丢 tracked 修改与 untracked 成果 | REQ-W4-02b | CE-16 |
 | AC-15 | 共享文件多项预期更新经最终回读均存在 | REQ-W4-02c | CE-17 |
 | AC-16 | learning 关闭有采纳/拒绝理由与验证引用 | REQ-W4-02d | CE-18 |
-| AC-17 | bootstrap 的字节预算不能被字符数条件代替 | REQ-W4-01 / MIG-01..06 | CE-19 |
+| AC-17 | **Bootstrap 字节预算（A1 补强）** — PASS iff ① 校验器使用 **UTF-8 编码字节长度**（`len(body.encode("utf-8"))`，非字符数）；② `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500` 已冻结；③ 当前候选正文仍在预算内（无回归）；④ **CJK 反例按预期失败**（1400 汉字 = 4200 bytes > 4028 观测截断点）；⑤ **不存在任何 canonical / bootstrap-facing surface 仍把 "3500 characters" 作为有效预算语义**（含 `AGENTS.md` §10）；⑥ `deployment/BOOTSTRAP_CONTRACT.md` **仍是** WorkBuddy budget / profile 区分的**唯一语义 owner** | REQ-W4-01 / MIG-01..09 | CE-19 |
 | AC-18 | **S1 core**：声称 ENFORCED 的 runtime adapter 必须暴露可核验 deny 映射合同 + 合成/reference 测试；无映射须降级声明为 ADVISORY | REQ-W4-03 | CE-20（core 面） |
 | AC-18-D | **W5 / DEPLOYMENT_ONLY**：真实宿主下 真实工具事件 → hook block → 宿主映射 deny → 目标未被修改 | REQ-W4-03-D / REQ-W5-01 | CE-20（live 面） |
 | AC-19 | model dispatch 字段齐备且风险先于型号；型号不写死不变量 | REQ-W4-02e | — |
@@ -1061,7 +1140,7 @@ REQ-W4-02a..02e  原无 owner 唯一性验收            → 现 AC-38
 | **AC-41** | **W5 GitHub enforcement**：经**授权的** repository settings / API 证据 → 观察到预期的 required checks / ruleset / bypass 政策；权限不可得 → `NOT_VERIFIED`（**不是** PASS）；**不得**要求破坏性直推探针 | REQ-W5-02 | — |
 | **AC-42** | **字段合同逐条可判**：`REQ-W2-04(a)`–`(g)` 每一条子合同均有针对该条自身语义的行为验收（非仅由泛化 AC 带过）；含 `unverified[]` 省略非法 vs 空数组合法、`seams.applicability` 与 reachability applicability 同构 | REQ-W2-04 | CE-06/CE-07 |
 | **AC-43** | **Seam authority/observation 命名与唯一声明（M1）**：PASS iff ① design/authority 字段表达 requirement；② closure 字段表达 observation；③ 不存在命名歧义的 design/observation 对；④ `EXPECTED_PRODUCTION_EFFECT` 恰有**一个**规范性声明点；⑤ 重复声明或歧义命名**触发失败** | REQ-W1-01（并覆盖 `INV-19`/`INV-20`） | CE-29/CE-30 |
-| **AC-44** | **Review Evidence 接口一致性（M3）**：PASS iff ① 四个必需 surface 均存在；② `references/review-evidence.md` 是**唯一**语义详情 owner；③ schema 机械表达所需合同；④ template 符合 schema；⑤ CLI collect/validate 消费**同一** schema/合同；⑥ 其它 canonical surface **只指针/链接**、不定义竞争性 Review Evidence 接口 | REQ-W2-01 | CE-28（同源：单一 owner） |
+| **AC-44** | **Review Evidence 接口一致性（M3；A3 补强）**：PASS iff ① 四个必需 surface 均存在；② `references/review-evidence.md` 是**唯一**语义详情 owner；③ schema 机械表达所需合同；④ template 符合 schema；⑤ CLI collect/validate 消费**同一** schema/合同；⑥ 其它 canonical surface **只指针/链接**、不定义竞争性 Review Evidence 接口；⑦ **新建的 `references/review-evidence.md` 通过既有 `references-declare-canonical-owner` 检查（含字面 `Canonical owner` 声明），且未削弱或绕过既有 validator** | REQ-W2-01 | CE-28（同源：单一 owner） |
 
 **M1/M3 语义绑定原则**：`AC-43` 使 `REQ-W1-01` 的命名与唯一声明规则（`INV-19`/`INV-20`）具备**真实行为验收**，不再只靠规则文本；`AC-44` 使 `REQ-W2-01` 的四文件接口一致性具备自有验收，不再由 `AC-06`/`AC-10`/`AC-42` 泛化带过。二者均**不改变已冻结的字段命名**，也不新增 architecture mechanism。
 
@@ -1116,9 +1195,11 @@ STOP
 | 阶段 | 动作 | 当前授权 |
 |---|---|---|
 | **S0 本轮 Spec 写作** | 新建本文件（+ 必要 Spec 审查说明）；commit + push feature branch；核验远端 exact SHA | ✅ 本轮已授权 |
-| **S1 core 实现** | W1–W4 的 canonical 变更与新增文件 | ❌ **需要 owner 明确 `SPEC_REVIEW = PASS` 后才进入拆票与执行** |
+| **S1 core 实现** | W1–W4 的 canonical 变更与新增文件；**含 `REQ-W4-01` 的完整四 surface（新增 `AGENTS.md` §10，F-A1）** | ❌ **需要 owner 明确 `SPEC_REVIEW = PASS` 后才进入拆票与执行** |
 | **S2 core 合并后采用** | 把已合并的 canonical 变更在真实仓采用（含 bootstrap 静态修正落地） | ❌ 需 S1 完成 + 单独授权 |
 | **S3 live deployment** | bootstrap 真实部署、GitHub enforcement、host guard deny 映射实测 | ❌ `DEPLOYMENT_ONLY`，需**单独 live 部署授权** |
+
+**S1 写面提示（F-A1）**：`REQ-W4-01` 的 S1 写面为 **4 个 surface**（`AGENTS.md` §10 / `deployment/BOOTSTRAP_CONTRACT.md` / `deployment/MEMORY_POINTER_CANDIDATE.md` / `scripts/validate_governance.py`）。**只改校验器或只改 contract 均视为未完成**（`AC-17` 第 5 项）。本轮 `IMPLEMENTATION_AUTHORIZED = NO`，**未触碰以上任何文件**。
 
 ### 12.1 固定后续链路
 
@@ -1174,7 +1255,7 @@ Astra architecture decision 与 canonical  = 无实质冲突
 
 一条**非架构性**发现（不改变 owner 或合同，仅确认既有单位缺陷可机械证明）：bootstrap 字节预算的字符/字节单位不一致已被实测反例证实（§8.1），且**当前正文在两条件下均 PASS**，故修正属**向后兼容的收紧**，不需要架构升级。
 
-受影响 requirement：`REQ-W4-01`。最小候选解决方案：`MIG-01..MIG-06`（完整 migration set，已写入要求）。因可在既有 authority 下唯一解决，**不 STOP**。
+受影响 requirement：`REQ-W4-01`。最小候选解决方案：`MIG-01..MIG-09`（完整 migration set；MIG-01..06 由 F5 定义，MIG-07..09 由本轮 F-A1/A2 扩充）。因可在既有 authority 下唯一解决，**不 STOP**。
 
 ---
 
@@ -1220,17 +1301,19 @@ open PRs               = 0
 ```text
 ROLE                     = SPEC_AUTHOR
 ADDITIONAL_ARCHITECT_EXPERT = NONE（未调用新架构专家重议已收敛问题）
-REPAIR_ROUND             = 3（M1–M3；ROUND 1 = F1–F6，ROUND 2 = R1–R4）
+REPAIR_ROUND             = 4（F-A1/A2/A3；ROUND 1 = F1–F6，ROUND 2 = R1–R4，ROUND 3 = M1–M3）
 ARCHITECTURE_REOPEN      = NO（ARCHITECTURE_REVIEW = PASS）
+REPAIR_SCOPE             = F-A1 + DIRECT SAME-ROOT CONSISTENCY ONLY
 FILES_CHANGED             = docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md（唯一）
-IMPLEMENTATION_FILES      = NONE（§3.2 落点是未来实现目标，本轮未创建）
+IMPLEMENTATION_FILES      = NONE（AGENTS.md / BOOTSTRAP_CONTRACT.md / validate_governance.py /
+                            references/* 均为被纳入 Spec 的未来实现面，本轮未修改）
 ZHIHU_MODIFIED            = NONE
 CANONICAL_MODIFIED        = NONE（RULES.md / AGENTS.md / references/* 均未修改）
 ISSUE_9                   = OPEN（未关闭）
 TICKETS_CREATED           = NONE
 MERGED                    = NO
-SPEC_REVIEW               = PENDING_FINAL_RE_REVIEW
-NEXT_LEGAL_ACTION         = CHATGPT_FINAL_EXACT_SHA_SPEC_REVIEW
+SPEC_REVIEW               = PENDING_FINDING_SCOPED_RE_REVIEW
+NEXT                      = CHATGPT_F-A1_EXACT_SHA_RE_REVIEW
 ```
 
 ---
@@ -1242,7 +1325,8 @@ NEXT_LEGAL_ACTION         = CHATGPT_FINAL_EXACT_SHA_SPEC_REVIEW
 ```text
 ROUND 1（F1–F6）   reviewed SHA 458ed253 → 修复 SHA 7d4887b6
 ROUND 2（R1–R4）   reviewed SHA 7d4887b6 → 修复 SHA c7de399 + 83b714c
-ROUND 3（M1–M3）   reviewed SHA 83b714c2 → 本文件当前内容（见 §16.7）
+ROUND 3（M1–M3）   reviewed SHA 83b714c2 → 修复 SHA 3803518a
+ROUND 4（F-A1/A2/A3） reviewed SHA 3803518a → 本文件当前内容（见 §16.8）
 ```
 
 每轮均为**评审后修复**：`SPEC_REVIEW = CHANGES_REQUESTED`，`REVIEW_SCOPE = FINDING_SCOPED_DELTA_ONLY`。**仅修改本文件**，append-only 新 commit，无 amend / rebase / force push，同一 feature branch。**修复不构成批准**；修复后新 SHA 必须重新走独立 exact-SHA review（`RULES.md` R5）。
@@ -1360,7 +1444,7 @@ AC-17 覆盖引用           MIG-01..05  →  MIG-01..06      （已改）
 §13 受影响 requirement    MIG-01..05  →  MIG-01..06（语义为完整 migration set，已改）
 ```
 
-全文 `MIG-01..05` 字样已清零；`MIG-01..06` 为唯一完整引用形态。
+全文 `MIG-01..05` 字样已清零；`MIG-01..06` 成为当时的完整引用形态。**（轮 4 已将完整 migration set 扩充为 `MIG-01..09`，见 §16.8。本行为轮 2 记录，保留原样。）**
 
 ---
 
@@ -1501,3 +1585,127 @@ UNRESOLVED-08  AC-44 第 3/4/5 项（schema 机械表达合同、template 符合
 ```
 
 轮 1/轮 2 的 `UNRESOLVED-01`..`07` 继续有效（合计 `UNRESOLVED-01`..`08`）。**均不阻塞 Spec 审查**：均为实现期/部署期变量，非 Spec 层权威冲突，且全部 fail-closed 处理。
+
+---
+
+### 16.8 ROUND 4 — ADVERSARIAL FINDING FINAL MICRO-REPAIR（F-A1 + A2 + A3）
+
+**审查候选**：`OLD_REVIEWED_SHA = 3803518a3c6c40578a6e31a69be95bd4fb7de1fd`；
+`ARCHITECTURE_REVIEW = PASS`；`ARCHITECTURE_REOPEN = NO`；
+`REPAIR_SCOPE = F-A1 + DIRECT SAME-ROOT CONSISTENCY ONLY`。
+本轮**未重新审计或改写 W1–W5、未新增机制、未扩大到其它 Tier-C observations**。
+
+#### 16.8.1 F-A1 — 补齐 Bootstrap 字节预算的 canonical change surface
+
+**独立核验（本轮在本机候选上实测，非仅采信报告）**：
+
+```text
+AGENTS.md:138        含 "≤3,500 字符"（原文：MEMORY 指针（候选文本 ...，≤3,500 字符））
+```
+
+**缺陷**：本 Spec 已冻结 `UNIT = UTF-8 bytes`，但 `§7 INTEGRATION_POINTS` 的 Bootstrap 行与 `REQ-W4-01` 的 change surface 此前**只枚举三个文件**（`BOOTSTRAP_CONTRACT.md` / `MEMORY_POINTER_CANDIDATE.md` / `validate_governance.py`）。若未来 S1 严格照此实施，会留下：
+
+```text
+AGENTS.md                          → characters
+canonical contract / validator     → UTF-8 bytes
+```
+
+**残留冲突**。这正是本 Spec `INV-22` 所禁止的 `ROW_PRESENT != BEHAVIOR_ACCEPTED` 同类问题（**incomplete change surface**）。
+
+**修正**：
+
+1. `REQ-W4-01` 新增**「完整 canonical change surface」**块：未来 S1 change surface **必须覆盖四个 surface**，**`AGENTS.md` §10 本轮新增纳入**（此前遗漏）。
+2. 冻结 `AGENTS.md` §10 的**未来目标语义**（二选一，**优先 A**）：
+   - **A（优先）** pointer / derived-summary：`AGENTS.md` §10 不再自行声明字符数预算，改为引用由 `deployment/BOOTSTRAP_CONTRACT.md` 拥有的 canonical WorkBuddy byte budget；
+   - **B（次选）** 显式 derived summary：若必须在 `AGENTS.md` 内给摘要，则明确写 "≤ 3500 UTF-8 bytes"，语义 owner 仍为 `BOOTSTRAP_CONTRACT.md`。
+3. **硬约束**：**`AGENTS.md` 不得成为第二预算 authority**。
+4. 同步落点：`§3.4 REQ-W4-01`（change surface + 目标语义 + 授权边界补充"本轮不修改 AGENTS.md 等四 surface"）；`§4.1`（Bootstrap 机制行）；`§7 INTEGRATION_POINTS`（Bootstrap 预算行）；`§8.1`（新增 `MIG-07`/`MIG-08` + 实测证据块）；`§10.1a`（`REQ-W4-01` 行）；`§10.2 AC-17`（补强）；`§13`（migration set 引用）。
+
+**AC-17 补强（6 项 PASS 条件）**：
+
+```text
+1  校验器使用 UTF-8 编码字节长度
+2  WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500
+3  当前候选正文仍在预算内（无回归）
+4  CJK 反例按预期失败
+5  不存在任何 canonical / bootstrap-facing surface 仍把 "3500 characters" 作为有效预算语义
+6  deployment/BOOTSTRAP_CONTRACT.md 仍是 WorkBuddy budget/profile 区分的唯一语义 owner
+```
+
+**未建立新的 budget owner。**
+
+#### 16.8.2 A2 — 对齐 BOOTSTRAP_CONTRACT 措辞与已批准的区分
+
+**独立核验（本轮实测）**：
+
+```text
+BOOTSTRAP_CONTRACT.md:25   含 "≤3,500 字符（预算 4,028 减安全余量）"
+BOOTSTRAP_CONTRACT.md:46   含 "指针预算（≤3,500 字符）"
+MEMORY_POINTER_CANDIDATE.md:5  含 "全文 ≤3,500 字符"
+```
+
+当前 canonical 文本仍含 "≤3,500 字符" 与 "预算 4,028 减安全余量" 式措辞，与本 Spec 已冻结的区分（`3500` = WorkBuddy profile 安全预算；`4028` = 历史观测截断点；`budget != truncation point`）冲突。
+
+**修正**：在 `REQ-W4-01` / migration acceptance 中冻结**未来 S1 必须对齐的目标措辞**：
+
+```text
+3500 bytes  = 当前 WorkBuddy profile 安全预算
+4028 bytes  = 历史观测到的实际截断点
+3500 **不是**在数学上或规范上被定义为 "4028 减去某个隐含安全余量"
+```
+
+落点：`§3.4 REQ-W4-01`（「BOOTSTRAP_CONTRACT 措辞对齐（A2 修正）」块）；`§8.1`（`MIG-09` + 「预算值 vs 截断点」块补一句）。**不新增机制、不新增 profile 系统**；A2 **仅为 canonical 措辞同步**。
+
+#### 16.8.3 A3 — 采纳既有 mechanical contract（新 references/*.md）
+
+**独立核验（本轮读取 validator 源码）**：
+
+```text
+scripts/validate_governance.py:219-224
+  # 7. references declare canonical owner
+  for ref in sorted((ROOT / "references").glob("*.md")):
+      if "Canonical owner" not in ref.read_text(encoding="utf-8"):
+          owner_missing.append(ref.name)
+  check("references-declare-canonical-owner", not owner_missing, f"missing={owner_missing}")
+```
+
+**缺陷**：`REQ-W2-01` 未来创建的 `references/review-evidence.md` 会被该 glob 命中；若不含字面 `Canonical owner`，`references-declare-canonical-owner` 检查将失败。此前 Spec 未显式声明这一既有约束。
+
+**修正**：在 `REQ-W2-01` 接口一致性要求中新增**第 7 项**，并加入源码证据块，明确：
+
+```text
+references/review-evidence.md MUST satisfy all existing repository-wide
+reference-file invariants, including the validator-required
+"Canonical owner" declaration.
+```
+
+`AC-44` 同步扩为 **7 项**，第 7 项为：**新建 `references/review-evidence.md` 通过既有 `references-declare-canonical-owner` 检查（含字面 `Canonical owner` 声明），且未削弱或绕过既有 validator**。**明确不修改 validator 豁免新文件** —— 这是**采纳既有仓内不变量**，**不是**新治理机制。
+
+#### 16.8.4 ROUND 4 保留项确认（未重开）
+
+```text
+Seam architecture                   保留（未动）
+Runtime Reachability                保留（未动）
+RED lifecycle                       保留（未动）
+Review Evidence state model         保留（A3 只采纳既有 reference-file 不变量，不改状态模型）
+trust boundary                      保留（未动）
+reuse / invalidation                保留（未动）
+CHECK_STATUS / CI_STATUS            保留（未动）
+W4 owner split                      保留（未动）
+core / live deny split              保留（未动）
+W5 / GitHub enforcement             保留（未动）
+3500-byte value itself              保留（本轮不改值，只补 change surface 与措辞对齐要求）
+4028 observed value itself          保留（本轮不改观测值）
+```
+
+**未处理**（按指令排除）：`TEST_ONLY_CALLERS` 命名、其它 Tier-C observations、新 edge case、新 AC family。
+
+#### 16.8.5 ROUND 4 新增未决项
+
+```text
+UNRESOLVED-09  AGENTS.md §10 最终采用 pointer（A）还是显式 derived summary（B），
+              属 S1 实施时的措辞选择；本 Spec 已冻结"优先 A"与"不得成为第二 authority"
+              两条硬约束，具体句式留待 S1 按 owner 决定。
+```
+
+轮 1–3 的 `UNRESOLVED-01`..`08` 继续有效（合计 `UNRESOLVED-01`..`09`）。**均不阻塞 Spec 审查**：均为实现期/部署期变量，非 Spec 层权威冲突，且全部 fail-closed 处理。
