@@ -2,7 +2,7 @@
 
 ```text
 SPEC_ID              = P1_AGENT_ENGINEERING_GOVERNANCE_DELTA
-SPEC_VERSION         = 1 (draft, finding-scoped repair round 1)
+SPEC_VERSION         = 1 (draft, finding-scoped repair round 2)
 STATUS               = DRAFT_FOR_INDEPENDENT_REVIEW
 IMPLEMENTATION_AUTHORIZED = NO
 REVIEW_GATE          = CHATGPT_INDEPENDENT_EXACT_SHA_SPEC_REVIEW
@@ -14,7 +14,8 @@ ZHIHU_REPO           = FlapPearLabs/zhihu-grabber-toolkit
 ZHIHU_ROLE           = EVIDENCE_SOURCE_REPO（只读，本 Spec 不修改其任何文件或状态）
 BASE_SHA             = 0ba2c7351d45dba1459a391b0d43e418ecf55280
 BASELINE_DRIFT       = NONE（远端 main == 本地 HEAD == BASE_SHA；open PRs = 0）
-PRIOR_REVIEWED_SHA   = 458ed253ffd10d7ea171311faef0d6f23ded76bc（repaired: F1–F6，见 §16）
+PRIOR_REVIEWED_SHA   = 7d4887b60b36219a4e4aa4fc11264e31d894fc7a（repaired: R1–R4，见 §16.4）
+REPAIR_HISTORY       = 458ed253 → 7d4887b6 (F1–F6) → 本轮 (R1–R4)
 ```
 
 ## 0. 阅读契约与证据纪律
@@ -97,7 +98,16 @@ PRIOR_REVIEWED_SHA   = 458ed253ffd10d7ea171311faef0d6f23ded76bc（repaired: F1�
 **REQ-W1-01**（`EXTEND`，`references/ticket-lane.md`）
 扩展既有合同块（不新建独立 Seam 权威体系），新增生产形状字段组：
 
-字段分**两类权威**，不得混为一谈（F1 修正）：**① 设计与权威字段**（拆票前由 authority/design 侧判定并冻结，定义"要求什么"）；**② 关闭证据字段**（实现完成后由执行侧产生，记录"实际观测到什么"）。**同一事实不得同时成为两个权威来源**；关闭证据只能**填充**设计字段声明的槽位，不能反过来改写设计要求。
+字段分**两类权威**，不得混为一谈（F1 修正；R1 消歧）：**① 设计与权威字段**（拆票前由 authority/design 侧判定并冻结，定义"要求什么"）；**② 关闭证据字段**（实现完成后由执行侧产生，记录"实际观测到什么"）。**同一事实不得同时成为两个权威来源**；关闭证据只能**填充**设计字段声明的槽位，不能反过来改写设计要求。
+
+**命名纪律（R1，不得由 implementer 自行猜测）**：**① 类字段必须表达 requirement（"要求什么"）**；**② 类字段必须表达 observation（"观测到什么"）**。两类字段名不得同名、不得近似到需要猜测。以下为本 Spec 冻结的正式命名，ticket / schema implementer **必须照此实现，不得自行发明或改名**：
+
+```text
+① requirement 语义（设计侧）             ② observation 语义（关闭侧）
+EXPECTED_PRODUCTION_EFFECT        →     OBSERVED_PRODUCTION_EFFECT
+EXPECTED_PRODUCTION_CALLER        →     PRODUCTION_CALLERS
+REACHABILITY_REQUIREMENT          →     RUNTIME_REACHABLE
+```
 
 **① 设计与权威字段（拆票前冻结）**
 
@@ -109,34 +119,40 @@ INPUT_CONTRACT / OUTPUT_CONTRACT
 SYNC_OR_ASYNC / AWAIT_REQUIREMENT / LIFECYCLE_REQUIREMENT
 LEGAL_STATES / ILLEGAL_STATES / FAIL_OPEN_OR_FAIL_CLOSED
 MUST_FIELDS / MUST_NOT_FIELDS
-PRODUCTION_CALLER / TEST_CALLER
-EXPECTED_PRODUCTION_EFFECT            # 期望的生产效果（设计声明，非观测）
+EXPECTED_PRODUCTION_CALLER            # 要求：必须存在生产调用者（requirement，非观测）
+TEST_CALLER
+EXPECTED_PRODUCTION_EFFECT            # 期望的生产效果（requirement，非观测；全文唯一声明点）
 REAL_SHAPE_FIXTURE_OR_ADAPTER
-SEAM_COUNTEREXAMPLES                   # 反例定义（设计声明，非执行结果）
-<!-- REACHABILITY 设计四字段（authority/design 侧） -->
-REACHABILITY_APPLICABILITY             # REQUIRED | N/A
-REACHABILITY_REQUIREMENT               # 该 seam 必须被真实入口到达的规范声明
-EXPECTED_PRODUCTION_EFFECT             # 与上同源，只在此声明一次
-REACHABILITY_PROOF_OWNER               # 谁负责在关闭时提供证据（角色，不是结论）
-RED_EXECUTION_OWNER                    # 谁负责在票内执行 RED（角色）
+SEAM_COUNTEREXAMPLES                  # 反例定义（requirement，非执行结果）
+<!-- REACHABILITY 设计字段（authority/design 侧） -->
+REACHABILITY_APPLICABILITY            # REQUIRED | N/A
+REACHABILITY_APPLICABILITY_REASON     # REQUIRED when APPLICABILITY = N/A；N/A 时必填理由
+REACHABILITY_APPLICABILITY_ACCEPTANCE_REF
+                                      # REQUIRED when APPLICABILITY = N/A；
+                                      # 指向 reviewer/integrator 的接受记录（引用槽位，不是结论）
+REACHABILITY_REQUIREMENT              # 该 seam 必须被真实入口到达的规范声明
+REACHABILITY_PROOF_OWNER              # 谁负责在关闭时提供证据（角色，不是结论）
+RED_EXECUTION_OWNER                   # 谁负责在票内执行 RED（角色）
 ```
+
+**唯一声明点规则（R1）**：`EXPECTED_PRODUCTION_EFFECT` **在全文只声明一次**（即上方 ① 块内）。任何其它位置（含 `REQ-W1-03`）**只引用**该字段，**不得重复声明**同一事实。
 
 **② 关闭证据字段（实现完成后产生，填充 ① 的槽位）**
 
 ```yaml
 REAL_ENTRYPOINT                        # 实际真实入口
 PRODUCTION_CALL_CHAIN                  # 实际调用链（真实路径）
-OBSERVED_PRODUCTION_EFFECT             # 实际观测到的生产效果
-PRODUCTION_CALLERS                     # 实际生产调用者（可为空集）
-RUNTIME_REACHABLE                      # 观测结论：TRUE | FALSE
+OBSERVED_PRODUCTION_EFFECT             # 实际观测到的生产效果（对照 ① EXPECTED_PRODUCTION_EFFECT）
+PRODUCTION_CALLERS                     # 实际生产调用者集合（可为空集；对照 ① EXPECTED_PRODUCTION_CALLER）
+RUNTIME_REACHABLE                      # 观测结论：TRUE | FALSE（对照 ① REACHABILITY_REQUIREMENT）
 EVIDENCE_REF                           # 证据引用
 ```
 
-**`REACHABILITY_APPLICABILITY` 判定规则（INV-08 在 reachability 上的具体化）**：
+**`REACHABILITY_APPLICABILITY` 判定规则（INV-08 在 reachability 上的具体化；R1 冻结字段槽位）**：
 - `REQUIRED` → `RUNTIME_REACHABLE` 必须由 ② 的关闭证据证明；无合法生产调用路径 → `RUNTIME_REACHABLE = FALSE` → `INTEGRATION_COMPLETE = FALSE`。
-- `N/A` → **必须同时**给出 ① **理由**（为什么该 seam 不涉及 reachability：如纯文档、无生产入口语义的变化）**和** ② **适用 reviewer / integrator 的接受记录**。**worker 不得单方面自我豁免**（`INV-08`：N/A 必须来自合同适用性判定，不是 worker 快捷豁免）。无接受记录的 `N/A` → 视为 `REQUIRED` 处理。
+- `N/A` → **必须同时**填写 ① 的 **`REACHABILITY_APPLICABILITY_REASON`**（为什么该 seam 不涉及 reachability：如纯文档、无生产入口语义的变化）**和** **`REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`**（指向适用 reviewer / integrator 的接受记录）。**worker 不得单方面自我豁免**（`INV-08`：N/A 必须来自合同适用性判定，不是 worker 快捷豁免）。任一槽位缺失或为空 → 视为 `REQUIRED` 处理。
 
-字段**按边界是否变化触发，不按票字数或仅按 LOW 标签豁免**。**不要求所有票填写所有字段**；不适用字段可 `N/A`，但 **`N/A` 必须来自合同适用性判定并给出理由**（reachability 字段另需上述接受记录），不得以 `UNKNOWN` 冒充已冻结。纯文档等无边界的票可整体 `N/A`（须有理由）。
+字段**按边界是否变化触发，不按票字数或仅按 LOW 标签豁免**。**不要求所有票填写所有字段**；不适用字段可 `N/A`，但 **`N/A` 必须来自合同适用性判定并给出理由**（reachability 字段另需上述 `REASON` + `ACCEPTANCE_REF` 两个槽位），不得以 `UNKNOWN` 冒充已冻结。纯文档等无边界的票可整体 `N/A`（须有理由）。
 
 **REQ-W1-02**（`EXTEND`，`references/execution-stage.md`）拆票前检查 —— **生命周期分离（F1 修正）**
 
@@ -146,22 +162,24 @@ EVIDENCE_REF                           # 证据引用
 SEAM_IDENTIFICATION            # 识别被切开的 seam
 CONTRACT_SOURCE                # 权威接口来源（或真实上游/下游形状来源）
 PRODUCTION_SHAPE_SOURCE        # 生产形状来源（async/await、lifecycle、生产 caller 的判定依据）
-COUNTEREXAMPLE_DEFINITION      # 反例定义（设计声明，不是执行结果）
-EXPECTED_RED_CONDITION         # 期望的 RED 条件（声明"什么会失败"，不是"已失败"）
+COUNTEREXAMPLE_DEFINITION      # 反例定义（requirement，不是执行结果）
+EXPECTED_RED_CONDITION         # 期望的 RED 条件（requirement："什么会失败"，不是"已失败"）
 RED_EXECUTION_OWNER            # 票内执行 RED 的角色
-REACHABILITY_APPLICABILITY     # REQUIRED | N/A（判定规则见 REQ-W1-01）
+REACHABILITY_APPLICABILITY     # REQUIRED | N/A（判定规则与配套槽位见 REQ-W1-01）
 REACHABILITY_PROOF_OWNER       # 关闭时提供 reachability 证据的角色
 ```
+
+**`REACHABILITY_APPLICABILITY = N/A` 时**，拆票阶段必须同时冻结 `REACHABILITY_APPLICABILITY_REASON` 与 `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`（槽位定义见 `REQ-W1-01`，此处不重复定义）。
 
 **真实 RED 执行发生在 `TICKET_AUTHORIZATION` 之后**：即**票内、实现之前**（`AGENTS.md` §3 TICKET LANE 的 counterexample-first TDD 顺序，`references/ticket-lane.md` §4）。**REQ-W1-02 不要求、也不允许在拆票前执行 RED**——拆票前只有"期望 RED 条件"的声明。
 
 拆票前**不要求**提前完成产品 E2E；但**不得用未验证假设声明集成已完成**。
 
-**REQ-W1-03**（`EXTEND`）Integration 关闭增加 Runtime Reachability **关闭证据**字段（对应 `REQ-W1-01` ② 类；设计侧声明见 `REQ-W1-01` ① 类，此处**不重复声明同一事实**）：
+**REQ-W1-03**（`EXTEND`）Integration 关闭增加 Runtime Reachability **关闭证据**字段（**只含 ② 类 observation 字段**；① 类 requirement 声明以 `REQ-W1-01` 为**唯一声明点**，此处**只引用、不重复声明**）：
 
 ```text
 REAL_ENTRYPOINT / PRODUCTION_CALL_CHAIN
-OBSERVED_PRODUCTION_EFFECT            # 与 ① 的 EXPECTED_PRODUCTION_EFFECT 对照，不是重复声明
+OBSERVED_PRODUCTION_EFFECT            # 观测值；与 ① EXPECTED_PRODUCTION_EFFECT 对照（引用，不重复声明）
 PRODUCTION_CALLERS / TEST_ONLY_CALLERS
 RUNTIME_REACHABLE / EVIDENCE_REF
 ```
@@ -194,17 +212,57 @@ scripts/review_evidence.py               # 薄 collect/validate CLI
 - **不替项目执行任意 build/test 命令**；**不读取或执行 evidence 文件提供的任意 shell 指令**（evidence 是数据，不是可执行权威）。
 - **信任 / 取回边界**（见 `REQ-W2-04(d)`）：`commandRef` 只作声明与溯源，**不执行**；**不取回**用户/证据提供的任意 URL；`artifacts[].location` **不得**被当作任意网络或任意文件系统权威；取回仅限 repo 相对路径（含越界检查）与既有 CI provider 接口。
 
-**REQ-W2-03**（`NEW`）Validator 职责 — 三层不可坍缩
+**REQ-W2-03**（`NEW`）Validator 职责 — **三层正交，不可坍缩（R2 修正）**
+
+三条是**相互独立的评估轴**，各自取值，**不得互相折叠、不得共用一个枚举**：
 
 ```text
-STRUCTURALLY_VALID          schema 合法
-SOURCE_VERIFIED             来源已核验（SHA/路径/可取回）
-EVIDENCE_SUFFICIENT         证据充分
+STRUCTURALLY_VALID        YES | NO
+SOURCE_VERIFICATION_STATE VERIFIED | INVALID | TEMPORARILY_UNAVAILABLE | NOT_VERIFIED
+EVIDENCE_SUFFICIENCY      SUFFICIENT | INSUFFICIENT
+```
+
+**轴语义边界（冻结，不得重新坍缩）**：
+
+```text
+STRUCTURALLY_VALID        schema 是否合法（含未知 schemaVersion、缺必需结果字段、形状不符）
+
+SOURCE_VERIFICATION_STATE 来源/内容本身是否可信
+  VERIFIED                  SHA/路径/摘要均已核验通过
+  INVALID                   **只**表示来源/内容本身机械错误：
+                              SHA mismatch / digest mismatch /
+                              forged-or-invalid source identity / path violation
+  TEMPORARILY_UNAVAILABLE   网络不可达 / provider 或 auth 不可用 / 远端 artifact 暂不可达
+  NOT_VERIFIED              尚未完成核验（核验未执行或未完成）
+
+EVIDENCE_SUFFICIENCY      证据是否足以支撑判断
+  SUFFICIENT               足以支撑判断
+  INSUFFICIENT             证据不足（如来源完全真实但缺少完成判断所需的某类证据）
+```
+
+**关键规则**：`INSUFFICIENT` **只属于 `EVIDENCE_SUFFICIENCY`**，**不得**作为 `SOURCE_VERIFICATION_STATE` 的取值。反例（必须成立且不得报错）：
+
+```text
+STRUCTURALLY_VALID        = YES
+SOURCE_VERIFICATION_STATE = VERIFIED          ← 来源完全真实，已核验
+EVIDENCE_SUFFICIENCY      = INSUFFICIENT      ← 但仍缺某类必要证据
 ```
 
 **不得**因 schema 合法、字段写 `PASS`、或 `exitCode = 0` 就宣告行为通过。对以下情形给明确失败：未知 schemaVersion、缺必需结果字段、SHA 不符、产物丢失或内容摘要变化、路径越界读取（拒绝被污染的路径）。
 
-**来源核验必须区分"证据错误"与"暂不可达"**（三态定义见 `REQ-W2-04(c)`）：网络/provider/auth/远端 artifact 不可达 → `SOURCE_VERIFIED = NO (UNVERIFIED_TEMPORARILY_UNAVAILABLE)` + `EVIDENCE_SUFFICIENT = NO`，**保留原始 cause**，**阻断 PASS**；**不得自动下调为 `INVALID`**（后者语义是"证据作废，需重新产出"）。
+**轴间处置规则（R2）**：
+
+```text
+SOURCE_VERIFICATION_STATE = VERIFIED              且 EVIDENCE_SUFFICIENCY = SUFFICIENT   → 可进入后续判断
+SOURCE_VERIFICATION_STATE = INVALID                                                    → 阻断 PASS；须重新产出证据
+SOURCE_VERIFICATION_STATE = TEMPORARILY_UNAVAILABLE                                    → 阻断 PASS；保留原始 cause；
+                                                                                          恢复可达后重核（**不得**判为 INVALID）
+SOURCE_VERIFICATION_STATE = NOT_VERIFIED                                               → 阻断 PASS；须先完成核验
+EVIDENCE_SUFFICIENCY      = INSUFFICIENT                                               → 阻断 PASS；须补足证据
+任一轴为否/未决 → 阻断 PASS。
+```
+
+**网络/provider/auth/远端 artifact 不可达 MUST NOT 被自动宣告为 `INVALID`。** 该情形产出 `SOURCE_VERIFICATION_STATE = TEMPORARILY_UNAVAILABLE`、`EVIDENCE_SUFFICIENCY = INSUFFICIENT`，**保留原始 cause 与诊断信息**，并且**阻断 PASS**。区分 `INVALID` 与 `TEMPORARILY_UNAVAILABLE` 是硬要求：前者要求重新产出证据，后者只要求恢复可达后重核。
 
 **复用现有公开发布/隐私政策，不自建第二套 secret scanner**；**不把原始 runtime-local grounding receipt 全量发布**（machine-local 状态绝不 commit，见 `references/project-continuity-contract.md` §6.4）。
 
@@ -244,16 +302,28 @@ FORBIDDEN 任意 URL / 任意绝对路径 / 指向仓外任意主机的位置
 
 `location` 越界 → `REJECT`（等同路径越界读取）。
 
-**(c) 来源核验三态 —— 不得把"取不回"自动判成"证据无效"**
+**(c) 来源核验与证据充分性 —— 两条独立轴，不得把"取不回"判成"证据无效"（R2 修正）**
 
 ```text
-SOURCE_VERIFIED = YES                      # SHA/路径/摘要均已核验
-SOURCE_VERIFIED = NO + cause = INVALID                    # 证据本身错误（SHA 不符、摘要变化、结构伪造）
-SOURCE_VERIFIED = NO + cause = UNVERIFIED_TEMPORARILY_UNAVAILABLE   # 网络/provider/auth/远端产物暂不可达
-SOURCE_VERIFIED = NO + cause = INSUFFICIENT               # 证据不足以完成核验（缺字段、范围未知）
+SOURCE_VERIFICATION_STATE = VERIFIED                # SHA/路径/摘要均核验通过
+SOURCE_VERIFICATION_STATE = INVALID                 # 来源/内容本身机械错误：
+                                                    #   SHA mismatch / digest mismatch /
+                                                    #   forged-or-invalid source identity / path violation
+SOURCE_VERIFICATION_STATE = TEMPORARILY_UNAVAILABLE # 网络不可达 / provider 或 auth 不可用 / 远端 artifact 暂不可达
+SOURCE_VERIFICATION_STATE = NOT_VERIFIED            # 核验尚未执行或未完成
+
+EVIDENCE_SUFFICIENCY      = SUFFICIENT              # 证据足以支撑判断
+EVIDENCE_SUFFICIENCY      = INSUFFICIENT            # 证据不足（来源可完全真实）
 ```
 
-**网络/provider/auth/远端 artifact 不可达 MUST NOT 被自动宣告为"证据无效"（`INVALID`）。** 该情形产出 `SOURCE_VERIFIED = NO` 且 `EVIDENCE_SUFFICIENT = NO`，**同时保留原始 cause 与诊断信息**，并且**阻断 PASS**（非 PASS 不等于把它误记为作废证据）。区分 INVALID 与 TEMPORARILY_UNAVAILABLE 是硬要求：前者要求重新产出证据，后者只要求恢复可达后重核。
+**`INSUFFICIENT` 不是 `SOURCE_VERIFICATION_STATE` 的取值**（这是 R2 修正的核心）。合法且必须接受的组合：
+
+```text
+SOURCE_VERIFICATION_STATE = VERIFIED
+EVIDENCE_SUFFICIENCY      = INSUFFICIENT
+```
+
+**网络/provider/auth/远端 artifact 不可达 MUST NOT 被自动宣告为 `INVALID`。** 该情形产出 `SOURCE_VERIFICATION_STATE = TEMPORARILY_UNAVAILABLE` + `EVIDENCE_SUFFICIENCY = INSUFFICIENT`，**保留原始 cause 与诊断信息**，并**阻断 PASS**（阻断 ≠ 把它误记为作废证据）。区分 `INVALID` 与 `TEMPORARILY_UNAVAILABLE` 是硬要求：前者要求重新产出证据，后者只要求恢复可达后重核。两条轴的完整处置规则见 `REQ-W2-03`。
 
 **(d) `review_evidence.py` 的信任 / 取回边界（安全硬约束）**
 
@@ -438,13 +508,41 @@ exit 2  → REQUEST_BLOCK（请求宿主阻断该动作）
 
 ### 3.5 工作包 W5 — Live Adoption + Server Enforcement（`DEPLOYMENT_ONLY`）
 
-**REQ-W5-01**（`DEPLOYMENT_ONLY`）Bootstrap live 验收 + live host deny 映射
+**REQ-W5-01**（`DEPLOYMENT_ONLY`）Bootstrap live adoption 验收（复合，**R3 补齐行为面**）
 
-fresh neutral session / project session；验证 authority loading / override handling；state restore / authorized auto-advance；**真实工具事件 → hook → runtime deny → 目标未被修改**（对应 `REQ-W4-03-D`）；失败与 advisory 降级**如实记录**（`NOT_RUN` ≠ PASS；advisory 降级不得记作 ENFORCED）。
+未来 deployment acceptance **至少**覆盖（不只是 host deny）：
 
-**REQ-W5-02**（`DEPLOYMENT_ONLY`）GitHub enforcement
+```text
+1  fresh neutral session        → governance authority loaded（authority 正确加载）
+2  project session              → repository authority discovered（仓级权威被发现）
+3  override                     → correct resolution（覆盖被正确解析，符合 §4.2 层级）
+4  existing project             → state restore works（既有项目状态可恢复）
+5  authorized legal frontier    → auto-advance according to canonical rule（按 canonical 规则自动前进）
+6  advisory / NOT_RUN           → **never** reported as ENFORCED / PASS（如实记录降级）
+7  real host deny               → target unchanged（真实工具事件 → hook → runtime deny → 目标未被修改；
+                                   对应 REQ-W4-03-D）
+```
+
+第 7 项即原 host deny 面；**前 6 项为 R3 补齐的行为面，此前缺失**。失败与 advisory 降级**如实记录**（`NOT_RUN` ≠ PASS；advisory 降级不得记作 ENFORCED）。受 `AC-40` 复合验收。
+
+**REQ-W5-02**（`DEPLOYMENT_ONLY`）GitHub enforcement（**R3 赋予自有验收**）
 
 GitHub enforcement 是**仓库部署政策**，不是所有项目通用硬规则。本 Spec 只**定义未来验收与所需权限**；**不在本阶段配置 required checks / rulesets / bypass**；**不得通过向真实未保护 main 试推来验证缺口**。
+
+未来验收（`AC-41`）：
+
+```text
+authorized repository settings / API evidence
+  → expected required checks / ruleset / bypass policy observed
+
+permission unavailable
+  → NOT_VERIFIED
+  → **not PASS**
+
+must not require destructive direct-push probe
+```
+
+**此项不得再映射到 host deny 的 `AC-18-D`**（R3 纠正的语义错配）。
 
 ### 3.6 INVARIANTS
 
@@ -467,9 +565,24 @@ INV-15  证据是数据不是执行权威：不执行 commandRef、不取回任�
 INV-16  每条 scoped recipe 必须有且仅有一个 canonical owner（F3）
 INV-17  live 宿主行为（真实 deny 映射等）与 core 合同分离；后者可在 S1，前者属 DEPLOYMENT_ONLY / W5（F4）
 INV-18  预算值（BUDGET）与观测截断点（TRUNCATION）不是同一个量；预算不得由截断点反推（F5）
+INV-19  ① 类字段名必须表达 requirement、② 类字段 name 必须表达 observation；
+        二者不得同名或近似到需 implementer 猜测（R1）
+INV-20  每个规范事实只有一个声明点；其余位置只引用不重复声明
+        （`EXPECTED_PRODUCTION_EFFECT` 为具体适用例）（R1）
+INV-21  结构 / 来源 / 充分性为三条独立评估轴，取值互不折叠；
+        `INSUFFICIENT` 只属充分性轴，不得作为来源轴取值（R2）
+INV-22  验收矩阵行存在（ROW_PRESENT）!= 行为被验收（BEHAVIOR_ACCEPTED）；
+        每条 requirement 必须绑到语义相关的 AC，不得以无关 AC 充数（R3）
 ```
 
-**INV 与 F1–F6 对应**：`INV-11/12` ← F1；`INV-13/14/15` ← F2；`INV-16` ← F3；`INV-17` ← F4；`INV-18` ← F5。F6 为可追溯性补全，无新增不变量（属验收矩阵完整性要求）。
+**INV 与修复轮次对应**：
+
+```text
+INV-11/12 ← F1        INV-13/14/15 ← F2        INV-16 ← F3
+INV-17 ← F4           INV-18 ← F5              INV-19/20 ← R1
+INV-21 ← R2           INV-22 ← R3
+F6 为可追溯性补全（无新增不变量）；R4 为引用同步（无新增不变量）。
+```
 
 ---
 
@@ -539,7 +652,9 @@ INV-18  预算值（BUDGET）与观测截断点（TRUNCATION）不是同一个�
 | `seams.applicability/evidenceRefs` | Seam 适用性与证据 | `applicability = N/A` 无理由（或缺接受记录）→ 拒绝 |
 | `reuse.sourceEvidence/validFor/dependencies/invalidation` | 复用声明；`dependencies` 按 `REQ-W2-04(e)` 最小形状 | `dependencies` 形状不合法或 `VERIFICATION_STATE = UNKNOWN` 且声明复用 → 拒绝 |
 | `unverified[]` | 显式未验证项 | 空数组合法；**不得以省略代替**（省略 = 结构不合法） |
-| 来源核验结论 | `SOURCE_VERIFIED` 三态（`YES` / `NO+INVALID` / `NO+UNVERIFIED_TEMPORARILY_UNAVAILABLE` / `NO+INSUFFICIENT`，见 `REQ-W2-04(c)`） | 暂不可达**不得**自动记为 `INVALID`；两者均 `EVIDENCE_SUFFICIENT = NO` 并阻断 PASS |
+| 结构合法性轴 | `STRUCTURALLY_VALID = YES | NO`（见 `REQ-W2-03`） | `NO` → `REJECT`（不进入消费） |
+| 来源核验轴 | `SOURCE_VERIFICATION_STATE = VERIFIED | INVALID | TEMPORARILY_UNAVAILABLE | NOT_VERIFIED`（见 `REQ-W2-04(c)`） | `INVALID` → 阻断 PASS 且须重新产出证据；`TEMPORARILY_UNAVAILABLE` **不得**记为 `INVALID`，保留 cause、阻断 PASS、恢复后重核；`NOT_VERIFIED` → 阻断 PASS |
+| 证据充分性轴 | `EVIDENCE_SUFFICIENCY = SUFFICIENT | INSUFFICIENT`（**独立于来源轴**；见 `REQ-W2-03`） | `INSUFFICIENT` → 阻断 PASS。合法组合含 `SOURCE_VERIFICATION_STATE = VERIFIED` + `EVIDENCE_SUFFICIENCY = INSUFFICIENT` |
 
 ### 5.2 证据分层与不越界（`EXTEND`，对齐既有 L0/L1/L2）
 
@@ -557,13 +672,18 @@ INV-18  预算值（BUDGET）与观测截断点（TRUNCATION）不是同一个�
 
 ## 6. FAILURE_SEMANTICS
 
-### 6.1 三类失败必须可分
+### 6.1 三类失败必须可分（R2 修正：与三轴正交对齐）
 
 ```text
-REJECT              结构/来源/必填不合法 → 不进入消费
-INSUFFICIENT        结构合法但证据不足（缺必需结果、未知 scope、依赖 UNKNOWN）→ 不得当作 PASS
-CONSUMER_UNSATISFIED  证据合法但 consumer 门未满足（如空跑 exit 0、无有效结果）→ gate 不开
+REJECT                结构/来源/必填不合法 → 不进入消费
+                      （STRUCTURALLY_VALID = NO，或 SOURCE_VERIFICATION_STATE = INVALID）
+INSUFFICIENT          结构合法、来源可核验但证据不足 → 不得当作 PASS
+                      （EVIDENCE_SUFFICIENCY = INSUFFICIENT；
+                       含 SOURCE_VERIFICATION_STATE = VERIFIED 但缺必要证据的合法组合）
+CONSUMER_UNSATISFIED  证据合法且充分但 consumer 门未满足（如空跑 exit 0、无有效结果）→ gate 不开
 ```
+
+**`TEMPORARILY_UNAVAILABLE` 的归类**：既不是 `REJECT`（证据未作废），也不是 `INSUFFICIENT`（证据可能本就充分，只是暂时取不到）。它是**独立的第三态**：**阻断 PASS**、**保留 cause**、**恢复可达后重核**，**不得**折叠进 `INVALID`。
 
 ### 6.2 关键失败映射（逐条对齐旧事故）
 
@@ -576,18 +696,36 @@ CONSUMER_UNSATISFIED  证据合法但 consumer 门未满足（如空跑 exit 0�
 | 错 SHA | `subject.candidateSha` 不符 → `EVIDENCE_STALE_SUBJECT` |
 | CE-20 guard 假阻断 | S1：adapter 无 deny 映射合同却声明 ENFORCED → 合同违规；W5：真实宿主未映射 deny 而目标被修改 → live 验收失败 |
 
-### 6.2a 状态机分离（F2 修正）
+### 6.2a 状态机分离（F2 修正；R2 修正：三轴正交）
 
 ```text
+STRUCTURALLY_VALID（结构轴，闭合集）
+  YES | NO
+SOURCE_VERIFICATION_STATE（来源轴，闭合集）
+  VERIFIED | INVALID | TEMPORARILY_UNAVAILABLE | NOT_VERIFIED
+EVIDENCE_SUFFICIENCY（充分性轴，闭合集，独立于来源轴）
+  SUFFICIENT | INSUFFICIENT
 CHECK_STATUS（单条机械检查结果，闭合集）
   PASS | FAIL | SKIPPED | ERROR | UNKNOWN
 CI_STATUS（CI 运行整体状态，既有七值集，不新增）
   PASS | FAIL | NOT_TRIGGERED | CANCELLED | INFRASTRUCTURE_FAILURE | KNOWN_BASELINE_FAILURE | UNKNOWN
-SOURCE_VERIFIED（来源核验结论）
-  YES | NO(INVALID) | NO(UNVERIFIED_TEMPORARILY_UNAVAILABLE) | NO(INSUFFICIENT)
 ```
 
-三个状态机**互不坍缩**：`CHECK_STATUS` 不得升格为 `CI_STATUS`；`NO(UNVERIFIED_TEMPORARILY_UNAVAILABLE)` 不得折叠为 `NO(INVALID)`。
+**五个状态机互不坍缩**：
+
+```text
+- CHECK_STATUS 不得升格为 CI_STATUS
+  （它们描述不同粒度：单条检查 vs CI 运行整体）
+- STRUCTURALLY_VALID 不得替代 SOURCE_VERIFICATION_STATE
+  （schema 合法 ≠ 来源可信）
+- SOURCE_VERIFICATION_STATE 不得吸收 EVIDENCE_SUFFICIENCY
+  （INSUFFICIENT 不是来源轴的取值；来源可为 VERIFIED 而证据仍 INSUFFICIENT）
+- TEMPORARILY_UNAVAILABLE 不得折叠为 INVALID
+  （暂不可达 ≠ 证据作废）
+- 任一轴为否/未决 → 阻断 PASS；不得以任一轴的成功代替其它轴
+```
+
+**不得建立本 Spec 五轴之外的第六套概念**（R2 边界约束）。
 
 ### 6.3 不得生成的失败语义
 
@@ -721,6 +859,13 @@ CE-25  `artifacts[].location` 被当作任意 URL / 任意路径的取回授权�
 CE-26  `reuse.dependencies` 为自由文本或 `VERIFICATION_STATE = UNKNOWN` 仍声明复用 → 必须拒绝
 CE-27  声称 ENFORCED 的 adapter 无 deny 映射合同（S1）；或无映射却降级后仍记为 ENFORCED → 必须拒绝
 CE-28  同一 recipe 在两个 canonical 文件重复定义（双 owner）→ 必须拒绝并收敛为单一 owner
+CE-29  设计字段与关闭证据字段同名/近似名（需求与观测同形）→ 必须拒绝并要求按 INV-19 冻结命名
+CE-30  同一规范事实（如 `EXPECTED_PRODUCTION_EFFECT`）在两处重复声明 → 必须拒绝，收敛为唯一声明点 + 引用
+CE-31  把 `EVIDENCE_SUFFICIENCY = INSUFFICIENT` 写入 `SOURCE_VERIFICATION_STATE` → 必须拒绝（轴坍缩）
+CE-32  来源完全真实但缺某类必要证据时被误判为 `INVALID` → 必须改为 `VERIFIED` + `INSUFFICIENT`
+CE-33  验收矩阵行存在但绑定的 AC 语义与该 requirement 行为无关 → 视为验收缺陷，须重新绑定
+CE-34  `REQ-W5-02` 以 host deny 类 AC 充数（无自有 enforcement 验收）→ 必须拒绝
+CE-35  `REQ-W5-01` 只验 host deny、未覆盖 authority load / override / state restore / auto-advance / advisory 如实记录 → 必须拒绝
 ```
 
 **Gate 自测覆盖要求**：`PASS`、`FAIL`、`malformed`、`silent-noop`、**真实命令入口**；**正确结果与错误结果都要检查消费者实际处置**（不仅检查 validator 输出）。
@@ -739,62 +884,80 @@ requirement → producer → interface → consumer → evidence → acceptance
 
 允许合并测试，**不要求凑测试数量**。**不使用固定测试总数作为通过标准。**
 
-### 10.1a 显式交叉映射表（F6 修正，规范要求）
+### 10.1a 显式交叉映射表（F6 修正；R3 修正：语义绑定）
 
-下表为**每条 requirement 的显式交叉映射**（producer → interface → consumer → evidence → AC）。**多个 requirement 可共用同一 AC**，但必须逐条在表中出现，不得以"见上文"省略。**不为凑数量增加低价值测试。**
+下表为**每条 requirement 的显式交叉映射**（producer → interface → consumer → evidence → acceptance）。**多个 requirement 可共用同一 AC**，但必须逐条在表中出现，不得以"见上文"省略。**不为凑数量增加低价值测试。**
 
-| REQ | Producer | Interface | Consumer | Evidence | AC |
+**R3 要求**：**`ROW_PRESENT != BEHAVIOR_ACCEPTED`**。每行绑定的 AC 必须**语义相关**于该 requirement 的行为；语义无关的绑定视为缺陷（`INV-22`）。
+
+| REQ | Producer | Interface | Consumer | Evidence | AC（语义绑定） |
 |---|---|---|---|---|---|
 | `REQ-W1-01` | 拆票主体（authority/design 侧冻结①类）+ 执行侧（产生②类） | `references/ticket-lane.md` §3 seam 合同块（①/② 分区） | 票内 worker、L1 reviewer、integrator | 冻结的 seam 字段组 + 关闭证据字段；`EVIDENCE_REF` | AC-01/02/03/12/20 |
 | `REQ-W1-02` | 拆票主体 | `references/execution-stage.md` §6 拆票前识别清单 | ticket authorization 后的票内执行者 | 拆票前 8 字段记录 + 票内 RED 执行记录（owner = `RED_EXECUTION_OWNER`） | AC-21/12 |
 | `REQ-W1-03` | 执行侧（集成票） | `references/git-ci-integration.md` §4/§5 + AGENTS §6 | integrator | `REAL_ENTRYPOINT`/`PRODUCTION_CALL_CHAIN`/`OBSERVED_PRODUCTION_EFFECT`/`PRODUCTION_CALLERS`/`RUNTIME_REACHABLE`/`EVIDENCE_REF` | AC-04/05/23/20 |
 | `REQ-W1-04` | worker / native harness；L0；reviewer；integrator | 既有角色分离（AGENTS §3/§6） | 同上 | 各方产出物分离，互不代替 | AC-01 |
-| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source） | AC-06/10 |
-| `REQ-W2-02` | producer（`scripts/review_evidence.py` collect） | `unverified[]` + 信任/取回边界 | validator、L1 | 收集到的事实 + 未验证项 + 不执行/不取回的边界证明 | AC-06/08/22 |
-| `REQ-W2-03` | validator | 三层不可坍缩（`STRUCTURALLY_VALID`/`SOURCE_VERIFIED`/`EVIDENCE_SUFFICIENT`） | L0/L1 gate | 三层各自结论 + 失败分类（含三态来源核验） | AC-06/07/10/22 |
-| `REQ-W2-04` | 本 Spec（字段合同）→ producer/validator 实现 | `schemas/review-evidence.schema.json` + `templates/review-evidence.json` | validator、L1、integrator | (a)–(g) 子合同逐条可测：`CHECK_STATUS` 闭合集、`location` 受限、三态、信任边界、`reuse` 形状、`unverified[]` 语义、`ci.originalState` 取值域 | AC-06/07/10/22 |
-| `REQ-W2-05` | reviewer（语义 scope 结论） | `semanticScopeStatus` 字段（reviewer 写入） | L1/L2、integrator | reviewer 结论 vs producer 观测分字段 | AC-07 |
-| `REQ-W2-06` | consumer 侧（L1/L2/integrator/Stage） | `reviewerDecisionRefs` 与机器事实分字段 | L1/L2/integrator/Stage packet | 消费记录 + 不自批证据 + 只引用不复制 | AC-08 |
-| `REQ-W2-07` | 仓政策 + producer | `subject commit` / `report commit` 显式区分 | integrator、后续 reviewer | 两 commit 身份分离；新报告提交不继承旧 PASS | AC-06/11 |
-| `REQ-W3-01` | 证据各类型 owner | 各类型独立有效期（五类） | L1/L2/CI/integrator | 各 receipt 与其绑定对象 | AC-11 |
-| `REQ-W3-02` | 复用声明者 | `reuse` 依赖描述符（`REQ-W2-04(e)`） | L1/L2 | `VALID_FOR` + `VERIFICATION_STATE != UNKNOWN` | AC-11 |
-| `REQ-W3-03` | canonical（`git-ci-integration.md`） | 失效触发清单（四项） | L1/L2/CI | 命中记录 + 定向失效范围 | AC-11 |
-| `REQ-W3-04` | canonical（既有） | 既有 `CI_STATUS` 七值集 | CI/L1/consumer | CI 原始状态 + 非 PASS 独立接受记录 | AC-11/22 |
+| `REQ-W2-01` | 本 Spec → 未来实现 | `references/review-evidence.md` + schema + template + CLI（四文件） | L1/L2/integrator/CI | 四文件存在且互相一致（single source） | AC-06/10/42 |
+| `REQ-W2-02` | producer（`scripts/review_evidence.py` collect） | `unverified[]` + 信任/取回边界 | validator、L1 | 收集到的事实 + 未验证项 + 不执行/不取回的边界证明 | **AC-24/25/26/27** + AC-06/42 |
+| `REQ-W2-03` | validator | 三条正交轴（`STRUCTURALLY_VALID` / `SOURCE_VERIFICATION_STATE` / `EVIDENCE_SUFFICIENCY`） | L0/L1 gate | 三轴各自取值 + 轴间处置 + 失败分类 | **AC-39** + AC-06/07/10/22 |
+| `REQ-W2-04` | 本 Spec（字段合同）→ producer/validator 实现 | `schemas/review-evidence.schema.json` + `templates/review-evidence.json` | validator、L1、integrator | (a)–(g) 子合同逐条可判 | **AC-28/29/30**（a/g）+ **AC-24/25/26/27**（b/d）+ **AC-31/32**（e）+ **AC-39**（c）+ **AC-42** + AC-06/07/10/22 |
+| `REQ-W2-05` | reviewer（语义 scope 结论） | `semanticScopeStatus` 字段（reviewer 写入） | L1/L2、integrator | reviewer 权威写入；观测不自动升格 | **AC-35** |
+| `REQ-W2-06` | consumer 侧（L1/L2/integrator/Stage） | `reviewerDecisionRefs` 与机器事实分字段 | L1/L2/integrator/Stage packet | 不自批证据 + Stage 只引用不复制 | **AC-36** + AC-08 |
+| `REQ-W2-07` | 仓政策 + producer | `subject commit` / `report commit` 显式区分 | integrator、后续 reviewer | 两 commit 身份分离；新报告提交不继承旧 PASS | **AC-37** |
+| `REQ-W3-01` | 证据各类型 owner | 各类型独立有效期（五类） | L1/L2/CI/integrator | 各 receipt 与其绑定对象 | **AC-33/34** + AC-11 |
+| `REQ-W3-02` | 复用声明者 | `reuse` 依赖描述符（`REQ-W2-04(e)`） | L1/L2 | `VALID_FOR` + `VERIFICATION_STATE != UNKNOWN` | **AC-31/32** + AC-11 |
+| `REQ-W3-03` | canonical（`git-ci-integration.md`） | 失效触发清单（四项） | L1/L2/CI | 命中记录 + 定向失效范围 | **AC-33** |
+| `REQ-W3-04` | canonical（既有） | 既有 `CI_STATUS` 七值集 | CI/L1/consumer | CI 原始状态 + 非 PASS 独立接受记录 | **AC-30** + AC-11/22 |
 | `REQ-W4-01` | 本 Spec（冻结预算）→ 未来实现 | `deployment/BOOTSTRAP_CONTRACT.md` §2.1 + 候选 + `scripts/validate_governance.py` | 校验器、部署者 | `WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES=3500` 契约 + UTF-8 byte 检查 + 实测反例 | AC-17 |
-| `REQ-W4-02a` | canonical owner（`review-and-repair-saturation.md`） | audit visibility recipe（字段组 + 两个 completeness 输出） | 外审/审计执行者、reviewer | recipe 记录 + `CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT` / `FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS` | AC-13 |
-| `REQ-W4-02b` | canonical owner（`git-ci-integration.md`） | destructive transaction recipe（`status → 保全 → 操作 → post-state`） | 执行者、reviewer | 保全前后状态记录 | AC-14 |
-| `REQ-W4-02c` | canonical owner（`ticket-lane.md`） | single-writer + readback recipe | 票内执行者、L1 | 聚合修改记录 + **最终回读**核验结果 | AC-15 |
-| `REQ-W4-02d` | canonical owner（`engineering-memory.md`） | learning closure 条件 | 执行者、reviewer | 采纳/拒绝理由 + 验证引用 | AC-16 |
-| `REQ-W4-02e` | canonical owner（`skills-and-model-routing.md`） | model dispatch 字段组 | 派发者、reviewer | 字段齐备 + 型号可更新 profile | AC-19 |
+| `REQ-W4-02a` | canonical owner（`review-and-repair-saturation.md`） | audit visibility recipe（字段组 + 两个 completeness 输出） | 外审/审计执行者、reviewer | recipe 记录 + `CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT` / `FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS` | AC-13 + **AC-38** |
+| `REQ-W4-02b` | canonical owner（`git-ci-integration.md`） | destructive transaction recipe（`status → 保全 → 操作 → post-state`） | 执行者、reviewer | 保全前后状态记录 | AC-14 + **AC-38** |
+| `REQ-W4-02c` | canonical owner（`ticket-lane.md`） | single-writer + readback recipe | 票内执行者、L1 | 聚合修改记录 + **最终回读**核验结果 | AC-15 + **AC-38** |
+| `REQ-W4-02d` | canonical owner（`engineering-memory.md`） | learning closure 条件 | 执行者、reviewer | 采纳/拒绝理由 + 验证引用 | AC-16 + **AC-38** |
+| `REQ-W4-02e` | canonical owner（`skills-and-model-routing.md`） | model dispatch 字段组 | 派发者、reviewer | 字段齐备 + 型号可更新 profile | AC-19 + **AC-38** |
 | `REQ-W4-03` | adapter/hook 实现（S1） | `grounding_guard.py` 退出码合同 + adapter deny 映射合同 | 宿主 runtime bridge、L0/L1 | exit 0/2 语义 + adapter deny 映射合同 + 合成/reference 测试；无映射 → ADVISORY | AC-18 |
 | `REQ-W4-03-D` | live 宿主（W5） | 真实 runtime deny 路径 | integrator（live） | 真实工具事件 → block → deny → 目标未修改 | AC-18-D |
 | `REQ-W4-04` | gate 脚本实现 | CLI 入口自测（`argv → main`、退出码、结构化输出、探针） | consumer / CI | 真实命令入口测试（非 import 冒充）+ 副作用的探针 | AC-09 |
-| `REQ-W5-01` | live 宿主 + 部署者 | fresh/host session 验收协议 | PRODUCT OWNER | session 记录 + deny 实测 + 降级如实记录 | AC-18-D |
-| `REQ-W5-02` | 仓部署政策 / PRODUCT OWNER | GitHub 保护配置（未来） | PRODUCT OWNER | 未来验收定义与所需权限（本阶段不配置） | AC-18-D（不适用项不冒充 PASS） |
+| `REQ-W5-01` | live 宿主 + 部署者 | fresh neutral session / project session 验收协议 | PRODUCT OWNER | session 记录 + authority load/override/state restore/auto-advance + deny 实测 + 降级如实记录 | **AC-40**（+ AC-18-D 作为其中一项） |
+| `REQ-W5-02` | 仓部署政策 / PRODUCT OWNER | GitHub 保护配置（未来） | PRODUCT OWNER | 授权的 settings/API 证据；权限不可得 → `NOT_VERIFIED` | **AC-41** |
 
-**共 AC 说明**：`AC-01` 由 `REQ-W1-01` 与 `REQ-W1-04` 共用；`AC-06/07/10/22` 由 W2 多条共用；`AC-11` 由 W3 四条共用；`AC-18` / `AC-18-D` 分别承担 `REQ-W4-03` 的 S1 与 W5 两面。**共用不表示可省略任一 requirement 的映射行。**
+**共 AC 说明**：`AC-01` 由 `REQ-W1-01` 与 `REQ-W1-04` 共用；`AC-06/07/10/22/42` 由 W2 多条共用；`AC-11` 由 W3 四条共用；`AC-31/32` 由 `REQ-W2-04(e)` 与 `REQ-W3-02` 共用；`AC-33` 由 `REQ-W3-01` 与 `REQ-W3-03` 共用；`AC-38` 由 `REQ-W4-02a..02e` 五条共用；`AC-18` / `AC-18-D` 分别承担 `REQ-W4-03` 的 S1 与 W5 两面。**共用不表示可省略任一 requirement 的映射行，也不表示可用语义无关的 AC 充数。**
 
-**专项交叉映射（F6 点名的六个关注点）**：
+**R3 纠正记录（原语义错配 → 现绑定）**：
+
+```text
+REQ-W2-05  原 AC-07（产物摘要类，语义无关）        → 现 AC-35（语义 scope 权威分离）
+REQ-W5-02  原 AC-18-D（host deny，语义无关）       → 现 AC-41（GitHub enforcement 自有验收）
+REQ-W2-02  原 AC-06/08/22 泛化带过                → 现 AC-24/25/26/27（信任边界四行为）
+REQ-W2-04  原 AC-06/07/10/22 泛化带过             → 现 AC-28/29/30/31/32/39/42（字段合同逐条）
+REQ-W2-06  原 AC-08 单点                          → 现 AC-36（不自批 + Stage 只引用）
+REQ-W2-07  原 AC-06/11（间接）                    → 现 AC-37（subject/report commit 分离）
+REQ-W4-02a..02e  原无 owner 唯一性验收            → 现 AC-38
+```
+
+**专项交叉映射（F6 点名的关注点；R3 补齐语义 AC）**：
 
 ```text
 (1) W2 producer / schema / field / consumer / storage
     → REQ-W2-01..07 行（producer=`review_evidence.py` collect；schema=`schemas/review-evidence.schema.json`；
-      field=REQ-W2-04 (a)–(g)；consumer=L1/L2/integrator/Stage；storage=引用既有 CI artifact/PR evidence，
-      不建第二账本，subject/report commit 分离 → REQ-W2-07）
+      field=REQ-W2-04 (a)–(g) → AC-42 逐条可判；consumer=L1/L2/integrator/Stage；
+      storage=引用既有 CI artifact/PR evidence，不建第二账本 → AC-36；
+      subject/report commit 分离 → REQ-W2-07 / AC-37）
 (2) Model dispatch recipe
-    → REQ-W4-02e 行（owner=`skills-and-model-routing.md`；interface=字段组；consumer=派发者/reviewer；AC-19）
+    → REQ-W4-02e 行（owner=`skills-and-model-routing.md`；interface=字段组；consumer=派发者/reviewer；AC-19 + AC-38）
 (3) W5 Bootstrap live adoption
-    → REQ-W5-01 行（producer=live 宿主+部署者；consumer=PRODUCT OWNER；AC-18-D；NOT_RUN ≠ PASS）
+    → REQ-W5-01 行（producer=live 宿主+部署者；consumer=PRODUCT OWNER；**AC-40 复合验收**；
+      fresh neutral session / project session / override / state restore / auto-advance / advisory-NOT_RUN 不得报 PASS / real host deny）
 (4) W5 GitHub enforcement
-    → REQ-W5-02 行（本阶段不配置；只定义未来验收与权限）
+    → REQ-W5-02 行（**AC-41 自有验收**：授权的 settings/API 证据 → 预期 required checks/ruleset/bypass；
+      权限不可得 → NOT_VERIFIED 不是 PASS；不得要求破坏性直推探针；本阶段不配置）
 (5) subject/report commit SHA 循环避免
-    → REQ-W2-07 行（两 commit 身份分离；不继承旧 PASS；避免"报告提交改变 candidate SHA"的循环）
+    → REQ-W2-07 行（**AC-37**：两 commit 身份分离；不继承旧 PASS；无 candidate↔report 无限循环）
 (6) 语义 scope 权威分离
-    → REQ-W2-05 行（reviewer 写 `semanticScopeStatus`；producer 观测不自动升格；AC-07）
+    → REQ-W2-05 行（reviewer 写 `semanticScopeStatus`；producer 观测不自动升格；**AC-35**）
 (7) Review Evidence 信任边界
-    → REQ-W2-02/04(d) 行（不执行 commandRef、不取回任意 URL、location 非任意权威；AC-22）
+    → REQ-W2-02 / REQ-W2-04(d) 行（**AC-24 不执行 commandRef / AC-25 不取回任意 URL /
+      AC-26 绝对越界路径拒绝 / AC-27 合法 repo 相对路径与授权 CI artifact 仍可取回**）
 (8) Runtime reachability applicability / N/A review
-    → REQ-W1-01（判定规则）/ REQ-W1-03（关闭证据）/ AC-20 行（N/A 需理由 + 接受记录）
+    → REQ-W1-01（判定规则 + REASON/ACCEPTANCE_REF 槽位）/ REQ-W1-03（关闭证据）/ AC-20
 ```
 
 ### 10.2 行为覆盖矩阵
@@ -817,14 +980,35 @@ requirement → producer → interface → consumer → evidence → acceptance
 | AC-14 | 保全操作不丢 tracked 修改与 untracked 成果 | REQ-W4-02b | CE-16 |
 | AC-15 | 共享文件多项预期更新经最终回读均存在 | REQ-W4-02c | CE-17 |
 | AC-16 | learning 关闭有采纳/拒绝理由与验证引用 | REQ-W4-02d | CE-18 |
-| AC-17 | bootstrap 的字节预算不能被字符数条件代替 | REQ-W4-01 / MIG-01..05 | CE-19 |
+| AC-17 | bootstrap 的字节预算不能被字符数条件代替 | REQ-W4-01 / MIG-01..06 | CE-19 |
 | AC-18 | **S1 core**：声称 ENFORCED 的 runtime adapter 必须暴露可核验 deny 映射合同 + 合成/reference 测试；无映射须降级声明为 ADVISORY | REQ-W4-03 | CE-20（core 面） |
 | AC-18-D | **W5 / DEPLOYMENT_ONLY**：真实宿主下 真实工具事件 → hook block → 宿主映射 deny → 目标未被修改 | REQ-W4-03-D / REQ-W5-01 | CE-20（live 面） |
 | AC-19 | model dispatch 字段齐备且风险先于型号；型号不写死不变量 | REQ-W4-02e | — |
-| AC-20 | `REACHABILITY_APPLICABILITY = N/A` 必须同时具备理由与 reviewer/integrator 接受记录；缺一按 REQUIRED 处理 | REQ-W1-01/03 | CE-14 |
+| AC-20 | `REACHABILITY_APPLICABILITY = N/A` 必须同时具备 `REACHABILITY_APPLICABILITY_REASON` 与 `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`；缺一按 REQUIRED 处理 | REQ-W1-01/03 | CE-14 |
 | AC-21 | 拆票前不得执行 RED；RED 仅在 ticket authorization 后、票内实现前执行 | REQ-W1-02 | — |
-| AC-22 | 来源暂不可达（网络/provider/auth/远端 artifact）不得被判为 `INVALID`；须 `SOURCE_VERIFIED=NO(UNVERIFIED_TEMPORARILY_UNAVAILABLE)` + 阻断 PASS + 保留 cause | REQ-W2-03/04 | CE-07 |
+| AC-22 | 来源暂不可达（网络/provider/auth/远端 artifact）不得被判为 `INVALID`；须 `SOURCE_VERIFICATION_STATE = TEMPORARILY_UNAVAILABLE` + `EVIDENCE_SUFFICIENCY = INSUFFICIENT` + 阻断 PASS + 保留 cause | REQ-W2-03/04 | CE-07/CE-23 |
 | AC-23 | `REACHABILITY_APPLICABILITY = REQUIRED` 的 Integration 票缺真实入口 → `INTEGRATION_COMPLETE = FALSE` | REQ-W1-03 | CE-04 |
+| **AC-24** | **信任边界 · 不执行**：`commandRef` 指向的命令在任何证据处理路径中**均未被执行**（含植入可观测副作用的探针命令仍无副作用） | REQ-W2-02 / REQ-W2-04(d) | CE-25 |
+| **AC-25** | **信任边界 · 不取任意 URL**：证据携带的任意 URL **均未被取回**（含指向可达测试 HTTP 服务、仍不得发生请求） | REQ-W2-02 / REQ-W2-04(d) | CE-25 |
+| **AC-26** | **信任边界 · 路径拒绝**：绝对路径与越界路径（`..` 逃逸、仓根之外）**被拒绝**并报路径违规 | REQ-W2-04(b) / REQ-W2-04(d) | CE-25 |
+| **AC-27** | **信任边界 · 允许路径仍可用（正向对照）**：合法 repo 相对路径与经授权的 CI artifact 标识**仍能正常取回** —— 边界收紧不得把合法取回一并封锁 | REQ-W2-04(b) / REQ-W2-04(d) | — |
+| **AC-28** | **状态机分离 · 不可互用**：`checks[].status` 不得被用作 CI 状态；以 `CHECK_STATUS` 冒充 `CI_STATUS` 的消费路径必须失败 | REQ-W2-04(a) | CE-24 |
+| **AC-29** | **状态机分离 · 未知值拒绝**：`checks[].status` 取闭合集之外的值 → 拒绝；`ci.originalState` 取既有七值集之外的值 → 拒绝 | REQ-W2-04(a) / REQ-W2-04(g) | CE-24 |
+| **AC-30** | **状态机分离 · 既有 CI 状态保持 canonical**：`REQ-W3-04` 七值集未被新枚举替换或扩写 | REQ-W3-04 / REQ-W2-04(a) | CE-24 |
+| **AC-31** | **复用 · 合法复用（正向）**：形状合法且 `VERIFICATION_STATE = VERIFIED` 的描述符 → 在声明的 `VALID_FOR` 范围内**允许复用** | REQ-W2-04(e) / REQ-W3-02 | CE-11/CE-12 |
+| **AC-32** | **复用 · UNKNOWN 拒绝**：`VERIFICATION_STATE = UNKNOWN`（或描述符形状不合法）却声明复用 → **拒绝** | REQ-W2-04(e) / REQ-W3-02 | CE-26 |
+| **AC-33** | **复用 · 相关失效**：命中 `REQ-W3-03` 触发清单（master drift / 共享 schema 或依赖变化 / 入口拓扑变化 / authority-profile-toolchain 变化）→ 相关证据**失效**，须定向重取 | REQ-W3-03 / REQ-W3-01 | CE-11 |
+| **AC-34** | **复用 · 无关不失效**：与依赖无关的变更**不触发**全量失效（避免过度失效） | REQ-W3-01 / REQ-W3-02 | CE-12 |
+| **AC-35** | **语义 scope 权威分离**：观测到的 changed files **不得**自我授权为语义 scope；`semanticScopeStatus` **只能**来自 reviewer 权威写入，producer 观测不得自动升格 | REQ-W2-05 | — |
+| **AC-36** | **不自批 + Stage 只引用**：机器证据**不得**填充独立 reviewer verdict（`reviewerDecisionRefs` 与机器事实分字段）；Stage packet **只引用** canonical 证据，**不复制**为第三个可变账本 | REQ-W2-06 | — |
+| **AC-37** | **subject/report commit 分离**：`subject candidate SHA` 保持显式；`report commit SHA` 独立；新增报告提交**不自动继承**旧 reviewer PASS；不存在 candidate-SHA ↔ report-SHA 无限循环 | REQ-W2-07 | — |
+| **AC-38** | **owner 唯一性**：同一 recipe 定义**只**出现在一个 canonical owner；其它 surface **只指针/链接**、不重复定义 | REQ-W4-02a..02e | CE-28 |
+| **AC-39** | **三轴正交**：合法组合 `SOURCE_VERIFICATION_STATE = VERIFIED` + `EVIDENCE_SUFFICIENCY = INSUFFICIENT` **被接受**；`INSUFFICIENT` 不得作为来源轴取值 | REQ-W2-03 / REQ-W2-04(c) | — |
+| **AC-40** | **W5 Bootstrap live adoption（复合）**：fresh neutral session → governance authority loaded；project session → repository authority discovered；override → 正确 resolution；既有项目 → state restore 生效；authorized legal frontier → 按 canonical 规则 auto-advance；advisory / `NOT_RUN` → **never** 报为 ENFORCED/PASS；real host deny → 目标未被修改 | REQ-W5-01 | CE-20（live 面） |
+| **AC-41** | **W5 GitHub enforcement**：经**授权的** repository settings / API 证据 → 观察到预期的 required checks / ruleset / bypass 政策；权限不可得 → `NOT_VERIFIED`（**不是** PASS）；**不得**要求破坏性直推探针 | REQ-W5-02 | — |
+| **AC-42** | **字段合同逐条可判**：`REQ-W2-04(a)`–`(g)` 每一条子合同均有针对该条自身语义的行为验收（非仅由泛化 AC 带过）；含 `unverified[]` 省略非法 vs 空数组合法、`seams.applicability` 与 reachability applicability 同构 | REQ-W2-04 | CE-06/CE-07 |
+
+**R3 语义绑定原则**：**`ROW_PRESENT != BEHAVIOR_ACCEPTED`**（`INV-22`）。上表每条 AC 必须描述**其覆盖 requirement 的真实行为**；不得以语义无关的 AC 充数。原先把 `REQ-W2-05` 绑到产物摘要类 `AC-07`、把 `REQ-W5-02` 绑到 host deny 类 `AC-18-D` 的映射**已在本轮纠正**（见 §10.1a 更新行）。
 
 ### 10.3 Gate 自测覆盖
 
@@ -933,7 +1117,7 @@ Astra architecture decision 与 canonical  = 无实质冲突
 
 一条**非架构性**发现（不改变 owner 或合同，仅确认既有单位缺陷可机械证明）：bootstrap 字节预算的字符/字节单位不一致已被实测反例证实（§8.1），且**当前正文在两条件下均 PASS**，故修正属**向后兼容的收紧**，不需要架构升级。
 
-受影响 requirement：`REQ-W4-01`。最小候选解决方案：`MIG-01..MIG-05`（已写入要求）。因可在既有 authority 下唯一解决，**不 STOP**。
+受影响 requirement：`REQ-W4-01`。最小候选解决方案：`MIG-01..MIG-06`（完整 migration set，已写入要求）。因可在既有 authority 下唯一解决，**不 STOP**。
 
 ---
 
@@ -979,6 +1163,7 @@ open PRs               = 0
 ```text
 ROLE                     = SPEC_AUTHOR
 ADDITIONAL_ARCHITECT_EXPERT = NONE（未调用新架构专家重议已收敛问题）
+REPAIR_ROUND             = 2（R1–R4；ROUND 1 为 F1–F6）
 FILES_CHANGED             = docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md（唯一）
 IMPLEMENTATION_FILES      = NONE（§3.2 落点是未来实现目标，本轮未创建）
 ZHIHU_MODIFIED            = NONE
@@ -986,17 +1171,25 @@ CANONICAL_MODIFIED        = NONE（RULES.md / AGENTS.md / references/* 均未修
 ISSUE_9                   = OPEN（未关闭）
 TICKETS_CREATED           = NONE
 MERGED                    = NO
+ARCHITECTURE_REOPEN       = NO
 SPEC_REVIEW               = PENDING_RE_REVIEW
 NEXT_LEGAL_ACTION         = CHATGPT_FINDING_SCOPED_DELTA_RE_REVIEW
 ```
 
 ---
 
-## 16. FINDING-SCOPED REPAIR 记录（F1–F6）
+## 16. FINDING-SCOPED REPAIR 记录
 
-本轮为**评审后修复**：`SPEC_REVIEW = CHANGES_REQUESTED`，`REVIEW_SCOPE = FINDING_SCOPED_DELTA_ONLY`。**仅修改本文件**，append-only 新 commit，无 amend / rebase / force push，同一 feature branch。
+### 16.0 修复轮次索引
 
-### 16.1 逐条处置
+```text
+ROUND 1（F1–F6）   reviewed SHA 458ed253 → 修复 SHA 7d4887b6
+ROUND 2（R1–R4）   reviewed SHA 7d4887b6 → 本文件当前内容（见 §16.4）
+```
+
+每轮均为**评审后修复**：`SPEC_REVIEW = CHANGES_REQUESTED`，`REVIEW_SCOPE = FINDING_SCOPED_DELTA_ONLY`。**仅修改本文件**，append-only 新 commit，无 amend / rebase / force push，同一 feature branch。**修复不构成批准**；修复后新 SHA 必须重新走独立 exact-SHA review（`RULES.md` R5）。
+
+### 16.1 ROUND 1 逐条处置（F1–F6）
 
 | Finding | 处置 | 落点 |
 |---|---|---|
@@ -1045,3 +1238,103 @@ UNRESOLVED-04  D1/D2/D3/D4 是否同样具备"事故前单元测试绿色"的 pr
 ```
 
 **这些未决项不阻塞 Spec 审查**：它们是实现期变量，不是 Spec 层的权威冲突；且均以 fail-closed 方式处理（无依据 → 回落严格侧 / 不作过度主张）。
+
+---
+
+### 16.4 ROUND 2 逐条处置（R1–R4）
+
+**审查候选**：`OLD_REVIEWED_SHA = 7d4887b60b36219a4e4aa4fc11264e31d894fc7a`；`ARCHITECTURE_REOPEN = NO`；`TICKETING = NO`；`IMPLEMENTATION = NO`。本轮**只修 R1–R4**，未重开已通过的 F3/F4 架构，未扩大 W1–W5，未新增治理子系统。
+
+#### 16.4.1 R1 — 消除剩余 Seam 权威歧义
+
+| 项 | 处置 | 落点 |
+|---|---|---|
+| `EXPECTED_PRODUCTION_EFFECT` 重复声明 | **只保留一个 canonical declaration**：仅在 `REQ-W1-01` ① 块内声明一次；新增**唯一声明点规则**（全文其它位置含 `REQ-W1-03` 只引用、不重复声明） | `REQ-W1-01`；`REQ-W1-03`；`INV-20`；`CE-30` |
+| `PRODUCTION_CALLER`（设计）vs `PRODUCTION_CALLERS`（观测）歧义 | 设计侧**改名为 `EXPECTED_PRODUCTION_CALLER`**（与全文 `EXPECTED_*` 命名族最一致，明确表达 requirement）；关闭侧保留 `PRODUCTION_CALLERS`（observation）。冻结正式映射表：`EXPECTED_PRODUCTION_EFFECT → OBSERVED_PRODUCTION_EFFECT`、`EXPECTED_PRODUCTION_CALLER → PRODUCTION_CALLERS`、`REACHABILITY_REQUIREMENT → RUNTIME_REACHABLE` | `REQ-W1-01` 两处字段块；`INV-19`；`CE-29` |
+| 设计/观测语义纪律 | 明确：**① 类字段必须表达 requirement；② 类字段必须表达 observation**；两类不得同名、不得近似到需 implementer 猜测 | `REQ-W1-01` 命名纪律段；`INV-19` |
+| `N/A` 的字段槽位未冻住 | 冻结两个最小槽位：**`REACHABILITY_APPLICABILITY_REASON`** 与 **`REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`**；任一缺失/为空 → 按 `REQUIRED` 处理 | `REQ-W1-01` ①块 + 判定规则；`REQ-W1-02`；`AC-20` |
+
+#### 16.4.2 R2 — 来源核验与证据充分性正交
+
+**原缺陷**：`SOURCE_VERIFIED = NO + cause = INSUFFICIENT` 把"充分性"塞进"来源轴"，违反本 Spec 自己的"三层不可坍缩"。
+
+**修正**：改为**三条独立状态轴**（`R2` 推荐的最小规范，原样采纳）：
+
+```text
+STRUCTURALLY_VALID        = YES | NO
+SOURCE_VERIFICATION_STATE = VERIFIED | INVALID | TEMPORARILY_UNAVAILABLE | NOT_VERIFIED
+EVIDENCE_SUFFICIENCY      = SUFFICIENT | INSUFFICIENT
+```
+
+- `INVALID` **只**表示来源/内容本身机械错误（SHA mismatch / digest mismatch / forged-or-invalid source identity / path violation）。
+- `TEMPORARILY_UNAVAILABLE` 表示 network / provider-auth / remote-artifact 暂不可达。
+- `INSUFFICIENT` **只属于 `EVIDENCE_SUFFICIENCY`**；新增合法且必须接受的组合：`SOURCE_VERIFICATION_STATE = VERIFIED` + `EVIDENCE_SUFFICIENCY = INSUFFICIENT`。
+
+同步落点：`REQ-W2-03`（三轴 + 轴间处置规则）；`REQ-W2-04(c)`（轴定义）；§5.1（字段表拆为三行）；§6.1（失败分类与 `TEMPORARILY_UNAVAILABLE` 独立归类）；§6.2a（五状态机不坍缩表）；`INV-21`；`AC-22`（改写）/`AC-39`（新增）；`CE-31/CE-32`（新增）。**未引入五轴之外的第六套概念。**
+
+#### 16.4.3 R3 — 修复语义验收交叉映射（不只是行覆盖）
+
+**原缺陷**：§10.1a 每行都出现（`ROW_PRESENT`），但部分 AC 与 requirement **语义不相关**（`!= BEHAVIOR_ACCEPTED`）。
+
+**修正**：新增 `AC-24`–`AC-42` 共 19 条语义相关验收，并**重新绑定** §10.1a 各行。逐项对照：
+
+| 要求覆盖项 | 新增/重绑 AC | 覆盖 REQ | CE |
+|---|---|---|---|
+| **A** 信任边界（不执行 commandRef / 不取任意 URL / 越界路径拒绝 / 合法取回仍可用） | `AC-24` / `AC-25` / `AC-26` / `AC-27`（正向对照） | `REQ-W2-02`、`REQ-W2-04(b)(d)` | `CE-25` |
+| **B** `CHECK_STATUS` vs `CI_STATUS` 分离（不可互用 / 未知值拒绝 / 既有 CI 状态保持 canonical） | `AC-28` / `AC-29` / `AC-30` | `REQ-W2-04(a)(g)`、`REQ-W3-04` | `CE-24` |
+| **C** reuse 依赖描述符（合法复用 / `UNKNOWN` 拒绝 / 相关失效 / 无关不失效） | `AC-31` / `AC-32` / `AC-33` / `AC-34` | `REQ-W2-04(e)`、`REQ-W3-01/02/03` | `CE-11/12/26` |
+| **D** 语义 scope 权威分离 | `AC-35`（**重绑**：原错绑产物摘要类 `AC-07`） | `REQ-W2-05` | — |
+| **E** 不自批 + Stage 只引用 | `AC-36` | `REQ-W2-06` | — |
+| **F** subject/report commit 循环 | `AC-37` | `REQ-W2-07` | — |
+| **G** Bootstrap live adoption（7 项行为） | `AC-40`（复合，含原 host deny 面 + 补齐 6 项） | `REQ-W5-01` | `CE-20`（live 面） |
+| **H** GitHub enforcement 自有验收 | `AC-41`（**重绑**：原错绑 host deny `AC-18-D`） | `REQ-W5-02` | — |
+| **I** single-owner recipe | `AC-38` | `REQ-W4-02a..02e` | `CE-28` |
+| **J** schema/validator 字段合同 | `AC-42`（(a)–(g) 逐条可判） | `REQ-W2-04` | `CE-06/07` |
+
+**新增不变量** `INV-22`：`ROW_PRESENT != BEHAVIOR_ACCEPTED`。**新增反例** `CE-29`..`CE-35`（含"AC 语义无关"与"W5-02 以 host deny 充数"两类）。**未增加低价值凑数测试。**
+
+#### 16.4.4 R4 — 可追溯性同步
+
+原 `AC-17` 的迁移引用为 `MIG-01..05`，但 migration set 实为 `MIG-01..06`（轮 1 已新增 `MIG-06` 冻结预算值）。处置：
+
+```text
+AC-17 覆盖引用           MIG-01..05  →  MIG-01..06      （已改）
+§13 受影响 requirement    MIG-01..05  →  MIG-01..06（语义为完整 migration set，已改）
+```
+
+全文 `MIG-01..05` 字样已清零；`MIG-01..06` 为唯一完整引用形态。
+
+---
+
+### 16.5 ROUND 2 保留项确认（未重开）
+
+```text
+W1–W5 overall architecture                    保留
+Seam Before Ticket                            保留
+RED lifecycle after ticket authorization      保留（R1 未改其生命周期，仅消歧字段命名）
+Runtime Reachability                          保留
+Review Evidence minimal machine layer         保留
+W4 canonical owner split (F3)                 保留（未重开；R3 仅补 AC-38 验收）
+core vs live host deny split (F4)             保留（未重开；R3 仅补 AC-40 其余 6 项行为）
+3500-byte WorkBuddy budget decision           保留
+4028 observed truncation distinction          保留
+UTF-8 byte semantics                          保留
+L0/L1/L2                                      保留
+exact-SHA / incremental review                保留
+anti-bloat                                    保留（未新增子系统；AC-24..42 为已有行为的验收补全）
+Zhihu evidence-only boundary                  保留
+GitHub enforcement DEPLOYMENT_ONLY            保留（R3 只为其补自有验收，未改其 DEPLOYMENT_ONLY 定位）
+```
+
+### 16.6 ROUND 2 修复后仍属未决（`UNRESOLVED_DECISIONS`，增量）
+
+```text
+UNRESOLVED-05  AC-27（合法 repo 相对路径 / 授权 CI artifact 仍可取回）的"正向对照"具体探针形态，
+              留待 S1 实现票按 `review_evidence.py` 实际接口冻结；本 Spec 只冻结该正向行为必须被验收。
+UNRESOLVED-06  AC-40 第 5 项（authorized legal frontier → auto-advance）所依赖的 canonical
+              auto-advance 规则细则属 AGENTS §7 既有条款，本 Spec 只引用不重述。
+UNRESOLVED-07  AC-41 中"预期 required checks / ruleset / bypass 政策"的具体目标值，
+              属 PRODUCT OWNER 的部署决策，本 Spec 不预设（本阶段亦不配置）。
+```
+
+轮 1 的 `UNRESOLVED-01`..`04` 继续有效（合计 `UNRESOLVED-01`..`07`）。**均不阻塞 Spec 审查**：它们是实现期/部署期变量，不是 Spec 层权威冲突，且全部 fail-closed 处理。
