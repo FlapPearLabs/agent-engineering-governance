@@ -35,6 +35,7 @@
 ## R3 证据真实性
 
 - 任何"完成/成功/PASS/verified"声明必须有可复现证据支撑；`UNKNOWN != PASS`；sampled evidence 不得升级为 global claim；报告不得编造新颖性（`NEW_* = NONE` 合法）。
+- `TICKET_DECOMPOSITION_REQUIRES_CONVERGED_PROJECT_CONTRACTS`：声称分解完成，必须有项目权威下的上游语义收敛与票集组合证据；`DEPENDENCY_DAG_VALID` / `STRUCTURAL_VALIDATION` 不证明 `SEMANTIC_COMPATIBILITY`。全局定义证明义务，项目定义实际语义；不得借此静默覆盖已批准合同（R1）。执行步骤唯一见 `references/execution-stage.md` §6。
 - 对非 PASS CI/评审状态的自分类只能作为**提案**；接受需独立证据 + 独立侧接受（`REVIEWER_ACCEPTED_CLASSIFICATION = YES`）。
 - 为什么普适：虚假证据使全部下游 gate 失效。
 - V: 非 PASS 状态必附证据块（见 references/git-ci-integration.md）。

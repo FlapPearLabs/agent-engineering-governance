@@ -1,0 +1,48 @@
+{
+  "contract_version": 1,
+  "project_identity": {
+    "name": "agent-engineering-governance",
+    "description": "Global portable agent engineering governance and bootstrap"
+  },
+  "remote": "https://github.com/FlapPearLabs/agent-engineering-governance.git",
+  "default_branch": "main",
+  "canonical_documents": {
+    "targets": [
+      "README.md"
+    ],
+    "specs": [
+      "https://github.com/FlapPearLabs/agent-engineering-governance/blob/60209cdaf2beeaa718fadcc4028a41c2f0f07db1/docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md"
+    ],
+    "architecture": [
+      "RULES.md",
+      "AGENTS.md",
+      "audit/AUTHORITY_MAP_V2.md"
+    ],
+    "adrs": [
+      "NONE"
+    ],
+    "spikes": [
+      "NONE"
+    ],
+    "environment": [
+      "deployment/PORTABLE_SETUP.md"
+    ]
+  },
+  "execution_control_plane": {
+    "type": "github-issues",
+    "tracker_location": "FlapPearLabs/agent-engineering-governance"
+  },
+  "recovery_snapshot": {
+    "last_verified_remote_sha": "0ba2c7351d45dba1459a391b0d43e418ecf55280",
+    "last_state_flush_reason": "PUBLICATION_VIA_GITHUB_CONNECTOR",
+    "last_state_flush_at": "2026-09-16T10:21:13Z",
+    "legal_frontier_summary": "Isolated governance candidate implemented and locally validated; publication uses GitHub connector. Parallel Spec ticket lane remains outside this snapshot scope.",
+    "blocker_refs": [],
+    "next_legal_action": "Verify published feature ref and actual commit metadata, then INDEPENDENT_EXACT_SHA_GOVERNANCE_REVIEW; no merge authorization"
+  },
+  "codegraph_policy": {
+    "applicability": "REQUIRED",
+    "lifecycle": "INIT_ONCE_SYNC_CONTINUOUSLY",
+    "notes": "Governance includes executable validators; when CodeGraph unavailable use AGENTS Mode C enhanced manual grounding, not an applicability exemption."
+  }
+}

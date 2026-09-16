@@ -120,6 +120,37 @@ def md_link_targets(text: str) -> list[str]:
     return out
 
 
+def ticket_gate_wiring(root: Path) -> list[str]:
+    """Static documentation wiring only; never evaluates project semantics."""
+    required = {
+        "RULES.md": ("TICKET_DECOMPOSITION_REQUIRES_CONVERGED_PROJECT_CONTRACTS",
+                     "references/execution-stage.md"),
+        "AGENTS.md": ("PRE_TICKET_CONVERGENCE_GATE", "DRAFT_TICKETS",
+                      "POST_TICKET_COMPOSITION_GATE",
+                      "INDEPENDENT_TICKET_CONFORMANCE_REVIEW",
+                      "references/execution-stage.md"),
+        "references/execution-stage.md": (
+            "### 6.1", "### 6.2 PRE_TICKET_CONVERGENCE_GATE",
+            "### 6.3 DRAFT_TICKETS", "### 6.4 POST_TICKET_COMPOSITION_GATE",
+            "### 6.5", "SPEC_OR_AUTHORITY_CONFLICT",
+            "FAST_PATH = VALID_EVIDENCE_REUSE", "APPROVED_SPEC_SHA",
+            "SEMANTIC_INPUT_SCOPE", "STRUCTURAL_VALIDATION != SEMANTIC_COMPATIBILITY",
+            "READY_FOR_INDEPENDENT_REVIEW", "git-ci-integration.md#5",
+            "ONE_CANONICAL_SOURCE_PER_FACT", "ORPHAN_INPUT", "ORPHAN_OUTPUT",
+            "DUAL_SEMANTIC_OWNER", "TERM_DRIFT", "STATE_DRIFT", "TIMING_DRIFT",
+            "ORDERING_DRIFT", "ERROR_SEMANTICS_DRIFT", "IDENTITY_DRIFT"),
+    }
+    missing = []
+    for name, markers in required.items():
+        path = root / name
+        if not path.is_file():
+            missing.append(name + ": missing file")
+            continue
+        body = path.read_text(encoding="utf-8")
+        missing.extend(name + ": " + marker for marker in markers if marker not in body)
+    return missing
+
+
 def main() -> int:
     # 1. required files
     missing = [f for f in REQUIRED_FILES if not (ROOT / f).is_file()]
@@ -413,6 +444,11 @@ def main() -> int:
     ci_text = (ROOT / ".github/workflows/governance-ci.yml").read_text(encoding="utf-8")
     ci_ok = "unittest discover -s adapters/zcode/tests" in ci_text
     check("ci-runs-continuity-matrix", ci_ok, f"ok={ci_ok}")
+
+    # Static wiring is not a PRE/POST verdict for any downstream project.
+    gate_missing = ticket_gate_wiring(ROOT)
+    check("ticket-gate-documentation-wiring-only", not gate_missing,
+          f"missing={gate_missing}")
 
     # report
     failed = [r for r in results if not r[1]]

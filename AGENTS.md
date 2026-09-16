@@ -91,6 +91,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 禁止顺序：DAG → 发明票据形状模块 → 假缝 → 逼架构就范。
 
 - `/to-tickets`（或等价分解）定位 = **实现分解 + 一致性 lint**，不是架构生成器。
+- 分解入口必须读取 `references/execution-stage.md` §6：`PRE_TICKET_CONVERGENCE_GATE → DRAFT_TICKETS → POST_TICKET_COMPOSITION_GATE → INDEPENDENT_TICKET_CONFORMANCE_REVIEW → STAGE / IMPLEMENTATION_AUTHORIZATION`。PRE 可复用有效证据；同一会话不是证明，新会话不要求全量重建；两条路径均不得跳过 POST。失败原因映射到 §7 既有 STOP，不另建状态机。项目若有冲突的已批准流程，先按 R1 处理，禁止静默重排。
 - **对立错误同样禁止**：合法的架构性拆分/合并不得因"影响票据边界"被拒绝——依赖边若暴露真实架构合同，升格为架构决策走授权，而非硬塞进执行排程。
 - prefactor 提议服从既有架构权威；新模块名必须映射到既有架构概念或 Spec 名词，映射不上 = 假缝，回炉。
 - 每票 = 内聚行为 + 自然缝 + 显式 owner + 可测验收合同 + 合理评审边界。

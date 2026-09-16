@@ -7,6 +7,7 @@
 
 | 阶段 | 首选 skill | 触发条件 | 边界 |
 |---|---|---|---|
+| 流程定位 | `ask-matt`（可选） | 技能可用且不确定当前工程阶段 | OPTIONAL FLOW ROUTER；非权威、非批准、非合同校验器；缺失不阻断治理 |
 | 需求澄清 | `grill-with-docs`（深度访谈；`grilling`/`grill-me`/`batch-grill-me` 为轻量变体） | 需求真实模糊 | 产出 ADR/词汇表，不是 Spec |
 | 形式化 | `to-spec` | Grill/讨论已充分 | 不面试，只合成 |
 | 分解 | `to-tickets` | approved 架构/Spec 之后 | 必须套用 AGENTS §4 seam-first 约束壳（execution-stage.md §6）；产物标注 Stage 建议 |

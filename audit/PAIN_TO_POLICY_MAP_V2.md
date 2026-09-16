@@ -155,6 +155,14 @@
 - POLICY_INTENDED：六层模型 + 显式 OVERRIDE 记录 + 冲突算法。
 - SHOULD_BE_GLOBAL = **YES（分层机制本身）**。
 
+## P19 分解入口上下文丢失与票集组合失效（2026-09-16 增补）
+- SOURCE_EVIDENCE：本次 owner 授权的外部 Spec → fresh-session 分解场景与 C1–C4 修正；属于用户报告的工作流风险，不声称已复现某个生产事故。已知关联痛点 P01/P02/P03/P06/P17/P18。
+- FAILURE_CLASS：单票有效、DAG 有效但组合合同不成立；连续会话或字段齐全被当作证明。
+- POLICY：R3 仅补证据真实性推论；AGENTS §4 路由；execution-stage §6 唯一拥有 PRE/POST recipe。全局证明义务与项目语义严格分离。
+- R8：适用于票据分解，不给每次编辑新增流程；无相关 seam 可说明 N/A；复用有效证据，独立 POST 与既有 conformance 同次审查，避免重复劳动。
+- SHOULD_BE_GLOBAL：证明真实性原则 YES；执行 recipe DEFAULT_ONLY（受 R1 与项目显式权威约束，冲突先 STOP）。
+- MACHINE_ENFORCED：仅 recipe 接线与已知结构事实；SEMANTIC_JUDGMENT = INDEPENDENT_REVIEW。反例与验证边界见 `audit/SPEC_TICKET_GATE_IMPLEMENTATION.md`。
+
 ## 汇总判定表
 
 | PAIN | SHOULD_BE_GLOBAL | 机器可 enforce | agent 判断 | 人判断 |
