@@ -33,12 +33,12 @@
     "tracker_location": "FlapPearLabs/agent-engineering-governance"
   },
   "recovery_snapshot": {
-    "last_verified_remote_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
-    "last_state_flush_reason": "P1_IMPLEMENTATION_AUTHORIZATION_PERSISTED",
-    "last_state_flush_at": "2026-09-17T02:17:43Z",
-    "legal_frontier_summary": "P1 ticket set #10-#25 (P1-T01..P1-T16) passed independent ticket-conformance review; the owner granted implementation authorization and it is persisted as GitHub issue state records (live state belongs to the tracker, not to this snapshot). Approved parent spec = 60209cdaf2beeaa718fadcc4028a41c2f0f07db1 on branch spec/p1-agent-engineering-governance-delta. Live frontier = #10 P1-T01, #11 P1-T04, #12 P1-T09, #13 P1-T13, #14 P1-T14, #15 P1-T15. Stage 1 = 2 lanes: P1-T01 (#10) and P1-T04 (#11). Every other ticket remains blocked on its declared dependencies.",
+    "last_verified_remote_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+    "last_state_flush_reason": "P1_STAGE_1_EXECUTED_LANES_CLOSED_AND_FRONTIER_ADVANCED",
+    "last_state_flush_at": "2026-09-17T07:38:35Z",
+    "legal_frontier_summary": "P1 Stage 1 executed and closed: LANE_A P1-T01 (#10) integrated as e1da1541eb2b11f1e44f972409abde701496f4b6, LANE_B P1-T04 (#11) re-formed after MASTER_DRIFT and integrated as 0ec774f06882b923fd89b2bb52784538a3367477; both tickets CLOSED (COMPLETED) and both lanes carry real CI green on their exact integrated SHA. Approved parent spec = 60209cdaf2beeaa718fadcc4028a41c2f0f07db1 on branch spec/p1-agent-engineering-governance-delta. Live frontier recomputed from fresh tracker state = 9 tickets: #12 P1-T09, #13 P1-T13, #14 P1-T14, #15 P1-T15, #16 P1-T02, #17 P1-T03, #18 P1-T05, #19 P1-T07, #20 P1-T12. Still blocked on declared dependencies = #21 P1-T06 (#18), #22 P1-T10 (#19), #23 P1-T11 (#17), #24 P1-T08 (#21,#23), #25 P1-T16 (#12,#24). Remaining frontier write surfaces are NOT yet re-audited for pairwise disjointness at the new main; a Stage 2 plan must redo that audit before authorizing parallel lanes. No Stage 2 was pre-declared or pre-authorized by the owner.",
     "blocker_refs": [],
-    "next_legal_action": "EXECUTE_STAGE_1"
+    "next_legal_action": "AWAIT_OWNER_STAGE_2_PLAN_AND_AUTHORIZATION"
   },
   "codegraph_policy": {
     "applicability": "REQUIRED",
