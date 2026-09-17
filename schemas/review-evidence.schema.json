@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/FlapPearLabs/agent-engineering-governance/schemas/review-evidence.schema.json",
+  "title": "REVIEW_EVIDENCE_CONTRACT_V1 — review evidence pack",
+  "description": "Versioned machine contract for a Review Evidence pack. The single semantic detail owner is references/review-evidence.md; this file is its mechanical form. Consumed by scripts/review_evidence.py (validate/collect) and reproduced in placeholder form by templates/review-evidence.json. Keyword subset deliberately limited to the operators scripts/review_evidence.py implements; an unknown operator is rejected rather than ignored.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "subject",
+    "authorityRefs",
+    "producer",
+    "checks",
+    "artifacts",
+    "ci",
+    "grounding",
+    "seams",
+    "reuse",
+    "unverified",
+    "STRUCTURALLY_VALID",
+    "SOURCE_VERIFICATION_STATE",
+    "EVIDENCE_SUFFICIENCY",
+    "semanticScopeStatus",
+    "reviewerDecisionRefs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Supported value domain {1}. An unknown value is rejected as EVIDENCE_VERSION_UNKNOWN; no migration is ever guessed."
+    },
+    "subject": {
+      "type": "object",
+      "required": ["repo", "baseSha", "candidateSha"],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": "string",
+          "pattern": "^(https?://\\S+|[^/\\s]+/[^/\\s]+)$",
+          "description": "Target repository remote or owner/repo. A value that is not the target repository is rejected as EVIDENCE_SUBJECT_MISMATCH."
+        },
+        "baseSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full 40-hex candidate base SHA. Unparseable or stale versus the reviewed base is rejected."
+        },
+        "candidateSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full 40-hex SHA of the candidate under review. A value that is not the candidate under review is rejected as EVIDENCE_STALE_SUBJECT."
+        }
+      }
+    },
+    "authorityRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Versioned contract references the pack is produced under. Absent content makes the evidence insufficient; it is never a structural substitute for anything else."
+    },
+    "producer": {
+      "type": "object",
+      "required": ["identity", "version", "observedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "observedAt": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]00:00)$",
+          "description": "ISO-8601 UTC observation timestamp."
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "scope", "commandRef", "status", "exitCode", "artifactRefs"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "scope": { "type": "string", "minLength": 1 },
+          "commandRef": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A REFERENCE to what was run, for traceability only. It is never an execution authority: no consumer of this contract runs it."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PASS", "FAIL", "SKIPPED", "ERROR", "UNKNOWN"],
+            "description": "CHECK_STATUS: the result of ONE mechanical check, closed set. This is deliberately NOT CI_STATUS and must never be used as a CI state machine."
+          },
+          "exitCode": { "type": ["integer", "null"] },
+          "artifactRefs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["location", "contentDigest"],
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Evidence declaration only. It is neither a network nor a filesystem authority; the retrieval boundary is not decided by this contract."
+          },
+          "contentDigest": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+:[0-9a-fA-F]{8,128}$"
+          }
+        }
+      }
+    },
+    "ci": {
+      "type": "object",
+      "required": ["run", "job", "checkedSha", "originalState"],
+      "additionalProperties": false,
+      "properties": {
+        "run": { "type": "string" },
+        "job": { "type": "string" },
+        "checkedSha": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|)$",
+          "description": "The SHA the CI run actually checked; empty means no CI observation was recorded. Whether it binds to the reviewed candidate is a consumption rule, not a shape rule."
+        },
+        "originalState": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "NOT_TRIGGERED", "CANCELLED", "INFRASTRUCTURE_FAILURE", "KNOWN_BASELINE_FAILURE", "UNKNOWN"],
+          "description": "CI_STATUS: the existing seven-value set adopted by reference from references/git-ci-integration.md section 3. It is neither replaced nor extended here, and no second CI status machine may be declared."
+        }
+      }
+    },
+    "grounding": {
+      "type": "object",
+      "required": ["mode", "coverage", "evidenceRef"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["BASE_PLUS_DIFF", "LANE_INDEX", "UNAVAILABLE"],
+          "description": "Machine spelling of the three grounding modes owned by references/codegraph-grounding.md section 2.1 (A BASE + DIFF / B LANE_INDEX / C UNAVAILABLE). The mode semantics stay owned there; this field only spells them so the value is decidable."
+        },
+        "coverage": {
+          "type": "string",
+          "description": "Coverage statement for the chosen mode, in the vocabulary of the canonical grounding reference."
+        },
+        "evidenceRef": { "type": "string" }
+      }
+    },
+    "seams": {
+      "description": "seams.applicability is isomorphic with REACHABILITY_APPLICABILITY (REQ-W1-01): REQUIRED | N/A, and N/A requires a reason plus an acceptance reference.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["applicability", "evidenceRefs"],
+          "additionalProperties": false,
+          "properties": {
+            "applicability": { "type": "string", "const": "REQUIRED" },
+            "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+            "reason": { "type": "string" },
+            "acceptanceRef": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["applicability", "evidenceRefs", "reason", "acceptanceRef"],
+          "additionalProperties": false,
+          "properties": {
+            "applicability": { "type": "string", "const": "N/A" },
+            "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+            "reason": { "type": "string", "minLength": 1 },
+            "acceptanceRef": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "reuse": {
+      "type": "object",
+      "required": ["sourceEvidence", "validFor", "dependencies", "invalidation"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceEvidence": {
+          "type": "string",
+          "description": "Which earlier evidence is being reused."
+        },
+        "validFor": {
+          "type": "string",
+          "description": "The range in which the reuse claim as a whole is asserted to still hold."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reuse_dependency_descriptor" },
+          "description": "The REQ-W2-04(e) dependency analysis. Declared once, here, as the closed structure above; a free-text string is not a legal value. The behavioural lifecycle (reuse legality, per-type validity, targeted invalidation) is consumed by P1-T08 and is not implemented by this contract."
+        },
+        "invalidation": {
+          "type": "string",
+          "description": "What change invalidates this reuse claim at the claim level."
+        }
+      }
+    },
+    "unverified": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Explicit list of what this pack has NOT verified. The key must be present: omitting it is structurally invalid, while an explicit empty array is the legal statement of 'nothing unverified'."
+    },
+    "STRUCTURALLY_VALID": {
+      "type": "string",
+      "enum": ["YES", "NO"],
+      "description": "Structural axis, closed set. NO means the pack does not enter consumption (REJECT). What a consumer does with each value is not decided here."
+    },
+    "SOURCE_VERIFICATION_STATE": {
+      "type": "string",
+      "enum": ["VERIFIED", "INVALID", "TEMPORARILY_UNAVAILABLE", "NOT_VERIFIED"],
+      "description": "Source axis, closed set, independent of the sufficiency axis. INVALID means the source or content is itself mechanically wrong (SHA mismatch, digest mismatch, invalid source identity, path violation). TEMPORARILY_UNAVAILABLE means the source could not currently be reached and is NOT invalidated; folding it into INVALID is illegal."
+    },
+    "EVIDENCE_SUFFICIENCY": {
+      "type": "string",
+      "enum": ["SUFFICIENT", "INSUFFICIENT"],
+      "description": "Sufficiency axis, closed set, independent of the source axis. INSUFFICIENT belongs to this axis only and is never a SOURCE_VERIFICATION_STATE value. VERIFIED together with INSUFFICIENT is a legal, non-contradictory pair."
+    },
+    "semanticScopeStatus": {
+      "type": ["string", "null"],
+      "description": "Field name declared here only. Its value comes from reviewer authority (REQ-W2-05) and is not derivable from producer observation; who may write it and what a consumer may derive from it is not decided by this contract. null means no reviewer value has been written."
+    },
+    "reviewerDecisionRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Field name declared here only. It keeps reviewer decisions in fields separate from machine facts (REQ-W2-06); who may write it and what a consumer may derive from it is not decided by this contract. The machine pack never self-approves a reviewer verdict."
+    }
+  },
+  "$defs": {
+    "reuse_dependency_descriptor": {
+      "type": "object",
+      "required": ["WHAT", "IDENTITY_VERSION_OR_DIGEST", "VALID_FOR", "INVALIDATED_BY", "VERIFICATION_STATE"],
+      "additionalProperties": false,
+      "properties": {
+        "WHAT": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the dependency is (shared schema / shared dependency / entry topology / toolchain / authority profile)."
+        },
+        "IDENTITY_VERSION_OR_DIGEST": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identity of that dependency: at least one of a version or a content digest."
+        },
+        "VALID_FOR": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The range in which this dependency is still valid for the reused evidence."
+        },
+        "INVALIDATED_BY": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What change invalidates it (corresponds to the invalidation trigger list)."
+        },
+        "VERIFICATION_STATE": {
+          "type": "string",
+          "enum": ["VERIFIED", "UNKNOWN"],
+          "description": "Closed value domain. UNKNOWN means the dependency was not verified, and the reuse of the evidence is therefore not permitted; the rule that consumes this value belongs to P1-T08."
+        }
+      }
+    }
+  }
+}
