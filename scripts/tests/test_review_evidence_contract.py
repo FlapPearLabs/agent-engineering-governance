@@ -37,6 +37,16 @@ requires a declared target subject, ``authorityRefs`` absence is insufficiency
 rather than structural invalidity, and every declared failure path must emit the
 declared structured envelope.
 
+REPAIR ROUND 2 (adversarial re-review of e19e5455) closes the same failure class
+for the WHOLE character-class family: tests 46-51 hold the engine to the
+ECMA-262 semantics the owner declares for ``$ \\d \\D \\s \\S \\w \\W``, require
+an untranslatable construct to fail closed instead of falling back to Python,
+align a non-contract ``--schema`` value with the declared step ordering, require
+the declared envelope keys on every path, read the owner's pattern and envelope
+rules back mechanically, and prove no declared pattern text was rewritten. The
+ECMA-262 verdicts used as the oracle come from an independent engine (V8) and
+are frozen as a static table so this suite stays Python-only.
+
 Stdlib only. Run with:
     python3 -m unittest scripts.tests.test_review_evidence_contract -v
 """
@@ -1503,6 +1513,632 @@ class ReviewEvidenceContractTests(unittest.TestCase):
             expect_base_sha=BASE_SHA, expect_candidate_sha=CANDIDATE_SHA
         )["violations"], "a legitimate pack with the complete target subject "
                          "must still be accepted")
+
+
+
+    # ==================================================================
+    # REPAIR ROUND 2 (adversarial re-review of e19e5455)
+    #   N1  the rule declared in owner section 9.5 must hold for the WHOLE
+    #       character-class family ($ \d \D \s \S \w \W), not only for `$`
+    #       and \d, and a construct the engine cannot translate faithfully
+    #       must fail closed instead of being evaluated with Python semantics
+    #   N3  a parseable JSON object that is not a contract is a step 0 failure
+    #   N4  the envelope keys the owner declares must be emitted on every path
+    # ==================================================================
+
+    # Where each declared `pattern` lives in a PACK ...
+    ANCHORED_FIELDS = {
+        "subject.repo": ("subject", "repo"),
+        "subject.baseSha": ("subject", "baseSha"),
+        "subject.candidateSha": ("subject", "candidateSha"),
+        "producer.observedAt": ("producer", "observedAt"),
+        "artifacts[].contentDigest": ("artifacts", 0, "contentDigest"),
+        "ci.checkedSha": ("ci", "checkedSha"),
+    }
+
+    # ... and where it lives in the CONTRACT.
+    DECLARED_PATTERN_POINTERS = {
+        "subject.repo": ("properties", "subject", "properties", "repo"),
+        "subject.baseSha": ("properties", "subject", "properties", "baseSha"),
+        "subject.candidateSha":
+            ("properties", "subject", "properties", "candidateSha"),
+        "producer.observedAt":
+            ("properties", "producer", "properties", "observedAt"),
+        "artifacts[].contentDigest":
+            ("properties", "artifacts", "items", "properties", "contentDigest"),
+        "ci.checkedSha": ("properties", "ci", "properties", "checkedSha"),
+    }
+
+    # The declared pattern TEXT, frozen at the commit this repair starts from.
+    # A pattern whose text had been rewritten to dodge the semantics question
+    # would be a loosening; this table makes that impossible to slip through.
+    FROZEN_DECLARED_PATTERNS = {
+        "subject.repo": "^(https?://\\S+|[^/\\s]+/[^/\\s]+)$",
+        "subject.baseSha": "^[0-9a-f]{40}$",
+        "subject.candidateSha": "^[0-9a-f]{40}$",
+        "producer.observedAt":
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(Z|[+-]00:00)$",
+        "artifacts[].contentDigest": "^[a-z0-9-]+:[0-9a-fA-F]{8,128}$",
+        "ci.checkedSha": "^([0-9a-f]{40}|)$",
+    }
+
+    # ECMA-262 verdicts produced by an independent engine (V8 / Node v22.22.2,
+    # `new RegExp(<declared pattern text>).test(value)`) and frozen here as a
+    # static table, so the committed suite stays Python-only while still being
+    # checked against an oracle that shares no code, translation table or
+    # assumption with the CLI. The REJECT rows double as the no-loosening
+    # evidence: every one of them is a value the declared pattern forbids.
+    ECMA262_ORACLE = (
+    # subject.repo
+    ('subject.repo', 'FlapPearLabs/agent-engineering-governance', 'ACCEPT'),
+    ('subject.repo', 'https://github.com/FlapPearLabs/agent-engineering-governance', 'ACCEPT'),
+    ('subject.repo', 'http://host/x', 'ACCEPT'),
+    ('subject.repo', 'owner/repo', 'ACCEPT'),
+    ('subject.repo', 'https://host\ufeffpath', 'REJECT'),
+    ('subject.repo', 'owner\ufeffname/repo', 'REJECT'),
+    ('subject.repo', 'owner/repo\x1c', 'ACCEPT'),
+    ('subject.repo', 'owner\x85name/repo', 'ACCEPT'),
+    ('subject.repo', 'owner/repo\x85', 'ACCEPT'),
+    ('subject.repo', 'owner\u2028name/repo', 'REJECT'),
+    ('subject.repo', 'https://host\u2028path', 'REJECT'),
+    ('subject.repo', 'https://host\xa0path', 'REJECT'),
+    ('subject.repo', 'https://host\u200bpath', 'ACCEPT'),
+    ('subject.repo', 'owner\u200bname/repo', 'ACCEPT'),
+    ('subject.repo', 'owner/repo\n', 'REJECT'),
+    ('subject.repo', 'owner/repo ', 'REJECT'),
+    ('subject.repo', ' owner/repo', 'REJECT'),
+    ('subject.repo', 'https://host/path\u3000', 'REJECT'),
+    ('subject.repo', '\u3000owner/repo', 'REJECT'),
+    ('subject.repo', 'owner/repo\u2029', 'REJECT'),
+    ('subject.repo', 'https://host/\ufeff', 'REJECT'),
+    ('subject.repo', '😀/repo', 'ACCEPT'),
+    ('subject.repo', 'https://😀.example/x', 'ACCEPT'),
+    ('subject.repo', 'owner\x1fname/repo', 'ACCEPT'),
+    ('subject.repo', 'owner/repo\x1e', 'ACCEPT'),
+    ('subject.repo', 'owner/repo\x7f', 'ACCEPT'),
+    ('subject.repo', 'https://host/path\x0b', 'REJECT'),
+    ('subject.repo', 'owner\x0brepo/x', 'REJECT'),
+    # subject.baseSha
+    ('subject.baseSha', '1111111111111111111111111111111111111111', 'ACCEPT'),
+    ('subject.baseSha', '111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.baseSha', '11111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.baseSha', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'REJECT'),
+    ('subject.baseSha', '1111111111111111111111111111111111111111\n', 'REJECT'),
+    ('subject.baseSha', '1111111111111111111111111111111111111111٢', 'REJECT'),
+    ('subject.baseSha', '٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢', 'REJECT'),
+    ('subject.baseSha', 'g111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.baseSha', '0000000000000000000000000000000000000000', 'ACCEPT'),
+    ('subject.baseSha', '1111111111111111111111111111111111111111 ', 'REJECT'),
+    ('subject.baseSha', '\n1111111111111111111111111111111111111111', 'REJECT'),
+    # subject.candidateSha
+    ('subject.candidateSha', '1111111111111111111111111111111111111111', 'ACCEPT'),
+    ('subject.candidateSha', '111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.candidateSha', '11111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.candidateSha', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'REJECT'),
+    ('subject.candidateSha', '1111111111111111111111111111111111111111\n', 'REJECT'),
+    ('subject.candidateSha', '1111111111111111111111111111111111111111٢', 'REJECT'),
+    ('subject.candidateSha', '٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢٢', 'REJECT'),
+    ('subject.candidateSha', 'g111111111111111111111111111111111111111', 'REJECT'),
+    ('subject.candidateSha', '0000000000000000000000000000000000000000', 'ACCEPT'),
+    ('subject.candidateSha', '1111111111111111111111111111111111111111 ', 'REJECT'),
+    ('subject.candidateSha', '\n1111111111111111111111111111111111111111', 'REJECT'),
+    # producer.observedAt
+    ('producer.observedAt', '2026-09-17T00:00:00Z', 'ACCEPT'),
+    ('producer.observedAt', '2026-09-17T00:00:00+00:00', 'ACCEPT'),
+    ('producer.observedAt', '2026-09-17T00:00:00z', 'REJECT'),
+    ('producer.observedAt', '2026-09-17T00:00:00', 'REJECT'),
+    ('producer.observedAt', '2026-09-17T00:00:00+01:00', 'REJECT'),
+    ('producer.observedAt', '٢٠٢٦-09-17T00:00:00Z', 'REJECT'),
+    ('producer.observedAt', '2026-09-17T00:00:00Z\n', 'REJECT'),
+    ('producer.observedAt', '2026-9-17T00:00:00Z', 'REJECT'),
+    ('producer.observedAt', '2026-09-17T00:00:00Z ', 'REJECT'),
+    ('producer.observedAt', '\u200b2026-09-17T00:00:00Z', 'REJECT'),
+    # artifacts[].contentDigest
+    ('artifacts[].contentDigest', 'sha256:0000000000000000000000000000000000000000000000000000000000000000', 'ACCEPT'),
+    ('artifacts[].contentDigest', 'sha256:00000000', 'ACCEPT'),
+    ('artifacts[].contentDigest', 'sha256:00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000', 'ACCEPT'),
+    ('artifacts[].contentDigest', 'sha256:0000000', 'REJECT'),
+    ('artifacts[].contentDigest', 'sha256:000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000', 'REJECT'),
+    ('artifacts[].contentDigest', 'SHA256:0000000000000000000000000000000000000000000000000000000000000000', 'REJECT'),
+    ('artifacts[].contentDigest', 'sha256:0000000000000000000000000000000000000000000000000000000000000000\n', 'REJECT'),
+    ('artifacts[].contentDigest', 'sha-256:aFaFaFaF', 'ACCEPT'),
+    ('artifacts[].contentDigest', 'sha256:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg', 'REJECT'),
+    ('artifacts[].contentDigest', 'sha256:000000000000000000000000000000000000000000000000000000000000000٢', 'REJECT'),
+    # ci.checkedSha
+    ('ci.checkedSha', '', 'ACCEPT'),
+    ('ci.checkedSha', '1111111111111111111111111111111111111111', 'ACCEPT'),
+    ('ci.checkedSha', '1111111111111111111111111111111111111111\n', 'REJECT'),
+    ('ci.checkedSha', '11111111111111111111111111111111111111111', 'REJECT'),
+    ('ci.checkedSha', '111111111111111111111111111111111111111', 'REJECT'),
+    ('ci.checkedSha', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'REJECT'),
+    ('ci.checkedSha', '1111111111111111111111111111111111111111٢', 'REJECT'),
+    )
+
+    # One row per construct the owner declares translated. Every row is a value
+    # on which Python's own semantics would answer the opposite, so the row
+    # fails if the translation is dropped rather than merely reordered.
+    # Verdicts are V8's.
+    ECMA262_PER_CONSTRUCT = (
+        ("$", "^a$", "a\n", "REJECT"),
+        ("\\d", "^\\d$", "\u0662", "REJECT"),
+        ("\\D", "^\\D$", "\u0662", "ACCEPT"),
+        ("\\s", "^\\s$", "\ufeff", "ACCEPT"),
+        ("\\s", "^\\s$", "\x1c", "REJECT"),
+        ("\\S", "^\\S$", "\ufeff", "REJECT"),
+        ("\\S", "^\\S$", "\x1c", "ACCEPT"),
+        ("\\w", "^\\w$", "\u00e9", "REJECT"),
+        ("\\w", "^\\w$", "_", "ACCEPT"),
+        ("\\W", "^\\W$", "\u00e9", "ACCEPT"),
+        ("\\W", "^\\W$", "_", "REJECT"),
+    )
+
+    # ---------------- round 2 helpers ----------------
+
+    def require_construct_inventory(self, cli):
+        """The owner's pattern rule must have a mechanical form to read back."""
+        missing = [name for name in ("ECMA262_TRANSLATED_CONSTRUCTS",
+                                     "UnsupportedPatternConstruct")
+                   if not hasattr(cli, name)]
+        if missing:
+            self.fail(
+                "CONTRACT_ABSENT: scripts/review_evidence.py does not expose "
+                f"{missing}; the pattern rule the semantic owner declares "
+                "(section 9.5) has no mechanical form")
+        return (getattr(cli, "ECMA262_TRANSLATED_CONSTRUCTS"),
+                getattr(cli, "UnsupportedPatternConstruct"))
+
+    def pack_with_field(self, field, value) -> dict:
+        pack = good_pack()
+        node = pack
+        for part in self.ANCHORED_FIELDS[field][:-1]:
+            node = node[part]
+        node[self.ANCHORED_FIELDS[field][-1]] = value
+        return pack
+
+    def owner_inventory_line(self, label) -> list:
+        """Read a whitespace-separated inventory the owner declares."""
+        for line in self.require_reference().splitlines():
+            stripped = line.strip()
+            if stripped.startswith(label):
+                return stripped[len(label):].split()
+        self.fail(
+            f"SURFACE_DISAGREEMENT: the sole semantic owner declares no "
+            f"{label!r} line, so its pattern rule cannot be read back against "
+            "the engine")
+        return []
+
+    def owner_fence_after(self, heading) -> str:
+        """The first fenced block that follows a heading in the owner."""
+        lines = self.require_reference().splitlines()
+        start = None
+        for index, line in enumerate(lines):
+            if line.strip().startswith(heading):
+                start = index
+                break
+        if start is None:
+            self.fail(f"SURFACE_DISAGREEMENT: the semantic owner has no "
+                      f"{heading!r} section")
+        fence = None
+        for index in range(start, len(lines)):
+            if lines[index].strip().startswith("```"):
+                fence = index
+                break
+        if fence is None:
+            self.fail(f"SURFACE_DISAGREEMENT: {heading!r} declares no fenced "
+                      "block to read back")
+        block: list = []
+        for line in lines[fence + 1:]:
+            if line.strip() == "```":
+                return "\n".join(block)
+            block.append(line)
+        self.fail(f"SURFACE_DISAGREEMENT: the fence after {heading!r} is "
+                  "unterminated")
+        return ""
+
+    def declared_patterns(self, schema: dict) -> list:
+        """Every `pattern` keyword the committed contract declares."""
+        found: list = []
+
+        def walk(node) -> None:
+            if not isinstance(node, dict):
+                return
+            if isinstance(node.get("pattern"), str):
+                found.append(node["pattern"])
+            for key in ("properties", "$defs"):
+                for sub in (node.get(key) or {}).values():
+                    walk(sub)
+            walk(node.get("items"))
+            for sub in (node.get("oneOf") or []):
+                walk(sub)
+
+        walk(schema)
+        return found
+
+    def structural_verdict(self, cli, schema, field, value):
+        violations = cli.schema_violations(
+            self.pack_with_field(field, value), schema=schema)
+        return "REJECT" if violations else "ACCEPT", violations
+
+    # ---------------- N1: the character-class family ----------------
+
+    def test_46_declared_patterns_use_ecma262_character_class_semantics(self):
+        """N1: the owner's rule must hold for every character class it governs.
+
+        The re-review executed three counterexamples against e19e5455 in which
+        the engine used Python's Unicode classes while the owner declared
+        ECMA-262: two bypasses (U+FEFF accepted inside ``subject.repo``, which
+        ECMA-262 rejects) and one false reject (U+001C, which ECMA-262 accepts).
+        """
+        cli = self.require_cli()
+        schema = self.require_schema()
+
+        for label, field, value, expected in (
+            ("CE-1", "subject.repo", "https://host\ufeffpath", "REJECT"),
+            ("CE-2", "subject.repo", "owner\ufeffname/repo", "REJECT"),
+            ("CE-3", "subject.repo", "owner/repo\x1c", "ACCEPT"),
+        ):
+            with self.subTest(counterexample=label, value=value):
+                got, violations = self.structural_verdict(
+                    cli, schema, field, value)
+                self.assertEqual(
+                    expected, got,
+                    f"ECMA262_CHARACTER_CLASS ({label}): {field} = {value!r} "
+                    f"must be {expected} under ECMA-262 character-class "
+                    "semantics; a pack a conformant validator rejects must "
+                    f"never be reported ok; violations={violations}")
+
+        for field, value, expected in self.ECMA262_ORACLE:
+            with self.subTest(field=field, value=value):
+                got, violations = self.structural_verdict(
+                    cli, schema, field, value)
+                self.assertEqual(
+                    expected, got,
+                    f"ECMA262_ORACLE: an independent ECMA-262 engine answers "
+                    f"{expected} for {field} = {value!r}; the CLI answers "
+                    f"{got}; violations={violations}")
+
+    # ---------------- N1: fail closed, never fall back ----------------
+
+    def test_47_untranslatable_pattern_constructs_fail_closed(self):
+        """N1: a construct the engine cannot translate is refused, never
+        evaluated with Python's own semantics."""
+        cli = self.require_cli()
+        schema = self.require_schema()
+        _, unsupported = self.require_construct_inventory(cli)
+
+        declared = self.owner_inventory_line("ECMA262_FAIL_CLOSED")
+        self.assertTrue(
+            declared,
+            "SURFACE_DISAGREEMENT: the owner must declare which pattern "
+            "constructs fail closed")
+        for construct in declared:
+            with self.subTest(declared=construct):
+                # {construct!r} is declared fail-closed by the owner, so the
+                # engine must refuse it rather than evaluate it.
+                self.assertRaises(unsupported, cli.ecma262_pattern, construct)
+
+        for construct in ("^\\w+\\b$", "^a.c$", "^x\\Z\\Z$"):
+            with self.subTest(injected=construct):
+                drifting = json.loads(json.dumps(schema))
+                drifting["properties"]["subject"]["properties"]["repo"][
+                    "pattern"] = construct
+                violations = cli.schema_violations(good_pack(), schema=drifting)
+                self.assertEqual(
+                    {"SCHEMA_KEYWORD_UNSUPPORTED"},
+                    {v["reason"] for v in violations},
+                    "DECLARED_NOT_IMPLEMENTED: a contract this engine cannot "
+                    "evaluate with the declared semantics must be refused as a "
+                    "whole, with an explicit reason; "
+                    f"violations={violations}")
+                self.assertFalse(cli.validate_pack(good_pack(),
+                                                   schema=drifting)["ok"])
+
+        with self.subTest(case="no silent fallback to Python semantics"):
+            # `^\w+\b$` accepts "abc" under Python's semantics. A value must not
+            # be judged at all when the engine cannot evaluate the pattern.
+            drifting = json.loads(json.dumps(schema))
+            drifting["properties"]["subject"]["properties"]["repo"][
+                "pattern"] = "^\\w+\\b$"
+            violations = cli.schema_violations(
+                self.pack_with_field("subject.repo", "abc"), schema=drifting)
+            self.assertTrue(
+                violations,
+                "PYTHON_FALLBACK: the value was judged although the engine "
+                "cannot evaluate the declared pattern with ECMA-262 semantics")
+            self.assertNotIn(
+                "PATTERN_VIOLATION", {v["reason"] for v in violations},
+                "the value is not the fault when the pattern itself is "
+                "unevaluable")
+
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            drifting = json.loads(json.dumps(schema))
+            drifting["properties"]["subject"]["properties"]["repo"][
+                "pattern"] = "^\\w+\\b$"
+            contract_path = workdir / "drifting.json"
+            contract_path.write_text(json.dumps(drifting), encoding="utf-8")
+            pack_path = self.write_pack(workdir, good_pack())
+            completed = self.run_cli(["validate", "--pack", str(pack_path),
+                                      "--schema", str(contract_path)])
+            payload = self.parse_stdout(completed)
+            self.assertEqual(1, completed.returncode)
+            self.assertIn("SCHEMA_KEYWORD_UNSUPPORTED", self.reasons(payload),
+                          f"violations={payload['violations']}")
+            self.assertNotIn("Traceback",
+                             completed.stdout + completed.stderr)
+
+        text = self.require_reference()
+        for marker in ("ECMA262_TRANSLATED", "ECMA262_FAIL_CLOSED",
+                       "SCHEMA_KEYWORD_UNSUPPORTED"):
+            self.assertIn(
+                marker, text,
+                "SURFACE_DISAGREEMENT: the sole semantic owner must declare "
+                f"the pattern rule {marker!r}")
+
+    # ---------------- N3: step 0 judges the contract ----------------
+
+    def test_48_a_non_contract_object_is_refused_at_step_zero(self):
+        """N3: a parseable JSON value that is not a contract is a step 0
+        failure, not a complaint about the pack."""
+        payloads = {
+            "empty object": {},
+            "empty properties": {"properties": {}},
+            "no properties": {"type": "object", "required": []},
+            "no version domain":
+                {"properties": {"subject": {"type": "object"}}},
+            "a JSON array": [],
+            "a JSON string": "schemas/review-evidence.schema.json",
+            "a JSON number": 1,
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            pack_path = self.write_pack(workdir, good_pack())
+            for label, value in payloads.items():
+                with self.subTest(payload=label):
+                    contract_path = workdir / "not-a-contract.json"
+                    contract_path.write_text(json.dumps(value),
+                                             encoding="utf-8")
+                    completed = self.run_cli([
+                        "validate", "--pack", str(pack_path),
+                        "--schema", str(contract_path)])
+                    payload = self.parse_stdout(completed)
+                    self.assertEqual(1, completed.returncode)
+                    self.assertFalse(payload["ok"])
+                    self.assertEqual(1, payload["exitCode"])
+                    self.assertIn(
+                        "SCHEMA_UNAVAILABLE", self.reasons(payload),
+                        "DECLARED_STEP_ORDER: step 0 judges the contract, so a "
+                        "value that is not a contract object is "
+                        f"SCHEMA_UNAVAILABLE; violations={payload['violations']}")
+                    self.assertNotIn(
+                        "EVIDENCE_VERSION_UNKNOWN", self.reasons(payload),
+                        "DECLARED_STEP_ORDER: an unusable contract must not be "
+                        "reported as a complaint about the pack")
+                    self.assertEqual(
+                        [], payload["contract"]["supportedSchemaVersions"])
+                    self.assertNotIn("Traceback",
+                                     completed.stdout + completed.stderr)
+
+        text = self.require_reference()
+        for marker in ("\u5408\u540c\u5bf9\u8c61", "properties",
+                       "schemaVersion"):
+            self.assertIn(
+                marker, text,
+                "SURFACE_DISAGREEMENT: the owner must declare what makes a "
+                f"JSON value a contract object; missing={marker!r}")
+
+    # ---------------- N4: the declared envelope shape ----------------
+
+    def test_49_the_declared_envelope_shape_is_emitted_on_every_path(self):
+        """N4: section 9.3 declares the envelope once; every path emits it."""
+        declared = json.loads(self.owner_fence_after("### 9.3"))
+        declared_keys = set(declared)
+        self.assertEqual(
+            {"tool", "contractVersion", "mode", "ok", "exitCode", "contract",
+             "violations", "skeleton", "skeletonPath"},
+            declared_keys,
+            "the readback of the owner's declared envelope is not the declared "
+            "envelope any more")
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            pack_path = self.write_pack(workdir, good_pack())
+            out_path = workdir / "skeleton.json"
+            blocker = workdir / "blocker"
+            blocker.write_text("not a directory", encoding="utf-8")
+            cases = (
+                ("validate pass",
+                 ["validate", "--pack", str(pack_path),
+                  "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                  "--expect-candidate-sha", CANDIDATE_SHA],
+                 "null", None),
+                ("validate failure",
+                 ["validate", "--pack", str(workdir / "absent.json")],
+                 "null", None),
+                ("validate, contract unavailable",
+                 ["validate", "--pack", str(pack_path),
+                  "--schema", str(workdir / "absent.json")],
+                 "null", None),
+                ("collect pass",
+                 ["collect", "--out", str(out_path), "--repo", REPO_OK,
+                  "--base-sha", BASE_SHA, "--candidate-sha", CANDIDATE_SHA,
+                  "--producer-identity", "laneB-worker",
+                  "--producer-version", "1",
+                  "--observed-at", "2026-09-17T00:00:00Z"],
+                 "dict", str(out_path)),
+                ("collect, output not writable",
+                 ["collect", "--out", str(blocker / "skeleton.json"),
+                  "--repo", REPO_OK, "--base-sha", BASE_SHA,
+                  "--candidate-sha", CANDIDATE_SHA,
+                  "--producer-identity", "laneB-worker",
+                  "--producer-version", "1",
+                  "--observed-at", "2026-09-17T00:00:00Z"],
+                 "dict", None),
+            )
+            for label, args, skeleton_kind, skeleton_path in cases:
+                with self.subTest(path=label):
+                    completed = self.run_cli(args, cwd=str(workdir))
+                    payload = self.parse_stdout(completed)
+                    self.assertEqual(
+                        declared_keys, set(payload),
+                        "ENVELOPE_SHAPE: the declared envelope is emitted on "
+                        f"every path; {label} emitted {sorted(payload)}")
+                    if skeleton_kind == "dict":
+                        self.assertIsInstance(payload["skeleton"], dict)
+                    else:
+                        self.assertIsNone(payload["skeleton"])
+                    self.assertEqual(skeleton_path, payload["skeletonPath"])
+
+    # ---------------- the mechanical owner-vs-code guard ----------------
+
+    def test_50_the_owner_declares_no_rule_the_engine_does_not_implement(self):
+        """The owner's pattern and envelope rules, read back mechanically.
+
+        Deliberately bounded: it compares the construct inventories the owner
+        declares with the ones the engine implements, every declared pattern
+        with the engine's ability to evaluate it, and the declared envelope with
+        the emitted one. It is not a prose-to-code verifier.
+        """
+        cli = self.require_cli()
+        schema = self.require_schema()
+        translated, unsupported = self.require_construct_inventory(cli)
+
+        declared_translated = self.owner_inventory_line("ECMA262_TRANSLATED")
+        self.assertEqual(
+            set(translated), set(declared_translated),
+            "DECLARED_NOT_IMPLEMENTED: the owner declares the translated "
+            f"constructs {sorted(declared_translated)}; the engine implements "
+            f"{sorted(translated)}")
+
+        for construct, pattern, value, expected in self.ECMA262_PER_CONSTRUCT:
+            with self.subTest(construct=construct):
+                self.assertIn(
+                    construct, translated,
+                    f"{construct!r} must be a declared translated construct if "
+                    "a test asserts its semantics")
+                got = "ACCEPT" if cli.pattern_matches(pattern, value) else "REJECT"
+                self.assertEqual(
+                    expected, got,
+                    f"DECLARED_NOT_IMPLEMENTED: Python's own semantics answer "
+                    f"the opposite for {pattern!r} against {value!r}; the "
+                    f"engine must answer {expected}")
+
+        for construct in self.owner_inventory_line("ECMA262_FAIL_CLOSED"):
+            with self.subTest(fail_closed=construct):
+                # The owner declares {construct!r} fail-closed; the engine must
+                # implement exactly that.
+                self.assertRaises(unsupported, cli.ecma262_pattern, construct)
+
+        patterns = self.declared_patterns(schema)
+        self.assertEqual(
+            6, len(patterns),
+            "the declared pattern inventory changed; the construct inventory "
+            "and the oracle table must be revisited deliberately")
+        for pattern in patterns:
+            with self.subTest(declared_pattern=pattern):
+                try:
+                    cli.ecma262_pattern(pattern)
+                except Exception as exc:  # noqa: BLE001
+                    self.fail(
+                        "DECLARED_NOT_IMPLEMENTED: the contract declares a "
+                        f"pattern this engine cannot evaluate: {pattern!r}: "
+                        f"{type(exc).__name__}: {exc}")
+
+        declared_envelope = json.loads(self.owner_fence_after("### 9.3"))
+        with tempfile.TemporaryDirectory() as temp:
+            pack_path = self.write_pack(Path(temp), good_pack())
+            completed = self.run_cli([
+                "validate", "--pack", str(pack_path),
+                "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                "--expect-candidate-sha", CANDIDATE_SHA])
+        emitted = self.parse_stdout(completed)
+        self.assertEqual(
+            set(declared_envelope), set(emitted),
+            "DECLARED_NOT_IMPLEMENTED: the owner declares the envelope "
+            f"{sorted(declared_envelope)}; the CLI emits {sorted(emitted)}")
+
+    # ---------------- no over-correction ----------------
+
+    def test_51_no_declared_pattern_was_loosened(self):
+        """The repair must not have narrowed or loosened a declared pattern.
+
+        The pattern TEXT is byte-identical to the commit this repair starts
+        from, and every legitimate value -- every accepted row of the oracle
+        table, the committed template, and a corpus of legal packs -- still
+        conforms.
+        """
+        cli = self.require_cli()
+        schema = self.require_schema()
+        for field, frozen in self.FROZEN_DECLARED_PATTERNS.items():
+            node = schema
+            for part in self.DECLARED_PATTERN_POINTERS[field]:
+                node = node[part]
+            self.assertEqual(
+                frozen, node["pattern"],
+                f"PATTERN_TEXT_CHANGED: {field} no longer carries the declared "
+                "pattern text; the semantics question must be answered by "
+                "evaluation, not by rewriting the contract")
+
+        template = self.require_template()
+        self.assertEqual(
+            [], cli.schema_violations(template, schema=schema,
+                                      allow_placeholders=True),
+            "the committed template must stay conformant")
+
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            template_path = self.write_pack(workdir, template,
+                                            name="template.json")
+            completed = self.run_cli(["validate", "--pack",
+                                      str(template_path),
+                                      "--allow-placeholders"])
+            self.assertEqual(0, completed.returncode,
+                             f"stdout={completed.stdout[:600]}")
+
+            cases = {
+                "owner/repo form": {"subject.repo":
+                                    "FlapPearLabs/agent-engineering-governance"},
+                "URL form": {"subject.repo":
+                             "https://github.com/FlapPearLabs/"
+                             "agent-engineering-governance"},
+                "empty ci.checkedSha": {"ci.checkedSha": ""},
+                "mixed-case digest": {"artifacts.0.contentDigest":
+                                      "sha384:" + "aF" * 24},
+                "UTC offset timestamp":
+                    {"producer.observedAt": "2026-01-02T03:04:05+00:00"},
+                "full-length checkedSha": {"ci.checkedSha": "0" * 40},
+                "zero-width space is not whitespace":
+                    {"subject.repo": "owner\u200bname/repo"},
+                "separator is not whitespace":
+                    {"subject.repo": "owner/repo\x1f"},
+                "leading-zero SHA": {"subject.baseSha": "0" * 40},
+            }
+            for label, patch in cases.items():
+                with self.subTest(legitimate=label):
+                    pack = good_pack()
+                    for dotted, value in patch.items():
+                        node = pack
+                        parts = dotted.split(".")
+                        for part in parts[:-1]:
+                            node = node[int(part)] if part.isdigit() \
+                                else node[part]
+                        last = parts[-1]
+                        node[int(last) if last.isdigit() else last] = value
+                    self.assertEqual(
+                        [], cli.schema_violations(pack, schema=schema),
+                        f"{label} is a legitimate value the declared pattern "
+                        "accepts")
+                    path = self.write_pack(
+                        workdir, pack, name=label.replace("/", "_") + ".json")
+                    completed = self.run_cli([
+                        "validate", "--pack", str(path),
+                        "--expect-repo", pack["subject"]["repo"],
+                        "--expect-base-sha", pack["subject"]["baseSha"],
+                        "--expect-candidate-sha",
+                        pack["subject"]["candidateSha"]])
+                    payload = self.parse_stdout(completed)
+                    self.assertEqual(0, completed.returncode,
+                                     f"{label}: stdout={completed.stdout[:600]}")
+                    self.assertTrue(payload["ok"])
 
 
 if __name__ == "__main__":
