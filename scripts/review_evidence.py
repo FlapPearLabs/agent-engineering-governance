@@ -180,15 +180,37 @@ def ecma262_pattern(pattern: str) -> str:
             index += 1
             continue
         if char == "[":
+            # ECMA-262: CharacterClass :: [ [lookahead != ^] ClassRanges? ]
+            #                             | [ ^ ClassRanges? ]
+            # A `]` directly after `[` (or `[^`) therefore CLOSES the class:
+            # `[]` is the empty class and `[^]` the empty negated class. There
+            # is no POSIX-style rule reading a leading `]` as a literal member
+            # -- applying one here would silently re-read `^[^]]$` as "one
+            # character that is not `]`" where ECMA-262 reads "any one
+            # character, then a literal `]`".
+            cursor = index + 1
+            negated = cursor < length and pattern[cursor] == "^"
+            if negated:
+                cursor += 1
+            if cursor < length and pattern[cursor] == "]":
+                if negated:
+                    # `[^]` matches any single UTF-16 code unit. Python's
+                    # engine has no code-unit mode, so the usual `[\s\S]`
+                    # idiom would consume one astral code point where ECMA-262
+                    # consumes one surrogate: an approximation, refused here
+                    # for the same reason `.` is refused above.
+                    raise UnsupportedPatternConstruct(
+                        "the empty negated class '[^]' (it matches any one "
+                        "UTF-16 code unit, which Python cannot express)")
+                # `[]` matches no code unit at all, so `(?!)` -- which can never
+                # succeed -- asserts exactly the same thing with no code-unit
+                # question anywhere in it.
+                out.append("(?!)")
+                index = cursor + 1
+                continue
+            out.append("[^" if negated else "[")
             in_class = True
-            out.append(char)
-            index += 1
-            if index < length and pattern[index] == "^":
-                out.append("^")
-                index += 1
-            if index < length and pattern[index] == "]":
-                out.append("]")
-                index += 1
+            index = cursor
             continue
         if char == "$":
             out.append("\\Z")
