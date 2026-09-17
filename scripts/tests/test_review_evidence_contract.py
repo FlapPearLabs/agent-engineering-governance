@@ -30,6 +30,13 @@ on the source axis), the legal ``SOURCE_VERIFICATION_STATE = VERIFIED`` together
 with ``EVIDENCE_SUFFICIENCY = INSUFFICIENT`` pair, and ``seams.applicability =
 N/A`` without a reason or without an acceptance reference.
 
+REPAIR ROUND 1 (adversarial review of fabcfc99) adds the regression counters
+of tests 41-45: an anchored ``pattern`` must be enforced with ECMA-262
+end-of-input semantics (a trailing newline is not tolerated), a subject verdict
+requires a declared target subject, ``authorityRefs`` absence is insufficiency
+rather than structural invalidity, and every declared failure path must emit the
+declared structured envelope.
+
 Stdlib only. Run with:
     python3 -m unittest scripts.tests.test_review_evidence_contract -v
 """
@@ -1187,6 +1194,315 @@ class ReviewEvidenceContractTests(unittest.TestCase):
             self.assertIn(marker, text,
                           "grounding.mode must stay traceable to the canonical "
                           f"grounding reference; missing={marker!r}")
+
+    # ==================================================================
+    # REPAIR ROUND 1 (adversarial review of fabcfc99)
+    #   F1  the CLI must enforce the declared anchored patterns with
+    #       ECMA-262 semantics, and the subject-enforcement rule the owner
+    #       documents must be the rule the CLI implements
+    #   F2  authorityRefs absence is INSUFFICIENCY, never a structural failure
+    #   F6  every declared failure path emits the declared structured envelope
+    # ==================================================================
+
+    def test_41_anchored_patterns_use_ecma262_end_of_input_semantics(self):
+        """F1: JSON Schema mandates ECMA-262, where ``$`` is end of input.
+
+        Python's ``$`` also matches just before a trailing newline and Python's
+        ``\\d`` also matches non-ASCII digits, so a value the declared pattern
+        does not permit would be tolerated only by Python.
+        """
+        schema = self.require_schema()
+        cli = self.require_cli()
+
+        anchored = (
+            ("subject.repo", ("subject", "repo")),
+            ("subject.baseSha", ("subject", "baseSha")),
+            ("subject.candidateSha", ("subject", "candidateSha")),
+            ("producer.observedAt", ("producer", "observedAt")),
+            ("artifacts[].contentDigest", ("artifacts", 0, "contentDigest")),
+            ("ci.checkedSha", ("ci", "checkedSha")),
+        )
+        for field, path in anchored:
+            with self.subTest(field=field, tolerated_by="trailing newline"):
+                pack = good_pack()
+                node = pack
+                for part in path[:-1]:
+                    node = node[part]
+                node[path[-1]] = str(node[path[-1]]) + "\n"
+                violations = cli.schema_violations(pack, schema=schema)
+                reasons = {v["reason"] for v in violations}
+                self.assertIn(
+                    "PATTERN_VIOLATION", reasons,
+                    f"ECMA262_END_OF_INPUT: {field} = <declared value> + '\\n' is "
+                    "tolerated only by Python's '$'; the declared pattern "
+                    f"requires end of input; violations={violations}")
+                self.assertEqual({"REJECT"}, {v["code"] for v in violations})
+
+        with self.subTest(field="producer.observedAt", tolerated_by="non-ASCII digits"):
+            pack = good_pack()
+            pack["producer"]["observedAt"] = "\u0662\u0660\u0662\u0666-09-17T00:00:00Z"
+            self.assertIn(
+                "PATTERN_VIOLATION",
+                {v["reason"] for v in cli.schema_violations(pack, schema=schema)},
+                "ECMA262_DIGIT_CLASS: \\d is [0-9] in ECMA-262; a non-ASCII "
+                "digit must not satisfy the declared timestamp pattern")
+
+        # The fix must be observable end to end, not only in the schema layer:
+        # structure is evaluated before the subject comparison, so an
+        # otherwise-conformant pack carrying the trailing newline is rejected
+        # as a pattern violation rather than as a stale subject.
+        with tempfile.TemporaryDirectory() as temp:
+            pack = good_pack()
+            pack["subject"]["candidateSha"] = CANDIDATE_SHA + "\n"
+            path = self.write_pack(Path(temp), pack)
+            completed = self.run_cli([
+                "validate", "--pack", str(path),
+                "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                "--expect-candidate-sha", CANDIDATE_SHA])
+            payload = self.parse_stdout(completed)
+            self.assertEqual(1, completed.returncode)
+            self.assertIn("PATTERN_VIOLATION", self.reasons(payload),
+                          f"the CLI must reject the anchored value itself; "
+                          f"violations={payload['violations']}")
+
+        self.assertEqual([], cli.schema_violations(good_pack(), schema=schema),
+                         "the landed contract must remain fully consumable")
+        text = self.require_reference()
+        self.assertIn("ECMA-262", text,
+                      "SURFACE_DISAGREEMENT: the sole semantic owner must "
+                      "declare how a pattern keyword is evaluated")
+
+    def test_42_a_subject_verdict_requires_a_declared_target_subject(self):
+        """F1: the owner's subject-enforcement rule and the CLI must agree.
+
+        A verdict about a subject can only be issued against a declared target
+        subject. Omitting the expectation, or declaring it only in part, is
+        rejected; the sole declared exemption is placeholder mode.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            path = self.write_pack(workdir, good_pack())
+
+            with self.subTest(case="no expectation at all"):
+                completed = self.run_cli(["validate", "--pack", str(path)])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(1, completed.returncode)
+                self.assertFalse(payload["ok"])
+                self.assertEqual(1, payload["exitCode"])
+                self.assertIn("SUBJECT_EXPECTATION_ABSENT", self.reasons(payload),
+                              f"violations={payload['violations']}")
+                self.assertNotIn("REQUIRED_FIELD_MISSING", self.reasons(payload),
+                                 "an undeclared target is an invocation matter, "
+                                 "not a pack-shape matter")
+
+            with self.subTest(case="partial expectation"):
+                completed = self.run_cli(["validate", "--pack", str(path),
+                                          "--expect-repo", REPO_OK])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(1, completed.returncode)
+                self.assertIn("SUBJECT_EXPECTATION_INCOMPLETE",
+                              self.reasons(payload),
+                              f"violations={payload['violations']}")
+
+            with self.subTest(case="complete expectation still yields the verdict"):
+                completed = self.run_cli([
+                    "validate", "--pack", str(path),
+                    "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                    "--expect-candidate-sha", CANDIDATE_SHA])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(0, completed.returncode,
+                                 f"stdout={completed.stdout[:600]}")
+                self.assertEqual([], payload["violations"])
+
+            with self.subTest(case="AC-06: the wrong subject is still rejected"):
+                wrong = good_pack()
+                wrong["subject"]["candidateSha"] = OTHER_SHA
+                wrong_path = self.write_pack(workdir, wrong, name="wrong.json")
+                completed = self.run_cli([
+                    "validate", "--pack", str(wrong_path),
+                    "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                    "--expect-candidate-sha", CANDIDATE_SHA])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(1, completed.returncode)
+                self.assertEqual({"EVIDENCE_STALE_SUBJECT"}, self.codes(payload))
+
+            with self.subTest(case="placeholder mode is the declared exemption"):
+                template_path = self.write_pack(
+                    workdir, self.require_template(), name="template.json")
+                completed = self.run_cli(["validate", "--pack",
+                                          str(template_path),
+                                          "--allow-placeholders"])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(0, completed.returncode,
+                                 f"stdout={completed.stdout[:600]}")
+                self.assertTrue(payload["ok"])
+
+        text = self.require_reference()
+        for marker in ("SUBJECT_EXPECTATION_ABSENT", "SUBJECT_EXPECTATION_INCOMPLETE"):
+            self.assertIn(marker, text,
+                          "SURFACE_DISAGREEMENT: the sole semantic owner must "
+                          f"declare the subject-enforcement failure {marker!r}")
+
+    def test_43_authority_refs_absence_is_insufficiency_not_structural(self):
+        """F2: the reconciled rule, stated once and consumed everywhere.
+
+        ``authorityRefs`` missing content is an INSUFFICIENCY fact carried by
+        the orthogonal ``EVIDENCE_SUFFICIENCY`` axis; it is never a structural
+        violation, and it never produces ``REQUIRED_FIELD_MISSING``.
+        """
+        schema = self.require_schema()
+        cli = self.require_cli()
+        self.assertEqual(
+            "array", self.schema_of(schema, "properties/authorityRefs")["type"],
+            "the field stays declared with its frozen machine shape")
+        self.assertNotIn(
+            "authorityRefs", schema["required"],
+            "STRUCTURAL_INSUFFICIENCY_CONFLATION: the key is not a structural "
+            "required key; its absence is an insufficiency fact")
+
+        for shape in ("key-omitted", "empty-array"):
+            with self.subTest(shape=shape):
+                pack = good_pack()
+                if shape == "key-omitted":
+                    del pack["authorityRefs"]
+                else:
+                    pack["authorityRefs"] = []
+                self.assertEqual(
+                    [], cli.schema_violations(pack, schema=schema),
+                    "an absent/empty authorityRefs must not be structurally "
+                    "invalid")
+                result = cli.validate_pack(
+                    pack, schema=schema, expect_repo=REPO_OK,
+                    expect_base_sha=BASE_SHA, expect_candidate_sha=CANDIDATE_SHA)
+                self.assertNotIn("REQUIRED_FIELD_MISSING", self.reasons(result))
+                self.assertTrue(result["ok"],
+                                f"violations={result['violations']}")
+
+        with self.subTest(case="the sufficiency axis stays orthogonal"):
+            for value in ("SUFFICIENT", "INSUFFICIENT"):
+                pack = good_pack()
+                pack["authorityRefs"] = []
+                pack["EVIDENCE_SUFFICIENCY"] = value
+                self.assertTrue(
+                    cli.validate_pack(pack, schema=schema)["ok"],
+                    "the axis is declared, not disposed, by this contract; a "
+                    "structural layer must not fold insufficiency into REJECT")
+
+        with self.subTest(case="a broken declared shape is still structural"):
+            pack = good_pack()
+            pack["authorityRefs"] = "the versioned contract reference"
+            self.assertIn(
+                "TYPE_MISMATCH",
+                {v["reason"] for v in cli.schema_violations(pack, schema=schema)},
+                "absence is an insufficiency, but a wrong shape is still a "
+                "structural violation")
+
+        with self.subTest(case="end to end"):
+            with tempfile.TemporaryDirectory() as temp:
+                pack = good_pack()
+                del pack["authorityRefs"]
+                path = self.write_pack(Path(temp), pack)
+                completed = self.run_cli([
+                    "validate", "--pack", str(path),
+                    "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
+                    "--expect-candidate-sha", CANDIDATE_SHA])
+                payload = self.parse_stdout(completed)
+                self.assertEqual(0, completed.returncode,
+                                 f"stdout={completed.stdout[:600]}")
+
+        text = self.require_reference()
+        self.assertIn("REQUIRED_FIELD_MISSING", text,
+                      "SURFACE_DISAGREEMENT: the owner must state that this "
+                      "condition never produces a structural failure")
+
+    def test_44_declared_failure_paths_emit_the_declared_envelope(self):
+        """F6: no declared failure path may escape as a raw traceback."""
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            pack_path = self.write_pack(workdir, good_pack())
+            not_json = workdir / "not-json.json"
+            not_json.write_text("{nope", encoding="utf-8")
+            blocker = workdir / "blocker"
+            blocker.write_text("not a directory", encoding="utf-8")
+
+            cases = (
+                ("--schema missing", ["validate", "--pack", str(pack_path),
+                                      "--schema", str(workdir / "nope.json")]),
+                ("--schema is a directory", ["validate", "--pack", str(pack_path),
+                                             "--schema", str(workdir)]),
+                ("--schema is not JSON", ["validate", "--pack", str(pack_path),
+                                          "--schema", str(not_json)]),
+            )
+            for label, args in cases:
+                with self.subTest(case=label):
+                    completed = self.run_cli(args)
+                    payload = self.parse_stdout(completed)
+                    self.assertEqual(1, completed.returncode)
+                    self.assertFalse(payload["ok"])
+                    self.assertEqual(1, payload["exitCode"])
+                    self.assertIn("SCHEMA_UNAVAILABLE", self.reasons(payload),
+                                  f"violations={payload['violations']}")
+                    for key in ("tool", "mode", "ok", "exitCode", "contract",
+                                "violations"):
+                        self.assertIn(key, payload)
+                    self.assertEqual([], payload["contract"]
+                                     ["supportedSchemaVersions"],
+                                     "an unavailable contract declares no "
+                                     "supported version")
+                    self.assertEqual(sorted(ERROR_CODES),
+                                     sorted(payload["contract"]["errorCodes"]))
+                    self.assertNotIn("Traceback",
+                                     completed.stdout + completed.stderr)
+
+            with self.subTest(case="unwritable explicit --out"):
+                completed = self.run_cli([
+                    "collect", "--out", str(blocker / "skeleton.json"),
+                    "--repo", REPO_OK, "--base-sha", BASE_SHA,
+                    "--candidate-sha", CANDIDATE_SHA,
+                    "--producer-identity", "laneB-worker",
+                    "--producer-version", "1",
+                    "--observed-at", "2026-09-17T00:00:00Z",
+                ], cwd=str(workdir))
+                payload = self.parse_stdout(completed)
+                self.assertEqual(1, completed.returncode)
+                self.assertEqual("collect", payload["mode"])
+                self.assertFalse(payload["ok"])
+                self.assertEqual(1, payload["exitCode"])
+                self.assertIn("OUTPUT_NOT_WRITABLE", self.reasons(payload),
+                              f"violations={payload['violations']}")
+                self.assertNotIn("Traceback",
+                                 completed.stdout + completed.stderr)
+                self.assertFalse((blocker / "skeleton.json").exists())
+
+        text = self.require_reference()
+        for marker in ("SCHEMA_UNAVAILABLE", "OUTPUT_NOT_WRITABLE"):
+            self.assertIn(marker, text,
+                          "SURFACE_DISAGREEMENT: the sole semantic owner must "
+                          f"declare the failure path {marker!r}")
+
+    def test_45_legitimate_anchored_values_are_still_accepted(self):
+        """No over-correction: the ECMA-262 fix must not reject legal values."""
+        cli = self.require_cli()
+        schema = self.require_schema()
+        pack = good_pack()
+        pack["ci"]["checkedSha"] = ""
+        pack["artifacts"][0]["contentDigest"] = "sha384:" + "aF" * 24
+        pack["producer"]["observedAt"] = "2026-09-17T00:00:00+00:00"
+        pack["subject"]["repo"] = (
+            "https://github.com/FlapPearLabs/agent-engineering-governance")
+        self.assertEqual([], cli.schema_violations(pack, schema=schema),
+                         "every legal form of the anchored fields must still "
+                         "conform")
+        for observed_at in ("2026-09-17T00:00:00Z", "2026-01-02T03:04:05+00:00"):
+            with self.subTest(observedAt=observed_at):
+                legal = good_pack()
+                legal["producer"]["observedAt"] = observed_at
+                self.assertEqual([], cli.schema_violations(legal, schema=schema))
+        self.assertEqual([], cli.validate_pack(
+            good_pack(), schema=schema, expect_repo=REPO_OK,
+            expect_base_sha=BASE_SHA, expect_candidate_sha=CANDIDATE_SHA
+        )["violations"], "a legitimate pack with the complete target subject "
+                         "must still be accepted")
 
 
 if __name__ == "__main__":
