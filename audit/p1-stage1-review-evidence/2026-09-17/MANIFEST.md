@@ -146,3 +146,24 @@ review copy). As a result, on the evidence branch:
 - `governance-ci` (all-branches push trigger) DOES run on this branch and will show
   the two expected `test_04`/`test_05` failures noted above. Recorded honestly; not
   concealed.
+
+## CI observation (recorded at publish)
+
+EVIDENCE_COMMIT_SHA = afdc5bb632ec73de11bf7664eb9f7725b74c7e54
+BASE_SHA            = 0ec774f06882b923fd89b2bb52784538a3367477
+
+- `governance-ci` run `35202666908` (head_sha = afdc5bb632ec73de11bf7664eb9f7725b74c7e54)
+  conclusion = **failure**. The only failures are the two expected DUAL_DECLARATION
+  (CE-28) tests: `test_04_single_declaration_point_repo_wide` (token
+  `IDENTITY_VERSION_OR_DIGEST` found in STAGE_1_REVIEW_PACKET.md) and
+  `test_05_single_declaration_point_families` (three-axis field-name family found in
+  STAGE_1_REVIEW_PACKET.md and MANIFEST.md). This is an intrinsic artifact of copying
+  contract prose onto a REVIEW-ONLY branch; it is NOT a regression in `main`
+  (main CI is green at 0ec774f). No other gate failed.
+- `public-release-audit` = **NOT_TRIGGERED** on this push. Its `push` trigger requires
+  `branches: ["main","security/**"]` AND `paths: audit/**`; the evidence branch is
+  `evidence/...`, so the branch filter excludes it. (The `audit/**` path filter WOULD
+  match if these files landed on `main`; they do not.)
+- `git diff --check` = clean. `scripts/validate_public_release.py` (CURRENT_TREE +
+  commit-metadata + selftest) = VIOLATIONS=0 / 51-51. `scripts/validate_governance.py`
+  = 31-31 after the username redaction applied during publish.
