@@ -33,12 +33,12 @@
     "tracker_location": "FlapPearLabs/agent-engineering-governance"
   },
   "recovery_snapshot": {
-    "last_verified_remote_sha": "d56d437f0cae6d431f66ef032bfd0bc4611fac7c",
-    "last_state_flush_reason": "POST_MERGE_REMOTE_VERIFIED",
-    "last_state_flush_at": "2026-09-16T15:07:53Z",
-    "legal_frontier_summary": "Spec/ticket semantic gate candidate integrated into main by ff-only integration and remote-verified on the new main head; main carries the ticket-recipe composition gates. Parallel P1 Spec ticket lane remains outside this snapshot scope.",
+    "last_verified_remote_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
+    "last_state_flush_reason": "P1_IMPLEMENTATION_AUTHORIZATION_PERSISTED",
+    "last_state_flush_at": "2026-09-17T02:17:43Z",
+    "legal_frontier_summary": "P1 ticket set #10-#25 (P1-T01..P1-T16) passed independent ticket-conformance review; the owner granted implementation authorization and it is persisted as GitHub issue state records (live state belongs to the tracker, not to this snapshot). Approved parent spec = 60209cdaf2beeaa718fadcc4028a41c2f0f07db1 on branch spec/p1-agent-engineering-governance-delta. Live frontier = #10 P1-T01, #11 P1-T04, #12 P1-T09, #13 P1-T13, #14 P1-T14, #15 P1-T15. Stage 1 = 2 lanes: P1-T01 (#10) and P1-T04 (#11). Every other ticket remains blocked on its declared dependencies.",
     "blocker_refs": [],
-    "next_legal_action": "P1_TICKET_CONFORMANCE_REPAIR_AND_REVIEW"
+    "next_legal_action": "EXECUTE_STAGE_1"
   },
   "codegraph_policy": {
     "applicability": "REQUIRED",
