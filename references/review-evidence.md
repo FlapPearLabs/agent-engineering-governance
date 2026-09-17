@@ -67,6 +67,8 @@ semanticScopeStatus / reviewerDecisionRefs
 
 顶层与各子对象均 `additionalProperties: false`：契约外的字段被拒绝，而不是被忽略。
 
+第 3 节列出**字段名与机器形状**；哪些**键**是结构必需键由 schema 的 `required` 机械表达、由 §3.1 的失败语义逐字段说明，二者必须一致。当前**唯一**不是结构必需键的字段是 `authorityRefs`（§3.1）：它的缺失是**不充分性**，不是结构不合法。
+
 ### 3.1 逐字段语义与失败语义（对齐父规范 §5.1）
 
 | 字段 | 语义 | 失败语义 |
@@ -75,7 +77,7 @@ semanticScopeStatus / reviewerDecisionRefs
 | `subject.repo` | 目标仓 remote 或 `owner/repo` | 与目标仓不符 → `EVIDENCE_SUBJECT_MISMATCH` |
 | `subject.baseSha` | 候选基线全文 40-hex SHA | 不可解析 → `REJECT`；与受评基线不符 → `EVIDENCE_STALE_SUBJECT` |
 | `subject.candidateSha` | 被评候选全文 40-hex SHA | 不可解析 → `REJECT`；与受评候选不符 → `EVIDENCE_STALE_SUBJECT` |
-| `authorityRefs` | 版本化合同引用 | 内容缺失使证据**不充分**；它**不**构成结构合法性 |
+| `authorityRefs` | 版本化合同引用；**键省略与空数组等价**（二者都是"未声明任何版本化合同引用"这一陈述） | **不充分性，不是结构不合法**：两种形态都**不**产生任何结构违规，尤其**不得**产生 `REQUIRED_FIELD_MISSING`。该情形由**正交**的 `EVIDENCE_SUFFICIENCY = INSUFFICIENT` 承载；充分性轴的**处置**属 P1-T05，本合同只声明形状、不判定它（见 §8 的 reason 分类：它不属于其中任何一类） |
 | `producer.identity/version/observedAt` | 生成者、版本与观测时刻（ISO-8601 UTC） | 缺任一 → `REJECT`（必需结果字段） |
 | `checks[].id/scope/commandRef/status/exitCode/artifactRefs` | **单条机械检查**的事实 | 缺任一 → `REJECT`；`status` 越出闭合集 → `REJECT` |
 | `artifacts[].location` | 产物位置**声明**：repo 相对路径或 CI artifact 标识 | **不是**网络或文件系统授权；取回边界不由本合同决定（P1-T06） |
@@ -159,6 +161,8 @@ N/A               ：必须同时具备 reason 与 acceptanceRef（缺一 → RE
 - 占位符**不**被接受为 enum / const 取值（闭合集字段必须写具体合法字面量）
 - 占位符**不**能替代必需键：键缺失一律结构性不合法
 - 类型不匹配不会被占位符模式救回（如数组位置写占位符字符串仍然 REJECT）
+- 占位符模式是**唯一**不要求目标 subject 的模式：占位符形态模板不是对一个具体候选的主张，
+  因此无法、也无需与目标 subject 比较（§9.1 的 subject 强制规则）
 ```
 
 模板因此对闭合集字段写入具体合法字面量（`ci.originalState = UNKNOWN`、
@@ -178,30 +182,45 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                           （同样用于一切结构/形状违规）
 ```
 
-`REJECT` 附带机器可读的 `reason`，使子类可区分；结构类 `reason` 与声明类 `reason` 分开：
+`REJECT` 附带机器可读的 `reason`，使子类可区分；三类 `reason` 分开（**结构**与**不充分**永不混同）：
 
 ```text
-结构类（schema 层）  PACK_ABSENT / PACK_NOT_JSON / PACK_NOT_AN_OBJECT /
-                     UNKNOWN_SCHEMA_VERSION / SCHEMA_INVALID /
-                     SCHEMA_KEYWORD_UNSUPPORTED / TYPE_MISMATCH /
-                     CONST_VIOLATION / ENUM_VIOLATION / PATTERN_VIOLATION /
-                     REQUIRED_FIELD_MISSING / ADDITIONAL_PROPERTY_FORBIDDEN /
-                     MIN_ITEMS_VIOLATION / MIN_LENGTH_VIOLATION / ONEOF_VIOLATION
-声明类（错误语义层） SUBJECT_REPO_MISMATCH / SUBJECT_BASE_SHA_STALE /
-                     SUBJECT_CANDIDATE_SHA_STALE / STRUCTURALLY_VALID_NO
+结构类（schema 层，判定包内容）  PACK_ABSENT / PACK_NOT_JSON / PACK_NOT_AN_OBJECT /
+                                 UNKNOWN_SCHEMA_VERSION / SCHEMA_INVALID /
+                                 SCHEMA_KEYWORD_UNSUPPORTED / TYPE_MISMATCH /
+                                 CONST_VIOLATION / ENUM_VIOLATION / PATTERN_VIOLATION /
+                                 REQUIRED_FIELD_MISSING / ADDITIONAL_PROPERTY_FORBIDDEN /
+                                 MIN_ITEMS_VIOLATION / MIN_LENGTH_VIOLATION / ONEOF_VIOLATION
+声明类（错误语义层，判定包内容）  SUBJECT_REPO_MISMATCH / SUBJECT_BASE_SHA_STALE /
+                                 SUBJECT_CANDIDATE_SHA_STALE / STRUCTURALLY_VALID_NO
+调用类（判定调用本身与输出路径，不判定包内容）
+                                 SUBJECT_EXPECTATION_ABSENT /
+                                 SUBJECT_EXPECTATION_INCOMPLETE /
+                                 SCHEMA_UNAVAILABLE / OUTPUT_NOT_WRITABLE
 ```
+
+`authorityRefs` 的缺失（键省略或空数组）**不属于以上任何一类**：按 §3.1 它是充分性事实，由
+`EVIDENCE_SUFFICIENCY` 轴承载；CLI 对它**不产出任何违规**，也**不**代 P1-T05 处置它。结构合法性
+与证据充分性因此永不互相冒充：结构层只回答"这个包是否可按本合同解释"。
 
 **判定顺序（冻结，先到先得）**：
 
 ```text
+0  contract     声明的合同不可读 / 不可解析 / 不是合同对象 → REJECT（SCHEMA_UNAVAILABLE）
+                合同不可用时不存在可解释的包判定，故先于一切包判定
 1  parse        包不存在 / 不是 JSON / 不是对象            → REJECT
 2  version      schemaVersion 不在支持值域                 → EVIDENCE_VERSION_UNKNOWN（短路）
                 未知版本无法用已知 schema 解释，故不继续判定，也不猜测迁移
 3  structure    按合同逐节点判定                           → REJECT（含全部结构类 reason）
-4  subject      与调用方声明的目标仓/基线/候选比较          → EVIDENCE_SUBJECT_MISMATCH /
+4  subject      目标 subject 的声明完整性（§9.1）与比较     → SUBJECT_EXPECTATION_ABSENT（全缺）/
+                                                            SUBJECT_EXPECTATION_INCOMPLETE（只声明一部分）/
+                                                            EVIDENCE_SUBJECT_MISMATCH /
                                                             EVIDENCE_STALE_SUBJECT
 5  declared axis 声明的 STRUCTURALLY_VALID != YES           → REJECT（STRUCTURALLY_VALID_NO）
 ```
+
+`collect` 在全部判定通过后写 `--out`；显式 `--out` 无法写入 → `REJECT`（`OUTPUT_NOT_WRITABLE`），
+**仍**输出结构化信封并以退出码 1 结束，且不写 `--out` 以外的任何路径。
 
 第 5 步只读**包自己声明的**结构轴值；另外两条轴的**处置**（是否阻断 PASS）不在本接口定义（P1-T05）。因此 `VERIFIED` + `INSUFFICIENT` 的包在本接口下 **被接受**。
 
@@ -224,16 +243,37 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
                             [--schema PATH]
 ```
 
-未给出 `--expect-*` 时只做**声明性**判定（不比较目标 subject）；给出时才产出 `EVIDENCE_SUBJECT_MISMATCH` / `EVIDENCE_STALE_SUBJECT`。
+### 9.1 subject 强制规则（`AC-06`；只在此声明一次）
+
+一次 `validate` 的结论必须建立在**已声明的目标 subject** 之上：一个包"是否属于受评候选"只能对某个声明的目标作答。
+
+```text
+完整声明（三者同时给出） --expect-repo + --expect-base-sha + --expect-candidate-sha
+                        → 执行 subject 比较，产出 EVIDENCE_SUBJECT_MISMATCH /
+                          EVIDENCE_STALE_SUBJECT（= AC-06 的判定）
+完全不声明（三者都不给）  → 不构成一次 subject 一致性判定 → REJECT（SUBJECT_EXPECTATION_ABSENT）
+只声明一部分              → 请求本身不完整（会只强制 subject 的一部分）→ REJECT（SUBJECT_EXPECTATION_INCOMPLETE）
+占位符模式 --allow-placeholders
+                        → **唯一**声明的例外（§7）：占位符形态模板不是对一个具体候选的主张，
+                          故无需目标 subject；该模式下的通过**不**构成 AC-06 的 subject 强制
+```
+
+该规则属判定顺序第 4 步（§8）；第 0–3 步先到先得，因此合同不可用、包缺失/不可解析、版本未知或结构违规时先报那些失败。
+未声明目标 subject 是**调用类**失败，不是包形状失败，故**不**产出 `REQUIRED_FIELD_MISSING`。
 
 ### 9.2 exit status 契约（**只在此声明一次**；P1-T16 验证而不重定义）
 
 ```text
-0  validate：全部检查通过（含包与目标 subject 一致）
+0  validate：全部检查通过（含包与目标 subject 一致，§9.1）
    collect ：生成的骨架符合同一份合同，并已按 --out 落盘（若给出 --out）
-1  任一失败：违规清单仍然以结构化 JSON 输出到 stdout
+1  任一失败：违规清单**仍然**以结构化 JSON 输出到 stdout（§9.3 的信封）
 0  --help（参数解析自行在 stderr 报用法）
 ```
+
+**声明的例外（仅有两条）**：`--help` 与**参数解析失败**（缺少必需参数、未知参数等）由 argparse
+自行在 stderr 报用法，不产出信封。除此之外**每一条**声明的失败路径都必须输出 §9.3 的信封并以退出码 1
+结束——包括合同不可用（`SCHEMA_UNAVAILABLE`，判定顺序第 0 步）与显式 `--out` 无法写入
+（`OUTPUT_NOT_WRITABLE`）；任何失败都**不得**以未捕获异常 / traceback / 空 stdout 收场。
 
 ### 9.3 结构化输出形状（**只在此声明一次**）
 
@@ -260,6 +300,9 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 ```
 
 `violations` 为空数组表示通过；`skeleton` / `skeletonPath` 只在 `collect` 模式下有意义。
+信封形状**在所有失败路径上保持不变**；只有取值降级：当合同本身不可用（`SCHEMA_UNAVAILABLE`）时，
+`contract.schemaPath` 回显调用方请求的路径，`contract.supportedSchemaVersions` 为 `[]`（没有可声明的
+支持值域），`contract.errorCodes` 仍为四个已声明错误码。
 
 ### 9.4 `collect` 的权威边界（保持薄、非权威）
 
@@ -275,6 +318,16 @@ MUST NOT  断言任何轴的成功：骨架为 NOT_VERIFIED / INSUFFICIENT / ci.
 ```
 
 骨架的 `unverified[]` 必须显式列出"尚未收集/尚未核验"的每一项（空骨架不代表"无未验证项"）。
+显式 `--out` 无法写入（父路径是文件、目标是目录、权限不足等）→ `REJECT`（`OUTPUT_NOT_WRITABLE`），
+信封照常输出、退出码 1，且不写 `--out` 以外的任何路径（§8）。
+
+### 9.5 `pattern` 关键字的求值语义（**只在此声明一次**）
+
+schema 的 `pattern` 是 JSON Schema 的 `pattern`，其语义由 JSON Schema 规定为 **ECMA-262**：
+`$` 断言**输入末尾**，`\d` 恰为 `[0-9]`。CLI 必须按同一语义求值；Python 的 `$` 还会匹配尾随换行之前、
+Python 的 `\d` 还会匹配非 ASCII 数字，二者都会接受声明 pattern **不允许**的取值，因此**不得**直接用
+Python 默认语义求值。声明的 pattern 文本本身不因求值方式而改写；被拒绝的是值（`PATTERN_VIOLATION`），
+不是合同。
 
 ## 10. 消费方（只引用，不复制）
 

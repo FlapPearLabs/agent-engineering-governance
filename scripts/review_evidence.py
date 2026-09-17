@@ -32,6 +32,11 @@ Exit status contract (declared once, in references/review-evidence.md):
      standard output
   0  for --help (argument parsing reports usage itself, on standard error)
 
+That envelope is emitted on EVERY declared failure path, including an unusable
+`--schema` contract and an unwritable explicit `--out`; no path may escape as a
+raw traceback. The single exceptions are the two argument-parsing paths named
+above, which argparse reports itself on standard error.
+
 Stdlib only.
 """
 from __future__ import annotations
@@ -85,6 +90,73 @@ NON_STRUCTURAL_REASONS = frozenset({
 # const value, and never as a substitute for a required key.
 PLACEHOLDER = re.compile(r"^\$\{[A-Z0-9_]+\}$")
 
+# JSON Schema mandates ECMA-262 regular expression semantics, which differ from
+# Python's in two ways that would each accept a value the declared pattern does
+# not permit. The declared pattern text is never rewritten; it is translated
+# into Python syntax that asserts what ECMA-262 asserts (see the semantic owner,
+# section 9.5):
+#   * Python's `$` also matches just before a trailing newline, while ECMA-262's
+#     `$` asserts the end of the input
+#   * Python's `\d` also matches non-ASCII digits, while ECMA-262's `\d` is
+#     exactly `[0-9]`
+_ECMA262_CACHE: dict = {}
+
+
+def ecma262_pattern(pattern: str) -> str:
+    """Translate a declared pattern into Python syntax with ECMA-262 meaning."""
+    out: list = []
+    index = 0
+    length = len(pattern)
+    in_class = False
+    while index < length:
+        char = pattern[index]
+        if char == "\\" and index + 1 < length:
+            escaped = pattern[index + 1]
+            if escaped == "d":
+                out.append("0-9" if in_class else "[0-9]")
+            elif escaped == "D":
+                # An in-class `\D` cannot be inlined without knowing the other
+                # class members; the declared contract uses none.
+                out.append("\\D" if in_class else "[^0-9]")
+            else:
+                out.append(char + escaped)
+            index += 2
+            continue
+        if in_class:
+            if char == "]":
+                in_class = False
+            out.append(char)
+            index += 1
+            continue
+        if char == "[":
+            in_class = True
+            out.append(char)
+            index += 1
+            if index < length and pattern[index] == "^":
+                out.append("^")
+                index += 1
+            if index < length and pattern[index] == "]":
+                out.append("]")
+                index += 1
+            continue
+        if char == "$":
+            out.append("\\Z")
+            index += 1
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def pattern_matches(pattern: str, value: str) -> bool:
+    """Evaluate a declared `pattern` keyword with ECMA-262 semantics."""
+    compiled = _ECMA262_CACHE.get(pattern)
+    if compiled is None:
+        compiled = re.compile(ecma262_pattern(pattern))
+        _ECMA262_CACHE[pattern] = compiled
+    return compiled.search(value) is not None
+
+
 RESULT_FIELD = "STRUCTURALLY_VALID"
 SUBJECT_POINTERS = ("repo", "baseSha", "candidateSha")
 
@@ -97,6 +169,11 @@ def load_contract(schema_path: Path | None = None) -> dict:
     """Load the frozen machine contract from its declared path."""
     path = Path(schema_path) if schema_path else SCHEMA_PATH
     schema = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(schema, dict):
+        # A contract that is not an object cannot be evaluated at all; the CLI
+        # turns this into the declared SCHEMA_UNAVAILABLE failure instead of
+        # silently accepting every pack.
+        raise ValueError(f"the contract at {path} is not a JSON object")
     return {
         "schema": schema,
         "schemaPath": SCHEMA_PATH_DECLARED if not schema_path else str(schema_path),
@@ -211,7 +288,7 @@ def _node_violations(node, value, path, schema, allow_placeholders, out) -> None
         return
 
     if isinstance(value, str):
-        if "pattern" in node and not re.search(node["pattern"], value):
+        if "pattern" in node and not pattern_matches(node["pattern"], value):
             out.append(_violation("REJECT", "PATTERN_VIOLATION", path,
                                   f"{value!r} does not match the declared shape"))
         if "minLength" in node and len(value) < node["minLength"]:
@@ -280,7 +357,8 @@ def schema_violations(pack, schema: dict | None = None, allow_placeholders: bool
 
 def validate_pack(pack, schema: dict | None = None, expect_repo=None,
                   expect_base_sha=None, expect_candidate_sha=None,
-                  allow_placeholders: bool = False) -> dict:
+                  allow_placeholders: bool = False,
+                  require_expected_subject: bool = False) -> dict:
     contract = schema if schema is not None else load_contract()["schema"]
     violations: list = []
 
@@ -310,23 +388,41 @@ def validate_pack(pack, schema: dict | None = None, expect_repo=None,
 
     if not violations:
         subject = pack.get("subject", {})
-        if expect_repo is not None and subject.get("repo") != expect_repo:
+        # The subject-enforcement rule (AC-06). A verdict about a subject can
+        # only be issued against a declared target subject, and the target is
+        # declared completely or not at all: a partial declaration would
+        # silently enforce only part of the subject while still reporting a
+        # passing subject check.
+        expectations = (expect_repo, expect_base_sha, expect_candidate_sha)
+        supplied = sum(value is not None for value in expectations)
+        if supplied not in (0, len(expectations)):
             violations.append(_violation(
-                "EVIDENCE_SUBJECT_MISMATCH", "SUBJECT_REPO_MISMATCH",
-                "$.subject.repo",
-                "the pack declares a repository other than the target"))
-        if expect_base_sha is not None and subject.get("baseSha") != expect_base_sha:
+                "REJECT", "SUBJECT_EXPECTATION_INCOMPLETE", "$.subject",
+                "the target subject must be declared completely (repository, "
+                "base SHA and candidate SHA) or not at all"))
+        elif require_expected_subject and supplied == 0:
             violations.append(_violation(
-                "EVIDENCE_STALE_SUBJECT", "SUBJECT_BASE_SHA_STALE",
-                "$.subject.baseSha",
-                "the pack declares a base SHA other than the reviewed base"))
-        if expect_candidate_sha is not None \
-                and subject.get("candidateSha") != expect_candidate_sha:
-            violations.append(_violation(
-                "EVIDENCE_STALE_SUBJECT", "SUBJECT_CANDIDATE_SHA_STALE",
-                "$.subject.candidateSha",
-                "the pack declares a candidate SHA other than the candidate "
-                "under review"))
+                "REJECT", "SUBJECT_EXPECTATION_ABSENT", "$.subject",
+                "no target subject was declared, so no subject-consistency "
+                "verdict can be issued"))
+        if not violations:
+            if expect_repo is not None and subject.get("repo") != expect_repo:
+                violations.append(_violation(
+                    "EVIDENCE_SUBJECT_MISMATCH", "SUBJECT_REPO_MISMATCH",
+                    "$.subject.repo",
+                    "the pack declares a repository other than the target"))
+            if expect_base_sha is not None and subject.get("baseSha") != expect_base_sha:
+                violations.append(_violation(
+                    "EVIDENCE_STALE_SUBJECT", "SUBJECT_BASE_SHA_STALE",
+                    "$.subject.baseSha",
+                    "the pack declares a base SHA other than the reviewed base"))
+            if expect_candidate_sha is not None \
+                    and subject.get("candidateSha") != expect_candidate_sha:
+                violations.append(_violation(
+                    "EVIDENCE_STALE_SUBJECT", "SUBJECT_CANDIDATE_SHA_STALE",
+                    "$.subject.candidateSha",
+                    "the pack declares a candidate SHA other than the candidate "
+                    "under review"))
 
     if not violations and pack.get(RESULT_FIELD) != "YES":
         # The declared structural axis. NO does not enter consumption; the
@@ -422,14 +518,21 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--pack", required=True,
                        help="path to the pack to validate")
     check.add_argument("--expect-repo", default=None,
-                       help="the target repository the pack must declare")
+                       help="the target repository the pack must declare; the "
+                            "three --expect-* flags are declared together or "
+                            "not at all")
     check.add_argument("--expect-base-sha", default=None,
-                       help="the reviewed base SHA the pack must declare")
+                       help="the reviewed base SHA the pack must declare; the "
+                            "three --expect-* flags are declared together or "
+                            "not at all")
     check.add_argument("--expect-candidate-sha", default=None,
-                       help="the candidate under review the pack must declare")
+                       help="the candidate under review the pack must declare; "
+                            "the three --expect-* flags are declared together "
+                            "or not at all")
     check.add_argument("--allow-placeholders", action="store_true",
                        help="accept the RULES.md R2 placeholder template form "
-                            "for plain string values only")
+                            "for plain string values only; this is the sole "
+                            "declared mode that needs no target subject")
     check.add_argument("--schema", default=None,
                        help="override the contract path (default: the "
                             "declared path)")
@@ -480,13 +583,29 @@ def main(argv=None) -> int:
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
+        # Declared exception (owner, section 9.2): --help and a usage error are
+        # reported by argparse itself on standard error and emit no envelope.
         if exc.code == 0:
             return 0
         return 1
 
-    contract = load_contract(args.schema)
-    contract["schemaPath"] = (SCHEMA_PATH_DECLARED if not args.schema
-                              else str(args.schema))
+    schema_path = SCHEMA_PATH_DECLARED if not args.schema else str(args.schema)
+    try:
+        contract = load_contract(args.schema)
+    except Exception:  # noqa: BLE001 - an unusable contract is a declared path
+        # Step 0 of the frozen order: without a readable contract there is no
+        # pack judgement to make, and the failure is still declared output.
+        result = {"ok": False, "violations": [_violation(
+            "REJECT", "SCHEMA_UNAVAILABLE", "$.schema",
+            f"the declared contract at {schema_path} could not be read, "
+            "parsed, or is not a contract object")]}
+        _emit(_envelope(args.mode, result, {
+            "schemaPath": schema_path,
+            "supportedSchemaVersions": [],
+            "errorCodes": list(ERROR_CODES),
+        }))
+        return 1
+    contract["schemaPath"] = schema_path
 
     if args.mode == "validate":
         pack_path = Path(args.pack)
@@ -507,7 +626,11 @@ def main(argv=None) -> int:
                     expect_repo=args.expect_repo,
                     expect_base_sha=args.expect_base_sha,
                     expect_candidate_sha=args.expect_candidate_sha,
-                    allow_placeholders=args.allow_placeholders)
+                    allow_placeholders=args.allow_placeholders,
+                    # Placeholder mode is the sole declared exemption: a
+                    # placeholder-form template is not a claim about a concrete
+                    # candidate and therefore declares no target subject.
+                    require_expected_subject=not args.allow_placeholders)
         _emit(_envelope("validate", result, contract))
         return 0 if result["ok"] else 1
 
@@ -523,15 +646,25 @@ def main(argv=None) -> int:
     envelope["skeleton"] = skeleton
     if result["ok"] and args.out:
         out_path = Path(args.out)
-        if out_path.parent and not out_path.parent.is_dir():
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps(skeleton, indent=2, ensure_ascii=False)
-                            + "\n", encoding="utf-8")
+        try:
+            if out_path.parent and not out_path.parent.is_dir():
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps(skeleton, indent=2, ensure_ascii=False)
+                                + "\n", encoding="utf-8")
+        except OSError as exc:  # a declared failure path, never a traceback
+            envelope["ok"] = False
+            envelope["exitCode"] = 1
+            envelope["violations"] = [_violation(
+                "REJECT", "OUTPUT_NOT_WRITABLE", "$.out",
+                f"the explicit output path {args.out} could not be written: "
+                f"{type(exc).__name__}")]
+            _emit(envelope)
+            return 1
         envelope["skeletonPath"] = str(out_path)
     elif result["ok"]:
         envelope["skeletonPath"] = None
     _emit(envelope)
-    return 0 if result["ok"] else 1
+    return 0 if envelope["ok"] else 1
 
 
 if __name__ == "__main__":
