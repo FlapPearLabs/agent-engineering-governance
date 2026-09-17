@@ -7,7 +7,6 @@
   "required": [
     "schemaVersion",
     "subject",
-    "authorityRefs",
     "producer",
     "checks",
     "artifacts",
@@ -54,7 +53,7 @@
     "authorityRefs": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Versioned contract references the pack is produced under. Absent content makes the evidence insufficient; it is never a structural substitute for anything else."
+      "description": "Versioned contract references the pack is produced under. The key is deliberately NOT a structural required key: an omitted key and an empty array are the equivalent statement that no versioned contract reference was declared, and both make the evidence INSUFFICIENT rather than structurally invalid. That insufficiency is carried by the orthogonal EVIDENCE_SUFFICIENCY axis; a missing authorityRefs never yields REQUIRED_FIELD_MISSING, and disposing of the insufficiency is not this contract's."
     },
     "producer": {
       "type": "object",
