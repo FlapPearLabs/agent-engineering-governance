@@ -47,6 +47,15 @@ rules back mechanically, and prove no declared pattern text was rewritten. The
 ECMA-262 verdicts used as the oracle come from an independent engine (V8) and
 are frozen as a static table so this suite stays Python-only.
 
+REPAIR ROUND 3 (adjudicated re-review of 74679094) closes the last member of
+the same failure class: a bespoke POSIX-style rule read an unescaped leading
+``]`` inside a character class as a literal member, which ECMA-262 does not do
+(``]`` directly after ``[`` or ``[^`` CLOSES the class). ``test_52`` freezes the
+V8 verdicts for the empty-class family over a seeded corpus, proves the corpus
+is discriminating against Python's own reading, and pins the two constructs
+that cannot be given ECMA-262 meaning in Python as REFUSED rather than
+approximated.
+
 Stdlib only. Run with:
     python3 -m unittest scripts.tests.test_review_evidence_contract -v
 """
@@ -2139,6 +2148,397 @@ class ReviewEvidenceContractTests(unittest.TestCase):
                     self.assertEqual(0, completed.returncode,
                                      f"{label}: stdout={completed.stdout[:600]}")
                     self.assertTrue(payload["ok"])
+
+
+    # ==================================================================
+    # REPAIR ROUND 3 (adjudicated re-review of 74679094)
+    #   F3  the engine carried a bespoke POSIX-style rule that read an
+    #       unescaped leading `]` inside a class as a literal member.
+    #       ECMA-262 has no such rule -- `CharacterClass :: [ [lookahead != ^]
+    #       ClassRanges? ] | [ ^ ClassRanges? ]` -- so a `]` directly after `[`
+    #       or `[^` CLOSES the class: `[]` is the empty class and `[^]` the
+    #       empty negated class. The bespoke rule made the CLI read `^[^]]$`
+    #       as "one character that is not `]`" where V8 reads "any one
+    #       character followed by a literal `]`" -- a silent FALSE ACCEPT in a
+    #       validator whose whole job is fail-closed verdicts.
+    # ==================================================================
+
+    # The V8 corpus. The first 17 values are a seeded-random draw (seed
+    # 20260917) over an alphabet made only of the characters that decide the
+    # class-boundary question; the rest are curated edge values. This is frozen
+    # text -- it is never regenerated while the suite runs, so the oracle rows
+    # below stay pinned to exactly this list.
+    ECMA262_CLASS_VALUES = (
+        "\n", "-0", "", "\u0662", "--", "0", "[]\u0662", "a", "]^", "-b\u0662",
+        "00", "^0]", "-00", "-\n", "]", "a]", "]]", "]a",
+        "\n]", "\u0662]", "[]", "[^]", "b]", "]b",
+    )
+    ECMA262_CLASS_VALUE_COUNT = 24
+
+    # Verdicts from an independent ECMA-262 engine (V8 / Node v22.22.2,
+    # `new RegExp(<pattern>, no flags).test(<value>)` over the corpus above),
+    # frozen as a static table so the committed suite stays Python-only while
+    # still being checked against an oracle that shares no code, no translation
+    # table and no assumption with the CLI.
+    ECMA262_CLASS_ORACLE = (
+        # []
+        ('[]', '\n', 'REJECT'),
+        ('[]', '-0', 'REJECT'),
+        ('[]', '', 'REJECT'),
+        ('[]', '٢', 'REJECT'),
+        ('[]', '--', 'REJECT'),
+        ('[]', '0', 'REJECT'),
+        ('[]', '[]٢', 'REJECT'),
+        ('[]', 'a', 'REJECT'),
+        ('[]', ']^', 'REJECT'),
+        ('[]', '-b٢', 'REJECT'),
+        ('[]', '00', 'REJECT'),
+        ('[]', '^0]', 'REJECT'),
+        ('[]', '-00', 'REJECT'),
+        ('[]', '-\n', 'REJECT'),
+        ('[]', ']', 'REJECT'),
+        ('[]', 'a]', 'REJECT'),
+        ('[]', ']]', 'REJECT'),
+        ('[]', ']a', 'REJECT'),
+        ('[]', '\n]', 'REJECT'),
+        ('[]', '٢]', 'REJECT'),
+        ('[]', '[]', 'REJECT'),
+        ('[]', '[^]', 'REJECT'),
+        ('[]', 'b]', 'REJECT'),
+        ('[]', ']b', 'REJECT'),
+        # ^[]]$
+        ('^[]]$', '\n', 'REJECT'),
+        ('^[]]$', '-0', 'REJECT'),
+        ('^[]]$', '', 'REJECT'),
+        ('^[]]$', '٢', 'REJECT'),
+        ('^[]]$', '--', 'REJECT'),
+        ('^[]]$', '0', 'REJECT'),
+        ('^[]]$', '[]٢', 'REJECT'),
+        ('^[]]$', 'a', 'REJECT'),
+        ('^[]]$', ']^', 'REJECT'),
+        ('^[]]$', '-b٢', 'REJECT'),
+        ('^[]]$', '00', 'REJECT'),
+        ('^[]]$', '^0]', 'REJECT'),
+        ('^[]]$', '-00', 'REJECT'),
+        ('^[]]$', '-\n', 'REJECT'),
+        ('^[]]$', ']', 'REJECT'),
+        ('^[]]$', 'a]', 'REJECT'),
+        ('^[]]$', ']]', 'REJECT'),
+        ('^[]]$', ']a', 'REJECT'),
+        ('^[]]$', '\n]', 'REJECT'),
+        ('^[]]$', '٢]', 'REJECT'),
+        ('^[]]$', '[]', 'REJECT'),
+        ('^[]]$', '[^]', 'REJECT'),
+        ('^[]]$', 'b]', 'REJECT'),
+        ('^[]]$', ']b', 'REJECT'),
+        # ^[]a]$
+        ('^[]a]$', '\n', 'REJECT'),
+        ('^[]a]$', '-0', 'REJECT'),
+        ('^[]a]$', '', 'REJECT'),
+        ('^[]a]$', '٢', 'REJECT'),
+        ('^[]a]$', '--', 'REJECT'),
+        ('^[]a]$', '0', 'REJECT'),
+        ('^[]a]$', '[]٢', 'REJECT'),
+        ('^[]a]$', 'a', 'REJECT'),
+        ('^[]a]$', ']^', 'REJECT'),
+        ('^[]a]$', '-b٢', 'REJECT'),
+        ('^[]a]$', '00', 'REJECT'),
+        ('^[]a]$', '^0]', 'REJECT'),
+        ('^[]a]$', '-00', 'REJECT'),
+        ('^[]a]$', '-\n', 'REJECT'),
+        ('^[]a]$', ']', 'REJECT'),
+        ('^[]a]$', 'a]', 'REJECT'),
+        ('^[]a]$', ']]', 'REJECT'),
+        ('^[]a]$', ']a', 'REJECT'),
+        ('^[]a]$', '\n]', 'REJECT'),
+        ('^[]a]$', '٢]', 'REJECT'),
+        ('^[]a]$', '[]', 'REJECT'),
+        ('^[]a]$', '[^]', 'REJECT'),
+        ('^[]a]$', 'b]', 'REJECT'),
+        ('^[]a]$', ']b', 'REJECT'),
+        # ^[a]]$
+        ('^[a]]$', '\n', 'REJECT'),
+        ('^[a]]$', '-0', 'REJECT'),
+        ('^[a]]$', '', 'REJECT'),
+        ('^[a]]$', '٢', 'REJECT'),
+        ('^[a]]$', '--', 'REJECT'),
+        ('^[a]]$', '0', 'REJECT'),
+        ('^[a]]$', '[]٢', 'REJECT'),
+        ('^[a]]$', 'a', 'REJECT'),
+        ('^[a]]$', ']^', 'REJECT'),
+        ('^[a]]$', '-b٢', 'REJECT'),
+        ('^[a]]$', '00', 'REJECT'),
+        ('^[a]]$', '^0]', 'REJECT'),
+        ('^[a]]$', '-00', 'REJECT'),
+        ('^[a]]$', '-\n', 'REJECT'),
+        ('^[a]]$', ']', 'REJECT'),
+        ('^[a]]$', 'a]', 'ACCEPT'),
+        ('^[a]]$', ']]', 'REJECT'),
+        ('^[a]]$', ']a', 'REJECT'),
+        ('^[a]]$', '\n]', 'REJECT'),
+        ('^[a]]$', '٢]', 'REJECT'),
+        ('^[a]]$', '[]', 'REJECT'),
+        ('^[a]]$', '[^]', 'REJECT'),
+        ('^[a]]$', 'b]', 'REJECT'),
+        ('^[a]]$', ']b', 'REJECT'),
+        # ^[^a]]$
+        ('^[^a]]$', '\n', 'REJECT'),
+        ('^[^a]]$', '-0', 'REJECT'),
+        ('^[^a]]$', '', 'REJECT'),
+        ('^[^a]]$', '٢', 'REJECT'),
+        ('^[^a]]$', '--', 'REJECT'),
+        ('^[^a]]$', '0', 'REJECT'),
+        ('^[^a]]$', '[]٢', 'REJECT'),
+        ('^[^a]]$', 'a', 'REJECT'),
+        ('^[^a]]$', ']^', 'REJECT'),
+        ('^[^a]]$', '-b٢', 'REJECT'),
+        ('^[^a]]$', '00', 'REJECT'),
+        ('^[^a]]$', '^0]', 'REJECT'),
+        ('^[^a]]$', '-00', 'REJECT'),
+        ('^[^a]]$', '-\n', 'REJECT'),
+        ('^[^a]]$', ']', 'REJECT'),
+        ('^[^a]]$', 'a]', 'REJECT'),
+        ('^[^a]]$', ']]', 'ACCEPT'),
+        ('^[^a]]$', ']a', 'REJECT'),
+        ('^[^a]]$', '\n]', 'ACCEPT'),
+        ('^[^a]]$', '٢]', 'ACCEPT'),
+        ('^[^a]]$', '[]', 'ACCEPT'),
+        ('^[^a]]$', '[^]', 'REJECT'),
+        ('^[^a]]$', 'b]', 'ACCEPT'),
+        ('^[^a]]$', ']b', 'REJECT'),
+        # ^[\]]$
+        ('^[\\]]$', '\n', 'REJECT'),
+        ('^[\\]]$', '-0', 'REJECT'),
+        ('^[\\]]$', '', 'REJECT'),
+        ('^[\\]]$', '٢', 'REJECT'),
+        ('^[\\]]$', '--', 'REJECT'),
+        ('^[\\]]$', '0', 'REJECT'),
+        ('^[\\]]$', '[]٢', 'REJECT'),
+        ('^[\\]]$', 'a', 'REJECT'),
+        ('^[\\]]$', ']^', 'REJECT'),
+        ('^[\\]]$', '-b٢', 'REJECT'),
+        ('^[\\]]$', '00', 'REJECT'),
+        ('^[\\]]$', '^0]', 'REJECT'),
+        ('^[\\]]$', '-00', 'REJECT'),
+        ('^[\\]]$', '-\n', 'REJECT'),
+        ('^[\\]]$', ']', 'ACCEPT'),
+        ('^[\\]]$', 'a]', 'REJECT'),
+        ('^[\\]]$', ']]', 'REJECT'),
+        ('^[\\]]$', ']a', 'REJECT'),
+        ('^[\\]]$', '\n]', 'REJECT'),
+        ('^[\\]]$', '٢]', 'REJECT'),
+        ('^[\\]]$', '[]', 'REJECT'),
+        ('^[\\]]$', '[^]', 'REJECT'),
+        ('^[\\]]$', 'b]', 'REJECT'),
+        ('^[\\]]$', ']b', 'REJECT'),
+        # ^[^\]]$
+        ('^[^\\]]$', '\n', 'ACCEPT'),
+        ('^[^\\]]$', '-0', 'REJECT'),
+        ('^[^\\]]$', '', 'REJECT'),
+        ('^[^\\]]$', '٢', 'ACCEPT'),
+        ('^[^\\]]$', '--', 'REJECT'),
+        ('^[^\\]]$', '0', 'ACCEPT'),
+        ('^[^\\]]$', '[]٢', 'REJECT'),
+        ('^[^\\]]$', 'a', 'ACCEPT'),
+        ('^[^\\]]$', ']^', 'REJECT'),
+        ('^[^\\]]$', '-b٢', 'REJECT'),
+        ('^[^\\]]$', '00', 'REJECT'),
+        ('^[^\\]]$', '^0]', 'REJECT'),
+        ('^[^\\]]$', '-00', 'REJECT'),
+        ('^[^\\]]$', '-\n', 'REJECT'),
+        ('^[^\\]]$', ']', 'REJECT'),
+        ('^[^\\]]$', 'a]', 'REJECT'),
+        ('^[^\\]]$', ']]', 'REJECT'),
+        ('^[^\\]]$', ']a', 'REJECT'),
+        ('^[^\\]]$', '\n]', 'REJECT'),
+        ('^[^\\]]$', '٢]', 'REJECT'),
+        ('^[^\\]]$', '[]', 'REJECT'),
+        ('^[^\\]]$', '[^]', 'REJECT'),
+        ('^[^\\]]$', 'b]', 'REJECT'),
+        ('^[^\\]]$', ']b', 'REJECT'),
+    )
+
+    # Constructs that CANNOT be given ECMA-262 meaning in Python and are
+    # therefore refused through the existing fail-closed path
+    # (`UnsupportedPatternConstruct` -> `SCHEMA_KEYWORD_UNSUPPORTED`) instead of
+    # being approximated:
+    #
+    #   * `[^]` -- the empty negated class -- matches any single UTF-16 CODE
+    #     UNIT. Python's engine has no code-unit mode, so the usual `[\s\S]`
+    #     idiom would consume one astral CODE POINT where ECMA-262 consumes one
+    #     surrogate: an approximation, and exactly the reason the semantic
+    #     owner already fails `.` closed rather than rewriting it (section 9.5:
+    #     rather refuse the whole contract than answer approximately).
+    #   * `^[^]]$` and `[^]]` are the composites that carry `[^]`; they are
+    #     refused for the same reason rather than evaluated with Python's
+    #     reading of them, which is the defect this round repairs.
+    #
+    # The plain empty class `[]` is NOT here: it matches nothing at all, so its
+    # translation (`(?!)`) raises no code-unit question and IS evaluated.
+    ECMA262_CLASS_REFUSED = (
+        ("[^]",
+         "the empty negated class matches one UTF-16 code unit, which Python "
+         "has no way to express"),
+        ("^[^]]$",
+         "ECMA-262 reads this as `^` + any one character + a literal `]` + `$`; "
+         "the leading `[^]` makes it untranslatable"),
+        ("[^]]",
+         "ECMA-262 reads this as any one character followed by a literal `]`; "
+         "the leading `[^]` makes it untranslatable"),
+    )
+
+    def test_52_character_classes_match_the_ecma262_oracle(self):
+        """F3: no POSIX leading-`]` rule, and no silent approximation.
+
+        Runs the frozen V8 corpus over the evaluated patterns, proves the
+        corpus is discriminating against Python's own reading, and pins the
+        constructs that must be refused rather than evaluated.
+        """
+        cli = self.require_cli()
+        schema = self.require_schema()
+        _, unsupported = self.require_construct_inventory(cli)
+
+        evaluated = ("[]", "^[]]$", "^[]a]$", "^[a]]$", "^[^a]]$",
+                     "^[\\]]$", "^[^\\]]$")
+
+        self.assertEqual(
+            self.ECMA262_CLASS_VALUE_COUNT,
+            len(self.ECMA262_CLASS_VALUES),
+            "the frozen corpus gained a duplicate value; the oracle rows were "
+            "measured over exactly this value list")
+        self.assertEqual(
+            self.ECMA262_CLASS_VALUE_COUNT * len(evaluated),
+            len(self.ECMA262_CLASS_ORACLE),
+            "the oracle table must hold one measured row per evaluated pattern "
+            "per corpus value; it was built as a static table from V8 and must "
+            "not be edited in place")
+
+        mismatches = []
+        rows_per_pattern: dict = {}
+        for pattern, value, expected in self.ECMA262_CLASS_ORACLE:
+            with self.subTest(pattern=pattern, value=value):
+                try:
+                    got = ("ACCEPT" if cli.pattern_matches(pattern, value)
+                           else "REJECT")
+                except Exception as exc:  # noqa: BLE001
+                    got = f"RAISED:{type(exc).__name__}"
+                seen = rows_per_pattern.setdefault(pattern, [0, 0])
+                seen[0] += 1
+                if got != expected:
+                    seen[1] += 1
+                    mismatches.append((pattern, value, expected, got))
+                self.assertEqual(
+                    expected, got,
+                    "ECMA262_CLASS_ORACLE: an independent ECMA-262 engine "
+                    f"answers {expected} for {pattern!r} against {value!r}; the "
+                    f"CLI answers {got}")
+
+        self.assertEqual(
+            [], mismatches,
+            f"ECMA262_CLASS_ORACLE_MISMATCH_COUNT={len(mismatches)} (target 0); "
+            f"divergent rows={mismatches}")
+
+        # (b) + (c): the constructs the adjudication named, with a measured and
+        # not an assumed verdict, on both sides of the empty-class boundary.
+        for pattern in evaluated:
+            with self.subTest(pinned=pattern):
+                self.assertEqual(
+                    self.ECMA262_CLASS_VALUE_COUNT, rows_per_pattern[pattern][0],
+                    f"{pattern!r} was not measured over the whole corpus")
+                self.assertEqual(
+                    0, rows_per_pattern[pattern][1],
+                    f"{pattern!r} disagrees with V8 on "
+                    f"{rows_per_pattern[pattern][1]} corpus values")
+
+        # Anti-vacuity: the corpus must be able to tell ECMA-262 apart from
+        # Python's own reading of the same text, on exactly the patterns whose
+        # boundary the removed rule got wrong. Otherwise the table could be
+        # satisfied by an engine that still keeps Python semantics.
+        for pattern in ("[]", "^[]]$", "^[]a]$"):
+            with self.subTest(discriminating=pattern):
+                divergent = 0
+                for _, value, expected in (
+                        row for row in self.ECMA262_CLASS_ORACLE
+                        if row[0] == pattern):
+                    try:
+                        python_reading = ("ACCEPT" if re.search(pattern, value)
+                                          else "REJECT")
+                    except re.error:
+                        # Python has no reading of this text at all.
+                        divergent += 1
+                        continue
+                    if python_reading != expected:
+                        divergent += 1
+                self.assertGreater(
+                    divergent, 0,
+                    f"ORACLE_NOT_DISCRIMINATING: no row of {pattern!r} answers "
+                    "differently under Python's own reading of the same "
+                    "pattern text, so this table cannot fail an engine that "
+                    "never stopped using Python semantics")
+
+        with self.subTest(case="an unescaped leading `]` is not a class member"):
+            # Under the removed POSIX rule, `[]]` was "a class whose first
+            # member is the literal `]`", so `^[]]$` accepted "]]". ECMA-262
+            # reads `[]]` as "the empty class, then a literal `]`", so the
+            # anchored pattern matches nothing at all.
+            self.assertFalse(
+                cli.pattern_matches("^[]]$", "]]"),
+                "POSIX_LEADING_BRACKET: `^[]]$` still accepts the value the "
+                "removed rule produced; ECMA-262 consumes `[]` as the EMPTY "
+                "class and can never match")
+            self.assertFalse(
+                cli.pattern_matches("^[]]$", "]"),
+                "POSIX_LEADING_BRACKET: `^[]]$` accepted a leading member `]`")
+            self.assertNotIn(
+                "[]", cli.ecma262_pattern("[]"),
+                "the emitted Python text still contains an empty class, which "
+                "is not the ECMA-262 reading")
+            self.assertNotIn(
+                "[]", cli.ecma262_pattern("^[]]$"),
+                "the emitted Python text still contains an empty class")
+
+        # (a): the constructs that cannot be evaluated faithfully are refused
+        # for the whole contract, with the declared reason -- never judged with
+        # Python's reading of them.
+        for pattern, why in self.ECMA262_CLASS_REFUSED:
+            with self.subTest(refused=pattern):
+                self.assertRaises(
+                    unsupported, cli.ecma262_pattern, pattern)
+                drifting = json.loads(json.dumps(schema))
+                drifting["properties"]["subject"]["properties"]["repo"][
+                    "pattern"] = pattern
+                violations = cli.schema_violations(good_pack(), schema=drifting)
+                self.assertEqual(
+                    {"SCHEMA_KEYWORD_UNSUPPORTED"},
+                    {v["reason"] for v in violations},
+                    "FAIL_CLOSED: a declared pattern this engine cannot "
+                    f"evaluate with ECMA-262 meaning must refuse the contract "
+                    f"rather than answer approximately ({why}); "
+                    f"violations={violations}")
+                self.assertFalse(
+                    cli.validate_pack(good_pack(), schema=drifting)["ok"],
+                    f"{pattern!r} must never yield a verdict")
+                self.assertNotIn(
+                    "PATTERN_VIOLATION",
+                    {v["reason"] for v in violations},
+                    "the value is not at fault when the pattern itself is "
+                    "unevaluable")
+
+        with tempfile.TemporaryDirectory() as temp:
+            workdir = Path(temp)
+            drifting = json.loads(json.dumps(schema))
+            drifting["properties"]["subject"]["properties"]["repo"][
+                "pattern"] = "^[^]]$"
+            contract_path = workdir / "refused.json"
+            contract_path.write_text(json.dumps(drifting), encoding="utf-8")
+            pack_path = self.write_pack(workdir, good_pack())
+            completed = self.run_cli(["validate", "--pack", str(pack_path),
+                                      "--schema", str(contract_path)])
+            payload = self.parse_stdout(completed)
+            self.assertEqual(1, completed.returncode)
+            self.assertIn("SCHEMA_KEYWORD_UNSUPPORTED", self.reasons(payload),
+                          f"violations={payload['violations']}")
+            self.assertNotIn("Traceback", completed.stdout + completed.stderr)
 
 
 if __name__ == "__main__":
