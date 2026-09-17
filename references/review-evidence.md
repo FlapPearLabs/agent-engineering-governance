@@ -199,6 +199,9 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                                  SCHEMA_UNAVAILABLE / OUTPUT_NOT_WRITABLE
 ```
 
+`SCHEMA_KEYWORD_UNSUPPORTED` 同时承载**声明 pattern 不可求值**这一情形（§9.5）：合同使用本 CLI
+无法按 ECMA-262 忠实求值的构造时，按"未实现的算子"同一 reason 拒绝整份合同，而不是改用 Python 语义。
+
 `authorityRefs` 的缺失（键省略或空数组）**不属于以上任何一类**：按 §3.1 它是充分性事实，由
 `EVIDENCE_SUFFICIENCY` 轴承载；CLI 对它**不产出任何违规**，也**不**代 P1-T05 处置它。结构合法性
 与证据充分性因此永不互相冒充：结构层只回答"这个包是否可按本合同解释"。
@@ -208,6 +211,9 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
 ```text
 0  contract     声明的合同不可读 / 不可解析 / 不是合同对象 → REJECT（SCHEMA_UNAVAILABLE）
                 合同不可用时不存在可解释的包判定，故先于一切包判定
+                "合同对象"= JSON 对象 且 含非空根 `properties` 且 含非空 `schemaVersion` 值域
+                （`const` 或 `enum`）；三者缺一即不是合同对象 → 仍在第 0 步被拒，
+                不得降级成第 2 步的包版本问题（`EVIDENCE_VERSION_UNKNOWN`）
 1  parse        包不存在 / 不是 JSON / 不是对象            → REJECT
 2  version      schemaVersion 不在支持值域                 → EVIDENCE_VERSION_UNKNOWN（短路）
                 未知版本无法用已知 schema 解释，故不继续判定，也不猜测迁移
@@ -299,7 +305,9 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 }
 ```
 
-`violations` 为空数组表示通过；`skeleton` / `skeletonPath` 只在 `collect` 模式下有意义。
+`violations` 为空数组表示通过。`skeleton` / `skeletonPath` 是**声明过的信封键**，因此在**每一条**路径上
+都存在：`validate` 与一切失败路径上恒为 `null`（它们只在 `collect` 模式下有意义），`collect` 模式下
+`skeleton` 为生成的骨架、`skeletonPath` 为显式 `--out` 的落盘路径（未给 `--out` 或落盘失败时为 `null`）。
 信封形状**在所有失败路径上保持不变**；只有取值降级：当合同本身不可用（`SCHEMA_UNAVAILABLE`）时，
 `contract.schemaPath` 回显调用方请求的路径，`contract.supportedSchemaVersions` 为 `[]`（没有可声明的
 支持值域），`contract.errorCodes` 仍为四个已声明错误码。
@@ -323,11 +331,52 @@ MUST NOT  断言任何轴的成功：骨架为 NOT_VERIFIED / INSUFFICIENT / ci.
 
 ### 9.5 `pattern` 关键字的求值语义（**只在此声明一次**）
 
-schema 的 `pattern` 是 JSON Schema 的 `pattern`，其语义由 JSON Schema 规定为 **ECMA-262**：
-`$` 断言**输入末尾**，`\d` 恰为 `[0-9]`。CLI 必须按同一语义求值；Python 的 `$` 还会匹配尾随换行之前、
-Python 的 `\d` 还会匹配非 ASCII 数字，二者都会接受声明 pattern **不允许**的取值，因此**不得**直接用
-Python 默认语义求值。声明的 pattern 文本本身不因求值方式而改写；被拒绝的是值（`PATTERN_VIOLATION`），
-不是合同。
+schema 的 `pattern` 是 JSON Schema 的 `pattern`，其语义由 JSON Schema 规定为 **ECMA-262**。CLI **必须**
+按 ECMA-262 求值，且**不得在任何代码路径上回退到 Python 默认语义**——Python 的 `$` 还会匹配尾随换行
+之前、`\d` 还会匹配非 ASCII 数字、`\s`/`\w` 是 Unicode 语义、`.` 只排除 `\n`，每一项都会接受声明
+pattern **不允许**的取值，或拒绝它**允许**的取值。声明的 pattern 文本本身不因求值方式而改写；被拒绝的
+是值（`PATTERN_VIOLATION`），不是合同。
+
+**被翻译的构造**（与 Python 语义不同，必须翻译；这是本 CLI 实现且测试面逐项读回的构造清单）：
+
+```text
+ECMA262_TRANSLATED    $ \d \D \s \S \w \W
+```
+
+映射（右侧取值来自一份独立 ECMA-262 引擎的实测，不是 Python 的同名转义）：
+
+```text
+$   -> \Z                   输入末尾（不是"尾随换行之前"）
+\d  -> [0-9]                ASCII 数字；类外 \D -> [^0-9]
+\s  -> [\t\n\x0b\x0c\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]
+\S  -> 同一集合的补集（类外）
+\w  -> [0-9A-Za-z_]         ASCII 词字符；类外 \W -> [^0-9A-Za-z_]
+字符类内：\d \s \w 内联为该集合的成员；类内 \D \S \W 无法内联（补集不能内联进类）→ 按下方失败关闭
+```
+
+语义与 ECMA-262 **已知相同**、因而**原样保留**的构造：标点 identity escape
+（`\^ \$ \\ \. \* \+ \? \( \) \[ \] \{ \} \| \/ \-`）、控制转义（`\n \r \t \f \v`）、
+字符类、`{n}` / `{n,}` / `{n,m}` 量词、分组与交替、`^`、`(?:`、`(?=`、`(?!`。
+
+**其余构造一律失败关闭**。CLI 不得用 Python 语义求值它们；必须把**该合同判为不可用**，以
+`SCHEMA_KEYWORD_UNSUPPORTED`（与"未实现的算子"同一 reason，§8）拒绝，并在 `detail` 中点名该构造。
+声明的失败关闭清单（测试面逐项验证引擎确实拒绝）：
+
+```text
+ECMA262_FAIL_CLOSED   . \b \B \1 \p{L} \cA (?<n>x) (?i) (?<=x)y \Z
+```
+
+其中每一项都是"交给 Python 就变成另一条规则"的例子：ECMA-262 的 `.` 排除整个 LineTerminator 集合
+（含 U+2028 / U+2029），Python 只排除 `\n`；`\b` / `\B` 的"词字符"在 ECMA-262 中是 ASCII、在 Python
+中是 Unicode；`\Z` 在 ECMA-262 中只是字面 `Z`，在 Python 中是输入末尾；`(?<n>x)` / `(?i)` / `(?<=x)y`
+是被 Python 赋予不同（或额外）含义的分组构造。**宁可拒绝整份合同，也不给出一个近似答案。**
+
+**声明的残余局限（不是未实现的声明，是两条引擎的已知差异边界）**：ECMA-262 在不带 `u` 标志时按
+UTF-16 码元匹配，Python 按码点匹配，故对**含 U+FFFF 以上码点的取值**，量词计数可能不同。本条对本合同
+**当前声明的六个 pattern 不可达**：它们的量词要么无界（`+`），要么只作用于 ASCII 字符类（`[0-9]` /
+`[0-9a-f]` / `[0-9a-fA-F]` / `[a-z0-9-]`），因此码元与码点的计数差无法改变判决；该结论由独立引擎的
+oracle 矩阵逐值核对（含星面码点取值），mismatch = 0。新增 pattern 若
+使用受码元计数影响的构造（例如 `.` 或对可匹配星面码点的类施加有界量词），必须连带复核本条。
 
 ## 10. 消费方（只引用，不复制）
 

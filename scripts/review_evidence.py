@@ -90,36 +90,87 @@ NON_STRUCTURAL_REASONS = frozenset({
 # const value, and never as a substitute for a required key.
 PLACEHOLDER = re.compile(r"^\$\{[A-Z0-9_]+\}$")
 
-# JSON Schema mandates ECMA-262 regular expression semantics, which differ from
-# Python's in two ways that would each accept a value the declared pattern does
-# not permit. The declared pattern text is never rewritten; it is translated
-# into Python syntax that asserts what ECMA-262 asserts (see the semantic owner,
-# section 9.5):
+# JSON Schema mandates ECMA-262 regular expression semantics. Python's differ
+# for a whole family of character classes, each of which would accept a value
+# the declared pattern does not permit, or reject one it does (the declared
+# pattern text is never rewritten; it is translated into Python syntax that
+# asserts what ECMA-262 asserts -- see the semantic owner, section 9.5):
 #   * Python's `$` also matches just before a trailing newline, while ECMA-262's
 #     `$` asserts the end of the input
 #   * Python's `\d` also matches non-ASCII digits, while ECMA-262's `\d` is
 #     exactly `[0-9]`
+#   * Python's `\s` is Unicode whitespace (`str.isspace()`: it includes
+#     U+001C-U+001F, U+0085, U+2028, U+2029 ...) while ECMA-262's `\s` is the
+#     WhiteSpace + LineTerminator set (which includes U+FEFF and excludes those)
+#   * Python's `\w` is Unicode-aware while ECMA-262's `\w` is ASCII-only
+# A construct this consumer cannot translate faithfully is NEVER evaluated with
+# Python semantics: the contract is refused (see UnsupportedPatternConstruct).
+class UnsupportedPatternConstruct(ValueError):
+    """A declared `pattern` uses a construct this consumer cannot evaluate with
+    ECMA-262 meaning, so no Python fallback is permitted."""
+
+
+# ECMA-262 `\s` (WhiteSpace + LineTerminator) and `\w` (ASCII word characters),
+# as measured from an independent ECMA-262 engine -- deliberately not Python's
+# same-named classes.
+ECMA262_WHITESPACE = ("\\t\\n\\x0b\\x0c\\r \\u00a0\\u1680\\u2000-\\u200a"
+                      "\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff")
+ECMA262_WORD = "0-9A-Za-z_"
+ECMA262_DIGIT = "0-9"
+
+# The construct inventory this consumer translates. Anything outside it is
+# refused rather than evaluated with Python semantics; the inventory is
+# declared once, in the semantic owner's section 9.5, and read back by the test
+# surface.
+ECMA262_TRANSLATED_CONSTRUCTS = frozenset(
+    {"$", "\\d", "\\D", "\\s", "\\S", "\\w", "\\W"})
+# Escapes whose meaning is already identical in both engines and that are
+# therefore passed through verbatim: the punctuation identity escapes and the
+# control escapes. ECMA-262's other one-letter escapes (`\b`, `\B`, `\Z`,
+# `\A`, `\cX`, `\p{...}`, a backreference, ...) do NOT mean what Python means
+# by them and are refused.
+ECMA262_EQUIVALENT_ESCAPES = frozenset("nrtfv" + "^$\\.*+?()[]{}|/-")
+
+_ECMA262_CLASS_BODY = {"d": ECMA262_DIGIT, "s": ECMA262_WHITESPACE,
+                       "w": ECMA262_WORD}
+_ECMA262_COMPLEMENT_BODY = {"D": ECMA262_DIGIT, "S": ECMA262_WHITESPACE,
+                            "W": ECMA262_WORD}
+# Assertions whose meaning coincides in both engines.
+ECMA262_EQUIVALENT_GROUPS = ("(?:", "(?=", "(?!")
+
 _ECMA262_CACHE: dict = {}
 
 
 def ecma262_pattern(pattern: str) -> str:
-    """Translate a declared pattern into Python syntax with ECMA-262 meaning."""
+    """Translate a declared pattern into Python syntax with ECMA-262 meaning.
+
+    Raises UnsupportedPatternConstruct for any construct this consumer cannot
+    translate faithfully; it never falls back to Python's own semantics.
+    """
     out: list = []
     index = 0
     length = len(pattern)
     in_class = False
     while index < length:
         char = pattern[index]
-        if char == "\\" and index + 1 < length:
+        if char == "\\":
+            if index + 1 >= length:
+                raise UnsupportedPatternConstruct("a trailing backslash")
             escaped = pattern[index + 1]
-            if escaped == "d":
-                out.append("0-9" if in_class else "[0-9]")
-            elif escaped == "D":
-                # An in-class `\D` cannot be inlined without knowing the other
-                # class members; the declared contract uses none.
-                out.append("\\D" if in_class else "[^0-9]")
-            else:
+            if escaped in _ECMA262_COMPLEMENT_BODY:
+                if in_class:
+                    # A complemented class cannot be inlined among the other
+                    # members of the enclosing class.
+                    raise UnsupportedPatternConstruct(
+                        f"the in-class complement escape '\\{escaped}'")
+                out.append("[^" + _ECMA262_COMPLEMENT_BODY[escaped] + "]")
+            elif escaped in _ECMA262_CLASS_BODY:
+                body = _ECMA262_CLASS_BODY[escaped]
+                out.append(body if in_class else "[" + body + "]")
+            elif escaped in ECMA262_EQUIVALENT_ESCAPES:
                 out.append(char + escaped)
+            else:
+                raise UnsupportedPatternConstruct(f"the escape '\\{escaped}'")
             index += 2
             continue
         if in_class:
@@ -143,18 +194,73 @@ def ecma262_pattern(pattern: str) -> str:
             out.append("\\Z")
             index += 1
             continue
+        if char == ".":
+            # ECMA-262's `.` excludes every LineTerminator (including U+2028 and
+            # U+2029); Python's excludes only `\n`. Not faithfully translatable.
+            raise UnsupportedPatternConstruct("the '.' wildcard")
+        if char == "(" and pattern[index:index + 2] == "(?" and not \
+                pattern[index:index + 4].startswith(ECMA262_EQUIVALENT_GROUPS):
+            raise UnsupportedPatternConstruct(
+                f"the group construct {pattern[index:index + 4]!r}")
         out.append(char)
         index += 1
+    if in_class:
+        raise UnsupportedPatternConstruct("an unterminated character class")
     return "".join(out)
 
 
-def pattern_matches(pattern: str, value: str) -> bool:
-    """Evaluate a declared `pattern` keyword with ECMA-262 semantics."""
+def _compile_ecma262(pattern: str):
+    """The compiled form of a declared pattern, or a refusal; never a fallback."""
     compiled = _ECMA262_CACHE.get(pattern)
     if compiled is None:
-        compiled = re.compile(ecma262_pattern(pattern))
+        translated = ecma262_pattern(pattern)
+        try:
+            compiled = re.compile(translated)
+        except re.error as exc:
+            # A pattern that compiles for ECMA-262 but not for Python cannot be
+            # evaluated here either.
+            raise UnsupportedPatternConstruct(
+                f"a construct Python cannot compile: {exc}") from exc
         _ECMA262_CACHE[pattern] = compiled
-    return compiled.search(value) is not None
+    return compiled
+
+
+def pattern_matches(pattern: str, value: str) -> bool:
+    """Evaluate a declared `pattern` keyword with ECMA-262 semantics.
+
+    Raises UnsupportedPatternConstruct rather than evaluating with Python's
+    own semantics.
+    """
+    return _compile_ecma262(pattern).search(value) is not None
+
+
+def pattern_construct_problems(schema: dict) -> list:
+    """Declared `pattern` texts this consumer cannot evaluate with ECMA-262
+    meaning, so that an unusable contract is refused as a whole."""
+    problems: list = []
+
+    def walk(node, path: str) -> None:
+        if not isinstance(node, dict):
+            return
+        declared = node.get("pattern")
+        if isinstance(declared, str):
+            try:
+                _compile_ecma262(declared)
+            except UnsupportedPatternConstruct as exc:
+                problems.append(f"{path}.pattern uses {exc}")
+        for key in ("properties", "$defs"):
+            value = node.get(key)
+            if isinstance(value, dict):
+                for name, sub in value.items():
+                    walk(sub, f"{path}.{name}")
+        if isinstance(node.get("items"), dict):
+            walk(node["items"], f"{path}.items")
+        if isinstance(node.get("oneOf"), list):
+            for position, sub in enumerate(node["oneOf"]):
+                walk(sub, f"{path}.oneOf[{position}]")
+
+    walk(schema, "$")
+    return sorted(problems)
 
 
 RESULT_FIELD = "STRUCTURALLY_VALID"
@@ -165,15 +271,35 @@ SUBJECT_POINTERS = ("repo", "baseSha", "candidateSha")
 # contract loading (explicit path only; nothing is discovered)
 # ---------------------------------------------------------------------------
 
+def contract_object_problem(schema) -> str | None:
+    """Why `schema` is not a contract object, or None when it is one.
+
+    Step 0 of the frozen order judges the contract itself, so a parseable JSON
+    value that is not a contract object is refused there rather than being
+    carried into the pack judgement (where it could only surface as a version
+    or shape complaint about the pack).
+    """
+    if not isinstance(schema, dict):
+        return "it is not a JSON object"
+    properties = schema.get("properties")
+    if not isinstance(properties, dict) or not properties:
+        return "it declares no root `properties` mapping"
+    if not supported_schema_versions(schema):
+        return "it declares no supported schemaVersion value domain"
+    return None
+
+
 def load_contract(schema_path: Path | None = None) -> dict:
     """Load the frozen machine contract from its declared path."""
     path = Path(schema_path) if schema_path else SCHEMA_PATH
     schema = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(schema, dict):
-        # A contract that is not an object cannot be evaluated at all; the CLI
-        # turns this into the declared SCHEMA_UNAVAILABLE failure instead of
-        # silently accepting every pack.
-        raise ValueError(f"the contract at {path} is not a JSON object")
+    problem = contract_object_problem(schema)
+    if problem is not None:
+        # A contract that is not a contract object cannot be evaluated at all;
+        # the CLI turns this into the declared SCHEMA_UNAVAILABLE failure
+        # instead of silently accepting every pack or blaming the pack.
+        raise ValueError(
+            f"the value at {path} is not a contract object: {problem}")
     return {
         "schema": schema,
         "schemaPath": SCHEMA_PATH_DECLARED if not schema_path else str(schema_path),
@@ -288,9 +414,21 @@ def _node_violations(node, value, path, schema, allow_placeholders, out) -> None
         return
 
     if isinstance(value, str):
-        if "pattern" in node and not pattern_matches(node["pattern"], value):
-            out.append(_violation("REJECT", "PATTERN_VIOLATION", path,
-                                  f"{value!r} does not match the declared shape"))
+        if "pattern" in node:
+            try:
+                matched = pattern_matches(node["pattern"], value)
+            except UnsupportedPatternConstruct as exc:
+                # Fail closed: never evaluate an untranslatable pattern with
+                # Python's semantics, and never report the value as the fault.
+                out.append(_violation(
+                    "REJECT", "SCHEMA_KEYWORD_UNSUPPORTED", path,
+                    f"the declared pattern cannot be evaluated with ECMA-262 "
+                    f"meaning because it uses {exc}"))
+            else:
+                if not matched:
+                    out.append(_violation("REJECT", "PATTERN_VIOLATION", path,
+                                          f"{value!r} does not match the "
+                                          "declared shape"))
         if "minLength" in node and len(value) < node["minLength"]:
             out.append(_violation("REJECT", "MIN_LENGTH_VIOLATION", path,
                                   "shorter than the declared minimum length"))
@@ -345,6 +483,14 @@ def schema_violations(pack, schema: dict | None = None, allow_placeholders: bool
         return [_violation("REJECT", "SCHEMA_KEYWORD_UNSUPPORTED", "$schema",
                            f"the contract uses operators this consumer does not "
                            f"implement: {unknown}")]
+    untranslatable = pattern_construct_problems(contract)
+    if untranslatable:
+        # The same rule as an unsupported operator: a contract this consumer
+        # cannot evaluate is refused instead of being evaluated approximately.
+        return [_violation("REJECT", "SCHEMA_KEYWORD_UNSUPPORTED", "$schema",
+                           "the contract declares patterns this consumer cannot "
+                           "evaluate with ECMA-262 semantics: "
+                           + "; ".join(untranslatable))]
     out: list = []
     _node_violations(contract, pack, "$", contract, allow_placeholders, out)
     return out
@@ -552,7 +698,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _envelope(mode: str, result: dict, contract: dict) -> dict:
+def _envelope(mode: str, result: dict, contract: dict,
+              skeleton: dict | None = None,
+              skeleton_path: str | None = None) -> dict:
     return {
         "tool": TOOL,
         "contractVersion": CONTRACT_VERSION,
@@ -565,6 +713,11 @@ def _envelope(mode: str, result: dict, contract: dict) -> dict:
             "errorCodes": contract["errorCodes"],
         },
         "violations": result["violations"],
+        # Declared once in the owner, section 9.3. The keys are emitted on every
+        # path so the envelope SHAPE never varies; only the values do, and only
+        # `collect` ever populates them.
+        "skeleton": skeleton,
+        "skeletonPath": skeleton_path,
     }
 
 
@@ -642,8 +795,7 @@ def main(argv=None) -> int:
     # Fail closed: collect reports success only if what it produced actually
     # conforms to the same contract a consumer will apply.
     result = validate_pack(skeleton, schema=contract["schema"])
-    envelope = _envelope("collect", result, contract)
-    envelope["skeleton"] = skeleton
+    envelope = _envelope("collect", result, contract, skeleton=skeleton)
     if result["ok"] and args.out:
         out_path = Path(args.out)
         try:
@@ -661,8 +813,6 @@ def main(argv=None) -> int:
             _emit(envelope)
             return 1
         envelope["skeletonPath"] = str(out_path)
-    elif result["ok"]:
-        envelope["skeletonPath"] = None
     _emit(envelope)
     return 0 if envelope["ok"] else 1
 
