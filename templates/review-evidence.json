@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "subject": {
+    "repo": "${TARGET_REPO_URL_OR_OWNER_SLASH_REPO}",
+    "baseSha": "${CANDIDATE_BASE_FULL_SHA_40_HEX}",
+    "candidateSha": "${CANDIDATE_UNDER_REVIEW_FULL_SHA_40_HEX}"
+  },
+  "authorityRefs": ["${VERSIONED_CONTRACT_REF}"],
+  "producer": {
+    "identity": "${PRODUCER_IDENTITY}",
+    "version": "${PRODUCER_VERSION}",
+    "observedAt": "${ISO8601_UTC_TIMESTAMP}"
+  },
+  "checks": [
+    {
+      "id": "${CHECK_ID}",
+      "scope": "${CHECK_SCOPE}",
+      "commandRef": "${COMMAND_REF_REFERENCE_ONLY_NEVER_RAN}",
+      "status": "UNKNOWN",
+      "exitCode": null,
+      "artifactRefs": ["${ARTIFACT_REF}"]
+    }
+  ],
+  "artifacts": [
+    {
+      "location": "${REPO_RELATIVE_PATH_OR_CI_ARTIFACT_ID}",
+      "contentDigest": "${DIGEST_ALGORITHM_COLON_LOWER_HEX}"
+    }
+  ],
+  "ci": {
+    "run": "${CI_RUN_ID_OR_EMPTY}",
+    "job": "${CI_JOB_NAME_OR_EMPTY}",
+    "checkedSha": "${CI_CHECKED_SHA_40_HEX_OR_EMPTY}",
+    "originalState": "UNKNOWN"
+  },
+  "grounding": {
+    "mode": "UNAVAILABLE",
+    "coverage": "${CANDIDATE_GRAPH_COVERAGE}",
+    "evidenceRef": "${GROUNDING_EVIDENCE_REF}"
+  },
+  "seams": {
+    "applicability": "REQUIRED",
+    "evidenceRefs": ["${SEAM_EVIDENCE_REF}"],
+    "reason": "${REASON_NEEDED_ONLY_WHEN_APPLICABILITY_IS_N_A}",
+    "acceptanceRef": "${ACCEPTANCE_REF_NEEDED_ONLY_WHEN_APPLICABILITY_IS_N_A}"
+  },
+  "reuse": {
+    "sourceEvidence": "${REUSED_EVIDENCE_REF}",
+    "validFor": "${REUSE_CLAIM_VALIDITY_RANGE}",
+    "dependencies": [
+      {
+        "WHAT": "${DEPENDENCY_WHAT}",
+        "IDENTITY_VERSION_OR_DIGEST": "${DEPENDENCY_VERSION_OR_CONTENT_DIGEST}",
+        "VALID_FOR": "${DEPENDENCY_VALIDITY_RANGE}",
+        "INVALIDATED_BY": "${DEPENDENCY_INVALIDATION_TRIGGER}",
+        "VERIFICATION_STATE": "UNKNOWN"
+      }
+    ],
+    "invalidation": "${REUSE_CLAIM_INVALIDATION_RULE}"
+  },
+  "unverified": ["${UNVERIFIED_ITEM}"],
+  "STRUCTURALLY_VALID": "YES",
+  "SOURCE_VERIFICATION_STATE": "NOT_VERIFIED",
+  "EVIDENCE_SUFFICIENCY": "INSUFFICIENT",
+  "semanticScopeStatus": null,
+  "reviewerDecisionRefs": []
+}
