@@ -33,7 +33,8 @@ scripts/review_evidence.py             薄 collect / validate CLI（消费同一
 
 ```text
 P1-T04（本接口）    声明字段名、闭合集与机器形状。不实现任何行为。
-P1-T05            消费三条评估轴，拥有其**核验行为与处置**。本文件不定义处置规则。
+P1-T05            消费三条评估轴，拥有其**核验行为与处置**；该行为在 §9.6 声明
+                  （P1-T05 的行为段），第 3–4 节的字段合同不定义它。
 P1-T06            拥有信任边界（取回 / 网络 / 文件系统权威）。本文件只声明
                   `commandRef` / `artifacts[].location` 是**声明**而非授权。
 P1-T07            拥有 `semanticScopeStatus` / `reviewerDecisionRefs` 的**权威与写入语义**。
@@ -45,7 +46,9 @@ P1-T16            拥有 gate 入口自测。本文件只**声明** CLI 的 argv
                   P1-T16 验证而不重定义。
 ```
 
-因此本文件**不**规定：某个轴取值应当阻断什么、`INVALID` 与 `TEMPORARILY_UNAVAILABLE` 如何按 cause 分类、复用何时合法、reviewer 字段谁能写。任何需要这些行为的判定的实现都属**越界**。
+因此第 3–4 节的字段合同**不**规定：某个轴取值应当阻断什么、`INVALID` 与 `TEMPORARILY_UNAVAILABLE`
+如何按 cause 分类、复用何时合法、reviewer 字段谁能写（三轴取值的处置由 P1-T05 在 §9.6 落成行为）。
+任何需要这些行为的判定的实现都属**越界**。
 
 ## 3. 字段合同（冻结；不得改名、不得添加同义词）
 
@@ -182,7 +185,8 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                           （同样用于一切结构/形状违规）
 ```
 
-`REJECT` 附带机器可读的 `reason`，使子类可区分；三类 `reason` 分开（**结构**与**不充分**永不混同）：
+`REJECT` 附带机器可读的 `reason`，使子类可区分；四类 `reason` 分开（**结构**与**不充分**永不混同；
+**结构**与**处置**亦互不相交，后者的唯一声明点是 §9.6.2）：
 
 ```text
 结构类（schema 层，判定包内容）  PACK_ABSENT / PACK_NOT_JSON / PACK_NOT_AN_OBJECT /
@@ -197,6 +201,8 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                                  SUBJECT_EXPECTATION_ABSENT /
                                  SUBJECT_EXPECTATION_INCOMPLETE /
                                  SCHEMA_UNAVAILABLE / OUTPUT_NOT_WRITABLE
+处置类（P1-T05 行为层，判定包内容）
+                                 只声明于 §9.6.2；与上述三类互不相交
 ```
 
 `SCHEMA_KEYWORD_UNSUPPORTED` 同时承载**声明 pattern 不可求值**这一情形（§9.5）：合同使用本 CLI
@@ -270,7 +276,7 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 ### 9.2 exit status 契约（**只在此声明一次**；P1-T16 验证而不重定义）
 
 ```text
-0  validate：全部检查通过（含包与目标 subject 一致，§9.1）
+0  validate：全部检查通过（含包与目标 subject 一致，§9.1），**且**最终 P1-T05 处置允许 PASS（§9.6）
    collect ：生成的骨架符合同一份合同，并已按 --out 落盘（若给出 --out）
 1  任一失败：违规清单**仍然**以结构化 JSON 输出到 stdout（§9.3 的信封）
 0  --help（参数解析自行在 stderr 报用法）
@@ -311,6 +317,9 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 信封形状**在所有失败路径上保持不变**；只有取值降级：当合同本身不可用（`SCHEMA_UNAVAILABLE`）时，
 `contract.schemaPath` 回显调用方请求的路径，`contract.supportedSchemaVersions` 为 `[]`（没有可声明的
 支持值域），`contract.errorCodes` 仍为四个已声明错误码。
+
+本形状**不新增键**：P1-T05 的三轴处置结论走既有的 `violations` 清单（§9.6.3），因此本信封仍是唯一
+声明点、也不存在第二个输出权威。
 
 ### 9.4 `collect` 的权威边界（保持薄、非权威）
 
@@ -380,15 +389,18 @@ oracle 矩阵逐值核对（含星面码点取值），mismatch = 0。新增 pat
 
 ## 9.6 P1-T05 三轴核验处置（行为 owner：P1-T05；不重声明闭合集）
 
-本 CLI 在 §9 的 `validate` / `collect` 之外新增 `verify` 子命令，承载 P1-T05 拥有的**三轴核验行为与处置**。本节写的是**处置规则**，不是字段名或闭合集——三轴字段名与闭合值域的唯一声明点仍是 §3 / §4，本票只**引用**，不重声明（CE-30）。
+P1-T05 拥有的**三轴核验行为与处置**折叠进既有的 `validate` 流程，**不新增第三个 CLI 模式**：本 CLI 的公开 argv surface 恒为 §9.1 声明的 `collect` / `validate` 两个模式，`validate` 的输出信封恒为 §9.3 声明的形状。本节写的是**处置规则**，不是字段名或闭合集——三轴字段名与闭合值域的唯一声明点仍是 §3 / §4，本票只**引用**，不重声明（CE-30）。
 
-### 9.6.1 `verify` argv surface（只在此声明一次）
+### 9.6.1 处置在判定顺序中的位置（只在此声明一次）
 
 ```text
-review_evidence.py verify  --pack PATH [--schema PATH]
+contract load → pack parse → version → structure → subject 期望/绑定
+             → 声明的结构轴 → P1-T05 三轴处置 → 结构化输出 → 退出码
 ```
 
-`verify` 的判定顺序：先跑 §8 第 0–5 步的结构层（复用 `validate_pack`）；结构不合法则原样回显结构违规并退出码 1，**不进入处置**。结构合法后才调用 `evidence_disposition(pack, schema)` 得出三轴处置结论。
+处置**只在**结构层（§8 第 0–5 步，含 §9.1 的 subject 期望完整性与绑定比较）**全部通过之后**运行：任何更早的失败原样回显其违规、**不产出任何处置条目**（§9.6.3），**不进入处置**。因此 `repo` / `baseSha` / `candidateSha` 任一不符的包**永不**到达行为层 PASS，`STRUCTURALLY_VALID = NO` 的包同样如此。`evidence_disposition(pack, schema)` 是这一行为的内部入口（行为助手，**不是**公开子命令，也不构成第二个 CLI / 输出权威）。
+
+`--allow-placeholders` 是**唯一**声明的例外，且**不运行**处置（§7：占位符形态模板不是对一个具体候选的主张）：该模式下退出码只由结构层决定，也不产出任何处置条目。
 
 ### 9.6.2 处置规则（P1-T05 行为；值域引用 §4）
 
@@ -397,7 +409,8 @@ review_evidence.py verify  --pack PATH [--schema PATH]
 ```text
 允许 PASS  当且仅当：结构轴 = 是  且  来源轴 = 已核验  且  充分性轴 = 充分
                     且  CI 已观测（run 非空）且 originalState = PASS
-                    且  全部 artifacts[] 的 contentDigest 合法
+                    且  合同为 artifacts[].contentDigest 声明的 pattern 可用
+                    且  全部 artifacts[] 的 contentDigest 按该 pattern 合法
                     且  全部 checks[].artifactRefs 都能在 artifacts[] 解析
 
 阻断 PASS（且不互相冒充）的情形（reason 码）：
@@ -414,33 +427,39 @@ review_evidence.py verify  --pack PATH [--schema PATH]
 - CI originalState != PASS              CI_NOT_PASS
 - artifact contentDigest 形状非法        DIGEST_MALFORMED
 - check 引用的 artifact 不在 artifacts[] MISSING_ARTIFACT
+- 合同未提供可用的 contentDigest pattern  DIGEST_PATTERN_UNAVAILABLE
+                                        （此时不问值是合法还是非法：**不假定**任何本地形状）
 ```
 
 要点（与 §2 / §4 一致，本票只把它落成行为，不发明新的状态机族）：
 
 - `已核验 + 不充分` 是**合法且必须被接受的组合**，仅因充分性不足而阻断 PASS，绝不被判为矛盾，也绝不报 AXIS_COLLAPSE。
-- `临时不可达` 与 `作废` **两个成员各自独立、各自可表示**；处置只记录 `SOURCE_TEMPORARILY_UNAVAILABLE`，**从不改写为** `SOURCE_INVALID`（不可达 ≠ 已作废）。
+- `临时不可达` 与 `作废` **两个成员各自独立、各自可表示**；处置只记录 `SOURCE_TEMPORARILY_UNAVAILABLE`，**从不改写为** `SOURCE_INVALID`（不可达 ≠ 已作废）。`临时不可达 + 充分` 不构成另一条被声明的矛盾规则：处置逐轴记录（来源轴阻断 PASS），**不**额外发明跨轴判定。
 - `不充分` **只属于**充分性轴；它出现在来源轴即 AXIS_COLLAPSE，是轴坍缩，不是合法来源取值。
-- CI 的 `originalState` 沿用 §4 的既有七值集（本合同按引用采纳，不改动）；`verify` **不**发明第二个竞争性 CI 状态机，也**不**把 `NOT_TRIGGERED` / `UNKNOWN` / `SKIPPED` / 已知基线失败 等任何非 PASS 状态折叠成 PASS。
-- 退出码**跟随真实处置**，不跟随结构合法性：一个结构合法但 `未核验` / `不充分` 的包退出码为 1（不是 0）。`validate` 与 `verify` 的退出码语义不同——前者仅回答结构/形状，后者回答三轴处置。
+- CI 的 `originalState` 沿用 §4 的既有七值集（本合同按引用采纳，不改动）；本行为**不**发明第二个竞争性 CI 状态机，也**不**把 `NOT_TRIGGERED` / `UNKNOWN` / `SKIPPED` / 已知基线失败 等任何非 PASS 状态折叠成 PASS。
+- `artifacts[].contentDigest.pattern` 与其余闭合集一样**只有一处声明点**（§3 与其机械形态 schema）。消费方**不得**自带一份局部副本作为替代：合同未声明该 pattern、或声明的 pattern 不是可求值的字符串时，处置**失败关闭**并报 `DIGEST_PATTERN_UNAVAILABLE`——**不是**退回一份本地记住的形状，否则该副本自身就成了竞争性声明点（CE-28 / CE-30）。该 pattern 按 §9.5 的同一 ECMA-262 求值语义求值，**不存在**第二条 Python `re` 求值路径：同一 pattern 与同一取值在结构层与行为层必须得到同一判决。
+- 退出码**跟随真实处置**：`validate` 的退出码为 0 当且仅当结构层与 subject 层全部通过**且**最终处置允许 PASS；一个结构合法、subject 绑定成功但 `未核验` / `不充分` 的包退出码为 1（不是 0）。`collect` 的退出码仍只描述骨架自检与落盘（§9.4）。阻断条目按 §9.6.3 走既有的 `violations` 清单。
 
-### 9.6.3 处置结论形状（只在此声明一次）
+### 9.6.3 处置结论的报告位置（只在此声明一次）
 
-```json
-{
-  "tool": "review_evidence",
-  "contractVersion": "REVIEW_EVIDENCE_CONTRACT_V1",
-  "mode": "verify",
-  "structurallyValid": true,
-  "disposition": {
-    "passAllowed": true,
-    "findings": [],
-    "originalSourceState": "VERIFIED"
-  }
-}
+处置结论**不新增信封键**：`validate` 一旦进入处置而处置阻断 PASS，条目的 `reason` 取自 §9.6.2 的
+处置码，作为 §9.3 既有 `violations` 清单的一部分输出，`ok` / `exitCode` 随之为 `false` / `1`。
+
+```text
+{ "code": "REJECT", "reason": "<§9.6.2 的处置码>",
+  "path": "$.SOURCE_VERIFICATION_STATE | $.EVIDENCE_SUFFICIENCY | $.ci.* |
+           $.artifacts[].contentDigest | $.checks[].artifactRefs", "detail": "..." }
 ```
 
-`disposition.originalSourceState` **原样回显**包自己声明的来源轴取值（含 `临时不可达`），处置过程绝不改写它；`findings` 为空表示允许 PASS。
+要点：
+
+- `violations` 是**这次调用**的唯一失败清单：为空 ⟺ `ok` 为 `true` ⟺ 退出码 0。处置条目与结构条目不
+  混淆：处置类 `reason`（§9.6.2）与结构类 / 声明类 / 调用类（§8）**互不相交**。
+- 处置**允许** PASS 时不产出任何条目，`violations` 为空——因此"未核验"这类包不会被伪造成结构违规。
+- 处置未运行时（合同不可用、包缺失/不可解析、版本未知、结构违规、subject 未声明或不符、占位符模式）
+  不存在任何处置条目：更早的失败先到先得（§9.6.1）。
+- 处置记录**原样回显**包自己声明的来源轴取值（含 `临时不可达`），处置过程绝不改写它。
+- 本段只承载**机器事实**：它绝不写入 / 升格 `semanticScopeStatus` 与 `reviewerDecisionRefs`（那两个字段的权威属 P1-T07，§3.1）。
 
 ## 10. 消费方（只引用，不复制）
 
