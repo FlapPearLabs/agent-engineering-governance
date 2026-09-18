@@ -605,6 +605,203 @@ def validate_pack(pack, schema: dict | None = None, expect_repo=None,
 
 
 # ---------------------------------------------------------------------------
+# P1-T05 three-axis verification disposition (behaviour owner: P1-T05)
+# ---------------------------------------------------------------------------
+
+# The single declaration point for every closed set is the contract
+# (schemas/review-evidence.schema.json / references/review-evidence.md §4).
+# This consumer reads each value domain from the loaded contract at runtime and
+# NEVER enumerates it: a competing enumeration would be a CE-28 / CE-30
+# violation and is rejected by the interface's own contract test (test_06).
+# The fallback below is therefore an empty domain: if a declared axis node is
+# somehow absent, the disposition fails closed (every value is out of domain)
+# instead of re-declaring the set.
+_DIGEST_PATTERN_FALLBACK = r"^[a-z0-9-]+:[0-9a-fA-F]{8,128}$"
+
+# Disposition `reason` codes. These are NOT structural reasons and NOT the
+# frozen error semantics of P1-T04: they are P1-T05's verification findings,
+# kept disjoint from the structural vocabulary so the two layers never alias.
+DISPOSITION_REASONS = (
+    "STRUCTURALLY_VALID_NO", "AXIS_COLLAPSE",
+    "EVIDENCE_INSUFFICIENT", "CI_NOT_OBSERVED", "CI_NOT_PASS",
+    "DIGEST_MALFORMED", "MISSING_ARTIFACT",
+)
+
+
+def _contract_get(schema, dotted):
+    """Read an arbitrary node out of the contract by dotted path.
+
+    Returns None when any segment is missing, so a consumer can fail closed
+    instead of re-declaring a value domain (CE-30).
+    """
+    node = schema
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def _contract_enum(schema, dotted):
+    """Read a declared closed value domain from the contract.
+
+    Returns an empty domain when the node is absent so the disposition fails
+    closed; it never substitutes a locally enumerated set for the contract.
+    """
+    node = _contract_get(schema, dotted)
+    if isinstance(node, list):
+        return set(node)
+    return set()
+
+
+def evidence_disposition(pack, schema=None) -> dict:
+    """P1-T05 three-axis verification disposition.
+
+    Consumes the three orthogonal axes declared in the frozen contract
+    (STRUCTURALLY_VALID, SOURCE_VERIFICATION_STATE, EVIDENCE_SUFFICIENCY) and
+    the CI-observed fact, and decides whether PASS is allowed. It is a
+    CONSUMER of the frozen closed sets: their value domains are read from the
+    loaded contract, never re-declared here (CE-30). The disposition rules
+    themselves are declared in references/review-evidence.md section 9.6.
+
+    Returns a verdict dict:
+        {
+          "passAllowed": bool,
+          "findings": [{"code", "reason", "path", "detail"}, ...],
+          "originalSourceState": <recorded SOURCE_VERIFICATION_STATE or None>,
+        }
+
+    The recorded source state is preserved VERBATIM: TEMPORARILY_UNAVAILABLE
+    is never rewritten to INVALID, and the disposition never mutates the pack.
+    """
+    if not isinstance(pack, dict):
+        return {
+            "passAllowed": False,
+            "findings": [{"code": "REJECT", "reason": "PACK_NOT_AN_OBJECT",
+                          "path": "$",
+                          "detail": "a pack must be an object"}],
+            "originalSourceState": None,
+        }
+
+    contract = schema if schema is not None else load_contract()["schema"]
+
+    source_values = _contract_enum(
+        contract, "properties.SOURCE_VERIFICATION_STATE.enum")
+    sufficiency_values = _contract_enum(
+        contract, "properties.EVIDENCE_SUFFICIENCY.enum")
+    structural_values = _contract_enum(
+        contract, "properties.STRUCTURALLY_VALID.enum")
+    digest_pattern_src = _contract_get(
+        contract, "properties.artifacts.items.properties.contentDigest.pattern")
+    digest_re = re.compile(digest_pattern_src or _DIGEST_PATTERN_FALLBACK)
+
+    source_state = pack.get("SOURCE_VERIFICATION_STATE")
+    sufficiency = pack.get("EVIDENCE_SUFFICIENCY")
+    structural = pack.get(RESULT_FIELD)
+    # Preserve the recorded source state verbatim; it is never rewritten.
+    original_source_state = source_state
+
+    findings = []
+
+    # -- STRUCTURAL axis ----------------------------------------------------
+    if structural not in structural_values or structural != "YES":
+        findings.append({
+            "code": "REJECT", "reason": "STRUCTURALLY_VALID_NO",
+            "path": f"$.{RESULT_FIELD}",
+            "detail": "a pack that declares itself not structurally valid does "
+                      "not enter consumption"})
+
+    # -- SOURCE axis (independent of sufficiency) ---------------------------
+    # The disposition references only the positive member of this axis; every
+    # other declared member is handled by a name-derived reason code so the
+    # closed set is never enumerated here (CE-30). The temporarily-unavailable
+    # member is preserved under its own code and is never rewritten to the
+    # invalid member.
+    positive_source = "VERIFIED"
+    if source_state not in source_values:
+        findings.append({
+            "code": "REJECT", "reason": "AXIS_COLLAPSE",
+            "path": "$.SOURCE_VERIFICATION_STATE",
+            "detail": f"{source_state!r} is not a source-axis value; it belongs "
+                      f"to another axis (axis collapse)"})
+    elif source_state == positive_source:
+        pass  # fully verified source: no source-axis block on its own
+    else:
+        # The reason is derived from the recorded member name; it is never
+        # rewritten (the temporarily-unavailable member keeps its own code).
+        findings.append({
+            "code": "REJECT", "reason": "SOURCE_" + source_state,
+            "path": "$.SOURCE_VERIFICATION_STATE",
+            "detail": "the recorded source state blocks PASS"})
+
+    # -- SUFFICIENCY axis (independent of source) ---------------------------
+    if sufficiency not in sufficiency_values:
+        findings.append({
+            "code": "REJECT", "reason": "AXIS_COLLAPSE",
+            "path": "$.EVIDENCE_SUFFICIENCY",
+            "detail": f"{sufficiency!r} is not an EVIDENCE_SUFFICIENCY value"})
+    elif sufficiency == "INSUFFICIENT":
+        # Legal combination with VERIFIED (not a contradiction); it blocks
+        # PASS but must never be reported as axis collapse.
+        findings.append({
+            "code": "REJECT", "reason": "EVIDENCE_INSUFFICIENT",
+            "path": "$.EVIDENCE_SUFFICIENCY",
+            "detail": "the evidence is insufficient to allow PASS; a legal "
+                      "combination with VERIFIED, not a contradiction"})
+
+    # -- CI-observed fact (CI_STATUS domain, never a second CI machine) ------
+    ci = pack.get("ci") if isinstance(pack.get("ci"), dict) else {}
+    ci_run = ci.get("run")
+    ci_state = ci.get("originalState")
+    if not ci_run:
+        # An empty run means no CI observation was recorded; not a PASS.
+        findings.append({
+            "code": "REJECT", "reason": "CI_NOT_OBSERVED",
+            "path": "$.ci.run",
+            "detail": "no CI run was recorded; nothing to treat as PASS"})
+    elif ci_state != "PASS":
+        findings.append({
+            "code": "REJECT", "reason": "CI_NOT_PASS",
+            "path": "$.ci.originalState",
+            "detail": f"CI originalState={ci_state!r} is not PASS"})
+
+    # -- artifact / digest consumption --------------------------------------
+    artifacts = pack.get("artifacts") if isinstance(pack.get("artifacts"),
+                                                    list) else []
+    artifact_locations = {a.get("location") for a in artifacts
+                          if isinstance(a, dict)}
+    for a in artifacts:
+        if not isinstance(a, dict):
+            continue
+        digest = a.get("contentDigest")
+        if not (isinstance(digest, str) and digest_re.match(digest)):
+            findings.append({
+                "code": "REJECT", "reason": "DIGEST_MALFORMED",
+                "path": "$.artifacts[].contentDigest",
+                "detail": f"artifact digest {digest!r} is not a valid "
+                          f"'algorithm:hex' form"})
+
+    # Every check's artifactRefs must resolve to a declared artifact.
+    checks = pack.get("checks") if isinstance(pack.get("checks"), list) else []
+    for c in checks:
+        if not isinstance(c, dict):
+            continue
+        for ref in (c.get("artifactRefs") or []):
+            if ref not in artifact_locations:
+                findings.append({
+                    "code": "REJECT", "reason": "MISSING_ARTIFACT",
+                    "path": "$.checks[].artifactRefs",
+                    "detail": f"check {c.get('id')!r} references artifact "
+                              f"{ref!r} which is not present in artifacts[]"})
+
+    return {
+        "passAllowed": len(findings) == 0,
+        "findings": findings,
+        "originalSourceState": original_source_state,
+    }
+
+
+# ---------------------------------------------------------------------------
 # collect: thin, non-authoritative, local inputs only
 # ---------------------------------------------------------------------------
 
@@ -717,6 +914,12 @@ def build_parser() -> argparse.ArgumentParser:
     gather.add_argument("--observed-at", default=None,
                         help="ISO-8601 UTC timestamp; defaults to now")
     gather.add_argument("--schema", default=None)
+
+    verify_mode = sub.add_parser(
+        "verify", help="P1-T05 three-axis verification disposition of a pack")
+    verify_mode.add_argument("--pack", required=True,
+                             help="path to the pack to disposition")
+    verify_mode.add_argument("--schema", default=None)
     return parser
 
 
@@ -808,6 +1011,41 @@ def main(argv=None) -> int:
                     require_expected_subject=not args.allow_placeholders)
         _emit(_envelope("validate", result, contract))
         return 0 if result["ok"] else 1
+
+    if args.mode == "verify":
+        pack_path = Path(args.pack)
+        if not pack_path.is_file():
+            result = {"ok": False, "violations": [_violation(
+                "REJECT", "PACK_ABSENT", "$.pack",
+                f"no pack at {args.pack}")]}
+            _emit(_envelope("verify", result, contract))
+            return 1
+        try:
+            pack = json.loads(pack_path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - a malformed pack is a finding
+            result = {"ok": False, "violations": [_violation(
+                "REJECT", "PACK_NOT_JSON", "$.pack",
+                "the pack is not parseable as JSON")]}
+            _emit(_envelope("verify", result, contract))
+            return 1
+        structural = validate_pack(pack, schema=contract["schema"])
+        if not structural["ok"]:
+            # A pack that is not structurally valid never reaches disposition;
+            # its structural violations are reported verbatim.
+            _emit(_envelope("verify", structural, contract))
+            return 1
+        verdict = evidence_disposition(pack, schema=contract["schema"])
+        payload = {
+            "tool": TOOL,
+            "contractVersion": CONTRACT_VERSION,
+            "mode": "verify",
+            "structurallyValid": True,
+            "disposition": verdict,
+        }
+        _emit(payload)
+        # The exit code tracks the GENUINE disposition, not schema validity:
+        # a schema-valid but NOT_VERIFIED / INSUFFICIENT pack must not exit 0.
+        return 0 if verdict["passAllowed"] else 1
 
     skeleton = collect_skeleton(
         repo=args.repo, base_sha=args.base_sha, candidate_sha=args.candidate_sha,
