@@ -121,6 +121,43 @@ PRE PASS 后才生成草稿：每票 = 内聚行为切片，含 SEAM、OWNER、O
 
 失败修复只作用于受影响草稿/证据；不擅自修改并行 lane 已有票集。`scripts/validate_governance.py` 仅校验本治理 recipe 的接线完整性，**不是项目 ticket gate 执行器**，exit 0 不授予任何项目 PRE/POST/独立评审 PASS。运行时强制拦截未部署时必须如实报告，不能把文档协议称为自动拦截器。
 
+### 6.6 预票识别记录（REQ-W1-02 强制基记录）
+
+分解时间（decomposition）与执行时间（execution）干净分离：切片前，分解作者必须发布并冻结强制的预票识别记录；此时**只声明期望的 RED 条件**，绝不执行 RED。真实 RED 在已授权（`TICKET_AUTHORIZATION` 之后、实现之前，before implementation）的票内执行。任何在分解阶段（decomposition）执行或声称已执行 RED 的分解产物，均按生命周期违规拒绝（REJECT）。
+
+强制基记录 = `REQ-W1-02` 要求的五个字段，定义并归本文件所有（OWNED HERE）：
+
+```text
+SEAM_IDENTIFICATION / CONTRACT_SOURCE / PRODUCTION_SHAPE_SOURCE / COUNTEREXAMPLE_DEFINITION / EXPECTED_RED_CONDITION   # five REQ-W1-02-owned record fields, DEFINED HERE (OWNED HERE)
+```
+
+P1-T01 已冻结、此处**仅引用不重定义**的共享缝合同槽位（来自 `references/ticket-lane.md` §3.1.1）：
+
+- `REACHABILITY_APPLICABILITY`
+- `REACHABILITY_APPLICABILITY_REASON`
+- `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`
+- `REACHABILITY_PROOF_OWNER`
+- `RED_EXECUTION_OWNER`
+
+生命周期规则：
+
+- RED 仅在 `TICKET_AUTHORIZATION` 之后、实现之前（before implementation）于票内执行；
+- 分解阶段（decomposition）不得执行或声称已执行 RED；
+- 声明 `REACHABILITY_APPLICABILITY = N/A` 却遗漏 reason 或 acceptance reference 槽位，按 `REQUIRED` 处理（processed as REQUIRED）。
+
+`N/A` 携带**多于**八个基字段而非更少：当 `REACHABILITY_APPLICABILITY = N/A` 时，除八个基字段外，两个额外槽位 `REACHABILITY_APPLICABILITY_REASON` 与 `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF` 也必须一并冻结。本记录是强制基记录，**NOT capped**（不被"恰好八个字段"上限封顶）。
+
+权威拆分（必须显式，不得模糊）：五个 `REQ-W1-02` 专属字段与 P1-T01 冻结的缝字段是两族不同符号；二者相关但不得被静默合并。
+
+FORBIDDEN（不得断言隐式别名）：
+
+- FORBIDDEN: `SEAM_IDENTIFICATION` = `SEAM_ID`
+- FORBIDDEN: `CONTRACT_SOURCE` = `AUTHORITY_REF`
+- FORBIDDEN: `PRODUCTION_SHAPE_SOURCE` = `REAL_SHAPE_FIXTURE_OR_ADAPTER`
+- FORBIDDEN: `COUNTEREXAMPLE_DEFINITION` = `SEAM_COUNTEREXAMPLES`
+
+FORBIDDEN: 在此重声明 `EXPECTED_PRODUCTION_EFFECT` 或任何 (1)/(2) 字段配对（CE-30 单声明点）。
+
 ## 7. 与反例的接口
 
 分解发现"两票共享同一状态 owner" → 回查缝：拆 owner（架构授权 → STOP）、合并一票，或走 §2.2 串行链。
