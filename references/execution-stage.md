@@ -125,19 +125,21 @@ PRE PASS 后才生成草稿：每票 = 内聚行为切片，含 SEAM、OWNER、O
 
 分解时间（decomposition）与执行时间（execution）干净分离：切片前，分解作者必须发布并冻结强制的预票识别记录；此时**只声明期望的 RED 条件**，绝不执行 RED。真实 RED 在已授权（`TICKET_AUTHORIZATION` 之后、实现之前，before implementation）的票内执行。任何在分解阶段（decomposition）执行或声称已执行 RED 的分解产物，均按生命周期违规拒绝（REJECT）。
 
-强制基记录 = `REQ-W1-02` 要求的五个字段，定义并归本文件所有（OWNED HERE）：
+**DEFINED HERE = 5 个组件**：以下是 `REQ-W1-02` 归本文件所有（OWNED HERE）的五个专属组件，也就是八字段强制基记录中由本文件定义的五个组成部分（the five P1-T02-owned components of the eight-field mandatory base）：
 
 ```text
 SEAM_IDENTIFICATION / CONTRACT_SOURCE / PRODUCTION_SHAPE_SOURCE / COUNTEREXAMPLE_DEFINITION / EXPECTED_RED_CONDITION   # five REQ-W1-02-owned record fields, DEFINED HERE (OWNED HERE)
 ```
 
-P1-T01 已冻结、此处**仅引用不重定义**的共享缝合同槽位（来自 `references/ticket-lane.md` §3.1.1）：
+**MANDATORY BASE COMPOSITION = 5 + 3 = 8**：强制基记录（mandatory base record）的完整构成是上述五个由本文件定义（DEFINED HERE）的 `REQ-W1-02` 专属组件，加上三个 P1-T01 已冻结的 always-required 共享缝合同槽位 `REACHABILITY_APPLICABILITY`、`REACHABILITY_PROOF_OWNER` 与 `RED_EXECUTION_OWNER`，合计八个字段。这三个共享槽位**是强制基记录的成员**（members of the mandatory base），但**不由本文件声明**：它们的唯一声明点由 P1-T01 冻结在 `references/ticket-lane.md` §3.1.1，本文件**仅引用不重定义**（consumed by reference）。「属于强制基记录」与「在本文件声明」是两件不同的事：本文件在此只声明上述五个组件，另外三个强制基成员**按引用消费**。只冻结这五个已声明组件即宣称基记录齐全者，视为基记录不完整（INCOMPLETE MANDATORY BASE），拒绝。
 
-- `REACHABILITY_APPLICABILITY`
-- `REACHABILITY_APPLICABILITY_REASON`
-- `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`
-- `REACHABILITY_PROOF_OWNER`
-- `RED_EXECUTION_OWNER`
+P1-T01 已冻结、本文件**仅引用不重定义**的共享缝合同槽位（唯一声明点：`references/ticket-lane.md` §3.1.1）——其中前三个是上述强制基记录的成员（always required），后两个只属于下方 N/A 条件追加：
+
+- `REACHABILITY_APPLICABILITY`（always required；`REQUIRED | N/A`）—— 强制基记录成员
+- `REACHABILITY_PROOF_OWNER`（always required）—— 强制基记录成员
+- `RED_EXECUTION_OWNER`（always required）—— 强制基记录成员
+- `REACHABILITY_APPLICABILITY_REASON`（仅当 `REACHABILITY_APPLICABILITY = N/A` 时必填）—— 条件追加，不属于八个基字段
+- `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF`（仅当 `REACHABILITY_APPLICABILITY = N/A` 时必填）—— 条件追加，不属于八个基字段
 
 生命周期规则：
 
@@ -145,7 +147,7 @@ P1-T01 已冻结、此处**仅引用不重定义**的共享缝合同槽位（来
 - 分解阶段（decomposition）不得执行或声称已执行 RED；
 - 声明 `REACHABILITY_APPLICABILITY = N/A` 却遗漏 reason 或 acceptance reference 槽位，按 `REQUIRED` 处理（processed as REQUIRED）。
 
-`N/A` 携带**多于**八个基字段而非更少：当 `REACHABILITY_APPLICABILITY = N/A` 时，除八个基字段外，两个额外槽位 `REACHABILITY_APPLICABILITY_REASON` 与 `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF` 也必须一并冻结。本记录是强制基记录，**NOT capped**（不被"恰好八个字段"上限封顶）。
+`N/A` 携带**多于**八个基字段而非更少：当 `REACHABILITY_APPLICABILITY = N/A` 时，除上述八个基字段（五个 DEFINED HERE 组件 + 三个 always-required 共享成员）外，两个条件追加槽位 `REACHABILITY_APPLICABILITY_REASON` 与 `REACHABILITY_APPLICABILITY_ACCEPTANCE_REF` 也必须一并冻结，即强制基 8 + 2 = 10：N/A 路径共携带十个槽位。本记录是强制基记录，**NOT capped**（不被"恰好八个字段"上限封顶）。
 
 权威拆分（必须显式，不得模糊）：五个 `REQ-W1-02` 专属字段与 P1-T01 冻结的缝字段是两族不同符号；二者相关但不得被静默合并。
 
