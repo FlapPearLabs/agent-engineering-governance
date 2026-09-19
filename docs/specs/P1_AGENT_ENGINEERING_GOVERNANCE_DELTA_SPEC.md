@@ -184,9 +184,11 @@ REACHABILITY_PROOF_OWNER       # 关闭时提供 reachability 证据的角色
 ```text
 REAL_ENTRYPOINT / PRODUCTION_CALL_CHAIN
 OBSERVED_PRODUCTION_EFFECT            # 观测值；与 ① EXPECTED_PRODUCTION_EFFECT 对照（引用，不重复声明）
-PRODUCTION_CALLERS / TEST_ONLY_CALLERS
+PRODUCTION_CALLERS
 RUNTIME_REACHABLE / EVIDENCE_REF
 ```
+
+本清单**只引用** `REQ-W1-01` 的 ② 类 observation 槽位，**不重复声明**。canonical observation 槽位集恒为**六个**（`REAL_ENTRYPOINT`、`PRODUCTION_CALL_CHAIN`、`OBSERVED_PRODUCTION_EFFECT`、`PRODUCTION_CALLERS`、`RUNTIME_REACHABLE`、`EVIDENCE_REF`）；其**唯一声明点**是 `REQ-W1-01` 及其落地的 `references/ticket-lane.md` §3.1.1/§3.1.2。`TEST_ONLY_CALLERS` **不是**第七个 canonical observation 槽位，**不得**被实现为第二个规范声明点；它只作为**派生 / 诊断证据**使用（用于展示"存在测试调用者、但不存在生产调用者"）。owner 裁定记录见 §16.8.6。
 
 涉及 wiring / registration / composition / entrypoint 的票，必须证明**真实入口 → 变化 seam → 实际效果**。**测试直调内部模块不能单独满足此条件。** 动态注册 / 插件 / 回调允许以**合法运行证据**证明，**不以文本 grep 直接函数调用次数为最终裁决**。相关 Integration 票无合法生产调用路径 → `INTEGRATION_COMPLETE = FALSE`。
 
@@ -1698,7 +1700,7 @@ W5 / GitHub enforcement             保留（未动）
 4028 observed value itself          保留（本轮不改观测值）
 ```
 
-**未处理**（按指令排除）：`TEST_ONLY_CALLERS` 命名、其它 Tier-C observations、新 edge case、新 AC family。
+**未处理**（按指令排除）：其它 Tier-C observations、新 edge case、新 AC family。（`TEST_ONLY_CALLERS` 命名已于 §16.8.6 由 owner 裁定并关闭，不再是未处理项。）
 
 #### 16.8.5 ROUND 4 新增未决项
 
@@ -1707,5 +1709,29 @@ UNRESOLVED-09  AGENTS.md §10 最终采用 pointer（A）还是显式 derived su
               属 S1 实施时的措辞选择；本 Spec 已冻结"优先 A"与"不得成为第二 authority"
               两条硬约束，具体句式留待 S1 按 owner 决定。
 ```
+
+#### 16.8.6 ROUND 5 — owner 裁定：`TEST_ONLY_CALLERS` 不是 canonical 槽位
+
+本节裁定由 project owner 作出，用于关闭 §16.8.4 记录为"未处理"的 `TEST_ONLY_CALLERS` 命名歧义
+（即 `REQ-W1-03` 的引用清单渲染为七个名字、而 `REQ-W1-01` 落地分区声明为六个名字的 6-vs-7 分歧）。
+
+```text
+TEST_ONLY_CALLERS_STATUS               = DERIVED_DIAGNOSTIC_NOT_CANONICAL_SLOT
+CANONICAL_OBSERVATION_FIELDS           = 6
+  REAL_ENTRYPOINT / PRODUCTION_CALL_CHAIN / OBSERVED_PRODUCTION_EFFECT
+  PRODUCTION_CALLERS / RUNTIME_REACHABLE / EVIDENCE_REF
+SINGLE_DECLARATION_POINT               = REQ-W1-01（落地于 references/ticket-lane.md §3.1.1/§3.1.2）
+REQ_W1_03                              = 消费上述六个槽位；不新增、不重声明
+P1_T01_CONTRACT_RETROACTIVELY_EXPANDED = NO
+NORMATIVE_BEHAVIOUR_CHANGED            = NO
+```
+
+裁定要点：
+
+- canonical 关闭 / 观测字段集**恒为六个**，即 `REQ-W1-01` 已声明的六个 ② 类 observation 槽位；`REQ-W1-03` 只**消费**它们。
+- `TEST_ONLY_CALLERS` **可以**作为**派生 / 诊断证据**使用（用于展示"存在测试调用者、但不存在生产调用者"），但**不得**成为：第二个规范声明点；新的 canonical observation 槽位；与 `REQ-W1-01` 并存的重复 owner；或追溯扩张已完成的 P1-T01 合同的理由。
+- **行为要求不变**：仅测试调用者**不得**满足生产 reachability。该行为仍由既有 canonical 事实证明——`PRODUCTION_CALLERS`、`RUNTIME_REACHABLE`、`REAL_ENTRYPOINT`、`PRODUCTION_CALL_CHAIN`——外加常规测试 / 评审证据。
+- 本裁定是**澄清**：不改变验收语义、不改变接口所有权、不改变已批准阶段顺序、不新增 AC family、不新增 authority 层。
+- 受影响合同面已同步：`REQ-W1-03` 的引用清单已收敛为六个槽位；`P1-T03`/Issue #17 的草稿合同按其 `TICKET_CONFORMANCE_REVIEW = PENDING` 状态在同一裁定下校正。
 
 轮 1–3 的 `UNRESOLVED-01`..`08` 继续有效（合计 `UNRESOLVED-01`..`09`）。**均不阻塞 Spec 审查**：均为实现期/部署期变量，非 Spec 层权威冲突，且全部 fail-closed 处理。
