@@ -74,6 +74,18 @@ EXPECTED_VISIBILITY_DOMAIN = ("SEEN", "PARTIAL", "NOT_SEEN", "UNCERTAIN")
 # Evidence that is not directly seen cannot support an unqualified conclusion.
 INSUFFICIENT_VISIBILITY = ("NOT_SEEN", "PARTIAL", "UNCERTAIN")
 
+# The on-demand scope qualifier `CE-15-D` must carry (RC2-LC-01). `CE-15-D`'s
+# trigger is the ABSENCE of a field, and a routine ticket that never opts into
+# the recipe has no visibility field by construction -- so an unqualified rule
+# would make the on-demand recipe a mandatory per-ticket field set by the back
+# door. The rule applies only WHEN THE RECIPE IS ENABLED.
+ENABLEMENT_QUALIFIER = "启用本 recipe"
+
+# A record that does not say whether the recipe is in play is read in the
+# recipe's own enabled context: the landed `CE-15-D` probe is exactly that case.
+# A routine ticket that never opted in declares `recipe_enabled=False`.
+RECIPE_IN_PLAY_WHEN_UNSPECIFIED = True
+
 # The two completeness outputs that must stay two separate outputs.
 OUTPUT_CONTEXT = "CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT"
 OUTPUT_TRANSCRIPT = "FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS"
@@ -210,6 +222,17 @@ def kind_of(contract: dict, rule: str):
     return entry[0] if entry else None
 
 
+def rule_is_scoped_to_enabled_recipe(contract: dict, rule: str) -> bool:
+    """Whether the document's own rule TEXT scopes the rule to the enabled case.
+
+    Read from the parsed rule text, never from a constant: deleting the
+    qualifier from the canonical owner must stop the rule from firing at all
+    (and so fail the two-directional regression below).
+    """
+    entry = contract["rules"].get(rule)
+    return bool(entry) and ENABLEMENT_QUALIFIER in entry[1]
+
+
 def declared_outputs(contract: dict) -> tuple:
     raw = contract["declarations"].get(DECL_OUTPUTS, "")
     return tuple(part.strip() for part in raw.split(",") if part.strip())
@@ -220,6 +243,7 @@ def declared_outputs(contract: dict) -> tuple:
 def clean_audit_record() -> dict:
     """A review that saw its primary evidence and concluded without inflation."""
     return {
+        "recipe_enabled": True,
         "visibility_statement_present": True,
         "primary_evidence_visibility": "SEEN",
         "conclusion": "COMPLETE",
@@ -252,9 +276,15 @@ def decide_audit(record: dict, contract: dict) -> str:
     """Consume an audit visibility statement.
 
     ACCEPT / REJECT / NOT_AUDITABLE / MORE_EVIDENCE_REQUIRED. The decisions
-    follow the parsed contract, so mutating the document changes them.
+    follow the parsed contract, so mutating the document changes them. The
+    NOT_AUDITABLE rule is scoped to the ENABLED recipe (`RC2-LC-01`): a routine
+    ticket that never opted into the recipe is inert to it, so the absence of a
+    visibility statement is not by itself a non-auditable conclusion.
     """
+    recipe_in_play = record.get("recipe_enabled", RECIPE_IN_PLAY_WHEN_UNSPECIFIED)
     if (kind_of(contract, "CE-15-D") == "REQUIRED"
+            and rule_is_scoped_to_enabled_recipe(contract, "CE-15-D")
+            and recipe_in_play
             and not record["visibility_statement_present"]):
         return "NOT_AUDITABLE"
     if audit_problems(record, contract):
@@ -456,6 +486,89 @@ class AuditVisibilityRecipeTests(unittest.TestCase):
         self.assertEqual(
             "NOT_AUDITABLE", decide_audit(silent, self.contract),
             "a review that never states what evidence it saw is not auditable")
+
+    # -- RC2-LC-01: the NOT_AUDITABLE rule is scoped to the ENABLED recipe ---
+    # (`REQ-W4-02a`: the recipe is on demand, never a mandatory per-ticket
+    # field set. `CE-15-D`'s trigger is the ABSENCE of a field, so an
+    # unqualified rule would make every routine ticket non-auditable.)
+
+    def test_routine_ticket_is_not_rendered_not_auditable_without_enabling_the_recipe(self):
+        """Direction 1 of the two-directional regression (the violation).
+
+        A routine ticket that never opted into the recipe carries no visibility
+        statement by construction -- exactly what the on-demand declaration in
+        section 7.1 permits. It must NOT therefore be rendered NOT_AUDITABLE
+        and barred as a PASS basis.
+        """
+        self.assertEqual("REQUIRED", kind_of(self.contract, "CE-15-D"))
+        routine = clean_audit_record()
+        routine["recipe_enabled"] = False
+        routine["visibility_statement_present"] = False
+        routine["primary_evidence_visibility"] = None
+        decision = decide_audit(routine, self.contract)
+        self.assertNotEqual(
+            "NOT_AUDITABLE", decision,
+            "FORBIDDEN (REQ-W4-02a): a routine ticket that has NOT enabled the "
+            "recipe must not be rendered NOT_AUDITABLE merely because no "
+            "visibility statement is present -- the recipe is inert unless "
+            "enabled, so it can never be mandatory per ticket by the back door")
+        self.assertEqual(
+            "ACCEPT", decision,
+            "a ticket that never opted into the recipe keeps the ordinary "
+            "decision; the recipe adds no field requirement to it")
+
+    def test_not_auditable_is_scoped_to_the_enabled_recipe(self):
+        """Direction 2: the fix must not be a no-op, and must follow the text.
+
+        The scoping is read out of the canonical owner's own `CE-15-D` rule
+        text, and with the recipe ENABLED a missing visibility statement is
+        still non-auditable.
+        """
+        self.assertTrue(
+            rule_is_scoped_to_enabled_recipe(self.contract, "CE-15-D"),
+            f"{DOC_REL} CE-15-D does not scope its NOT_AUDITABLE rule to the "
+            "enabled recipe; every routine ticket would be non-auditable")
+        self.assertRegex(
+            self.section, re.escape(ENABLEMENT_QUALIFIER),
+            f"{DOC_REL} section 7 does not state the enabled-recipe scope")
+        self.assertIn(
+            "未启用", self.section,
+            f"{DOC_REL} section 7 does not state the default: an un-enabled "
+            "routine ticket is not rendered NOT_AUDITABLE for a missing "
+            "visibility statement")
+
+        enabled = clean_audit_record()
+        enabled["recipe_enabled"] = True
+        enabled["visibility_statement_present"] = False
+        enabled["primary_evidence_visibility"] = None
+        self.assertEqual(
+            "NOT_AUDITABLE", decide_audit(enabled, self.contract),
+            "over-correction: with the recipe ENABLED a missing visibility "
+            "statement must still make the conclusion non-auditable")
+
+        routine = clean_audit_record()
+        routine["recipe_enabled"] = False
+        routine["visibility_statement_present"] = False
+        routine["primary_evidence_visibility"] = None
+        self.assertNotEqual(
+            "NOT_AUDITABLE", decide_audit(routine, self.contract),
+            "the default must be stated: an un-enabled routine ticket is not "
+            "rendered NOT_AUDITABLE")
+
+        # non-vacuity: the scoping is read from the document text, not hard-coded
+        unscoped = re.sub(
+            r"(CE-15-D\s+REQUIRED\s+)" + re.escape(ENABLEMENT_QUALIFIER),
+            r"\1", self.section, count=1)
+        self.assertNotEqual(
+            self.section, unscoped,
+            "the CE-15-D scoping qualifier is not present in the document")
+        unscoped_contract = parse_contract(unscoped)
+        self.assertFalse(
+            rule_is_scoped_to_enabled_recipe(unscoped_contract, "CE-15-D"),
+            "removing the qualifier from the CE-15-D text did not change the parse")
+        self.assertNotEqual(
+            "NOT_AUDITABLE", decide_audit(enabled, unscoped_contract),
+            "the enabled-recipe rule did not follow the CE-15-D document text")
 
     def test_owner_and_pointer_discipline_for_the_recipe(self):
         self.assertEqual("OWNER", kind_of(self.contract, "CE-28-E"))
