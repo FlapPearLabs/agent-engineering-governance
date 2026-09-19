@@ -6,8 +6,9 @@ SUPPORT surface (RULES.md R6), NOT an authority surface. This module declares no
 recipe field and no requirement of its own: it re-reads the canonical reference
 and fails when the destructive workspace transaction loses its ordered
 transaction, its preferred baseline, its lane isolation, its preservation
-obligations, its post-state record, its destructive-only applicability, its
-NOT-a-global-stash-ban non-decision, or its recorded underlying cause.
+obligations, its pre-state and post-state records, its destructive-only
+applicability, its NOT-a-global-stash-ban non-decision, or its recorded
+underlying cause.
 
 BINDING (references/ticket-lane.md section 4, counterexample-first)
     The recipe itself is a document fact: it is located by marker groups over
@@ -28,12 +29,18 @@ BINDING (references/ticket-lane.md section 4, counterexample-first)
 
 Counterexamples exercised here (parent spec section 9): CE-16 (a preservation
 step that loses a tracked modification or an untracked artefact must be
-rejected), CE-28 (a recipe defined in two canonical files has a dual owner and
-must be rejected and converged onto one). The ticket STATE_CONTRACT is executed
-as a small resolver rather than asserted as prose alone:
+rejected -- UNCONDITIONALLY: whether the loss is silent or announced is not a
+qualifier, spec CE-16 at line 982 and AC-14 at line 1115 are unconditional),
+CE-28 (a recipe defined in two canonical files has a dual owner and must be
+rejected and converged onto one). The ticket STATE_CONTRACT is executed as a
+small resolver rather than asserted as prose alone:
 LEGAL = a destructive action with a recorded pre-state, a preserved set and a
-recorded post-state; ILLEGAL = without preservation / without a post-state
-record / a blanket global stash prohibition presented as a rule.
+recorded post-state; ILLEGAL = without preservation / without a pre-state
+record / without a post-state record / a blanket global stash prohibition
+presented as a rule. The pre-state half of that contract row is re-read from
+the document too: spec section 10.1a (REQ-W4-02b, line 1045) declares the
+observable as records BEFORE and AFTER preservation, so a bare read of the
+live facts is not the landed obligation.
 
 RED condition before P1-T11 lands: the canonical owner carries no ordered
 destructive transaction, so a destructive action can be performed with no
@@ -347,14 +354,36 @@ LANE_GROUPS = (
 
 TRACKED_LOSS_GROUPS = (
     ("tracked 修改",),
-    ("不得静默丢失", "may not silently lose", "must not silently lose"),
+    ("不得丢失", "may not lose", "must not lose"),
     ("reject", "拒绝"),
 )
 
 UNTRACKED_LOSS_GROUPS = (
     ("untracked 产物",),
-    ("不得静默丢失", "may not silently lose", "must not silently lose"),
+    ("不得丢失", "may not lose", "must not lose"),
     ("reject", "拒绝"),
+)
+
+# The preservation obligation is UNCONDITIONAL: the reject must not be bound to
+# a silent loss, and the narrowed `不得静默丢失` phrasing must not come back.
+PRESERVATION_UNCONDITIONAL_GROUPS = (
+    ("静默", "silent"),
+    ("announce", "已声明", "显式声明"),
+    ("不豁免", "no exemption", "regardless", "无论"),
+)
+
+# The `status` step must RECORD the pre-state, not merely read it (spec
+# section 10.1a observable = records BEFORE and AFTER preservation).
+PRE_STATE_STEP_GROUPS = (
+    ("status",),
+    ("pre-state",),
+    ("记录", "record"),
+)
+
+PRE_STATE_GROUPS = (
+    ("pre-state",),
+    ("无效", "invalid"),
+    ("没有记录", "without a record", "missing"),
 )
 
 POST_STATE_GROUPS = (
@@ -362,6 +391,10 @@ POST_STATE_GROUPS = (
     ("无效", "invalid"),
     ("没有记录", "without a record", "missing"),
 )
+
+# The rendered state/error block must carry the pre-state absence as ILLEGAL.
+PRE_STATE_ILLEGAL_ROW = "ILLEGAL  destructive action without a pre-state record"
+POST_STATE_ILLEGAL_ROW = "ILLEGAL  destructive action without a post-state record"
 
 APPLICABILITY_GROUPS = (
     ("仅限", "limited to"),
@@ -401,6 +434,9 @@ PROBES = {
     "lane_isolation_is_stated": LANE_GROUPS,
     "tracked_modification_loss_is_rejected": TRACKED_LOSS_GROUPS,
     "untracked_artefact_loss_is_rejected": UNTRACKED_LOSS_GROUPS,
+    "preservation_loss_reject_is_unconditional": PRESERVATION_UNCONDITIONAL_GROUPS,
+    "the_status_step_records_the_pre_state": PRE_STATE_STEP_GROUPS,
+    "destructive_action_without_a_pre_state_is_invalid": PRE_STATE_GROUPS,
     "destructive_action_without_a_post_state_is_invalid": POST_STATE_GROUPS,
     "applicability_is_limited_to_destructive_actions": APPLICABILITY_GROUPS,
     "no_blanket_stash_prohibition_is_established": NO_GLOBAL_BAN_GROUPS,
@@ -422,11 +458,21 @@ PROBE_MUTATIONS = {
     "lane_isolation_is_stated": (
         "绝不**触碰其它 lane 的工作", "可以**触碰其它 lane 的工作"),
     "tracked_modification_loss_is_rejected": (
-        "不得静默丢失 tracked 修改", "可以静默丢失 tracked 修改"),
+        "不得丢失 tracked 修改", "可以丢失 tracked 修改"),
     "untracked_artefact_loss_is_rejected": (
-        "不得静默丢失 untracked 产物", "可以静默丢失 untracked 产物"),
+        "不得丢失 untracked 产物", "可以丢失 untracked 产物"),
+    "preservation_loss_reject_is_unconditional": (
+        "无论该丢失静默与否（silent or announced）都不豁免",
+        "不在此讨论"),
+    "the_status_step_records_the_pre_state": (
+        "`status` 读取并留存现场事实（pre-state 记录）",
+        "`status` 读现场事实"),
+    "destructive_action_without_a_pre_state_is_invalid": (
+        "若没有记录 `pre-state`，该事务**无效**（invalid）",
+        "若没有记录 `pre-state`，该事务**有效**（valid）"),
     "destructive_action_without_a_post_state_is_invalid": (
-        "该事务**无效**（invalid）", "该事务**有效**（valid）"),
+        "若没有记录 `post-state`，该事务**无效**（invalid）",
+        "若没有记录 `post-state`，该事务**有效**（valid）"),
     "applicability_is_limited_to_destructive_actions": (
         "仅限破坏性动作", "适用于任何动作"),
     "no_blanket_stash_prohibition_is_established": (
@@ -519,19 +565,59 @@ class DestructiveWorkspaceTransactionTests(unittest.TestCase):
         self.assertTrue(
             probe(self.body, TRACKED_LOSS_GROUPS),
             f"{GIT_CI_REL} section 5.2 does not reject a preservation step "
-            f"that silently loses a tracked modification (CE-16)")
+            f"that loses a tracked modification (CE-16)")
 
     def test_losing_an_untracked_artefact_during_preservation_is_rejected(self):
         self.assertTrue(
             probe(self.body, UNTRACKED_LOSS_GROUPS),
             f"{GIT_CI_REL} section 5.2 does not reject a preservation step "
-            f"that silently loses an untracked artefact (CE-16)")
+            f"that loses an untracked artefact (CE-16)")
+
+    def test_the_preservation_loss_reject_is_unconditional(self):
+        """CE-16 / AC-14 are unconditional: silence is not the trigger."""
+        self.assertTrue(
+            probe(self.body, PRESERVATION_UNCONDITIONAL_GROUPS),
+            f"{GIT_CI_REL} section 5.2 binds the preservation-loss reject to "
+            f"something narrower than a plain loss")
+        for line in statements(self.body):
+            if "静默丢失" in line or "silently lose" in line:
+                self.fail(
+                    f"{GIT_CI_REL}: the narrowed qualifier `静默丢失` is back "
+                    f"on {line!r}; CE-16 (spec line 982) and AC-14 (spec line "
+                    f"1115) reject a loss of tracked/untracked work without "
+                    f"a silent/announced condition")
+
+    def test_the_status_step_records_the_pre_state(self):
+        """`status` must RECORD the live facts, not merely read them."""
+        self.assertTrue(
+            probe(self.body, PRE_STATE_STEP_GROUPS),
+            f"{GIT_CI_REL} section 5.2 glosses `status` as a bare read; the "
+            f"spec 10.1a observable (REQ-W4-02b, line 1045) is a RECORD of the "
+            f"state before preservation")
+
+    def test_a_destructive_action_without_a_pre_state_record_is_invalid(self):
+        self.assertTrue(
+            probe(self.body, PRE_STATE_GROUPS),
+            f"{GIT_CI_REL} section 5.2 does not state that a destructive "
+            f"action without a recorded pre-state is invalid")
+        _, illegal = state_entries(block_after_label(
+            self.body.splitlines(), STATE_LABEL))
+        self.assertIn(
+            PRE_STATE_ILLEGAL_ROW, illegal,
+            f"{GIT_CI_REL} section 5.2 lost the rendered ILLEGAL row "
+            f"{PRE_STATE_ILLEGAL_ROW!r}; rendered={illegal}")
 
     def test_a_destructive_action_without_a_post_state_record_is_invalid(self):
         self.assertTrue(
             probe(self.body, POST_STATE_GROUPS),
             f"{GIT_CI_REL} section 5.2 does not state that a destructive "
             f"action without a recorded post-state is invalid")
+        _, illegal = state_entries(block_after_label(
+            self.body.splitlines(), STATE_LABEL))
+        self.assertIn(
+            POST_STATE_ILLEGAL_ROW, illegal,
+            f"{GIT_CI_REL} section 5.2 lost the rendered ILLEGAL row "
+            f"{POST_STATE_ILLEGAL_ROW!r}; rendered={illegal}")
 
     def test_applicability_is_limited_to_destructive_actions(self):
         self.assertTrue(
@@ -591,12 +677,13 @@ class DestructiveWorkspaceTransactionTests(unittest.TestCase):
             len(legal), 1,
             f"{GIT_CI_REL} section 5.2 must render exactly one LEGAL row; "
             f"legal={legal}")
-        self.assertEqual(len(illegal), 3, f"illegal={illegal}")
+        self.assertEqual(len(illegal), 4, f"illegal={illegal}")
         self.assertIn("pre-state", legal[0])
         self.assertIn("preserved set", legal[0])
         self.assertIn("post-state", legal[0])
         joined = " | ".join(illegal)
-        for marker in ("without preservation", "without a post-state record",
+        for marker in ("without preservation", "without a pre-state record",
+                       "without a post-state record",
                        "global stash prohibition"):
             with self.subTest(illegal=marker):
                 self.assertIn(
@@ -607,13 +694,13 @@ class DestructiveWorkspaceTransactionTests(unittest.TestCase):
         """Turning an ILLEGAL row into a LEGAL one must change the parse."""
         lines = block_after_label(self.body.splitlines(), STATE_LABEL)
         legal, illegal = state_entries(lines)
-        self.assertEqual((len(legal), len(illegal)), (1, 3))
+        self.assertEqual((len(legal), len(illegal)), (1, 4))
         mutated = [line.replace("ILLEGAL  destructive action without preservation",
                                 "LEGAL    destructive action without preservation")
                    for line in lines]
         legal2, illegal2 = state_entries(mutated)
         self.assertNotEqual(
-            (len(legal2), len(illegal2)), (1, 3),
+            (len(legal2), len(illegal2)), (1, 4),
             "the state-contract parser is VACUOUS: promoting an ILLEGAL row to "
             "LEGAL did not change the parsed sets")
 

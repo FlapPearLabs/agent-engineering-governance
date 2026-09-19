@@ -97,20 +97,23 @@ N/A-PATH              N/A 票不通过本条证据路径关闭，仍须满足 RE
 status -> uncommitted / untracked / owner -> preserve -> operate -> post-state
 ```
 
-- 逐步语义：`status` 读现场事实；`uncommitted / untracked / owner` 步识别未提交修改、未跟踪产物**及其 owner**（属于哪个 lane / 哪个任务）；`preserve` 保全；`operate` 执行动作；`post-state` 记录操作后的状态。
+- 逐步语义：`status` 读取并留存现场事实（pre-state 记录）；`uncommitted / untracked / owner` 步识别未提交修改、未跟踪产物**及其 owner**（属于哪个 lane / 哪个任务）；`preserve` 保全；`operate` 执行动作；`post-state` 记录操作后的状态。
 - **基线优先**：破坏性动作**优先**在一个独立、干净的 worktree 上建立基线（preferred baseline = independent clean worktree），它不是唯一合法形态；不得在未识别未提交 / 未跟踪产物的现场直接执行破坏性动作。
 - **lane 隔离**：**绝不**触碰其它 lane 的工作——其它 lane 的 worktree / branch / 未提交产物 / 未跟踪产物都不在本事务的操作面内；跨 lane 清理 = 越权，直接拒绝。
-- **tracked 修改**：`preserve` 步骤**不得静默丢失 tracked 修改**；发生即 reject，不是 warning，也不得降级为提示。
-- **untracked 产物**：`preserve` 步骤**不得静默丢失 untracked 产物**；发生即 reject，不是 warning，也不得降级为提示。
+- **tracked 修改**：`preserve` 步骤**不得丢失 tracked 修改**；无论该丢失静默与否（silent or announced）都不豁免——发生即 reject，不是 warning，也不得降级为提示。
+- **untracked 产物**：`preserve` 步骤**不得丢失 untracked 产物**；无论该丢失静默与否（silent or announced）都不豁免——发生即 reject，不是 warning，也不得降级为提示。
+- **pre-state 记录是事务的一部分**：破坏性操作若没有记录 `pre-state`，该事务**无效**（invalid），不得据此声明操作完成。
 - **post-state 是事务的一部分**：破坏性操作若没有记录 `post-state`，该事务**无效**（invalid），不得据此声明操作完成。
 - **不建立全局 stash 禁令**：本 recipe 不构成 blanket / global stash prohibition，且在其它 surface 上也不得被读成一条通用禁令。
 - **底层因果按事实记录、不推广**：被记录下来的真实失效原因是 `NEEDS_PRIMARY_EVIDENCE_RECOVERY`（primary-evidence recovery need）；该因果只作为**记录**存在，不升格为规则（父 Spec §4.3 的对应 non-decision = `REJECTED_WITH_REASON`）。
+- **接地（grounding）**：pre-state 义务取自父 Spec §10.1a 的可观测 `保全前后状态记录`（`REQ-W4-02b`，spec 行 1045）；无条件保全丢失拒绝取自父 Spec §9 `CE-16`（spec 行 982）与 §10.2 `AC-14`（spec 行 1115）——两者均为**无条件**，不得被读成以「丢失是否被声明」为前提。
 
 状态合同与错误语义：
 
 ```text
 LEGAL    destructive action with a recorded pre-state + preserved set + recorded post-state
 ILLEGAL  destructive action without preservation
+ILLEGAL  destructive action without a pre-state record
 ILLEGAL  destructive action without a post-state record
 ILLEGAL  blanket / global stash prohibition presented as a rule
 CE-16    preservation loses a tracked modification or an untracked artefact -> REJECT
