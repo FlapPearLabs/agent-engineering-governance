@@ -48,6 +48,7 @@ CANDIDATE_CAUSED_FAILURE / CI_CLASSIFICATION / REVIEWER_ACCEPTED_CLASSIFICATION
 - 默认校验 = **语义 scope**：changed files 落在票声明的行为范围 / expected surface 内。
 - 实施中涌现的支撑文件（测试/fixture/生成物/缝支撑）不是自动违规——需在票据包中有 justification 行并经评审确认（RULES R6）。
 - 仅当票**明确冻结了文件清单**时，才执行子集校验。
+- 触及 wiring / registration / composition / entrypoint 的票：语义 scope 包含「真实入口 → 变更缝 → 生产效果」这条链；模块级 / 内部测试证据本身不构成 scope 关闭（集成关闭条件见 §5.1）。
 - 附带机械检查：`git diff --check` clean；无凭据/机器私有路径混入。
 
 ## 5. Exact-SHA 评审协议
@@ -55,3 +56,31 @@ CANDIDATE_CAUSED_FAILURE / CI_CLASSIFICATION / REVIEWER_ACCEPTED_CLASSIFICATION
 - PASS 绑定 exact SHA（R5）；code-changing repair → 新 SHA → 适用 gate 新鲜重审。
 - 新鲜 ≠ 重读全仓：blast radius 未扩张时 = previous reviewed SHA + delta（diff + `impact` 爆炸半径 + 权威对照）。
 - AUTO_ADVANCE 集成序列见 AGENTS §2/§7；Stage 内集成顺序 = STAGE_MANIFEST 声明顺序。
+
+### 5.1 集成关闭证据（INTEGRATION CLOSURE EVIDENCE）
+
+集成票不得仅凭模块级 / 内部测试证据关闭：关闭需要 REAL_ENTRYPOINT -> PRODUCTION_CALL_CHAIN -> OBSERVED_PRODUCTION_EFFECT 的观测链，或一条显式的「集成未完成」声明（INTEGRATION_COMPLETE = FALSE）。
+
+槽位清单（按引用消费 `REQ-W1-01`，单一声明点 = `references/ticket-lane.md` §3.1.2，此处只引用、不在此重声明）：`REAL_ENTRYPOINT` / `PRODUCTION_CALL_CHAIN` / `OBSERVED_PRODUCTION_EFFECT` / `PRODUCTION_CALLERS` / `RUNTIME_REACHABLE` / `EVIDENCE_REF`；`RUNTIME_REACHABLE` 的取值域同样按引用取自 `references/ticket-lane.md` §3.1.4。
+
+```text
+REAL_ENTRYPOINT            -> 真实入口：生产可执行入口，不是测试入口
+PRODUCTION_CALL_CHAIN      -> 真实入口到变更缝的调用链
+OBSERVED_PRODUCTION_EFFECT -> 生产侧实际观测到的效果（引用分区 (1) 的对应要求字段）
+PRODUCTION_CALLERS         -> 实际生产调用者集合（可为空集）
+RUNTIME_REACHABLE          -> 运行期可达性观测结论（取值域引用 references/ticket-lane.md §3.1.4）
+EVIDENCE_REF               -> 证据引用槽位
+```
+
+关闭条件（本节与 §4 的语义 scope 共同构成集成关闭判定）：
+
+```text
+CLOSURE-REQUIRED      触及 wiring / registration / composition / entrypoint 的集成票必须有 REAL_ENTRYPOINT -> PRODUCTION_CALL_CHAIN -> OBSERVED_PRODUCTION_EFFECT 的观测证据；模块级 / 内部测试证据本身不构成关闭，直接调用内部模块的测试不能单独满足本条
+DISCONNECTED          生产入口断开（ENTRYPOINT_DISCONNECTED）时，模块级 / 内部测试全绿也不得关闭该集成票
+DYNAMIC-PATH          合法的动态注册 / 插件 / 回调路径不得被拒绝：不得用直接调用的静态计数作最终裁决，允许用合法的运行期证据替代对直接调用的文本 grep；静态计数只是派生 / 诊断证据
+TEST-CALLER           测试调用者不是生产调用者：仅测试调用者永不满足生产 reachability；TEST_ONLY_CALLERS 若出现只是派生 / 诊断证据，不是 canonical observation 槽位
+NO-CALLER-PATH        REQUIRED 可达性下不存在合法生产调用者路径 => RUNTIME_REACHABLE = FALSE 且 INTEGRATION_COMPLETE = FALSE（永不判绿）
+N/A-PATH              N/A 票不通过本条证据路径关闭，仍须满足 REACHABILITY_APPLICABILITY_REASON 与 REACHABILITY_APPLICABILITY_ACCEPTANCE_REF（引用 references/ticket-lane.md §3.1.4）
+```
+
+- 关闭结论绑定 exact SHA（§5 上文）：`RUNTIME_REACHABLE = TRUE` 必须有真实入口、调用链与已观测效果；`FALSE` 必须附显式的集成未完成声明。仅测试调用者永不满足生产 reachability。
