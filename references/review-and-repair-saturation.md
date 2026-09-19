@@ -76,3 +76,65 @@ UNRESOLVED_P0 / UNRESOLVED_P1 / READY_FOR_EXTERNAL_REVIEW
 ```
 
 已知事实不重述；仅在被违反、异常影响、或明确索要审计细节时展开。`PR_CI_COMPRESSION_ALLOWED = PASS_ONLY`。
+
+## 6. 证据消费与 reviewer 权威分离（消费规则；字段名不在此声明）
+
+本节的 owner 范围是**消费规则**本身：**谁可以写**、**consumer 可以／不可以从证据里推导什么**。
+**字段名、闭合集与机器形状**的唯一声明点在 `references/review-evidence.md`（Review Evidence 接口）；
+本节**只引用 / 指针**该接口，**不重声明**其字段名与闭合集，也不定义竞争性 Review Evidence 接口
+（`AC-38` owner 唯一性；`AC-44` 条件 6；`CE-28` 双声明必须收敛回单一 owner）。
+本节把既有原则"已批准编辑面 / 观测增量 / 影响面是三个不同的东西"
+（`references/project-continuity-contract.md` §6.7 F4 的三面分离）延伸到证据接口——**引用**该同源
+关系，不重复定义它。
+
+```text
+CE-35-A  AUTHORITY  观测到的 changed files 集合永不自我授权为已批准的语义 scope
+CE-35-B  AUTHORITY  该状态只能由 reviewer 权威写入，不由 producer 观测自动升格
+CE-35-C  FORBIDDEN  producer 观测把该状态升格为已批准 scope
+CE-36-A  FORBIDDEN  机器证据包填充或自批独立 reviewer verdict
+CE-36-B  REQUIRED   reviewer 决定引用与机器事实分字段保存、互不冒充、互不可推
+CE-36-C  FORBIDDEN  机器退出码 0 / 空跑 / 无有效结果被当作 reviewer verdict
+CE-36-D  REQUIRED   Stage packet 只引用 canonical 证据
+CE-36-E  FORBIDDEN  Stage packet 把 canonical 证据复制为第三个可变账本
+CE-36-F  REQUIRED   integrator 以同一候选绑定消费证据
+CE-38-A  OWNER      消费规则的唯一 canonical owner = references/review-and-repair-saturation.md
+CE-38-B  OWNER      字段名 / 闭合集 / 机器形状的唯一 canonical owner = references/review-evidence.md
+CE-38-C  POINTER    其它 canonical surface 只引用 / 链接同一规则，不重复定义
+AC-44-P  POINTER    本节只指针证据接口，不复制它
+CE-28-D  REJECT     同一规则在两个 canonical 文件各有一份定义（双 owner）→ 拒绝并收敛
+```
+
+### 6.1 语义 scope 的权威分离（`REQ-W2-05` / `AC-35` / `INV-04`）
+
+- **观测是证据，不是权威**。观测到的 changed files 记录"改了什么"；它**永不**自我授权为"允许改什么"。
+  一个其 changed files **超出**已批准面的证据包**不因此**获得更宽的已批准 scope：超出部分只扩大**差异
+  记录**（与 `UNAPPROVED_DELTA_DETECTED` 同源），扩张的唯一途径是显式 authority action 后重算。
+- 语义 scope 的结论状态**只能**由 reviewer 权威写入；producer 观测**不得**自动升格它。写入方与推导规则
+  由本节声明；**该字段的字段名与其唯一声明点**在 `references/review-evidence.md`，本节不重声明。
+
+### 6.2 机器证据包不自批 reviewer verdict（`REQ-W2-06` / `AC-36` / `AC-08` / `INV-03`）
+
+- 机器事实（producer 观测、单条检查结果、CI 观测状态）只描述"发生了什么"；独立 reviewer verdict
+  **只能**由 reviewer 写入。机器证据包**永不**填充独立 reviewer verdict（self-approval 被禁止）。
+- reviewer 决定引用与机器事实**分字段**保存：二者互不冒充，且不可由一个推出另一个。把 reviewer 决定
+  与机器事实混装在同一字段／同一清单即违约。
+- 退出码 0、结构性合法、或存在某个字符串**都不等价于** reviewer verdict：validator 以 exit 0 收场但
+  **空跑、无有效结果**时，consumer **不得**因此打开 gate（`AC-08`）。
+- 字段名与其唯一声明点在 `references/review-evidence.md`；本节只声明**谁能写、consumer 可推导什么**。
+
+### 6.3 consumer 独立性：integrator 与 Stage packet
+
+- **Integrator 使用同一候选绑定**：证据包的 subject（repo / base / candidate）必须与被集成的候选一致；
+  绑定不一致的证据**不得**作为该候选的证据被消费，也不得跨候选继承结论。
+- **Stage packet 只引用，不复制**：Stage packet 记录**引用槽位**与结论，不把 canonical 证据复制成
+  **第三个可变账本**（`INV-07`：不新建第二证据数据库）。Stage packet 的既有写入面见
+  `references/execution-stage.md`；本节只声明其**消费规则**，不新建第二个 Stage 权威。
+- 消费方**只指针**证据接口，不定义竞争性接口（`AC-44` 条件 6）。
+
+### 6.4 单一 owner 与指针纪律（`AC-38` / `CE-28`）
+
+```text
+单一 owner  消费规则只在本文件定义一次；字段名 / 闭合集 / 机器形状只在 references/review-evidence.md
+指针纪律    其它 canonical surface 只引用 / 链接该接口；重复定义 → 拒绝并收敛回单一 owner
+消费方纪律  消费方不得自带局部副本替代 canonical 声明（第二声明点 = CE-28 违约）
+```
