@@ -188,7 +188,7 @@ PRODUCTION_CALLERS
 RUNTIME_REACHABLE / EVIDENCE_REF
 ```
 
-本清单**只引用** `REQ-W1-01` 的 ② 类 observation 槽位，**不重复声明**。canonical observation 槽位集恒为**六个**（`REAL_ENTRYPOINT`、`PRODUCTION_CALL_CHAIN`、`OBSERVED_PRODUCTION_EFFECT`、`PRODUCTION_CALLERS`、`RUNTIME_REACHABLE`、`EVIDENCE_REF`）；其**唯一声明点**是 `REQ-W1-01` 及其落地的 `references/ticket-lane.md` §3.1.1/§3.1.2。`TEST_ONLY_CALLERS` **不是**第七个 canonical observation 槽位，**不得**被实现为第二个规范声明点；它只作为**派生 / 诊断证据**使用（用于展示"存在测试调用者、但不存在生产调用者"）。owner 裁定记录见 §16.8.6。
+本清单**只引用** `REQ-W1-01` 的 ② 类 observation 槽位，**不重复声明**。canonical observation 槽位集恒为**六个**（`REAL_ENTRYPOINT`、`PRODUCTION_CALL_CHAIN`、`OBSERVED_PRODUCTION_EFFECT`、`PRODUCTION_CALLERS`、`RUNTIME_REACHABLE`、`EVIDENCE_REF`）；其**唯一声明点**是 `REQ-W1-01`，落地点为 `references/ticket-lane.md` §3.1 的分区 (1)/(2) 字段清单（其中 §3.1.1 / §3.1.2 由 `P1-T01` 落地于 `main`；本 Spec 分支的 `references/` 快照可能早于该落地）。`TEST_ONLY_CALLERS` **不是**第七个 canonical observation 槽位，**不得**被实现为第二个规范声明点；它只作为**派生 / 诊断证据**使用（用于展示"存在测试调用者、但不存在生产调用者"）。owner 裁定记录见 §16.8.6。
 
 涉及 wiring / registration / composition / entrypoint 的票，必须证明**真实入口 → 变化 seam → 实际效果**。**测试直调内部模块不能单独满足此条件。** 动态注册 / 插件 / 回调允许以**合法运行证据**证明，**不以文本 grep 直接函数调用次数为最终裁决**。相关 Integration 票无合法生产调用路径 → `INTEGRATION_COMPLETE = FALSE`。
 
@@ -1720,7 +1720,8 @@ TEST_ONLY_CALLERS_STATUS               = DERIVED_DIAGNOSTIC_NOT_CANONICAL_SLOT
 CANONICAL_OBSERVATION_FIELDS           = 6
   REAL_ENTRYPOINT / PRODUCTION_CALL_CHAIN / OBSERVED_PRODUCTION_EFFECT
   PRODUCTION_CALLERS / RUNTIME_REACHABLE / EVIDENCE_REF
-SINGLE_DECLARATION_POINT               = REQ-W1-01（落地于 references/ticket-lane.md §3.1.1/§3.1.2）
+SINGLE_DECLARATION_POINT               = REQ-W1-01（落地点 references/ticket-lane.md §3.1 分区 (1)/(2)；
+                                         §3.1.1/§3.1.2 由 P1-T01 落地于 main）
 REQ_W1_03                              = 消费上述六个槽位；不新增、不重声明
 P1_T01_CONTRACT_RETROACTIVELY_EXPANDED = NO
 NORMATIVE_BEHAVIOUR_CHANGED            = NO
