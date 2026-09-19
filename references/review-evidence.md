@@ -378,6 +378,70 @@ UTF-16 码元匹配，Python 按码点匹配，故对**含 U+FFFF 以上码点�
 oracle 矩阵逐值核对（含星面码点取值），mismatch = 0。新增 pattern 若
 使用受码元计数影响的构造（例如 `.` 或对可匹配星面码点的类施加有界量词），必须连带复核本条。
 
+## 9.6 P1-T05 三轴核验处置（行为 owner：P1-T05；不重声明闭合集）
+
+本 CLI 在 §9 的 `validate` / `collect` 之外新增 `verify` 子命令，承载 P1-T05 拥有的**三轴核验行为与处置**。本节写的是**处置规则**，不是字段名或闭合集——三轴字段名与闭合值域的唯一声明点仍是 §3 / §4，本票只**引用**，不重声明（CE-30）。
+
+### 9.6.1 `verify` argv surface（只在此声明一次）
+
+```text
+review_evidence.py verify  --pack PATH [--schema PATH]
+```
+
+`verify` 的判定顺序：先跑 §8 第 0–5 步的结构层（复用 `validate_pack`）；结构不合法则原样回显结构违规并退出码 1，**不进入处置**。结构合法后才调用 `evidence_disposition(pack, schema)` 得出三轴处置结论。
+
+### 9.6.2 处置规则（P1-T05 行为；值域引用 §4）
+
+`evidence_disposition` 把三轴取值与 CI 观测事实消费为"是否允许 PASS"的结论；三条轴**互不折叠**，并以如下规则处置：
+
+```text
+允许 PASS  当且仅当：结构轴 = 是  且  来源轴 = 已核验  且  充分性轴 = 充分
+                    且  CI 已观测（run 非空）且 originalState = PASS
+                    且  全部 artifacts[] 的 contentDigest 合法
+                    且  全部 checks[].artifactRefs 都能在 artifacts[] 解析
+
+阻断 PASS（且不互相冒充）的情形（reason 码）：
+- 结构轴 != 是                          STRUCTURALLY_VALID_NO
+- 来源轴取值越出 §4 闭合域（轴坍缩；
+  例如把充分性轴的"不充分"值误置到来源轴）   AXIS_COLLAPSE
+- 来源轴 = 作废                          SOURCE_INVALID
+- 来源轴 = 临时不可达                    SOURCE_TEMPORARILY_UNAVAILABLE
+                                        （保留原值，绝不改写为"作废"）
+- 来源轴 = 未核验                        SOURCE_NOT_VERIFIED
+- 充分性轴 = 不充分                      EVIDENCE_INSUFFICIENT
+                                        （与"已核验"是合法组合，非矛盾；阻断但不报轴坍缩）
+- CI run 为空（未观测到 CI）            CI_NOT_OBSERVED
+- CI originalState != PASS              CI_NOT_PASS
+- artifact contentDigest 形状非法        DIGEST_MALFORMED
+- check 引用的 artifact 不在 artifacts[] MISSING_ARTIFACT
+```
+
+要点（与 §2 / §4 一致，本票只把它落成行为，不发明新的状态机族）：
+
+- `已核验 + 不充分` 是**合法且必须被接受的组合**，仅因充分性不足而阻断 PASS，绝不被判为矛盾，也绝不报 AXIS_COLLAPSE。
+- `临时不可达` 与 `作废` **两个成员各自独立、各自可表示**；处置只记录 `SOURCE_TEMPORARILY_UNAVAILABLE`，**从不改写为** `SOURCE_INVALID`（不可达 ≠ 已作废）。
+- `不充分` **只属于**充分性轴；它出现在来源轴即 AXIS_COLLAPSE，是轴坍缩，不是合法来源取值。
+- CI 的 `originalState` 沿用 §4 的既有七值集（本合同按引用采纳，不改动）；`verify` **不**发明第二个竞争性 CI 状态机，也**不**把 `NOT_TRIGGERED` / `UNKNOWN` / `SKIPPED` / 已知基线失败 等任何非 PASS 状态折叠成 PASS。
+- 退出码**跟随真实处置**，不跟随结构合法性：一个结构合法但 `未核验` / `不充分` 的包退出码为 1（不是 0）。`validate` 与 `verify` 的退出码语义不同——前者仅回答结构/形状，后者回答三轴处置。
+
+### 9.6.3 处置结论形状（只在此声明一次）
+
+```json
+{
+  "tool": "review_evidence",
+  "contractVersion": "REVIEW_EVIDENCE_CONTRACT_V1",
+  "mode": "verify",
+  "structurallyValid": true,
+  "disposition": {
+    "passAllowed": true,
+    "findings": [],
+    "originalSourceState": "VERIFIED"
+  }
+}
+```
+
+`disposition.originalSourceState` **原样回显**包自己声明的来源轴取值（含 `临时不可达`），处置过程绝不改写它；`findings` 为空表示允许 PASS。
+
 ## 10. 消费方（只引用，不复制）
 
 ```text
