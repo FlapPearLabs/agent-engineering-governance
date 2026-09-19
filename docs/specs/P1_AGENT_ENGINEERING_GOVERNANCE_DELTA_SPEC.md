@@ -15,9 +15,10 @@ ZHIHU_REPO           = FlapPearLabs/zhihu-grabber-toolkit
 ZHIHU_ROLE           = EVIDENCE_SOURCE_REPO（只读，本 Spec 不修改其任何文件或状态）
 BASE_SHA             = 0ba2c7351d45dba1459a391b0d43e418ecf55280
 BASELINE_DRIFT       = NONE（远端 main == 本地 HEAD == BASE_SHA；open PRs = 0）
-PRIOR_REVIEWED_SHA   = 3803518a3c6c40578a6e31a69be95bd4fb7de1fd（repaired: F-A1/A2/A3，见 §16.8）
+PRIOR_REVIEWED_SHA   = 60209cdaf2beeaa718fadcc4028a41c2f0f07db1（repaired: ROUND 5 owner 裁定 + 同根一致性修复，见 §16.9）
 REPAIR_HISTORY       = 458ed253 → 7d4887b6 (F1–F6) → c7de399/83b714c (R1–R4)
-                       → 3803518a (M1–M3) → 本轮 (F-A1/A2/A3)
+                       → 3803518a (M1–M3) → 60209cd (F-A1/A2/A3)
+                       → 本轮 ROUND 5（owner 裁定 R5 + R5-1/R5-2 同根一致性修复）
 ```
 
 ## 0. 阅读契约与证据纪律
@@ -1303,9 +1304,10 @@ open PRs               = 0
 ```text
 ROLE                     = SPEC_AUTHOR
 ADDITIONAL_ARCHITECT_EXPERT = NONE（未调用新架构专家重议已收敛问题）
-REPAIR_ROUND             = 4（F-A1/A2/A3；ROUND 1 = F1–F6，ROUND 2 = R1–R4，ROUND 3 = M1–M3）
+REPAIR_ROUND             = 5（owner 裁定 R5：`TEST_ONLY_CALLERS` 非 canonical 槽位；
+                            ROUND 1 = F1–F6，ROUND 2 = R1–R4，ROUND 3 = M1–M3，ROUND 4 = F-A1/A2/A3）
 ARCHITECTURE_REOPEN      = NO（ARCHITECTURE_REVIEW = PASS）
-REPAIR_SCOPE             = F-A1 + DIRECT SAME-ROOT CONSISTENCY ONLY
+REPAIR_SCOPE             = ROUND 5 owner 裁定 + DIRECT SAME-ROOT CONSISTENCY ONLY（含同根修复 R5-1 引用可解析性、R5-2 轮次账本登记）
 FILES_CHANGED             = docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md（唯一）
 IMPLEMENTATION_FILES      = NONE（AGENTS.md / BOOTSTRAP_CONTRACT.md / validate_governance.py /
                             references/* 均为被纳入 Spec 的未来实现面，本轮未修改）
@@ -1315,7 +1317,7 @@ ISSUE_9                   = OPEN（未关闭）
 TICKETS_CREATED           = NONE
 MERGED                    = NO
 SPEC_REVIEW               = PENDING_FINDING_SCOPED_RE_REVIEW
-NEXT                      = CHATGPT_F-A1_EXACT_SHA_RE_REVIEW
+NEXT                      = INDEPENDENT_EXACT_SHA_RE_REVIEW_ROUND_5
 ```
 
 ---
@@ -1328,7 +1330,8 @@ NEXT                      = CHATGPT_F-A1_EXACT_SHA_RE_REVIEW
 ROUND 1（F1–F6）   reviewed SHA 458ed253 → 修复 SHA 7d4887b6
 ROUND 2（R1–R4）   reviewed SHA 7d4887b6 → 修复 SHA c7de399 + 83b714c
 ROUND 3（M1–M3）   reviewed SHA 83b714c2 → 修复 SHA 3803518a
-ROUND 4（F-A1/A2/A3） reviewed SHA 3803518a → 本文件当前内容（见 §16.8）
+ROUND 4（F-A1/A2/A3） reviewed SHA 3803518a → 修复 SHA 60209cd
+ROUND 5（OWNER 裁定 R5 + 同根一致性修复 R5-1/R5-2） reviewed SHA 60209cd → 本文件当前内容（见 §16.9）
 ```
 
 每轮均为**评审后修复**：`SPEC_REVIEW = CHANGES_REQUESTED`，`REVIEW_SCOPE = FINDING_SCOPED_DELTA_ONLY`。**仅修改本文件**，append-only 新 commit，无 amend / rebase / force push，同一 feature branch。**修复不构成批准**；修复后新 SHA 必须重新走独立 exact-SHA review（`RULES.md` R5）。
@@ -1710,10 +1713,14 @@ UNRESOLVED-09  AGENTS.md §10 最终采用 pointer（A）还是显式 derived su
               两条硬约束，具体句式留待 S1 按 owner 决定。
 ```
 
-#### 16.8.6 ROUND 5 — owner 裁定：`TEST_ONLY_CALLERS` 不是 canonical 槽位
+### 16.9 ROUND 5 — OWNER 裁定 + 同根一致性修复
+
+> 本节是 ROUND 5 的规范记录。触发是 owner 对 `TEST_ONLY_CALLERS` 命名的裁定；收敛范围限于该裁定本身及其**同根一致性**后果（R5-1 引用可解析性、R5-2 轮次账本登记），不扩张到已通过的其它面。
+
+#### 16.9.1 OWNER 裁定：`TEST_ONLY_CALLERS` 不是 canonical 槽位
 
 本节裁定由 project owner 作出，用于关闭 §16.8.4 记录为"未处理"的 `TEST_ONLY_CALLERS` 命名歧义
-（即 `REQ-W1-03` 的引用清单渲染为七个名字、而 `REQ-W1-01` 落地分区声明为六个名字的 6-vs-7 分歧）。
+（即 `REQ-W1-03` 的引用清单**曾**渲染为七个名字、而 `REQ-W1-01` 落地分区声明为六个名字的 6-vs-7 分歧）。
 
 ```text
 TEST_ONLY_CALLERS_STATUS               = DERIVED_DIAGNOSTIC_NOT_CANONICAL_SLOT
@@ -1733,6 +1740,21 @@ NORMATIVE_BEHAVIOUR_CHANGED            = NO
 - `TEST_ONLY_CALLERS` **可以**作为**派生 / 诊断证据**使用（用于展示"存在测试调用者、但不存在生产调用者"），但**不得**成为：第二个规范声明点；新的 canonical observation 槽位；与 `REQ-W1-01` 并存的重复 owner；或追溯扩张已完成的 P1-T01 合同的理由。
 - **行为要求不变**：仅测试调用者**不得**满足生产 reachability。该行为仍由既有 canonical 事实证明——`PRODUCTION_CALLERS`、`RUNTIME_REACHABLE`、`REAL_ENTRYPOINT`、`PRODUCTION_CALL_CHAIN`——外加常规测试 / 评审证据。
 - 本裁定是**澄清**：不改变验收语义、不改变接口所有权、不改变已批准阶段顺序、不新增 AC family、不新增 authority 层。
-- 受影响合同面已同步：`REQ-W1-03` 的引用清单已收敛为六个槽位；`P1-T03`/Issue #17 的草稿合同按其 `TICKET_CONFORMANCE_REVIEW = PENDING` 状态在同一裁定下校正。
+- 受影响合同面：`REQ-W1-03` 的引用清单已在本 ROUND 5 内收敛为六个槽位。`P1-T03`/Issue #17 的草稿合同**仍渲染七个名字**；其校正**尚未实施**，须在本裁定获批后，按该票 `TICKET_CONFORMANCE_REVIEW = PENDING` / `IMPLEMENTATION_AUTHORIZED = NO` 的状态实施 —— 属 #17 自身的一致性条件，**不属**本 Spec 变更的完成条件。
+
+#### 16.9.2 ROUND 5 同根一致性修复登记
+
+```text
+R5-1  引用可解析性   REQ-W1-03 清单与 §16.9.1 对 `references/ticket-lane.md` 的引用，
+                     改为具名落地点（§3.1 分区 (1)/(2)，§3.1.1/§3.1.2 由 P1-T01 落地于 main），
+                     并声明本 Spec 分支的 `references/` 快照可能早于该落地。
+                     原因：原引用在本 Spec 分支自身树内不可解析（该分支无 §3.1 节）。
+R5-2  轮次账本登记   补登 §0 头部、§15、§16.0 三处轮次账本，并把 ROUND 5 提为独立
+                     `### 16.9`（原为嵌在 `### 16.8 ROUND 4` 内的 16.8.6）。
+                     原因：追加提交后 §16.0 的 ROUND 4 行仍称"本文件当前内容"，
+                     该陈述变为假；且 ROUND 5 未被任何账本记录。
+```
+
+两项均为**同根一致性**修复：不改变任何槽位集、验收语义、接口所有权或阶段顺序。
 
 轮 1–3 的 `UNRESOLVED-01`..`08` 继续有效（合计 `UNRESOLVED-01`..`09`）。**均不阻塞 Spec 审查**：均为实现期/部署期变量，非 Spec 层权威冲突，且全部 fail-closed 处理。
