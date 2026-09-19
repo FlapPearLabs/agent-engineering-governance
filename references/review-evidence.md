@@ -35,8 +35,8 @@ scripts/review_evidence.py             薄 collect / validate CLI（消费同一
 P1-T04（本接口）    声明字段名、闭合集与机器形状。不实现任何行为。
 P1-T05            消费三条评估轴，拥有其**核验行为与处置**；该行为在 §9.6 声明
                   （P1-T05 的行为段），第 3–4 节的字段合同不定义它。
-P1-T06            拥有信任边界（取回 / 网络 / 文件系统权威）。本文件只声明
-                  `commandRef` / `artifacts[].location` 是**声明**而非授权。
+P1-T06            拥有信任边界（取回 / 网络 / 文件系统权威）的行为，在 §9.7 声明。
+                  本文件只声明 `commandRef` / `artifacts[].location` 是**声明**而非授权。
 P1-T07            拥有 `semanticScopeStatus` / `reviewerDecisionRefs` 的**权威与写入语义**。
                   本文件只声明这两个字段名与机器形状：谁可写入、consumer 可推导什么，
                   由 P1-T07 定义。
@@ -185,8 +185,9 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                           （同样用于一切结构/形状违规）
 ```
 
-`REJECT` 附带机器可读的 `reason`，使子类可区分；四类 `reason` 分开（**结构**与**不充分**永不混同；
-**结构**与**处置**亦互不相交，后者的唯一声明点是 §9.6.2）：
+`REJECT` 附带机器可读的 `reason`，使子类可区分；五类 `reason` 分开（**结构**与**不充分**永不混同；
+**结构**与**处置**亦互不相交，后者的唯一声明点是 §9.6.2；**处置**与**边界**同样互不相交，
+后者的唯一声明点是 §9.7.2）：
 
 ```text
 结构类（schema 层，判定包内容）  PACK_ABSENT / PACK_NOT_JSON / PACK_NOT_AN_OBJECT /
@@ -203,6 +204,8 @@ REJECT                    STRUCTURALLY_VALID = NO → 不进入消费
                                  SCHEMA_UNAVAILABLE / OUTPUT_NOT_WRITABLE
 处置类（P1-T05 行为层，判定包内容）
                                  只声明于 §9.6.2；与上述三类互不相交
+边界类（P1-T06 行为层，判定包内容）
+                                 只声明于 §9.7.2；与上述四类互不相交
 ```
 
 `SCHEMA_KEYWORD_UNSUPPORTED` 同时承载**声明 pattern 不可求值**这一情形（§9.5）：合同使用本 CLI
@@ -395,7 +398,8 @@ P1-T05 拥有的**三轴核验行为与处置**折叠进既有的 `validate` 流
 
 ```text
 contract load → pack parse → version → structure → subject 期望/绑定
-             → 声明的结构轴 → P1-T05 三轴处置 → 结构化输出 → 退出码
+             → 声明的结构轴 → P1-T05 三轴处置 → P1-T06 信任 / 取回边界
+             → 结构化输出 → 退出码
 ```
 
 处置**只在**结构层（§8 第 0–5 步，含 §9.1 的 subject 期望完整性与绑定比较）**全部通过之后**运行：任何更早的失败原样回显其违规、**不产出任何处置条目**（§9.6.3），**不进入处置**。因此 `repo` / `baseSha` / `candidateSha` 任一不符的包**永不**到达行为层 PASS，`STRUCTURALLY_VALID = NO` 的包同样如此。`evidence_disposition(pack, schema)` 是这一行为的内部入口（行为助手，**不是**公开子命令，也不构成第二个 CLI / 输出权威）。
@@ -460,6 +464,59 @@ contract load → pack parse → version → structure → subject 期望/绑定
   不存在任何处置条目：更早的失败先到先得（§9.6.1）。
 - 处置记录**原样回显**包自己声明的来源轴取值（含 `临时不可达`），处置过程绝不改写它。
 - 本段只承载**机器事实**：它绝不写入 / 升格 `semanticScopeStatus` 与 `reviewerDecisionRefs`（那两个字段的权威属 P1-T07，§3.1）。
+
+## 9.7 P1-T06 证据生产者信任 / 取回边界（行为 owner：P1-T06；不重声明值域）
+
+本节把父规范 `REQ-W2-02` 与 `REQ-W2-04(d)` 的信任 / 取回边界落成**行为**：证据是**数据**，永远不是可执行权威，
+也不是取回授权（`INV-15` / `CE-25`）。它**不**声明任何字段名、闭合集或位置值域——`artifacts[].location` 的声明域
+仍是 §3 / schema 的唯一声明点——只声明"哪些取回被允许、哪些被拒绝"。
+
+### 9.7.1 在判定顺序中的位置（不在本文件别处重复）
+
+P1-T06 阶段的位置由 §9.6.1 的**同一行**顺序声明，本票只在该行末尾追加一个阶段
+（`→ P1-T06 信任 / 取回边界`），不另立第二份顺序。因此边界**只在**结构层与 subject 层全部通过之后运行：
+更早的失败原样回显，不产出任何边界条目；`--allow-placeholders` 是唯一例外，同样不运行边界
+（占位符形态模板不是对一个具体候选的主张）。
+
+### 9.7.2 取回判定（可机械判定；只在此声明一次）
+
+```text
+可取回对象   artifacts[].location 是唯一的**可取回声明**；
+             checks[].commandRef 只是溯源记录，**永不**是取回对象，也**永不**被执行
+             （拒绝码 EVIDENCE_REFERENCE_IS_DATA：它没有执行路径可走）
+允许取回     repo 相对路径：解析后仍位于仓根边界内（含符号链接解析，越出即拒）
+             CI artifact 标识：经**既有** provider 接口取回（本合同不自建 provider / 不自建网络客户端）
+拒绝取回     arbitrary URL（scheme 形式的位置声明）        → ARBITRARY_URL_RETRIEVAL
+             绝对路径 / 父目录逃逸 / 越出仓根 / 非字符串 / 空串 → PATH_VIOLATION
+来源不可用   合法声明但无可用来源（未给 provider / 仓内不存在 / 读取失败）→ RETRIEVAL_UNAVAILABLE
+             （**不是**越界违规，也**不**改写任何轴取值，更不冒充 `INVALID`）
+```
+
+- 判定是**先于任何 I/O** 的**纯决策**：先判决，再决定是否读取；被拒绝的位置**永不**被打开、请求**永不**发出。
+- 本 CLI **没有**任何进程执行能力与任何网络能力：`commandRef` 在任何路径上都不被解释为"待做动作"。
+  取回本身只发生在单一入口 `retrieve_artifact(reference, reference_kind=…, root=…, provider=…)` 上，
+  由 `location_retrieval_violation(location, root=…)` 这一同一判决函数守门；`validate` 只调用该判决函数
+  （`evidence_boundary_findings(pack, root=…)`），**不**在验证路径上做任何文件读取。
+- `RETRIEVAL_BOUNDARY_REASONS = EVIDENCE_REFERENCE_IS_DATA | ARBITRARY_URL_RETRIEVAL | PATH_VIOLATION`；
+  `RETRIEVAL_UNAVAILABLE` **不在**该集合内（不可用不是越界）。
+
+### 9.7.3 失败关闭与"不得过度封锁"（`AC-24` – `AC-27`）
+
+```text
+越界位置        → REJECT（PATH_VIOLATION / ARBITRARY_URL_RETRIEVAL），阻断 PASS
+合法 repo 相对路径 → 仍取回成功（正向对照，`AC-27`）
+授权 CI artifact 标识 → 经既有 provider 接口仍取回成功
+```
+
+边界只**加拒绝**、不**加封锁**：合法的 repo 相对路径与经授权的 CI artifact 标识必须照常成功，否则该边界
+就把合法取回一并封锁。边界条目走 §9.3 既有的 `violations` 清单（不新增信封键），其 reason 与结构类 /
+声明类 / 调用类（§8）以及 §9.6.2 的处置码**互不相交**，故三层失败永不互相冒充。
+
+### 9.7.4 本边界不改变字段合同，也不新增模式
+
+`artifacts[].location` 的声明域与 `commandRef` 的声明语义仍由第 3 节 / schema 声明一次（P1-T04），本节只实现
+消费它们的行为；公开 argv surface 恒为 §9.1 的 `collect` / `validate` 两个模式，**不**因本票新增第三个模式，
+也**不**新增任何信封键。
 
 ## 10. 消费方（只引用，不复制）
 
