@@ -25,8 +25,10 @@ Trust boundary (REQ-W2-04(d)), all four are hard constraints:
 What this script deliberately does NOT do (owned by other tickets): declare the
 three-axis closed sets (they stay owned by the contract and by
 references/review-evidence.md; this consumer reads their value domains out of
-the loaded contract), define the trust boundary (P1-T06), define who may write
-the reviewer authority fields (P1-T07), implement the reuse-descriptor lifecycle
+the loaded contract), declare the `artifacts[].location` domain or the
+`commandRef` semantics (P1-T04 -- this script only implements the BEHAVIOUR
+that consumes them, see the P1-T06 boundary below), define who may write the
+reviewer authority fields (P1-T07), implement the reuse-descriptor lifecycle
 (P1-T08), or verify the CLI entry points themselves (P1-T16).
 
 The three-axis verification BEHAVIOUR is P1-T05's, and it is folded into the
@@ -862,6 +864,198 @@ def evidence_disposition(pack, schema=None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# P1-T06 evidence producer trust / retrieval boundary (behaviour owner: P1-T06)
+# ---------------------------------------------------------------------------
+#
+# Evidence is DATA, never an executable or retrieval authority (REQ-W2-02 /
+# REQ-W2-04(d), INV-15, CE-25). The rules below are the mechanical form of
+# references/review-evidence.md section 9.7; the location domain they consume
+# stays declared once by P1-T04 (section 3 / the schema) and is deliberately
+# NOT re-declared here.
+#
+# This module has no execution capability and no network capability of any
+# kind: there is no operator and no library here that could run a command or
+# open a connection, so a boundary violation cannot leak a side effect even if
+# one were somehow accepted. The boundary is therefore a pure DECISION taken
+# before any filesystem access.
+
+# The two declared reference slots. Only `artifacts[].location` is a retrieval
+# declaration; `checks[].commandRef` is a traceability record and is never an
+# object of retrieval or execution.
+ARTIFACT_LOCATION_REFERENCE = "artifacts[].location"
+COMMAND_REFERENCE = "checks[].commandRef"
+
+# P1-T06's own failure vocabulary. Kept disjoint from the structural reasons,
+# the declared error semantics (section 8) and the P1-T05 disposition codes
+# (section 9.6.2) so no layer can alias another.
+RETRIEVAL_BOUNDARY_REASONS = (
+    "EVIDENCE_REFERENCE_IS_DATA",
+    "ARBITRARY_URL_RETRIEVAL",
+    "PATH_VIOLATION",
+)
+
+# A legal declaration whose source could not supply it (no provider was
+# supplied, or the repository does not hold it). This is NOT an out-of-bounds
+# violation and NOT a rewrite of any axis value: it is a non-retrieval.
+RETRIEVAL_UNAVAILABLE = "RETRIEVAL_UNAVAILABLE"
+
+# An arbitrary-URL declaration: a scheme followed by an authority (`://`) or by
+# a rooted path (`scheme:/...`, which covers `file:/...`). A CI artifact
+# identifier such as `ci-artifacts:build-42/report.txt` does NOT match, because
+# no separator follows its colon -- the rule must not over-block a legal form.
+_URL_DECLARATION = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*:(//)?/")
+_WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+_PATH_SEPARATOR_TRANSLATION = str.maketrans({"\\": "/"})
+
+
+def location_retrieval_violation(location, root=None) -> str | None:
+    """Why this declared location may not be retrieved, or None when it may.
+
+    Decided BEFORE any I/O: a violating location is never opened and never
+    requested. The accepted set is exactly the one the owner declares -- a
+    repository-relative path that stays inside the repository boundary, or a CI
+    artifact identifier resolved through the existing provider interface. Every
+    other form (an arbitrary URL, an absolute path, a parent-directory escape,
+    a non-string) fails closed.
+
+    `root` anchors the repository boundary; when it is supplied the location is
+    also resolved and required to stay within it, so a symlink that leaves the
+    repository is refused too.
+    """
+    if not isinstance(location, str) or not location.strip() or "\x00" in location:
+        # Not a location declaration at all: no shape is invented for it here.
+        return "PATH_VIOLATION"
+    if _WINDOWS_DRIVE_PATH.match(location) or location.startswith("\\\\"):
+        return "PATH_VIOLATION"
+    if _URL_DECLARATION.match(location):
+        return "ARBITRARY_URL_RETRIEVAL"
+    if location.startswith("/"):
+        return "PATH_VIOLATION"
+    depth = 0
+    for segment in location.translate(_PATH_SEPARATOR_TRANSLATION).split("/"):
+        if segment in ("", "."):
+            continue
+        if segment == "..":
+            depth -= 1
+            if depth < 0:
+                # The walk left the repository root: a parent-directory escape.
+                return "PATH_VIOLATION"
+        else:
+            depth += 1
+    if root is not None:
+        anchor = Path(root).resolve()
+        try:
+            candidate = (anchor / location).resolve()
+        except (OSError, ValueError, RuntimeError):
+            return "PATH_VIOLATION"
+        if candidate != anchor and anchor not in candidate.parents:
+            return "PATH_VIOLATION"
+    return None
+
+
+def _retrieval_outcome(reference, reason: str, detail: str) -> dict:
+    return {"retrieved": False, "reason": reason, "content": None,
+            "reference": reference, "detail": detail}
+
+
+def retrieve_artifact(reference, *, reference_kind=ARTIFACT_LOCATION_REFERENCE,
+                      root=None, provider=None) -> dict:
+    """The single gated retrieval entry point of the evidence pipeline.
+
+    Returns {"retrieved", "reason", "content", "reference", "detail"}.
+
+    Refusal is decided first, so nothing outside the boundary is ever touched.
+    Inside the boundary a repository-relative path is read from the repository;
+    anything else is handed to the caller-supplied provider, i.e. the EXISTING
+    CI provider interface -- this module builds no provider and no network
+    client, so an unreachable identifier is a non-retrieval rather than a
+    fabricated success or an out-of-bounds verdict.
+    """
+    if reference_kind != ARTIFACT_LOCATION_REFERENCE:
+        # A commandRef (or any other declaration) is data and provenance: it is
+        # never an object of retrieval, and there is no execution path to take.
+        return _retrieval_outcome(
+            reference, "EVIDENCE_REFERENCE_IS_DATA",
+            f"{reference_kind} is a declaration and provenance record, never a "
+            "retrieval or execution authorisation")
+
+    violation = location_retrieval_violation(reference, root=root)
+    if violation is not None:
+        return _retrieval_outcome(
+            reference, violation,
+            "the declared location is outside the accepted retrieval set; no "
+            "path was opened and no request was made")
+
+    if root is not None:
+        anchor = Path(root).resolve()
+        candidate = anchor / reference
+        try:
+            if candidate.is_file():
+                resolved = candidate.resolve()
+                if resolved != anchor and anchor not in resolved.parents:
+                    # A symlink inside the repository pointing outside it.
+                    return _retrieval_outcome(
+                        reference, "PATH_VIOLATION",
+                        "the location resolves outside the repository boundary")
+                return {"retrieved": True, "reason": None,
+                        "content": resolved.read_bytes(),
+                        "reference": reference,
+                        "detail": "retrieved as a repository-relative path"}
+        except OSError as exc:
+            return _retrieval_outcome(
+                reference, RETRIEVAL_UNAVAILABLE,
+                f"the repository-relative location could not be read: "
+                f"{type(exc).__name__}")
+
+    if provider is None:
+        return _retrieval_outcome(
+            reference, RETRIEVAL_UNAVAILABLE,
+            "no repository-relative artifact and no CI provider was supplied, "
+            "so this declaration cannot be retrieved")
+    try:
+        content = provider(reference)
+    except Exception:  # noqa: BLE001 - an unavailable provider is not a pass
+        return _retrieval_outcome(
+            reference, RETRIEVAL_UNAVAILABLE,
+            "the CI provider interface could not supply this identifier")
+    if content is None:
+        return _retrieval_outcome(
+            reference, RETRIEVAL_UNAVAILABLE,
+            "the CI provider interface returned no content for this identifier")
+    return {"retrieved": True, "reason": None, "content": content,
+            "reference": reference,
+            "detail": "retrieved through the CI provider interface"}
+
+
+def evidence_boundary_findings(pack, root=None) -> list:
+    """P1-T06 boundary findings for every declared `artifacts[].location`.
+
+    A declaration is not a retrieval authorisation (REQ-W2-04(b)): a location
+    outside the accepted set blocks PASS and is reported as a boundary
+    violation. The findings ride the declared `violations` list (owner section
+    9.3) under P1-T06 reason codes, so no envelope key is added.
+    """
+    if not isinstance(pack, dict):
+        return []
+    artifacts = pack.get("artifacts")
+    if not isinstance(artifacts, list):
+        return []
+    findings: list = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        location = artifact.get("location")
+        violation = location_retrieval_violation(location, root=root)
+        if violation is not None:
+            findings.append(_violation(
+                "REJECT", violation, "$.artifacts[].location",
+                f"the declared location {location!r} is outside the accepted "
+                "retrieval set; a location declaration is never a network or "
+                "filesystem authorisation"))
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # collect: thin, non-authoritative, local inputs only
 # ---------------------------------------------------------------------------
 
@@ -1069,23 +1263,26 @@ def main(argv=None) -> int:
                     # candidate and therefore declares no target subject.
                     require_expected_subject=not args.allow_placeholders)
 
-        # The P1-T05 behaviour, folded into the frozen order AFTER the declared
+        # The behaviour stage, folded into the frozen order AFTER the declared
         # structural axis: contract load -> pack parse -> version -> structure ->
-        # subject expectation/binding -> declared structural axis -> disposition.
-        # A pack that failed any earlier step never reaches the disposition, so
-        # a wrong repo / baseSha / candidateSha can never reach behavioural PASS.
-        # The verdict is reported through the declared `violations` list under
-        # the P1-T05 reason codes (owner section 9.6.3): the envelope keeps the
-        # shape P1-T04 declares, with a single failure list.
+        # subject expectation/binding -> declared structural axis -> P1-T05
+        # three-axis disposition -> P1-T06 retrieval boundary. A pack that failed
+        # any earlier step never reaches behaviour, so a wrong repo / baseSha /
+        # candidateSha can never reach behavioural PASS, and a boundary check can
+        # never be reported for a pack that never became consumable.
+        # Both verdicts are reported through the declared `violations` list (owner
+        # sections 9.6.3 / 9.7): the envelope keeps the shape P1-T04 declares,
+        # with a single failure list and disjoint reason vocabularies.
         if result["ok"] and not args.allow_placeholders:
             disposition = evidence_disposition(pack, schema=contract["schema"])
-            if not disposition["passAllowed"]:
+            boundary = evidence_boundary_findings(pack, root=ROOT)
+            findings = disposition["findings"] + boundary
+            if findings:
                 # The final disposition is the one that decides the exit status:
-                # a structurally valid, subject-bound pack whose axes block PASS
-                # is a failure of this command.
+                # a structurally valid, subject-bound pack whose axes or whose
+                # declared locations block PASS is a failure of this command.
                 result = {"ok": False,
-                          "violations": result["violations"]
-                          + disposition["findings"],
+                          "violations": result["violations"] + findings,
                           "schemaVersion": result["schemaVersion"]}
 
         _emit(_envelope("validate", result, contract))
