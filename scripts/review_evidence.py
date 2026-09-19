@@ -5,8 +5,10 @@ The single semantic detail owner of the Review Evidence interface is
 references/review-evidence.md. This script is its thin mechanical consumer:
 
   validate  check a pack against the frozen machine contract
-            (schemas/review-evidence.schema.json) and against the candidate
-            the caller says is under review
+            (schemas/review-evidence.schema.json), against the candidate the
+            caller says is under review, and -- once the structural and subject
+            steps have both succeeded -- against the P1-T05 three-axis
+            verification disposition
   collect   emit a schema-conforming, NON-AUTHORITATIVE skeleton assembled
             only from values the caller passes on the command line
 
@@ -20,14 +22,22 @@ Trust boundary (REQ-W2-04(d)), all four are hard constraints:
   * the machine pack never self-approves a reviewer verdict: the reviewer
     authority fields stay empty, and neither axis success is asserted here
 
-What this script deliberately does NOT do (owned by other tickets): decide the
-three-axis verification behaviour or its disposition (P1-T05), define the trust
-boundary (P1-T06), define who may write the reviewer authority fields
-(P1-T07), implement the reuse-descriptor lifecycle (P1-T08), or verify the CLI
-entry points themselves (P1-T16).
+What this script deliberately does NOT do (owned by other tickets): declare the
+three-axis closed sets (they stay owned by the contract and by
+references/review-evidence.md; this consumer reads their value domains out of
+the loaded contract), define the trust boundary (P1-T06), define who may write
+the reviewer authority fields (P1-T07), implement the reuse-descriptor lifecycle
+(P1-T08), or verify the CLI entry points themselves (P1-T16).
+
+The three-axis verification BEHAVIOUR is P1-T05's, and it is folded into the
+existing `validate` flow: the public CLI has exactly two modes, `collect` and
+`validate`. Inside `validate` the disposition runs only after structural
+validation AND the subject expectation/binding step have both succeeded, and the
+exit status follows the genuine final disposition.
 
 Exit status contract (declared once, in references/review-evidence.md):
-  0  every check passed
+  0  validate: every check passed AND the final P1-T05 disposition allows PASS
+     collect : the skeleton conforms and was written where the caller asked
   1  any failure; a machine-readable failure envelope is still printed on
      standard output
   0  for --help (argument parsing reports usage itself, on standard error)
@@ -258,18 +268,29 @@ def pattern_matches(pattern: str, value: str) -> bool:
 
 def pattern_construct_problems(schema: dict) -> list:
     """Declared `pattern` texts this consumer cannot evaluate with ECMA-262
-    meaning, so that an unusable contract is refused as a whole."""
+    meaning, so that an unusable contract is refused as a whole.
+
+    A `pattern` that is not even a string declares no evaluable domain at all,
+    and is refused here for the same reason: the alternative is a raw
+    `TypeError` out of the regex engine, which no declared failure path may
+    produce (section 9.2).
+    """
     problems: list = []
 
     def walk(node, path: str) -> None:
         if not isinstance(node, dict):
             return
-        declared = node.get("pattern")
-        if isinstance(declared, str):
-            try:
-                _compile_ecma262(declared)
-            except UnsupportedPatternConstruct as exc:
-                problems.append(f"{path}.pattern uses {exc}")
+        if "pattern" in node:
+            declared = node["pattern"]
+            if not isinstance(declared, str):
+                problems.append(
+                    f"{path}.pattern is not a pattern string (found "
+                    f"{_type_name(declared)})")
+            else:
+                try:
+                    _compile_ecma262(declared)
+                except UnsupportedPatternConstruct as exc:
+                    problems.append(f"{path}.pattern uses {exc}")
         for key in ("properties", "$defs"):
             value = node.get(key)
             if isinstance(value, dict):
@@ -612,11 +633,11 @@ def validate_pack(pack, schema: dict | None = None, expect_repo=None,
 # (schemas/review-evidence.schema.json / references/review-evidence.md §4).
 # This consumer reads each value domain from the loaded contract at runtime and
 # NEVER enumerates it: a competing enumeration would be a CE-28 / CE-30
-# violation and is rejected by the interface's own contract test (test_06).
-# The fallback below is therefore an empty domain: if a declared axis node is
-# somehow absent, the disposition fails closed (every value is out of domain)
-# instead of re-declaring the set.
-_DIGEST_PATTERN_FALLBACK = r"^[a-z0-9-]+:[0-9a-fA-F]{8,128}$"
+# violation. That applies to the digest domain too -- `artifacts[].contentDigest`
+# .pattern is read from the contract, and there is deliberately NO local
+# substitute for it. When the contract provides no usable pattern the
+# disposition fails closed (see DIGEST_PATTERN_UNAVAILABLE below) instead of
+# re-declaring the shape here.
 
 # Disposition `reason` codes. These are NOT structural reasons and NOT the
 # frozen error semantics of P1-T04: they are P1-T05's verification findings,
@@ -624,7 +645,7 @@ _DIGEST_PATTERN_FALLBACK = r"^[a-z0-9-]+:[0-9a-fA-F]{8,128}$"
 DISPOSITION_REASONS = (
     "STRUCTURALLY_VALID_NO", "AXIS_COLLAPSE",
     "EVIDENCE_INSUFFICIENT", "CI_NOT_OBSERVED", "CI_NOT_PASS",
-    "DIGEST_MALFORMED", "MISSING_ARTIFACT",
+    "DIGEST_MALFORMED", "MISSING_ARTIFACT", "DIGEST_PATTERN_UNAVAILABLE",
 )
 
 
@@ -654,6 +675,23 @@ def _contract_enum(schema, dotted):
     return set()
 
 
+def _usable_declared_pattern(declared) -> str | None:
+    """The contract's declared pattern text, or None when it is unusable.
+
+    "Usable" means a string this consumer can evaluate with ECMA-262 meaning
+    through the canonical evaluator (`pattern_matches`). There is no local
+    substitute for a pattern the contract does not provide: the caller fails
+    closed instead.
+    """
+    if not isinstance(declared, str):
+        return None
+    try:
+        _compile_ecma262(declared)
+    except UnsupportedPatternConstruct:
+        return None
+    return declared
+
+
 def evidence_disposition(pack, schema=None) -> dict:
     """P1-T05 three-axis verification disposition.
 
@@ -663,6 +701,12 @@ def evidence_disposition(pack, schema=None) -> dict:
     CONSUMER of the frozen closed sets: their value domains are read from the
     loaded contract, never re-declared here (CE-30). The disposition rules
     themselves are declared in references/review-evidence.md section 9.6.
+
+    The digest domain is consumed the same way: `artifacts[].contentDigest`
+    .pattern is read from the contract and evaluated through the canonical
+    ECMA-262 evaluator. When the contract provides no usable pattern the
+    disposition fails closed (DIGEST_PATTERN_UNAVAILABLE) rather than
+    substituting a locally declared shape.
 
     Returns a verdict dict:
         {
@@ -691,9 +735,8 @@ def evidence_disposition(pack, schema=None) -> dict:
         contract, "properties.EVIDENCE_SUFFICIENCY.enum")
     structural_values = _contract_enum(
         contract, "properties.STRUCTURALLY_VALID.enum")
-    digest_pattern_src = _contract_get(
-        contract, "properties.artifacts.items.properties.contentDigest.pattern")
-    digest_re = re.compile(digest_pattern_src or _DIGEST_PATTERN_FALLBACK)
+    digest_pattern = _usable_declared_pattern(_contract_get(
+        contract, "properties.artifacts.items.properties.contentDigest.pattern"))
 
     source_state = pack.get("SOURCE_VERIFICATION_STATE")
     sufficiency = pack.get("EVIDENCE_SUFFICIENCY")
@@ -770,16 +813,33 @@ def evidence_disposition(pack, schema=None) -> dict:
                                                     list) else []
     artifact_locations = {a.get("location") for a in artifacts
                           if isinstance(a, dict)}
-    for a in artifacts:
-        if not isinstance(a, dict):
-            continue
-        digest = a.get("contentDigest")
-        if not (isinstance(digest, str) and digest_re.match(digest)):
-            findings.append({
-                "code": "REJECT", "reason": "DIGEST_MALFORMED",
-                "path": "$.artifacts[].contentDigest",
-                "detail": f"artifact digest {digest!r} is not a valid "
-                          f"'algorithm:hex' form"})
+    if digest_pattern is None:
+        # The contract provides no digest domain this consumer can evaluate.
+        # Fail closed: the digest axis cannot be cleared, and substituting a
+        # locally remembered shape here would make this consumer a second
+        # declaration point for a closed set the contract owns (CE-28 / CE-30).
+        findings.append({
+            "code": "REJECT", "reason": "DIGEST_PATTERN_UNAVAILABLE",
+            "path": "$.artifacts[].contentDigest",
+            "detail": "the contract declares no contentDigest pattern this "
+                      "consumer can evaluate with ECMA-262 meaning, and no local "
+                      "substitute is permitted; the digest axis cannot be "
+                      "cleared, so PASS is blocked"})
+    else:
+        for a in artifacts:
+            if not isinstance(a, dict):
+                continue
+            digest = a.get("contentDigest")
+            # The declared pattern is evaluated by the canonical ECMA-262
+            # evaluator: a second, Python-native regex path would answer
+            # differently for the same declared pattern and value.
+            if not (isinstance(digest, str)
+                    and pattern_matches(digest_pattern, digest)):
+                findings.append({
+                    "code": "REJECT", "reason": "DIGEST_MALFORMED",
+                    "path": "$.artifacts[].contentDigest",
+                    "detail": f"artifact digest {digest!r} is not a valid "
+                              f"'algorithm:hex' form"})
 
     # Every check's artifactRefs must resolve to a declared artifact.
     checks = pack.get("checks") if isinstance(pack.get("checks"), list) else []
@@ -915,11 +975,6 @@ def build_parser() -> argparse.ArgumentParser:
                         help="ISO-8601 UTC timestamp; defaults to now")
     gather.add_argument("--schema", default=None)
 
-    verify_mode = sub.add_parser(
-        "verify", help="P1-T05 three-axis verification disposition of a pack")
-    verify_mode.add_argument("--pack", required=True,
-                             help="path to the pack to disposition")
-    verify_mode.add_argument("--schema", default=None)
     return parser
 
 
@@ -940,7 +995,9 @@ def _envelope(mode: str, result: dict, contract: dict,
         "violations": result["violations"],
         # Declared once in the owner, section 9.3. The keys are emitted on every
         # path so the envelope SHAPE never varies; only the values do, and only
-        # `collect` ever populates them.
+        # `collect` ever populates them. The P1-T05 disposition result travels
+        # inside `violations` (owner section 9.6.3) rather than in a new
+        # envelope key, so the declared envelope shape stays single-owned.
         "skeleton": skeleton,
         "skeletonPath": skeleton_path,
     }
@@ -987,6 +1044,7 @@ def main(argv=None) -> int:
 
     if args.mode == "validate":
         pack_path = Path(args.pack)
+        pack = None
         if not pack_path.is_file():
             result = {"ok": False, "violations": [_violation(
                 "REJECT", "PACK_ABSENT", "$.pack",
@@ -995,6 +1053,7 @@ def main(argv=None) -> int:
             try:
                 pack = json.loads(pack_path.read_text(encoding="utf-8"))
             except Exception:  # noqa: BLE001 - a malformed pack is a finding
+                pack = None
                 result = {"ok": False, "violations": [_violation(
                     "REJECT", "PACK_NOT_JSON", "$.pack",
                     "the pack is not parseable as JSON")]}
@@ -1009,43 +1068,28 @@ def main(argv=None) -> int:
                     # placeholder-form template is not a claim about a concrete
                     # candidate and therefore declares no target subject.
                     require_expected_subject=not args.allow_placeholders)
+
+        # The P1-T05 behaviour, folded into the frozen order AFTER the declared
+        # structural axis: contract load -> pack parse -> version -> structure ->
+        # subject expectation/binding -> declared structural axis -> disposition.
+        # A pack that failed any earlier step never reaches the disposition, so
+        # a wrong repo / baseSha / candidateSha can never reach behavioural PASS.
+        # The verdict is reported through the declared `violations` list under
+        # the P1-T05 reason codes (owner section 9.6.3): the envelope keeps the
+        # shape P1-T04 declares, with a single failure list.
+        if result["ok"] and not args.allow_placeholders:
+            disposition = evidence_disposition(pack, schema=contract["schema"])
+            if not disposition["passAllowed"]:
+                # The final disposition is the one that decides the exit status:
+                # a structurally valid, subject-bound pack whose axes block PASS
+                # is a failure of this command.
+                result = {"ok": False,
+                          "violations": result["violations"]
+                          + disposition["findings"],
+                          "schemaVersion": result["schemaVersion"]}
+
         _emit(_envelope("validate", result, contract))
         return 0 if result["ok"] else 1
-
-    if args.mode == "verify":
-        pack_path = Path(args.pack)
-        if not pack_path.is_file():
-            result = {"ok": False, "violations": [_violation(
-                "REJECT", "PACK_ABSENT", "$.pack",
-                f"no pack at {args.pack}")]}
-            _emit(_envelope("verify", result, contract))
-            return 1
-        try:
-            pack = json.loads(pack_path.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001 - a malformed pack is a finding
-            result = {"ok": False, "violations": [_violation(
-                "REJECT", "PACK_NOT_JSON", "$.pack",
-                "the pack is not parseable as JSON")]}
-            _emit(_envelope("verify", result, contract))
-            return 1
-        structural = validate_pack(pack, schema=contract["schema"])
-        if not structural["ok"]:
-            # A pack that is not structurally valid never reaches disposition;
-            # its structural violations are reported verbatim.
-            _emit(_envelope("verify", structural, contract))
-            return 1
-        verdict = evidence_disposition(pack, schema=contract["schema"])
-        payload = {
-            "tool": TOOL,
-            "contractVersion": CONTRACT_VERSION,
-            "mode": "verify",
-            "structurallyValid": True,
-            "disposition": verdict,
-        }
-        _emit(payload)
-        # The exit code tracks the GENUINE disposition, not schema validity:
-        # a schema-valid but NOT_VERIFIED / INSUFFICIENT pack must not exit 0.
-        return 0 if verdict["passAllowed"] else 1
 
     skeleton = collect_skeleton(
         repo=args.repo, base_sha=args.base_sha, candidate_sha=args.candidate_sha,
