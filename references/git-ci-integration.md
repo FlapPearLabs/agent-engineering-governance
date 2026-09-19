@@ -84,3 +84,37 @@ N/A-PATH              N/A 票不通过本条证据路径关闭，仍须满足 RE
 ```
 
 - 关闭结论绑定 exact SHA（§5 上文）：`RUNTIME_REACHABLE = TRUE` 必须有真实入口、调用链与已观测效果；`FALSE` 必须附显式的集成未完成声明。仅测试调用者永不满足生产 reachability。
+
+### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）
+
+本节是 destructive workspace transaction recipe（`DESTRUCTIVE_WORKSPACE_TRANSACTION`）的**唯一规范声明点**：canonical owner = 本文件（`references/git-ci-integration.md`）。其它 surface 只指针 / 链接、不重复定义该 recipe（CE-28）；唯一声明点规则本身按引用取自 `references/ticket-lane.md` §3.1，此处不重述其定义。consumer = 执行破坏性工作区动作的 ticket worker 与 reviewer。
+
+适用面**仅限破坏性动作**（会丢弃工作区状态的动作：`clean` / `reset` / 强推前分支清理 / `stash drop` / 删除未评审产物等）；非破坏性的读取、构建与普通提交不触发本节。
+
+有序事务（**顺序不可交换、不可跳步**）：
+
+```text
+status -> uncommitted / untracked / owner -> preserve -> operate -> post-state
+```
+
+- 逐步语义：`status` 读现场事实；`uncommitted / untracked / owner` 步识别未提交修改、未跟踪产物**及其 owner**（属于哪个 lane / 哪个任务）；`preserve` 保全；`operate` 执行动作；`post-state` 记录操作后的状态。
+- **基线优先**：破坏性动作**优先**在一个独立、干净的 worktree 上建立基线（preferred baseline = independent clean worktree），它不是唯一合法形态；不得在未识别未提交 / 未跟踪产物的现场直接执行破坏性动作。
+- **lane 隔离**：**绝不**触碰其它 lane 的工作——其它 lane 的 worktree / branch / 未提交产物 / 未跟踪产物都不在本事务的操作面内；跨 lane 清理 = 越权，直接拒绝。
+- **tracked 修改**：`preserve` 步骤**不得静默丢失 tracked 修改**；发生即 reject，不是 warning，也不得降级为提示。
+- **untracked 产物**：`preserve` 步骤**不得静默丢失 untracked 产物**；发生即 reject，不是 warning，也不得降级为提示。
+- **post-state 是事务的一部分**：破坏性操作若没有记录 `post-state`，该事务**无效**（invalid），不得据此声明操作完成。
+- **不建立全局 stash 禁令**：本 recipe 不构成 blanket / global stash prohibition，且在其它 surface 上也不得被读成一条通用禁令。
+- **底层因果按事实记录、不推广**：被记录下来的真实失效原因是 `NEEDS_PRIMARY_EVIDENCE_RECOVERY`（primary-evidence recovery need）；该因果只作为**记录**存在，不升格为规则（父 Spec §4.3 的对应 non-decision = `REJECTED_WITH_REASON`）。
+
+状态合同与错误语义：
+
+```text
+LEGAL    destructive action with a recorded pre-state + preserved set + recorded post-state
+ILLEGAL  destructive action without preservation
+ILLEGAL  destructive action without a post-state record
+ILLEGAL  blanket / global stash prohibition presented as a rule
+CE-16    preservation loses a tracked modification or an untracked artefact -> REJECT
+CE-28    the recipe is declared in a second canonical file (dual owner) -> REJECT and converge
+```
+
+- 本小节与 §5.1 的集成关闭证据互不重叠：§5.1 的字段与规则由 P1-T03 拥有，本节不重述、不改写，只在其之外新增破坏性工作区事务的适用面、有序步骤与状态合同。
