@@ -269,8 +269,10 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 完全不声明（三者都不给）  → 不构成一次 subject 一致性判定 → REJECT（SUBJECT_EXPECTATION_ABSENT）
 只声明一部分              → 请求本身不完整（会只强制 subject 的一部分）→ REJECT（SUBJECT_EXPECTATION_INCOMPLETE）
 占位符模式 --allow-placeholders
-                        → **唯一**声明的例外（§7）：占位符形态模板不是对一个具体候选的主张，
-                          故无需目标 subject；该模式下的通过**不**构成 AC-06 的 subject 强制
+                        → subject 强制规则上**唯一**声明的例外（§7）：占位符形态模板不是对一个具体候选的
+                          主张，故无需目标 subject；该模式下的通过**不**构成 AC-06 的 subject 强制。
+                          该豁免**只**覆盖本条 subject 规则与 §9.6 的 P1-T05 处置，
+                          **不**覆盖 §9.7 的 P1-T06 取回边界（其边界语义只声明于 §9.7.1 / §9.7.2）
 ```
 
 该规则属判定顺序第 4 步（§8）；第 0–3 步先到先得，因此合同不可用、包缺失/不可解析、版本未知或结构违规时先报那些失败。
@@ -404,7 +406,7 @@ contract load → pack parse → version → structure → subject 期望/绑定
 
 处置**只在**结构层（§8 第 0–5 步，含 §9.1 的 subject 期望完整性与绑定比较）**全部通过之后**运行：任何更早的失败原样回显其违规、**不产出任何处置条目**（§9.6.3），**不进入处置**。因此 `repo` / `baseSha` / `candidateSha` 任一不符的包**永不**到达行为层 PASS，`STRUCTURALLY_VALID = NO` 的包同样如此。`evidence_disposition(pack, schema)` 是这一行为的内部入口（行为助手，**不是**公开子命令，也不构成第二个 CLI / 输出权威）。
 
-`--allow-placeholders` 是**唯一**声明的例外，且**不运行**处置（§7：占位符形态模板不是对一个具体候选的主张）：该模式下退出码只由结构层决定，也不产出任何处置条目。
+`--allow-placeholders` 是**唯一**声明的例外，且只豁免**处置**（§7：占位符形态模板不是对一个具体候选的主张）：该模式**不运行** P1-T05 三轴处置，也不产出任何处置条目；但**不豁免** P1-T06 的取回边界（§9.7.1），故该模式下的退出码由结构层**与边界**共同决定。
 
 ### 9.6.2 处置规则（P1-T05 行为；值域引用 §4）
 
@@ -475,8 +477,12 @@ contract load → pack parse → version → structure → subject 期望/绑定
 
 P1-T06 阶段的位置由 §9.6.1 的**同一行**顺序声明，本票只在该行末尾追加一个阶段
 （`→ P1-T06 信任 / 取回边界`），不另立第二份顺序。因此边界**只在**结构层与 subject 层全部通过之后运行：
-更早的失败原样回显，不产出任何边界条目；`--allow-placeholders` 是唯一例外，同样不运行边界
-（占位符形态模板不是对一个具体候选的主张）。
+更早的失败原样回显，不产出任何边界条目。
+
+边界**没有**占位符例外：`--allow-placeholders` 只豁免 §9.6 的 P1-T05 三轴处置，P1-T06 的取回边界在**每一个**
+`validate` 模式下都运行。该豁免既无声明依据（§8 的 `ERROR_SEMANTICS` 与 `AC-26` 都是无条件的），也无必要：
+模板自身的占位符值 `${REPO_RELATIVE_PATH_OR_CI_ARTIFACT_ID}` 不含分隔符、本就不匹配任何拒绝形态，
+故它照常通过边界而不需要任何豁免。
 
 ### 9.7.2 取回判定（可机械判定；只在此声明一次）
 
@@ -484,9 +490,18 @@ P1-T06 阶段的位置由 §9.6.1 的**同一行**顺序声明，本票只在该
 可取回对象   artifacts[].location 是唯一的**可取回声明**；
              checks[].commandRef 只是溯源记录，**永不**是取回对象，也**永不**被执行
              （拒绝码 EVIDENCE_REFERENCE_IS_DATA：它没有执行路径可走）
+声明规范化   判定前先规范化：声明一律按 str.strip() 后的文本比较（整串，含全部形态测试）
+             前导 / 尾随空白**不是**隐藏点：URL 解析器同样先剥离空白再解析 scheme，
+             故"未规范化"的判定会把解析器看得见、判定却看不见的声明判为合法——这是 fail-open
 允许取回     repo 相对路径：解析后仍位于仓根边界内（含符号链接解析，越出即拒）
-             CI artifact 标识：经**既有** provider 接口取回（本合同不自建 provider / 不自建网络客户端）
+             声明的 CI artifact 标识：形如 `<scheme>:<identifier>`，其中 scheme 属于已声明的
+             闭合集 CI_ARTIFACT_IDENTIFIER_SCHEMES = ci-artifacts | artifacts
+             （比较按 scheme 语法的既有大小写不敏感语义），经**既有** provider 接口取回
+             （本合同不自建 provider / 不自建网络客户端）；带不带 `/` 是同一形态的两种拼写
 拒绝取回     arbitrary URL（scheme 形式的位置声明）        → ARBITRARY_URL_RETRIEVAL
+             scheme 形式 = ^[A-Za-z][A-Za-z0-9+.\-]*: 的声明。**拒绝是默认**：除上述闭合集外的
+             任何 scheme（http / https / ftp / file / data / ws / …）一律拒绝，
+             且**不要求**冒号后是 `//` 或 `/`——`http:host/x` 与 `http://host/x` 是同一个 URL
              绝对路径 / 父目录逃逸 / 越出仓根 / 非字符串 / 空串 → PATH_VIOLATION
 来源不可用   合法声明但无可用来源（未给 provider / 仓内不存在 / 读取失败）→ RETRIEVAL_UNAVAILABLE
              （**不是**越界违规，也**不**改写任何轴取值，更不冒充 `INVALID`）
@@ -497,6 +512,11 @@ P1-T06 阶段的位置由 §9.6.1 的**同一行**顺序声明，本票只在该
   取回本身只发生在单一入口 `retrieve_artifact(reference, reference_kind=…, root=…, provider=…)` 上，
   由 `location_retrieval_violation(location, root=…)` 这一同一判决函数守门；`validate` 只调用该判决函数
   （`evidence_boundary_findings(pack, root=…)`），**不**在验证路径上做任何文件读取。
+  规范化只由该判决函数一侧的 `normalised_location(location)` 施加，判定与被取回 / 被交付给 provider 的
+  文本因此恒为同一串，判决与动作不可能分歧。
+- `CI_ARTIFACT_IDENTIFIER_SCHEMES = ci-artifacts | artifacts` 是 scheme 分类判别的**唯一声明点**（本段）；
+  CLI 中的同名常量是它的机械形态，**不**构成第二处声明点，也**不**是 `artifacts[].location` 的值域声明
+  （该值域仍只由 §3 / schema 声明）。除该闭合集外的任何 scheme 都**不在**允许集内——"不在允许集 ⇒ 拒绝"。
 - `RETRIEVAL_BOUNDARY_REASONS = EVIDENCE_REFERENCE_IS_DATA | ARBITRARY_URL_RETRIEVAL | PATH_VIOLATION`；
   `RETRIEVAL_UNAVAILABLE` **不在**该集合内（不可用不是越界）。
 

@@ -899,13 +899,58 @@ RETRIEVAL_BOUNDARY_REASONS = (
 # violation and NOT a rewrite of any axis value: it is a non-retrieval.
 RETRIEVAL_UNAVAILABLE = "RETRIEVAL_UNAVAILABLE"
 
-# An arbitrary-URL declaration: a scheme followed by an authority (`://`) or by
-# a rooted path (`scheme:/...`, which covers `file:/...`). A CI artifact
-# identifier such as `ci-artifacts:build-42/report.txt` does NOT match, because
-# no separator follows its colon -- the rule must not over-block a legal form.
-_URL_DECLARATION = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*:(//)?/")
+# The declared closed set of CI artifact identifier schemes: the ONLY
+# scheme-form declarations that are legitimately resolved through the
+# caller-supplied provider. Declared once, in the P1-T06 behaviour owner
+# (references/review-evidence.md section 9.7.2), which is also the sole
+# declaration point of the boundary class; this constant is its mechanical
+# form, exactly as the reason codes above are. It is not a value domain of
+# `artifacts[].location` -- that stays P1-T04's -- only the boundary's own
+# list of resolvable declaration forms.
+CI_ARTIFACT_IDENTIFIER_SCHEMES = ("ci-artifacts", "artifacts")
+
+# A scheme-form declaration, per the scheme grammar of the URL standard:
+# `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":"`. Refusal is the DEFAULT --
+# a scheme is accepted only when the owner declares it as a CI artifact
+# identifier form. Detection deliberately does NOT require a `//` or a `/`
+# after the colon: the WHATWG URL parser resolves `http:evil.example/x`
+# exactly like `http://evil.example/x`, so a positional separator test would
+# accept a genuine URL as if it were a repository-relative path.
+_SCHEME_DECLARATION = re.compile(r"^([A-Za-z][A-Za-z0-9+.\-]*):")
 _WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 _PATH_SEPARATOR_TRANSLATION = str.maketrans({"\\": "/"})
+
+
+def normalised_location(location):
+    """The declaration as the boundary compares it: whitespace-stripped text.
+
+    A URL parser strips leading and trailing whitespace before it resolves a
+    scheme, so a boundary that compared the raw string would let padding hide
+    a declaration from the decision while the parser still saw it. The same
+    normalised text is what the retrieval entry point then opens or hands to
+    the provider, so the decision and the action can never disagree.
+
+    Returns None for anything that is not a string.
+    """
+    if not isinstance(location, str):
+        return None
+    return location.strip()
+
+
+def _scheme_violation(text: str) -> str | None:
+    """Why this scheme-form declaration may not be retrieved, or None.
+
+    A declaration that carries no scheme is none of this rule's business. A
+    declaration whose scheme the owner declares as a CI artifact identifier
+    form is resolved through the caller-supplied provider. EVERY other scheme
+    is an arbitrary URL and is refused.
+    """
+    match = _SCHEME_DECLARATION.match(text)
+    if match is None:
+        return None
+    if match.group(1).lower() in CI_ARTIFACT_IDENTIFIER_SCHEMES:
+        return None
+    return "ARBITRARY_URL_RETRIEVAL"
 
 
 def location_retrieval_violation(location, root=None) -> str | None:
@@ -913,26 +958,31 @@ def location_retrieval_violation(location, root=None) -> str | None:
 
     Decided BEFORE any I/O: a violating location is never opened and never
     requested. The accepted set is exactly the one the owner declares -- a
-    repository-relative path that stays inside the repository boundary, or a CI
-    artifact identifier resolved through the existing provider interface. Every
-    other form (an arbitrary URL, an absolute path, a parent-directory escape,
-    a non-string) fails closed.
+    repository-relative path that stays inside the repository boundary, or a
+    CI artifact identifier resolved through the existing provider interface.
+    Every other form (a scheme-form URL, an absolute path, a parent-directory
+    escape, a non-string) fails closed.
+
+    Every shape test runs against the NORMALISED declaration, so whitespace
+    can neither hide a scheme nor smuggle an out-of-bounds path past the gate.
 
     `root` anchors the repository boundary; when it is supplied the location is
     also resolved and required to stay within it, so a symlink that leaves the
     repository is refused too.
     """
-    if not isinstance(location, str) or not location.strip() or "\x00" in location:
+    text = normalised_location(location)
+    if text is None or not text or "\x00" in text:
         # Not a location declaration at all: no shape is invented for it here.
         return "PATH_VIOLATION"
-    if _WINDOWS_DRIVE_PATH.match(location) or location.startswith("\\\\"):
+    if _WINDOWS_DRIVE_PATH.match(text) or text.startswith("\\\\"):
         return "PATH_VIOLATION"
-    if _URL_DECLARATION.match(location):
-        return "ARBITRARY_URL_RETRIEVAL"
-    if location.startswith("/"):
+    violation = _scheme_violation(text)
+    if violation is not None:
+        return violation
+    if text.startswith("/"):
         return "PATH_VIOLATION"
     depth = 0
-    for segment in location.translate(_PATH_SEPARATOR_TRANSLATION).split("/"):
+    for segment in text.translate(_PATH_SEPARATOR_TRANSLATION).split("/"):
         if segment in ("", "."):
             continue
         if segment == "..":
@@ -945,7 +995,7 @@ def location_retrieval_violation(location, root=None) -> str | None:
     if root is not None:
         anchor = Path(root).resolve()
         try:
-            candidate = (anchor / location).resolve()
+            candidate = (anchor / text).resolve()
         except (OSError, ValueError, RuntimeError):
             return "PATH_VIOLATION"
         if candidate != anchor and anchor not in candidate.parents:
@@ -986,9 +1036,14 @@ def retrieve_artifact(reference, *, reference_kind=ARTIFACT_LOCATION_REFERENCE,
             "the declared location is outside the accepted retrieval set; no "
             "path was opened and no request was made")
 
+    # The gate above accepted this declaration, so it is a non-empty string.
+    # The SAME normalisation the gate decided on is what is opened or handed
+    # to the provider: the decision and the action cannot disagree.
+    text = normalised_location(reference)
+
     if root is not None:
         anchor = Path(root).resolve()
-        candidate = anchor / reference
+        candidate = anchor / text
         try:
             if candidate.is_file():
                 resolved = candidate.resolve()
@@ -1013,7 +1068,7 @@ def retrieve_artifact(reference, *, reference_kind=ARTIFACT_LOCATION_REFERENCE,
             "no repository-relative artifact and no CI provider was supplied, "
             "so this declaration cannot be retrieved")
     try:
-        content = provider(reference)
+        content = provider(text)
     except Exception:  # noqa: BLE001 - an unavailable provider is not a pass
         return _retrieval_outcome(
             reference, RETRIEVAL_UNAVAILABLE,
@@ -1270,13 +1325,19 @@ def main(argv=None) -> int:
         # any earlier step never reaches behaviour, so a wrong repo / baseSha /
         # candidateSha can never reach behavioural PASS, and a boundary check can
         # never be reported for a pack that never became consumable.
+        # P1-T06's boundary is UNCONDITIONAL: the declared error semantics carry
+        # no placeholder carve-out, and the template's own placeholder value
+        # passes the boundary anyway. `--allow-placeholders` therefore exempts
+        # ONLY the P1-T05 three-axis disposition (section 7), never the retrieval
+        # boundary (owner section 9.7.1).
         # Both verdicts are reported through the declared `violations` list (owner
         # sections 9.6.3 / 9.7): the envelope keeps the shape P1-T04 declares,
         # with a single failure list and disjoint reason vocabularies.
-        if result["ok"] and not args.allow_placeholders:
-            disposition = evidence_disposition(pack, schema=contract["schema"])
-            boundary = evidence_boundary_findings(pack, root=ROOT)
-            findings = disposition["findings"] + boundary
+        if result["ok"]:
+            findings = evidence_boundary_findings(pack, root=ROOT)
+            if not args.allow_placeholders:
+                disposition = evidence_disposition(pack, schema=contract["schema"])
+                findings = disposition["findings"] + findings
             if findings:
                 # The final disposition is the one that decides the exit status:
                 # a structurally valid, subject-bound pack whose axes or whose
