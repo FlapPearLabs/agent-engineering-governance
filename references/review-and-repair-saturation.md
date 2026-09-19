@@ -138,3 +138,82 @@ CE-28-D  REJECT     同一规则在两个 canonical 文件各有一份定义（�
 指针纪律    其它 canonical surface 只引用 / 链接该接口；重复定义 → 拒绝并收敛回单一 owner
 消费方纪律  消费方不得自带局部副本替代 canonical 声明（第二声明点 = CE-28 违约）
 ```
+
+## 7. 审计可见性 recipe（按需；`REQ-W4-02a` / `AC-13` / `AC-38`）
+
+本节是**追加**：owner 范围是**审计可见性 recipe 本身** —— 一个审计 / 外审 reviewer 在给出结论前，
+必须先声明它**实际看到了什么证据**。本节**不重述** §6 的证据消费与 reviewer 权威分离规则
+（§6 仍是其唯一声明点），也**不重声明** Review Evidence 接口的字段名与闭合集
+（该接口的唯一声明点见 `references/review-evidence.md`）。
+
+### 7.1 适用方式（按需）
+
+```text
+AUDIT_VISIBILITY_RECIPE            = ON_DEMAND
+RECIPE_MANDATORY_PER_TICKET        = NO
+VISIBILITY_DOMAIN                  = SEEN | PARTIAL | NOT_SEEN | UNCERTAIN
+COMPLETENESS_OUTPUTS               = CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT, FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS
+COMPLETENESS_OUTPUTS_COLLAPSIBLE   = NO
+```
+
+本 recipe **按需（on demand）** 应用：仅在审计 / 外审 / gate 需要重建"reviewer 到底看到了什么"时启用。
+它**不是**每票强制的字段集 —— 常规票不因此新增必填字段，§5 的报告模板也不因此变成全量字段清单。
+把本 recipe 当成本票强制字段集，与其按需语义不符。
+
+### 7.2 字段组（按需）
+
+```text
+evidence               实际读取到的证据对象（引用 / 标识）
+requested SHA          本次结论所针对的 exact SHA
+actually read scope    实际读取到的范围（文件 / 提交 / 区间 / 产物）
+visibility             取值域 SEEN | PARTIAL | NOT_SEEN | UNCERTAIN
+supports               该证据支持了什么
+missing                缺失 / 不可见的部分
+verdict impact         缺失对结论的限制
+recovery artifact      可恢复该证据的产物或复现路径；无则 NONE
+```
+
+### 7.3 可见性取值域
+
+```text
+SEEN        证据被直接读取并核验
+PARTIAL     只读取到部分范围（范围被裁剪 / 截断 / 仅抽样）
+NOT_SEEN    外审 primary 证据不可见 / 不存在 / 无法取回
+UNCERTAIN   读取到了内容，但无法判断是否覆盖所需范围
+```
+
+### 7.4 两个 completeness 输出（分别产出）
+
+```text
+CONTEXT_COMPLETENESS_FOR_DECISION_AUDIT   上下文是否足以支撑本次裁决的审计
+FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS   完整历史 transcript 是否可得
+```
+
+二者回答两个**不同**的问题：前者关乎"这次裁决的上下文够不够审计"，后者关乎"完整历史是否在手"。
+两者必须**分别产出**；**禁止**把二者合并为一个 completeness 标志位，也**禁止**以其中一个代替另一个
+（合并 = 一条输出冒充两条）。
+
+### 7.5 有界结论规则与失败语义
+
+```text
+CE-15-A  FORBIDDEN  外审 primary 不可见（visibility 为 NOT_SEEN）时仍声明完整 / 无限定结论
+CE-15-B  REQUIRED   证据不足以支撑完整结论时，结论必须限定（bounded）或返回 MORE_EVIDENCE_REQUIRED
+CE-15-C  REQUIRED   两个 completeness 输出必须分别产出，不得由一个标志位替代
+CE-15-D  REQUIRED   缺 visibility 陈述时结论不可审计（NOT_AUDITABLE）
+CE-15-E  FORBIDDEN  把两个 completeness 输出合并为一个 completeness 标志位
+CE-28-E  OWNER      本 recipe 的唯一 canonical owner 是 references/review-and-repair-saturation.md
+CE-28-F  POINTER    其它 surface（含证据接口）只引用 / 链接本 recipe，不重复定义
+```
+
+```text
+NOT_SEEN + 完整结论        -> REJECT，或降级为 MORE_EVIDENCE_REQUIRED
+缺 visibility 陈述         -> NOT_AUDITABLE（不得作为 PASS 依据）
+两个 completeness 输出合并 -> REJECT
+```
+
+### 7.6 与 §6 及证据接口的边界
+
+- **纯追加**：本节的规则 ID 与 §6 的规则 ID 不相交；§6 的消费规则与 reviewer 权威分离语义
+  仍只在 §6 声明，本节不复制、不弱化、不改写。
+- **只引用不重定义**：`references/review-evidence.md` 只引用 / 链接本 recipe，不重复定义它；
+  本 recipe 同样不重声明该接口的字段名、闭合集与机器形状。
