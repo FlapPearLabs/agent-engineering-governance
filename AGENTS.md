@@ -136,5 +136,5 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 ## 10. BOOTSTRAP（如何被新会话看到）
 
 - 唯一已证实的自动全局注入通道 = `~/.workbuddy/MEMORY.md` 头部（**实测截断点 byte 4028**）。
-- 引导机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针（候选文本 `deployment/MEMORY_POINTER_CANDIDATE.md`，≤3,500 字符）+ 会话开工 BOOTSTRAP 清单（读治理 canonical + 发现并读取仓内 AGENTS/RULES + 应用 AUTHORITY_MAP_V2 冲突算法）+ `scripts/validate_governance.py` 自检。
+- 引导机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针（候选文本 `deployment/MEMORY_POINTER_CANDIDATE.md`；该指针的**预算值、单位、profile 区分与 override 语义由 `deployment/BOOTSTRAP_CONTRACT.md` §2.1 单点拥有，本节只作指针、不重述、不构成第二预算 authority**）+ 会话开工 BOOTSTRAP 清单（读治理 canonical + 发现并读取仓内 AGENTS/RULES + 应用 AUTHORITY_MAP_V2 冲突算法）+ `scripts/validate_governance.py` 自检。
 - 显式声明：WorkBuddy **不自动加载**项目 AGENTS.md/RULES.md（无证据支持自动加载；本合同以清单步骤补足）。

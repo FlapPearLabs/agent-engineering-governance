@@ -9,7 +9,7 @@ all checks PASS; never hard-code an expected number in documentation):
   - markdown internal links resolve; JSON examples parse
   - two-tier secret scan (R2): credentials/local identity banned everywhere,
     machine-specific facts only in designated deployment files
-  - MEMORY pointer candidate within injection budget
+  - MEMORY pointer candidate within its UTF-8 byte budget
   - no unrelated-platform shell requirements in RULES/AGENTS
   - references declare canonical owners; skills guide carries V1 fields
   - canonical MCP set unchanged; agent-mail not canonical; connectors != MCP
@@ -151,6 +151,29 @@ def ticket_gate_wiring(root: Path) -> list[str]:
     return missing
 
 
+# MEMORY pointer budget. The VALUE and UNIT are owned by
+# `deployment/BOOTSTRAP_CONTRACT.md` section 2.1 -- this module only CONSUMES
+# the frozen value, so the budget keeps exactly one semantic owner.
+WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500
+
+
+def memory_pointer_body(text: str) -> str:
+    """Scored body of the pointer candidate: its longest fenced block."""
+    blocks = re.findall(r"```(?:markdown)?\n(.*?)```", text, re.S)
+    return max(blocks, key=len) if blocks else text
+
+
+def memory_pointer_within_budget(body: str) -> tuple[bool, int]:
+    """Authorising measurement of the pointer body: UTF-8 ENCODED BYTES.
+
+    Characters are NOT the unit. 1400 CJK characters are 1400 characters but
+    4200 UTF-8 bytes -- past the observed 4028-byte truncation point -- so a
+    character condition authorises a body the host will truncate.
+    """
+    n = len(body.encode("utf-8"))
+    return n <= WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES, n
+
+
 def main() -> int:
     # 1. required files
     missing = [f for f in REQUIRED_FILES if not (ROOT / f).is_file()]
@@ -227,14 +250,13 @@ def main() -> int:
         check("head-commit-metadata-is-public-project-identity", True,
               "no git metadata available (non-repo checkout)")
 
-    # 5. MEMORY pointer budget
+    # 5. MEMORY pointer budget (UTF-8 encoded bytes; contract = BOOTSTRAP_CONTRACT 2.1)
     pointer = ROOT / "deployment/MEMORY_POINTER_CANDIDATE.md"
     if pointer.is_file():
-        text = pointer.read_text(encoding="utf-8")
-        blocks = re.findall(r"```(?:markdown)?\n(.*?)```", text, re.S)
-        body = max(blocks, key=len) if blocks else text
-        n = len(body)
-        check("memory-pointer-within-budget", n <= 3500, f"chars={n} (budget 3500)")
+        body = memory_pointer_body(pointer.read_text(encoding="utf-8"))
+        within, n = memory_pointer_within_budget(body)
+        check("memory-pointer-within-budget", within,
+              f"bytes={n} (budget {WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES})")
     else:
         check("memory-pointer-within-budget", False, "pointer file missing")
 
