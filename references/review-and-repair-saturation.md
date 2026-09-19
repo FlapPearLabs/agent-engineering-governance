@@ -199,7 +199,7 @@ FULL_HISTORICAL_TRANSCRIPT_COMPLETENESS   完整历史 transcript 是否可得
 CE-15-A  FORBIDDEN  外审 primary 不可见（visibility 为 NOT_SEEN）时仍声明完整 / 无限定结论
 CE-15-B  REQUIRED   证据不足以支撑完整结论时，结论必须限定（bounded）或返回 MORE_EVIDENCE_REQUIRED
 CE-15-C  REQUIRED   两个 completeness 输出必须分别产出，不得由一个标志位替代
-CE-15-D  REQUIRED   缺 visibility 陈述时结论不可审计（NOT_AUDITABLE）
+CE-15-D  REQUIRED   启用本 recipe 时，缺 visibility 陈述的结论不可审计（NOT_AUDITABLE）
 CE-15-E  FORBIDDEN  把两个 completeness 输出合并为一个 completeness 标志位
 CE-28-E  OWNER      本 recipe 的唯一 canonical owner 是 references/review-and-repair-saturation.md
 CE-28-F  POINTER    其它 surface（含证据接口）只引用 / 链接本 recipe，不重复定义
@@ -207,9 +207,11 @@ CE-28-F  POINTER    其它 surface（含证据接口）只引用 / 链接本 rec
 
 ```text
 NOT_SEEN + 完整结论        -> REJECT，或降级为 MORE_EVIDENCE_REQUIRED
-缺 visibility 陈述         -> NOT_AUDITABLE（不得作为 PASS 依据）
+缺 visibility 陈述（已启用本 recipe）  -> NOT_AUDITABLE（不得作为 PASS 依据）
 两个 completeness 输出合并 -> REJECT
 ```
+
+**默认（未启用即惰性）**：一张**未启用本 recipe** 的常规票**不**因缺少 visibility 陈述而被渲染为 NOT_AUDITABLE —— 未启用时本 recipe 对结论不施加任何约束，上列 `CE-15-D` 与对应失败行只在**已启用本 recipe**时触发。
 
 ### 7.6 与 §6 及证据接口的边界
 
