@@ -4,7 +4,7 @@
 > 原则：只使用**已验证存在**的机制；不建框架；不假装自动加载。
 >
 > **验证状态（证据诚实拆分，R2 修复）**：
-> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（≤3,500 字符 vs 实测截断 4028）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 全部检查 PASS（以运行时输出为准）；GitHub Actions governance-ci 已接入且 green。
+> - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— 指针预算断言（`WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500` UTF-8 bytes vs 实测截断点 byte 4028，见 §2.1）通过；BOOTSTRAP_CHECKLIST B1–B5 成文；`scripts/validate_governance.py` 全部检查 PASS（以运行时输出为准）；GitHub Actions governance-ci 已接入且 green。
 > - `BOOTSTRAP_LIVE_VALIDATION = NOT_RUN` —— fresh neutral-session 验收（§3 协议）只能在受控部署（§2.1 前置条件满足）后执行；在部署完成前**不得**声称 runtime 验证通过，任何报告引用本合同时必须使用上述拆分字段。
 
 ## 1. 已验证的注入事实（2026-09-05 实测）
@@ -22,10 +22,41 @@
 
 ### 2.1 MEMORY 指针（自动可见层）
 
-- `deployment/MEMORY_POINTER_CANDIDATE.md` = 替换 `~/.workbuddy/MEMORY.md` 的候选全文，**≤3,500 字符**（预算 4,028 减安全余量）。
+- `deployment/MEMORY_POINTER_CANDIDATE.md` = 替换 `~/.workbuddy/MEMORY.md` 的候选全文，受下方**冻结的字节预算合同**约束（单位 = UTF-8 编码字节，不是字符数）。
 - 内容 = 治理仓指针 + 读取清单 + 4 条 B 层不变量摘要（即使后续加载全部失败，这 4 条也已随注入可见）。
 - **部署 = 把候选内容写入 `~/.workbuddy/MEMORY.md`**（一次性、可回滚：旧 MEMORY 原始备份 **local-only（Git 之外）**；治理仓 `deployment/archive/` 只收 **sanitized/redacted 迁移快照**——raw 归档默认不进 Git，提交前过 R2 第一层扫描 + redaction，命中即阻止）。旧 MEMORY 全部语义已迁移至本仓 canonical 文件，无信息丢失。
 - 部署前置条件（V1 定稿版）：治理核心已通过（`GOVERNANCE_CORE = PASS`）+ skills 获取指南按 V1 政策就绪（`skills/README.md`，SOURCE=UNKNOWN 不阻塞）+ product owner 对 live 部署的**显式授权**。本次 V1 finalization 不执行 live 部署。
+
+**冻结的预算合同（本节是本合同的唯一语义 owner：预算值、单位、profile 区分、override 语义与观测截断点区分只在此处声明；其他 surface 只引用不重述）**：
+
+```text
+NAME     WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES
+VALUE    3500
+UNIT     UTF-8 编码字节数（byte）—— 不是字符数（char），不是 code point 数
+SOURCE   WorkBuddy profile 安全预算（观测/profile 属性，不是规范常数；观测事实见 §1）
+SCOPE    仅在本 WorkBuddy profile 内有效；不是跨 runtime 通用常数
+OWNER    本节（deployment/BOOTSTRAP_CONTRACT.md）；scripts/validate_governance.py 只消费该值
+```
+
+**两个必须区分的量（不得互为定义）**：
+
+```text
+3500 bytes = 当前 WorkBuddy profile 的安全预算（BUDGET；主动留出的规范余量）
+4028 bytes = 历史观测到的实际注入截断点（TRUNCATION；被动观测边界，见 §1 实测事实）
+```
+
+`3500` 不是由 `4028` 推导出来的量，也不是「截断点减去某个隐含安全余量」的结果；两者性质不同：前者是主动的规范预算，后者是被动的观测边界。取 3500 只是为了不贴近该观测边界。
+
+**OVERRIDE / PROFILE 语义**：
+
+```text
+- 3500 是本 profile（WorkBuddy）的预算，不是跨 runtime 的普适常数。
+- 非默认 profile 若使用其自有预算，必须先有该 profile 自身的已核验观测，并
+  **显式记录 OVERRIDE（值 + 来源 + 观测依据）**；静默替换预算值 = 违规。
+- 无已核验 profile 时回落 3500（本 profile 值），并标注来源。
+```
+
+**单位一致性**：`scripts/validate_governance.py` 对指针正文的**授权测量**必须是 UTF-8 编码字节长度（`len(body.encode("utf-8"))`），不得使用字符长度；`AGENTS.md` §10 只作本篇的指针，不重述预算值。
 
 ### 2.2 会话开工清单（agent 执行，每工程会话一次）
 
@@ -43,7 +74,7 @@ B5 输出 3 行引导回执：GOVERNANCE_LOADED=... / REPO_AUTHORITY=... / OVERR
 
 ### 2.3 机械自检（治理仓 CI）
 
-`scripts/validate_governance.py`：canonical 文件存在性、markdown 链接、JSON 解析、secret/机器路径扫描、指针预算（≤3,500 字符）、平台标记、manifest 字段、canonical owner 声明、矛盾权威标记。push 前必跑。
+`scripts/validate_governance.py`：canonical 文件存在性、markdown 链接、JSON 解析、secret/机器路径扫描、指针预算（UTF-8 编码字节，判定 = §2.1）、平台标记、manifest 字段、canonical owner 声明、矛盾权威标记。push 前必跑。
 
 ## 3. Fresh-session 验证场景（部署后执行的验收协议）
 
