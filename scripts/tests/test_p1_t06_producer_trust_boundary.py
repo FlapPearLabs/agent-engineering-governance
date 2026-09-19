@@ -24,6 +24,19 @@ COUNTEREXAMPLE INPUTS (Ticket #21, CE-25 / CE-06)
            candidateSha is still rejected and never reaches behavioural PASS,
            so a trust-boundary change cannot buy a wrong-subject pack a PASS.
 
+REPAIR-ROUND COUNTEREXAMPLES (Issue #21, review of the first candidate)
+    F-1  a scheme-form location whose declaration carries no `//` or `/` after
+         the colon (`http:host/x`) or whose padding hides the scheme from the
+         boundary (` http://host/x`, `\\thttp://host/x`): the WHATWG URL parser
+         strips that whitespace and resolves the scheme anyway, so refusal must
+         not depend on either the separator or the unstripped string.
+    F-2  the same predicate must keep accepting the declared positive CI
+         artifact identifier form, including the rooted `scheme:/path` spelling
+         (`ci-artifacts:/build-42/report.txt`): the boundary must not over-block.
+    F-3  `--allow-placeholders` must not switch the retrieval boundary off: the
+         declared error semantics carry no placeholder carve-out, and the
+         template's own placeholder value passes the boundary without one.
+
 EXPECTED_RED_CONDITION (before implementation, on the unmodified base)
     No boundary exists, so an escaping path, an absolute path and a URL-carried
     location are all ACCEPTED by `validate` (exit 0, ok=true), the retrieval
@@ -223,19 +236,35 @@ class ProducerTrustBoundaryTests(unittest.TestCase):
     def codes(self, payload: dict) -> set:
         return {v["code"] for v in payload["violations"]}
 
-    def validate_in_process(self, pack: dict, *extra_args) -> dict:
+    def validate_in_process(self, pack: dict, *extra_args,
+                            expect_subject=True) -> dict:
         """Drive the public CLI in process and return the emitted envelope."""
         module = self.require_cli()
+        flags = (["--expect-repo", REPO,
+                  "--expect-base-sha", BASE_SHA,
+                  "--expect-candidate-sha", CANDIDATE_SHA]
+                 if expect_subject else [])
         with tempfile.TemporaryDirectory() as temp:
             pack_path = write_pack(Path(temp), pack)
             buffer = io.StringIO()
             with redirect_stdout(buffer):
                 module.main(["validate", "--pack", str(pack_path),
-                             "--expect-repo", REPO,
-                             "--expect-base-sha", BASE_SHA,
-                             "--expect-candidate-sha", CANDIDATE_SHA,
-                             *extra_args])
+                             *flags, *extra_args])
         return json.loads(buffer.getvalue())
+
+    def require_declared_ci_schemes(self):
+        """The closed set of CI artifact identifier schemes the owner declares."""
+        module = self.require_boundary()
+        schemes = getattr(module, "CI_ARTIFACT_IDENTIFIER_SCHEMES", None)
+        if not schemes:
+            self.fail(
+                "BOUNDARY_ABSENT: scripts/review_evidence.py declares no closed "
+                "set of CI artifact identifier schemes, so a scheme-form "
+                "declaration can only be refused wholesale or accepted "
+                "wholesale and a legal `scheme:/path` CI identifier cannot be "
+                "told apart from an arbitrary URL (expected RED condition of "
+                "the F-1/F-2 repair)")
+        return module, tuple(schemes)
 
     def local_service(self):
         """A running local HTTP service plus the number of requests it saw."""
@@ -760,6 +789,202 @@ class ProducerTrustBoundaryTests(unittest.TestCase):
                     "head only; the CLI must not re-declare it")
         self.assertIn("references/review-evidence.md", source,
                       "the consumer must point at the sole semantic owner")
+
+    # ==================================================================
+    # Repair round (Issue #21): the reviewer's reproduced fail-opens
+    #   F-1  a scheme declaration with no separator, or hidden by padding
+    #   F-2  the declared CI identifier form must not be over-blocked
+    #   F-3  the retrieval boundary runs in every `validate` mode
+    # ==================================================================
+
+    def test_31_a_scheme_declaration_needs_no_separator_to_be_refused(self):
+        """F-1: WHATWG resolves `scheme:host/x` exactly like `scheme://host/x`."""
+        module = self.require_boundary()
+        cases = (
+            "http:" + LOOPBACK + ":56339/rb2-probe",
+            "https:example.invalid/x",
+            "ftp:example.invalid/x",
+            "file:" + "etc/passwd",
+            "ws:example.invalid/socket",
+        )
+        for declared in cases:
+            with self.subTest(location=declared):
+                self.assertEqual(
+                    "ARBITRARY_URL_RETRIEVAL",
+                    module.location_retrieval_violation(declared, root=str(ROOT)),
+                    f"{declared!r} is a scheme-form location declaration and the "
+                    "declared rule refuses every scheme form that is not a "
+                    "declared CI artifact identifier")
+                result = module.retrieve_artifact(declared, root=str(ROOT))
+                self.assertFalse(result["retrieved"])
+                self.assertEqual("ARBITRARY_URL_RETRIEVAL", result["reason"])
+                self.assertIsNone(result["content"])
+
+    def test_32_whitespace_padding_cannot_hide_a_scheme_declaration(self):
+        """F-1: the boundary compares the STRIPPED declaration, so padding is
+        not a hiding place for a scheme or for an out-of-bounds path."""
+        module = self.require_boundary()
+        url = "http://" + LOOPBACK + ":56339/probe"
+        cases = {
+            "leading space before a url": (" " + url,
+                                           "ARBITRARY_URL_RETRIEVAL"),
+            "leading tab before a url": ("\t" + url,
+                                         "ARBITRARY_URL_RETRIEVAL"),
+            "trailing space after a url": (url + " ",
+                                           "ARBITRARY_URL_RETRIEVAL"),
+            "padding before a bare scheme": (
+                " " + "http:" + LOOPBACK + ":56339/x",
+                "ARBITRARY_URL_RETRIEVAL"),
+            "padding before an absolute path": (
+                " " + "/" + "etc/passwd", "PATH_VIOLATION"),
+            "padding around a parent escape": (
+                " ../../outside.txt ", "PATH_VIOLATION"),
+            "tab before an absolute path": (
+                "\t/" + "etc/passwd", "PATH_VIOLATION"),
+        }
+        for label, (declared, expected) in cases.items():
+            with self.subTest(case=label):
+                self.assertEqual(
+                    expected,
+                    module.location_retrieval_violation(declared, root=str(ROOT)),
+                    f"{label}: padding must not change the verdict")
+                self.assertFalse(
+                    module.retrieve_artifact(declared, root=str(ROOT))["retrieved"],
+                    f"{label}: a padded declaration must never be retrieved")
+
+    def test_33_a_padded_or_bare_scheme_never_reaches_the_provider(self):
+        """F-1: the refusal precedes the provider call, so the attacker-chosen
+        string is never handed to the retrieval interface."""
+        module = self.require_boundary()
+        calls: list = []
+
+        def provider(reference):
+            calls.append(reference)
+            return b"provider bytes"
+
+        for declared in (" " + "http://" + LOOPBACK + ":55624/x",
+                         "http:" + LOOPBACK + ":55624/x",
+                         "\t" + "http://" + LOOPBACK + ":55624/x"):
+            with self.subTest(location=declared):
+                result = module.retrieve_artifact(declared, provider=provider)
+                self.assertFalse(
+                    result["retrieved"],
+                    f"{declared!r} must be refused, not resolved: {result}")
+                self.assertEqual("ARBITRARY_URL_RETRIEVAL", result["reason"])
+                self.assertIsNone(result["content"])
+        self.assertEqual(
+            [], calls,
+            "F-1 VIOLATED: an arbitrary scheme-form declaration reached the "
+            "retrieval provider, which was handed the attacker-chosen string")
+
+    def test_34_the_reviewer_reproduced_locations_block_pass_end_to_end(self):
+        """F-1 through the public CLI: exit 1, ok=false, boundary reason."""
+        for declared in ("http:" + LOOPBACK + ":56339/rb2-probe",
+                         " " + "http://" + LOOPBACK + ":56339/rb2-probe",
+                         "\t" + "http://" + LOOPBACK + ":56339/probe"):
+            with self.subTest(location=declared):
+                payload = self.validate_in_process(pack_with_location(declared))
+                self.assertFalse(
+                    payload["ok"],
+                    f"{declared!r} must not reach behavioural PASS; "
+                    f"violations={payload['violations']}")
+                self.assertEqual(1, payload["exitCode"])
+                self.assertIn("ARBITRARY_URL_RETRIEVAL",
+                              self.boundary_reasons(payload),
+                              f"violations={payload['violations']}")
+
+    def test_35_the_declared_ci_identifier_form_is_not_over_blocked(self):
+        """F-2 / AC-27: both declared spellings resolve through the provider."""
+        module, schemes = self.require_declared_ci_schemes()
+        self.assertTrue(schemes, "the declared scheme set must not be empty")
+        for scheme in schemes:
+            for identifier in (f"{scheme}:/build-42/report.txt",
+                               f"{scheme}:build-42/report.txt"):
+                with self.subTest(identifier=identifier):
+                    self.assertIsNone(
+                        module.location_retrieval_violation(identifier,
+                                                            root=str(ROOT)),
+                        f"AC-27 VIOLATED: {identifier!r} is a declared CI "
+                        "artifact identifier and must not be over-blocked")
+                    calls: list = []
+
+                    def provider(reference):
+                        calls.append(reference)
+                        return b"ci artifact bytes"
+
+                    result = module.retrieve_artifact(identifier,
+                                                      provider=provider)
+                    self.assertTrue(result["retrieved"], f"AC-27 VIOLATED: {result}")
+                    self.assertEqual([identifier], calls)
+
+    def test_36_the_owner_declares_the_ci_identifier_closed_set(self):
+        """The single declaration point of the scheme discriminator is §9.7.2."""
+        module, schemes = self.require_declared_ci_schemes()
+        text = self.require_reference()
+        self.assertIn(
+            "CI_ARTIFACT_IDENTIFIER_SCHEMES", text,
+            "SURFACE_DISAGREEMENT: the sole semantic owner must declare the CI "
+            "artifact identifier closed set by the name the CLI exposes")
+        for scheme in schemes:
+            with self.subTest(scheme=scheme):
+                self.assertIn(
+                    scheme, text,
+                    "SURFACE_DISAGREEMENT: the owner must name every declared "
+                    "CI artifact identifier scheme")
+
+    def test_37_an_undeclared_scheme_is_refused_by_default(self):
+        """Refusal is the default: only the declared closed set is accepted."""
+        module, schemes = self.require_declared_ci_schemes()
+        for declared in ("h:evil.example/x", "javascript:alert",
+                         "data:text/plain,padding", "s3:bucket/key",
+                         "gopher:example.invalid/x", "mailto:someone"):
+            with self.subTest(location=declared):
+                scheme = declared.split(":", 1)[0].lower()
+                self.assertNotIn(scheme, {s.lower() for s in schemes},
+                                 f"{scheme!r} is not declared")
+                self.assertEqual(
+                    "ARBITRARY_URL_RETRIEVAL",
+                    module.location_retrieval_violation(declared),
+                    "an undeclared scheme form must be refused; the classifier "
+                    "defaults to refusal")
+
+    def test_38_placeholder_mode_still_runs_the_retrieval_boundary(self):
+        """F-3: the boundary is unconditional in every `validate` mode."""
+        cases = {
+            "../../outside.txt": "PATH_VIOLATION",
+            "/" + "etc/passwd": "PATH_VIOLATION",
+            "http://" + LOOPBACK + ":55624/rb2-probe": "ARBITRARY_URL_RETRIEVAL",
+        }
+        for declared, expected in cases.items():
+            with self.subTest(location=declared):
+                payload = self.validate_in_process(
+                    pack_with_location(declared),
+                    "--allow-placeholders", expect_subject=False)
+                self.assertFalse(
+                    payload["ok"],
+                    f"--allow-placeholders must not exempt the retrieval "
+                    f"boundary; violations={payload['violations']}")
+                self.assertEqual(1, payload["exitCode"])
+                self.assertEqual(
+                    {expected}, self.boundary_reasons(payload),
+                    f"violations={payload['violations']}")
+
+    def test_39_placeholder_mode_skips_only_the_disposition(self):
+        """F-3 determination (a): placeholder mode exempts the P1-T05
+        three-axis disposition and nothing else -- a pack whose axes would
+        block PASS must report the boundary finding ALONE."""
+        pack = pack_with_location("../../outside.txt")
+        pack["SOURCE_VERIFICATION_STATE"] = "NOT_VERIFIED"
+        pack["EVIDENCE_SUFFICIENCY"] = "INSUFFICIENT"
+        payload = self.validate_in_process(pack, "--allow-placeholders",
+                                           expect_subject=False)
+        self.assertFalse(payload["ok"], f"violations={payload['violations']}")
+        self.assertEqual(
+            {"PATH_VIOLATION"}, self.boundary_reasons(payload),
+            "placeholder mode must skip the P1-T05 disposition while still "
+            "running the P1-T06 boundary; the two must not be conflated "
+            f"(violations={payload['violations']})")
+        self.assertEqual({"REJECT"}, self.codes(payload))
 
 
 if __name__ == "__main__":
