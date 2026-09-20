@@ -54,6 +54,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CLI_PATH = ROOT / "scripts" / "review_evidence.py"
 SCHEMA_PATH = ROOT / "schemas" / "review-evidence.schema.json"
 GIT_CI_PATH = ROOT / "references" / "git-ci-integration.md"
+REVIEW_EVIDENCE_PATH = ROOT / "references" / "review-evidence.md"
 
 REPO_OK = "FlapPearLabs/agent-engineering-governance"
 BASE_SHA = "1" * 40
@@ -271,6 +272,58 @@ class LifecycleCLITests(unittest.TestCase):
         self.assertIn("REUSE_SOURCE_MISSING", self.reasons(payload),
                       f"violations={payload['violations']}")
 
+    # -- F1 regression: a partially-populated reuse object IS a claim -------
+
+    def f1_reuse(self, **overrides) -> dict:
+        """A pack whose reuse object starts fully empty, then is populated."""
+        pack = good_pack()
+        pack["reuse"] = {"sourceEvidence": "", "validFor": "",
+                         "dependencies": [], "invalidation": ""}
+        pack["reuse"].update(overrides)
+        return pack
+
+    def test_f1_whitespace_source_empty_deps_with_claim_is_rejected(self):
+        """F1 fail-open repair: whitespace source + empty dependencies still
+        asserts a claim when validFor / invalidation are non-blank, so the
+        pack must be REJECTED (REUSE_SOURCE_MISSING, CE-07), never exit 0
+        with zero findings."""
+        pack = self.f1_reuse(sourceEvidence="   ", validFor="range",
+                             invalidation="trigger hit")
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(
+            1, completed.returncode,
+            f"F1 fail-open: a partially-populated reuse object asserts a "
+            f"reuse claim and must be rejected; stdout={completed.stdout[:600]}")
+        self.assertIn("REUSE_SOURCE_MISSING", self.reasons(payload),
+                      f"violations={payload['violations']}")
+
+    def test_f1_empty_source_empty_deps_with_claim_is_rejected(self):
+        """F1: an empty source with empty dependencies but an asserted claim
+        scope is a declared reuse -> REUSE_SOURCE_MISSING."""
+        pack = self.f1_reuse(validFor="range", invalidation="trigger hit")
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(
+            1, completed.returncode,
+            f"F1 fail-open: empty source + empty deps + a claimed scope is "
+            f"still a reuse declaration; stdout={completed.stdout[:600]}")
+        self.assertIn("REUSE_SOURCE_MISSING", self.reasons(payload),
+                      f"violations={payload['violations']}")
+
+    def test_f1_claim_via_dependencies_only_is_rejected(self):
+        """F1: a populated dependency list alone is a declaration; without a
+        bounded scope or identified source the existing rejections apply."""
+        pack = self.f1_reuse(dependencies=[verified_descriptor()])
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(
+            1, completed.returncode,
+            f"F1 fail-open: a populated dependency list alone declares "
+            f"reuse; stdout={completed.stdout[:600]}")
+        reasons = self.reasons(payload)
+        self.assertIn("REUSE_SCOPE_UNBOUNDED", reasons,
+                      f"violations={payload['violations']}")
+        self.assertIn("REUSE_SOURCE_MISSING", reasons,
+                      f"violations={payload['violations']}")
+
     # -- AC-37: the subject candidate SHA stays explicit --------------------
 
     def test_ac37_moved_candidate_sha_never_inherits_the_old_pass(self):
@@ -359,11 +412,48 @@ class LifecycleFunctionTests(unittest.TestCase):
 
     def test_no_reuse_declaration_yields_no_lifecycle_findings(self):
         """An empty reuse block declares no reuse; the lifecycle stage must
-        stay silent (the collect skeleton and most packs keep flowing)."""
+        stay silent (the collect skeleton and most packs keep flowing).
+
+        F1 documented semantics: a FULLY-empty reuse object (all four fields
+        blank/empty, including whitespace-only strings -- the collect-skeleton
+        form) asserts no claim; a PARTIALLY populated object is a claim.
+        """
         pack = good_pack()
         pack["reuse"] = {"sourceEvidence": "", "validFor": "",
                          "dependencies": [], "invalidation": ""}
         self.assertEqual([], self.findings(pack, (TRIGGER_MASTER_DRIFT,)))
+        pack["reuse"] = {"sourceEvidence": "   ", "validFor": "  ",
+                         "dependencies": [], "invalidation": ""}
+        self.assertEqual([], self.findings(pack, (TRIGGER_MASTER_DRIFT,)),
+                         "whitespace-only fields still assert no claim")
+
+    def test_f1_partially_populated_reuse_is_a_declared_claim(self):
+        """F1: ANY of non-blank sourceEvidence / validFor / invalidation, or
+        a non-empty dependencies list, makes the reuse object a DECLARED
+        claim; the legality rejections then apply instead of a silent pass."""
+        cases = (
+            ({"sourceEvidence": "   ", "validFor": "range",
+              "invalidation": "trigger hit"},
+             {"REUSE_SOURCE_MISSING"}),
+            ({"validFor": "range", "invalidation": "trigger hit"},
+             {"REUSE_SOURCE_MISSING"}),
+            ({"invalidation": "trigger hit"},
+             {"REUSE_SCOPE_UNBOUNDED", "REUSE_SOURCE_MISSING"}),
+            ({"dependencies": [verified_descriptor()]},
+             {"REUSE_SCOPE_UNBOUNDED", "REUSE_SOURCE_MISSING"}),
+        )
+        for overrides, expected in cases:
+            with self.subTest(overrides=overrides):
+                pack = good_pack()
+                pack["reuse"] = {"sourceEvidence": "", "validFor": "",
+                                 "dependencies": [], "invalidation": ""}
+                pack["reuse"].update(overrides)
+                findings = self.findings(pack, ())
+                reasons = {f.get("reason") for f in findings}
+                self.assertTrue(
+                    expected <= reasons,
+                    f"expected reasons {expected} inside {reasons}; "
+                    f"findings={findings}")
 
     def test_lifecycle_reasons_are_disjoint_from_landed_vocabularies(self):
         """No layer may alias another: the P1-T08 reason vocabulary stays
@@ -447,6 +537,83 @@ class NormativeRuleTextTests(unittest.TestCase):
         self.assertNotIn("不可坍缩", body,
                          "the canonical non-collapsing CI status line stays "
                          "unique in section 3")
+
+
+class PlaceholderExemptionScopeTests(unittest.TestCase):
+    """F2 coherence readback: `references/review-evidence.md` is the SINGLE
+    declaration point of `--allow-placeholders` and of the validate judgment
+    order. The code exempts the P1-T08 lifecycle stage in placeholder mode
+    and `git-ci-integration.md` 5.3 declares that exemption, so every
+    flag-scope sentence here must name the same scope (pointer-style; no
+    re-declaration of the lifecycle rules)."""
+
+    def setUp(self):
+        if not REVIEW_EVIDENCE_PATH.is_file():
+            self.fail("LIFECYCLE_ABSENT: references/review-evidence.md "
+                      "does not exist")
+        self.text = REVIEW_EVIDENCE_PATH.read_text(encoding="utf-8")
+
+    def section(self, start_marker: str, end_marker: str) -> str:
+        index = self.text.find(start_marker)
+        if index < 0:
+            self.fail(f"review-evidence.md lost the {start_marker!r} marker")
+        rest = self.text[index:]
+        end = rest.find(end_marker, len(start_marker))
+        return rest if end < 0 else rest[:end]
+
+    def test_9_6_1_exemption_sentence_names_the_lifecycle_stage(self):
+        body = self.section("### 9.6.1", "### 9.6.2")
+        self.assertIn("--allow-placeholders", body)
+        self.assertIn("P1-T08", body,
+                      "the 9.6.1 exemption sentence must name the P1-T08 "
+                      "lifecycle stage as part of the flag's scope")
+        self.assertIn("git-ci-integration.md", body,
+                      "the 9.6.1 exemption sentence must point at the "
+                      "lifecycle stage's normative owner")
+        self.assertIn("取回边界", body,
+                      "the 9.6.1 exemption sentence must keep declaring that "
+                      "the P1-T06 retrieval boundary is NOT exempted")
+
+    def test_9_6_1_order_chain_includes_the_lifecycle_stage(self):
+        body = self.section("### 9.6.1", "### 9.6.2")
+        self.assertIn("P1-T08", body.split("```text", 1)[-1].split("```", 1)[0],
+                      "the declared-once validate order chain must carry the "
+                      "P1-T08 lifecycle stage the candidate folded in")
+
+    def test_9_7_1_exemption_scope_names_the_lifecycle_stage(self):
+        body = self.section("### 9.7.1", "### 9.7.2")
+        self.assertIn("只豁免", body)
+        self.assertIn("P1-T08", body,
+                      "the 9.7.1 flag-scope sentence must name the P1-T08 "
+                      "lifecycle stage alongside the P1-T05 disposition")
+        self.assertIn("git-ci-integration.md", body,
+                      "the 9.7.1 flag-scope sentence must point at the "
+                      "lifecycle stage's normative owner")
+
+    def test_9_1_subject_exemption_coverage_names_the_lifecycle_stage(self):
+        body = self.section("### 9.1 subject", "### 9.2")
+        self.assertIn("--allow-placeholders", body)
+        self.assertIn("P1-T08", body,
+                      "the 9.1 exemption-coverage sentence must name the "
+                      "P1-T08 lifecycle stage in the flag's covered scope")
+
+    def test_5_3_declares_the_caller_supplied_observation_boundary(self):
+        cli_text = GIT_CI_PATH.read_text(encoding="utf-8")
+        index = cli_text.find("### 5.3")
+        if index < 0:
+            self.fail("LIFECYCLE_ABSENT: git-ci-integration.md lost section "
+                      "5.3")
+        body = cli_text[index:]
+        self.assertIn("hit_triggers", body,
+                      "5.3's mechanical-consumption boundary must declare "
+                      "that targeted invalidation is driven by caller-supplied "
+                      "observations")
+        self.assertIn("REUSE_SCOPE_INVALIDATED", body,
+                      "5.3 must state which invalidation reasons are "
+                      "reachable only from callers with observability")
+        self.assertIn("每一次", body,
+                      "5.3 must state that the UNKNOWN / malformed / source "
+                      "legality checks run on every validate")
 
 
 if __name__ == "__main__":
