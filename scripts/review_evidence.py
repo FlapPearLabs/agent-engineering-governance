@@ -8,7 +8,8 @@ references/review-evidence.md. This script is its thin mechanical consumer:
             (schemas/review-evidence.schema.json), against the candidate the
             caller says is under review, and -- once the structural and subject
             steps have both succeeded -- against the P1-T05 three-axis
-            verification disposition
+            verification disposition, the P1-T06 trust/retrieval boundary and
+            the P1-T08 evidence lifecycle consumption
   collect   emit a schema-conforming, NON-AUTHORITATIVE skeleton assembled
             only from values the caller passes on the command line
 
@@ -28,8 +29,18 @@ references/review-evidence.md; this consumer reads their value domains out of
 the loaded contract), declare the `artifacts[].location` domain or the
 `commandRef` semantics (P1-T04 -- this script only implements the BEHAVIOUR
 that consumes them, see the P1-T06 boundary below), define who may write the
-reviewer authority fields (P1-T07), implement the reuse-descriptor lifecycle
-(P1-T08), or verify the CLI entry points themselves (P1-T16).
+reviewer authority fields (P1-T07), declare the reuse-descriptor SHAPE (P1-T04
+owns it; this consumer reads the descriptor's required keys and value domains
+out of the loaded contract, see the P1-T08 lifecycle below), or verify the CLI
+entry points themselves (P1-T16).
+
+The reuse-descriptor lifecycle BEHAVIOUR is P1-T08's (Issue #24), and it is
+folded into the existing `validate` flow exactly like the P1-T05 disposition:
+the normative rules live in references/git-ci-integration.md section 5.3, the
+descriptor shape stays declared once by P1-T04, and this stage only CONSUMES
+both -- reuse is legal only for a bounded scope with every dependency
+verified, a targeted invalidation hit invalidates exactly the affected scope,
+and an UNKNOWN dependency analysis never defaults to reuse.
 
 The three-axis verification BEHAVIOUR is P1-T05's, and it is folded into the
 existing `validate` flow: the public CLI has exactly two modes, `collect` and
@@ -38,7 +49,9 @@ validation AND the subject expectation/binding step have both succeeded, and the
 exit status follows the genuine final disposition.
 
 Exit status contract (declared once, in references/review-evidence.md):
-  0  validate: every check passed AND the final P1-T05 disposition allows PASS
+  0  validate: every check passed AND the final P1-T05 disposition allows
+     PASS AND no P1-T06 boundary violation and no P1-T08 lifecycle finding
+     blocks it
      collect : the skeleton conforms and was written where the caller asked
   1  any failure; a machine-readable failure envelope is still printed on
      standard output
@@ -1111,6 +1124,212 @@ def evidence_boundary_findings(pack, root=None) -> list:
 
 
 # ---------------------------------------------------------------------------
+# P1-T08 evidence lifecycle consumption (behaviour owner: P1-T08)
+# ---------------------------------------------------------------------------
+#
+# The reuse/invalidation lifecycle is the CONSUMPTION of the reuse dependency
+# descriptor that P1-T04 declares exactly once
+# (schemas/review-evidence.schema.json `$defs.reuse_dependency_descriptor`;
+# semantic detail in references/review-evidence.md section 5). This stage
+# NEVER restates that shape: the descriptor's required-key set and its
+# verification value domain are read from the loaded contract at runtime, so
+# a competing enumeration cannot arise (CE-28 / CE-30). The normative rules
+# (per-type validity bindings, reuse legality, the four invalidation
+# triggers, the subject/report-commit distinction) are declared once in the
+# behaviour owner, references/git-ci-integration.md section 5.3; this stage
+# is their mechanical form, folded into the existing `validate` flow after
+# the P1-T05 disposition and the P1-T06 retrieval boundary. It adds no CLI
+# mode and no envelope key: findings ride the declared `violations` list
+# under a reason vocabulary disjoint from every landed layer's.
+
+# P1-T08's own failure vocabulary. Kept disjoint from the structural
+# reasons, the declared error semantics, the P1-T05 disposition codes and
+# the P1-T06 boundary codes, so no layer can alias another.
+LIFECYCLE_REASONS = (
+    "REUSE_DESCRIPTOR_MALFORMED",
+    "REUSE_SCOPE_UNBOUNDED",
+    "REUSE_SOURCE_MISSING",
+    "REUSE_DEPENDENCY_UNKNOWN",
+    "REUSE_CLAIM_INVALIDATED",
+    "REUSE_SCOPE_INVALIDATED",
+)
+
+# The positive member of the descriptor's verification value domain, read
+# against the contract-declared closed set (the same reference-the-positive-
+# member pattern the P1-T05 disposition uses for the source axis): reuse is
+# permitted only when EVERY declared dependency state is this member, and
+# never when the analysis is the unverified one.
+REUSE_VERIFIED_STATE = "VERIFIED"
+
+
+def _contract_descriptor_shape(contract) -> tuple:
+    """The descriptor's required-key set and verification value domain.
+
+    Both are read from the loaded contract (P1-T04's single declaration
+    point). When the contract does not declare them there is NO local
+    substitute: the caller fails closed instead (CE-28 / CE-30).
+    """
+    defs = contract.get("$defs") if isinstance(contract, dict) else None
+    shape = defs.get("reuse_dependency_descriptor") \
+        if isinstance(defs, dict) else None
+    if not isinstance(shape, dict):
+        return (), frozenset()
+    required = shape.get("required")
+    required_keys = tuple(required) if isinstance(required, list) else ()
+    properties = shape.get("properties")
+    state_node = properties.get("VERIFICATION_STATE") \
+        if isinstance(properties, dict) else {}
+    enum = state_node.get("enum") if isinstance(state_node, dict) else None
+    states = frozenset(enum) if isinstance(enum, list) else frozenset()
+    return required_keys, states
+
+
+def _trigger_hit(declared, hit_triggers):
+    """The hit trigger this declared invalidation record responds to, or None.
+
+    The comparison is word-subset over normalised ASCII word content: a
+    trigger applies to a declaration only when EVERY word of the trigger
+    occurs in it, so a hit cannot be manufactured from a single generic word
+    (which would over-invalidate, CE-12) and an unrelated declaration is
+    never swept in. Free text stays free text: this is a best-effort
+    targeted-invalidation decision over the declared records, not a
+    re-declaration of the trigger list (which lives in the behaviour
+    owner's section 5.3).
+    """
+    if not isinstance(declared, str) or not hit_triggers:
+        return None
+    declared_words = frozenset(re.findall(r"[a-z0-9]+", declared.lower()))
+    if not declared_words:
+        return None
+    for trigger in hit_triggers:
+        trigger_words = frozenset(
+            re.findall(r"[a-z0-9]+", str(trigger).lower()))
+        if trigger_words and trigger_words <= declared_words:
+            return str(trigger)
+    return None
+
+
+def evidence_lifecycle_findings(pack, schema=None, *,
+                                hit_triggers=frozenset()) -> list:
+    """P1-T08 lifecycle findings for a pack's declared reuse, or [].
+
+    Runs after structure, subject binding, the P1-T05 disposition and the
+    P1-T06 boundary (see main). An empty reuse block declares no reuse and
+    is never a finding; a DECLARED reuse is legal only when
+
+      * the claim scope is bounded (`reuse.validFor` non-empty),
+      * the source evidence is identified (`reuse.sourceEvidence` non-empty;
+        reuse without an identified source is missing required evidence and
+        is never accepted as PASS, CE-07),
+      * every dependency descriptor is shape-legal (its required keys are
+        read from the contract, never restated here) and its verification
+        state is the verified member -- an UNKNOWN dependency analysis
+        requires re-running the declared scope or requesting the evidence
+        and NEVER defaults to reuse (CE-26 / AC-32).
+
+    `hit_triggers` carries the invalidation triggers that have actually hit
+    this candidate (the closed trigger list lives in the behaviour owner's
+    section 5.3; the CLI consumes no external observations, so callers with
+    observability pass them here). A hit invalidates EXACTLY the affected
+    scope: the dependencies whose declared invalidation record matches the
+    trigger, plus the claim as a whole when its claim-level record matches
+    it (CE-11 / AC-33). Unrelated dependencies and unrelated triggers
+    produce NO finding -- a full re-run "to be safe" is itself a defect
+    (CE-12 / AC-34).
+
+    Findings ride the declared `violations` list; the envelope shape and the
+    CLI argv surface are untouched.
+    """
+    if not isinstance(pack, dict):
+        return []
+    reuse = pack.get("reuse")
+    if not isinstance(reuse, dict):
+        return []
+    dependencies = reuse.get("dependencies")
+    dependencies = dependencies if isinstance(dependencies, list) else []
+    source = reuse.get("sourceEvidence")
+    source_text = source.strip() if isinstance(source, str) else ""
+    if not dependencies and not source_text:
+        # No reuse is declared: the lifecycle stage has nothing to consume.
+        return []
+
+    contract = schema if schema is not None else load_contract()["schema"]
+    required_keys, verification_states = _contract_descriptor_shape(contract)
+
+    findings: list = []
+
+    valid_for = reuse.get("validFor")
+    valid_text = valid_for.strip() if isinstance(valid_for, str) else ""
+    if not valid_text:
+        findings.append(_violation(
+            "REJECT", "REUSE_SCOPE_UNBOUNDED", "$.reuse.validFor",
+            "a reuse declaration must be bounded: without a declared "
+            "VALID_FOR scope the claim would be unbounded, so reuse is not "
+            "permitted"))
+    if not source_text:
+        findings.append(_violation(
+            "REJECT", "REUSE_SOURCE_MISSING", "$.reuse.sourceEvidence",
+            "a reuse declaration must identify the source evidence it "
+            "reuses; missing required evidence is never accepted as PASS"))
+
+    if dependencies:
+        if not required_keys or not verification_states \
+                or REUSE_VERIFIED_STATE not in verification_states:
+            # The contract no longer declares the descriptor shape this
+            # behaviour consumes. Fail closed; never substitute a local copy
+            # of the shape (CE-28 / CE-30).
+            findings.append(_violation(
+                "REJECT", "REUSE_DESCRIPTOR_MALFORMED", "$.reuse.dependencies",
+                "the contract does not declare the reuse dependency "
+                "descriptor shape (required keys and verification value "
+                "domain), so the dependency analysis cannot be consumed; "
+                "no local substitute is permitted"))
+        else:
+            for index, dependency in enumerate(dependencies):
+                path = f"$.reuse.dependencies[{index}]"
+                if not isinstance(dependency, dict) \
+                        or any(key not in dependency
+                               for key in required_keys):
+                    findings.append(_violation(
+                        "REJECT", "REUSE_DESCRIPTOR_MALFORMED", path,
+                        "the dependency descriptor is missing required keys "
+                        "of the contract-declared shape; free text is not a "
+                        "legal dependency analysis"))
+                    continue
+                state = dependency.get("VERIFICATION_STATE")
+                if state != REUSE_VERIFIED_STATE:
+                    findings.append(_violation(
+                        "REJECT", "REUSE_DEPENDENCY_UNKNOWN",
+                        f"{path}.VERIFICATION_STATE",
+                        f"the recorded dependency verification state "
+                        f"{state!r} is not the verified member: an unknown "
+                        f"dependency analysis never permits reuse; re-run "
+                        f"the declared scope or request the evidence"))
+                hit = _trigger_hit(dependency.get("INVALIDATED_BY"),
+                                   hit_triggers)
+                if hit is not None:
+                    # TARGETED invalidation: exactly this dependency's scope,
+                    # never a global wipe of every receipt (CE-11 / AC-33).
+                    findings.append(_violation(
+                        "REJECT", "REUSE_SCOPE_INVALIDATED", path,
+                        f"invalidation trigger hit ({hit!r}): the declared "
+                        f"invalidation record of this dependency matches a "
+                        f"change on the candidate, so exactly this evidence "
+                        f"scope is invalidated and must be re-fetched "
+                        f"before reuse"))
+
+    hit = _trigger_hit(reuse.get("invalidation"), hit_triggers)
+    if hit is not None:
+        findings.append(_violation(
+            "REJECT", "REUSE_CLAIM_INVALIDATED", "$.reuse.invalidation",
+            f"invalidation trigger hit ({hit!r}): the claim-level "
+            f"invalidation record of this reuse declaration matches a change "
+            f"on the candidate, so the reuse claim as a whole is invalidated "
+            f"(this claim only, not a global wipe)"))
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # collect: thin, non-authoritative, local inputs only
 # ---------------------------------------------------------------------------
 
@@ -1321,15 +1540,18 @@ def main(argv=None) -> int:
         # The behaviour stage, folded into the frozen order AFTER the declared
         # structural axis: contract load -> pack parse -> version -> structure ->
         # subject expectation/binding -> declared structural axis -> P1-T05
-        # three-axis disposition -> P1-T06 retrieval boundary. A pack that failed
-        # any earlier step never reaches behaviour, so a wrong repo / baseSha /
-        # candidateSha can never reach behavioural PASS, and a boundary check can
-        # never be reported for a pack that never became consumable.
+        # three-axis disposition -> P1-T06 retrieval boundary -> P1-T08
+        # evidence lifecycle. A pack that failed any earlier step never reaches
+        # behaviour, so a wrong repo / baseSha / candidateSha can never reach
+        # behavioural PASS, and a boundary or lifecycle check can never be
+        # reported for a pack that never became consumable.
         # P1-T06's boundary is UNCONDITIONAL: the declared error semantics carry
         # no placeholder carve-out, and the template's own placeholder value
         # passes the boundary anyway. `--allow-placeholders` therefore exempts
-        # ONLY the P1-T05 three-axis disposition (section 7), never the retrieval
-        # boundary (owner section 9.7.1).
+        # ONLY the P1-T05 three-axis disposition and the P1-T08 lifecycle
+        # stage (section 7: a placeholder-form template asserts no concrete
+        # reuse claim and no target subject), never the retrieval boundary
+        # (owner section 9.7.1).
         # Both verdicts are reported through the declared `violations` list (owner
         # sections 9.6.3 / 9.7): the envelope keeps the shape P1-T04 declares,
         # with a single failure list and disjoint reason vocabularies.
@@ -1338,6 +1560,8 @@ def main(argv=None) -> int:
             if not args.allow_placeholders:
                 disposition = evidence_disposition(pack, schema=contract["schema"])
                 findings = disposition["findings"] + findings
+                findings = evidence_lifecycle_findings(
+                    pack, schema=contract["schema"]) + findings
             if findings:
                 # The final disposition is the one that decides the exit status:
                 # a structurally valid, subject-bound pack whose axes or whose

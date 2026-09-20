@@ -121,3 +121,55 @@ CE-28    the recipe is declared in a second canonical file (dual owner) -> REJEC
 ```
 
 - 本小节与 §5.1 的集成关闭证据互不重叠：§5.1 的字段与规则由 P1-T03 拥有，本节不重述、不改写，只在其之外新增破坏性工作区事务的适用面、有序步骤与状态合同。
+
+### 5.3 证据生命周期消费（EVIDENCE LIFECYCLE CONSUMPTION）
+
+本节是证据复用 / 失效生命周期**消费行为**的规范声明点（canonical producer = 本文件，父 Spec §10.1a `REQ-W3-03` 行）；机械形态 = `scripts/review_evidence.py` 的生命周期检查（P1-T08），折叠进既有 `validate` 流程。复用依赖描述符的**形状**（五字段闭结构，含依赖身份字段与核验状态闭合值域）由 `schemas/review-evidence.schema.json` 的 `reuse_dependency_descriptor` **唯一声明**，语义详情见 `references/review-evidence.md` §5——本节只**引用并消费**该形状，不重述字段名清单、不改名、不建第二生命周期（`references/execution-stage.md` 的证据复用条即引用本节；CE-28 / CE-30）。
+
+#### 五类证据的独立有效期绑定（REQ-W3-01；INV-06）
+
+**不统一成"任何 HEAD 前进则所有 receipt 失效"。** 分别保持：
+
+```text
+reviewer PASS   绑定原 exact SHA（RULES R5）；旧 PASS 永不改名为新候选 SHA 的全量 PASS
+CI              绑定真实运行检查的 SHA 与对应 jobs（CI 语义与状态集按引用取自本文件 §3，
+                其闭合集仍由 references/review-evidence.md §4 唯一声明，此处不重述、不扩写）
+grounding       服从既有 base / ancestry / mode / freshness 合同（codegraph-grounding.md §2.1）
+durability      服从既有 current-HEAD / meaningful-transition 合同
+测试证据        绑定实际输入、代码、配置、环境与测试范围
+```
+
+证据复用必须绑定候选身份与依赖；跨 SHA 不得全量继承（INV-06）。
+
+#### 复用合法性（REQ-W3-02；AC-31 / AC-32）
+
+```text
+LEGAL    每条依赖描述符的核验状态为 VERIFIED，且整条复用声明具有有界 VALID_FOR 范围
+         → 在该声明范围内允许复用（正向对照 AC-31）
+ILLEGAL  任一依赖描述符核验状态为 UNKNOWN 而复用被声明 → 拒绝：
+         须重跑所需范围或请求必要证据，绝不默认复用
+ILLEGAL  复用被声明而描述符形状不合法（含自由文本、缺必需键）→ 拒绝（结构层 + 行为层双重拒绝）
+ILLEGAL  复用被声明而 VALID_FOR 为空（范围无界）→ 拒绝
+ILLEGAL  复用被声明而未标识来源证据 → 拒绝（缺来源 = 缺必需证据，不得当作 PASS，CE-07）
+```
+
+#### 失效触发清单（REQ-W3-03；AC-33 / AC-34）
+
+四项触发（**canonical 声明点 = 本清单**；机械形态 = 消费方对描述符 `INVALIDATED_BY` 记录与声明级 `invalidation` 记录的触发匹配）：
+
+```text
+T1  master drift
+T2  共享 schema / 共享依赖变化（shared schema or shared dependency change）
+T3  入口拓扑变化（entry topology change）
+T4  authority / profile / toolchain 相关变化（authority profile toolchain change）
+```
+
+命中 → **定向**失效：只有其失效记录命中该触发的那部分依赖描述符所指的证据范围失效，须**定向重取**（AC-33 / CE-11）；**未命中**的依赖与其余证据**保持可复用**。无关变更触发全量重做本身是缺陷（CE-12 / AC-34）；把任何 HEAD 前进当作一次性作废全部 receipt 被无条件禁止。
+
+#### subject commit 与 report commit（REQ-W2-07；AC-37）
+
+二者是**两个不同身份**：subject candidate SHA 保持显式；report commit SHA 独立记录。新增报告提交**不得自动继承**旧 reviewer PASS——评审结论绑定其原 exact SHA，报告提交改变 HEAD 不改变已评审对象；不存在 candidate-SHA ↔ report-SHA 的无限追逐循环（不为把含 candidate SHA 的证据提交进候选仓而破坏 candidate 身份）。
+
+#### 机械消费边界
+
+生命周期检查在判定顺序中位于结构层、subject 绑定、P1-T05 三轴处置与 P1-T06 取回边界**之后**；不新增 CLI 模式（公开 argv surface 恒为 `collect` / `validate`），不新增信封键，失败条目走既有 `violations` 清单，其 reason 词表与结构类 / 声明类 / 调用类 / 处置类 / 边界类**互不相交**。占位符模式与 P1-T05 处置同样豁免生命周期检查（占位符形态模板不是对一个具体候选的复用主张）；取回边界照常运行。描述符的必需键集与核验状态值域由 CLI **从已加载合同运行时读取**，不在代码中重述（单一声明点纪律）。触发匹配是对声明记录的定向判定，不是对本清单的第二声明。
