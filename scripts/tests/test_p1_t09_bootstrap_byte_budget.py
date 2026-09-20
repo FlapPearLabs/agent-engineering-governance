@@ -51,6 +51,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "scripts/validate_governance.py"
+README = ROOT / "README.md"
 AGENTS = ROOT / "AGENTS.md"
 CONTRACT = ROOT / "deployment/BOOTSTRAP_CONTRACT.md"
 CANDIDATE = ROOT / "deployment/MEMORY_POINTER_CANDIDATE.md"
@@ -246,9 +247,15 @@ class CurrentCandidateTests(unittest.TestCase):
 
 
 class DocumentConvergenceTests(unittest.TestCase):
-    """AC-17 conditions 2/5/6, MIG-06/07/08/09/INV-18."""
+    """AC-17 conditions 2/5/6, MIG-06/07/08/09/INV-18.
 
-    IN_SCOPE = (AGENTS, CONTRACT, CANDIDATE)
+    IN_SCOPE is the Spec ROUND 6 five-surface REQ-W4-01 convergence set
+    (MIG-07) minus the validator, whose own behaviour the measurement tests
+    above exercise directly: README.md, AGENTS.md section 10,
+    deployment/BOOTSTRAP_CONTRACT.md, deployment/MEMORY_POINTER_CANDIDATE.md.
+    """
+
+    IN_SCOPE = (README, AGENTS, CONTRACT, CANDIDATE)
 
     def test_no_in_scope_surface_states_the_budget_in_characters(self):
         for path in self.IN_SCOPE:
@@ -258,6 +265,22 @@ class DocumentConvergenceTests(unittest.TestCase):
                     found,
                     "%s still states the budget with a character unit: %r"
                     % (path.name, found.group(0) if found else None))
+
+    def test_readme_is_pointer_only_and_does_not_restate_the_budget(self):
+        # Spec ROUND 6 (F-B1, tightened by R6-3): README.md is the fifth
+        # REQ-W4-01 convergence surface and is frozen as a POINTER-ONLY
+        # derived consumer. It may point at the semantic owner; it may not
+        # restate or declare the budget value or unit, because
+        # deployment/BOOTSTRAP_CONTRACT.md section 2.1 freezes "other
+        # surfaces reference, they do not restate".
+        text = read(README)
+        self.assertIsNone(
+            BUDGET_NUMBER_RE.search(text),
+            "README.md restates the budget value instead of pointing at the "
+            "semantic owner (MIG-07 / AC-17 condition 5)")
+        self.assertIn(
+            "BOOTSTRAP_CONTRACT.md", text,
+            "README.md carries no pointer to the semantic owner")
 
     def test_agents_section_ten_does_not_restate_the_budget(self):
         sec = section_ten(read(AGENTS))
@@ -379,6 +402,29 @@ class NonVacuityControlTests(unittest.TestCase):
         sec = section_ten(mutated)
         self.assertIsNotNone(BUDGET_NUMBER_RE.search(sec))
         self.assertTrue(CHARACTER_BUDGET_RE.search(sec))
+
+    def test_the_readme_assertion_goes_red_when_the_budget_is_restated(self):
+        # The README convergence assertion must be capture-capable too: the
+        # pre-fix character wording and a bare budget value each have to trip
+        # it, otherwise README.md is only nominally in scope (MIG-07).
+        original = read(README)
+        anchor = ("\u542b\u6cbb\u7406\u4ed3\u6307\u9488 + \u8bfb\u53d6\u6e05"
+                  "\u5355 + 4 \u6761\u4e0d\u53d8\u91cf\u6458\u8981")
+        self.assertEqual(original.count(anchor), 1,
+                         "the README.md pointer anchor is gone or ambiguous")
+        mutated = original.replace(
+            anchor, anchor + "\uff08" + LEGACY_CHARACTER_WORDING + "\uff09", 1)
+        self.assertNotEqual(mutated, original,
+                            "the README.md pointer anchor disappeared")
+        self.assertTrue(CHARACTER_BUDGET_RE.search(mutated))
+        self.assertIsNotNone(BUDGET_NUMBER_RE.search(mutated))
+        # A bare value restatement with no character unit must also trip the
+        # value assertion on its own.
+        restated = original.replace(
+            anchor, anchor + "\uff08\u9884\u7b97 3500 bytes\uff09", 1)
+        self.assertNotEqual(restated, original)
+        self.assertIsNotNone(BUDGET_NUMBER_RE.search(restated))
+        self.assertIsNone(CHARACTER_BUDGET_RE.search(restated))
 
 
 if __name__ == "__main__":
