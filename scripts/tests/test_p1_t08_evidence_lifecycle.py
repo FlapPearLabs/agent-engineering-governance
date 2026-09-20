@@ -324,6 +324,69 @@ class LifecycleCLITests(unittest.TestCase):
         self.assertIn("REUSE_SOURCE_MISSING", reasons,
                       f"violations={payload['violations']}")
 
+    # -- FA (round 2): the blank test is grounded in the DECLARED whitespace
+    #    vocabulary, never in Python's `str.strip()` ------------------------
+    #
+    # `scripts/review_evidence.py` already declares this repository's
+    # whitespace set once (`ECMA262_WHITESPACE`: the ECMA-262 `\s` WhiteSpace +
+    # LineTerminator body). Python's `str.strip()` does NOT agree with it: it
+    # misses U+FEFF (ECMAScript WhiteSpace -- a realistic copy/paste artifact)
+    # and it additionally strips U+001C-U+001F / U+0085, which the declared set
+    # does not contain. A blank test written with `str.strip()` therefore
+    # contradicts the file's own declaration and re-opens the F1 fail-open for
+    # the BOM character.
+
+    def test_fa_bom_only_source_is_a_declared_claim_and_is_rejected(self):
+        """FA: a `sourceEvidence` that is only a BOM is BLANK by this
+        repository's own declared whitespace vocabulary, so the sibling
+        claim must be rejected with REUSE_SOURCE_MISSING (CE-07) -- never
+        exit 0 with zero findings."""
+        pack = self.f1_reuse(sourceEvidence="\ufeff", validFor="range",
+                             invalidation="trigger hit")
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(
+            1, completed.returncode,
+            f"FA fail-open: a declared reuse claim whose sourceEvidence is "
+            f"blank by the repository's declared whitespace vocabulary must "
+            f"be rejected; stdout={completed.stdout[:600]}")
+        self.assertIn("REUSE_SOURCE_MISSING", self.reasons(payload),
+                      f"violations={payload['violations']}")
+
+    def test_fa_bom_only_valid_for_is_an_unbounded_scope(self):
+        """FA: a `validFor` that is only a BOM is BLANK by the declared
+        vocabulary, so the claim has no bounded scope -> REUSE_SCOPE_UNBOUNDED."""
+        pack = self.f1_reuse(sourceEvidence="the reviewed evidence pack",
+                             validFor="\ufeff", invalidation="trigger hit")
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(
+            1, completed.returncode,
+            f"FA fail-open: a claim whose validFor is blank by the declared "
+            f"vocabulary is unbounded and must be rejected; "
+            f"stdout={completed.stdout[:600]}")
+        self.assertIn("REUSE_SCOPE_UNBOUNDED", self.reasons(payload),
+                      f"violations={payload['violations']}")
+
+    def test_fa_declared_blank_cases_agree_and_empty_stays_a_non_claim(self):
+        """Pairing control: the ASCII-space sibling and the BOM case must get
+        the SAME decision -- both are members of the one declared set -- and a
+        fully-empty reuse object must still assert no claim."""
+        pack = self.f1_reuse(sourceEvidence="   ", validFor="range",
+                             invalidation="trigger hit")
+        completed, payload = self.run_validate(pack)
+        self.assertEqual(1, completed.returncode,
+                         f"the ASCII-space sibling case must stay rejected; "
+                         f"stdout={completed.stdout[:600]}")
+        self.assertIn("REUSE_SOURCE_MISSING", self.reasons(payload),
+                      f"violations={payload['violations']}")
+        # Fully empty: still no claim at all, so the pack stays valid.
+        completed, payload = self.run_validate(self.f1_reuse())
+        self.assertEqual(
+            0, completed.returncode,
+            f"a fully-empty reuse object asserts no claim and must not be "
+            f"turned into a finding by the blank-test repair; "
+            f"stdout={completed.stdout[:600]}")
+        self.assertEqual([], payload["violations"])
+
     # -- AC-37: the subject candidate SHA stays explicit --------------------
 
     def test_ac37_moved_candidate_sha_never_inherits_the_old_pass(self):
@@ -455,6 +518,30 @@ class LifecycleFunctionTests(unittest.TestCase):
                     f"expected reasons {expected} inside {reasons}; "
                     f"findings={findings}")
 
+    def test_fa_declared_whitespace_blank_is_not_a_claim_at_the_entry_point(self):
+        """FA at the entry point: `evidence_lifecycle_findings` must treat a
+        BOM-only field exactly like its ASCII-space sibling -- blank by the
+        DECLARED set -- so both cases yield the same findings."""
+        for blank in ("   ", "\ufeff"):
+            with self.subTest(blank=blank):
+                pack = good_pack()
+                pack["reuse"] = {"sourceEvidence": blank,
+                                 "validFor": "range",
+                                 "dependencies": [],
+                                 "invalidation": "trigger hit"}
+                findings = self.findings(pack, ())
+                reasons = {f.get("reason") for f in findings}
+                self.assertIn(
+                    "REUSE_SOURCE_MISSING", reasons,
+                    f"{blank!r} is blank by the declared whitespace set, so "
+                    f"this is a declared claim with missing source evidence; "
+                    f"findings={findings}")
+        # The fully-empty reuse object is still not a claim.
+        pack = good_pack()
+        pack["reuse"] = {"sourceEvidence": "", "validFor": "",
+                         "dependencies": [], "invalidation": ""}
+        self.assertEqual([], self.findings(pack, ()))
+
     def test_lifecycle_reasons_are_disjoint_from_landed_vocabularies(self):
         """No layer may alias another: the P1-T08 reason vocabulary stays
         disjoint from the structural / declared / disposition / boundary
@@ -561,17 +648,36 @@ class PlaceholderExemptionScopeTests(unittest.TestCase):
         end = rest.find(end_marker, len(start_marker))
         return rest if end < 0 else rest[:end]
 
+    def exemption_paragraph(self, body: str) -> str:
+        """The one paragraph inside §9.6.1 that declares the flag's exemption.
+
+        Scoping is the whole point: §9.6.1 also carries the validate ORDER
+        CHAIN, which names `P1-T08` and `references/git-ci-integration.md §5.3`
+        too, plus `取回边界` on the P1-T06 line. An assertion gathered over the
+        whole section is therefore satisfied by the chain and keeps passing
+        even after the exemption sentence is reverted, so the sentence would
+        have no effective guard. The paragraph that actually declares the
+        exemption is located by the flag token itself.
+        """
+        paragraphs = [paragraph for paragraph in body.split("\n\n")
+                      if "--allow-placeholders" in paragraph]
+        self.assertEqual(
+            1, len(paragraphs),
+            f"§9.6.1 must declare the --allow-placeholders exemption in "
+            f"exactly one paragraph; found {len(paragraphs)}")
+        return paragraphs[0]
+
     def test_9_6_1_exemption_sentence_names_the_lifecycle_stage(self):
-        body = self.section("### 9.6.1", "### 9.6.2")
-        self.assertIn("--allow-placeholders", body)
-        self.assertIn("P1-T08", body,
-                      "the 9.6.1 exemption sentence must name the P1-T08 "
+        paragraph = self.exemption_paragraph(self.section("### 9.6.1",
+                                                          "### 9.6.2"))
+        self.assertIn("P1-T08", paragraph,
+                      "the 9.6.1 exemption paragraph must name the P1-T08 "
                       "lifecycle stage as part of the flag's scope")
-        self.assertIn("git-ci-integration.md", body,
-                      "the 9.6.1 exemption sentence must point at the "
+        self.assertIn("git-ci-integration.md", paragraph,
+                      "the 9.6.1 exemption paragraph must point at the "
                       "lifecycle stage's normative owner")
-        self.assertIn("取回边界", body,
-                      "the 9.6.1 exemption sentence must keep declaring that "
+        self.assertIn("取回边界", paragraph,
+                      "the 9.6.1 exemption paragraph must keep declaring that "
                       "the P1-T06 retrieval boundary is NOT exempted")
 
     def test_9_6_1_order_chain_includes_the_lifecycle_stage(self):
