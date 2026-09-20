@@ -175,3 +175,34 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 ## 7. Live 状态持久化（P1）
 
 Ticket/Lane 的活跃状态按 `references/project-state-persistence.md` §2–3 在**有意义转换点**持久化到 GitHub（Issue/PR/tracker：status/owner/SHA/评审/CI/blockers/next legal action）；离线时 `REMOTE_STATE_SYNC = DEFERRED` 且不声称远端已同步。票结束或会话离开前执行 STATE_FLUSH。
+
+## 8. 共享文件单写者与最终回读（SHARED_FILE_SINGLE_WRITER）
+
+> 本节是 shared-file single-writer + readback recipe 的 canonical 声明面（`REQ-W4-02c`；single owner = 本文件）。[execution-stage.md §2](execution-stage.md) 的 owner 冲突处置（合并为一票 / 显式串行集成链 / 拆 owner）**只引用本节**，不复述 recipe。本节是 §1 `ONE ACTIVE WRITER` 在共享写面上的**延伸**：不重新声明该 lane 术语，不改写 §1/§2 的读权威与 surface 规则。
+
+多张票共享同一 canonical 文件时，"功能行为不同"不构成并行写权：
+
+```
+ONE ACTIVE WRITER -> expected entries -> single / serialised modification -> final readback -> every expected entry present
+```
+
+### 8.1 规则
+
+- **同一 canonical 文件同一时刻只有一个活跃写者**；写者交接沿用 §1 的 ONE ACTIVE WRITER 交接序列（前写者停止 → fresh fetch → 核验 remote tip → 重建状态 → 从 exact tip 继续）。
+- 动笔前先汇总各票的**预期条目**（expected entries = 各票打算对该文件作出的全部修改的**完整清单**）；兼容的修改**聚合为一次修改或显式串行的多次修改**，不得因"行为互不冲突"而默认并行施工。
+- 写入完成后必须执行**最终回读**（final readback）：重新读取落盘结果，逐条确认**每一个预期条目**均已落盘；缺失任何一条即修改不完整。
+- **编辑工具调用成功 ≠ 内容证据**：编辑器/工具返回成功永远不得被当作内容正确的核验；只有回读到内容才算证据。
+
+### 8.2 状态合同
+
+```
+LEGAL    单写者 + 预期条目聚合（single / serialised modification）+ 最终回读确认每一个预期条目均已落盘
+ILLEGAL  两个写者并发编辑同一 canonical 文件          -> REJECT（write conflict）
+ILLEGAL  最终回读缺失任一预期条目                    -> REJECT（modification incomplete）
+ILLEGAL  以编辑工具调用成功充当内容核验              -> REJECT（not evidence）
+```
+
+### 8.3 反例
+
+- CE-17 共享文件多项预期更新中任一在最终回读时缺失 → 必须检出（modification incomplete）。
+- CE-28 同一 recipe 在两个 canonical 文件重复定义（双 owner）→ 必须拒绝并收敛为单一 owner；其它 surface（含 execution-stage.md）只指针/链接，不重复定义。
