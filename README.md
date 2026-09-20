@@ -484,7 +484,7 @@ REQUIRED MCP 全集 = **codegraph / context7 / gh_grep**（平台连接器不是
 
 平台实测**不会自动加载**项目 AGENTS.md/RULES.md；唯一已证实的自动全局注入通道是 `~/.workbuddy/MEMORY.md` 头部（实测截断点 byte 4028）。因此 bootstrap 三件套：
 
-1. **MEMORY 指针**（自动可见层）：[deployment/MEMORY_POINTER_CANDIDATE.md](deployment/MEMORY_POINTER_CANDIDATE.md)，≤3,500 字符，含治理仓指针 + 读取清单 + 4 条不变量摘要。部署 = 写入 `~/.workbuddy/MEMORY.md`（旧 MEMORY 原始备份 local-only，Git 之外）。
+1. **MEMORY 指针**（自动可见层）：[deployment/MEMORY_POINTER_CANDIDATE.md](deployment/MEMORY_POINTER_CANDIDATE.md)，含治理仓指针 + 读取清单 + 4 条不变量摘要（该指针的预算值、单位与 profile 语义见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) §2.1）。部署 = 写入 `~/.workbuddy/MEMORY.md`（旧 MEMORY 原始备份 local-only，Git 之外）。
 2. **开工清单**（agent 执行，每工程会话一次）：B1 读指针 → B2 读治理仓 → B3 发现仓内权威 → B4 应用冲突算法 → B5 输出 3 行引导回执。见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md)。
 3. **机械自检**：`python3 scripts/validate_governance.py`，push 前必跑。
 
@@ -537,7 +537,7 @@ agent-engineering-governance/
 ├── deployment/                ← bootstrap 与部署（designated 机器事实允许区）
 │   ├── PORTABLE_SETUP.md                  新 Agent 17 步入口 + 能力矩阵 + receipt schema
 │   ├── BOOTSTRAP_CONTRACT.md              治理如何被新会话真实看到（三件套 + 验证状态）
-│   ├── MEMORY_POINTER_CANDIDATE.md        MEMORY 替换候选（≤3,500 字符）
+│   ├── MEMORY_POINTER_CANDIDATE.md        MEMORY 替换候选（预算语义见 BOOTSTRAP_CONTRACT.md §2.1）
 │   └── deployment-profile.md              宿主/环境事实（MACHINE-SPECIFIC ALLOWED）
 ├── skills/README.md           ← 主线 13 skill 获取指南（SOURCE/FALLBACK，不 vendor 源码）
 ├── mcp/                       ← REQUIRED MCP 三项 + example/mcp.example.json 占位符模板
