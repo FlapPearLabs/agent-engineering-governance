@@ -15,11 +15,11 @@ ZHIHU_REPO           = FlapPearLabs/zhihu-grabber-toolkit
 ZHIHU_ROLE           = EVIDENCE_SOURCE_REPO（只读，本 Spec 不修改其任何文件或状态）
 BASE_SHA             = 0ba2c7351d45dba1459a391b0d43e418ecf55280
 BASELINE_DRIFT       = NONE（远端 main == 本地 HEAD == BASE_SHA；open PRs = 0）
-PRIOR_REVIEWED_SHA   = 6492eedf153f9c5f86c4929baca53ba2247d90d0（repaired: ROUND 6 F-B1 把 `README.md` 纳入完整 change surface，见 §16.10）
+PRIOR_REVIEWED_SHA   = 6492eedf153f9c5f86c4929baca53ba2247d90d0（repaired: ROUND 6 F-B1 把 `README.md` 纳入完整 change surface + 同根一致性修复 R6-1/R6-2/R6-3，见 §16.10）
 REPAIR_HISTORY       = 458ed253 → 7d4887b6 (F1–F6) → c7de399/83b714c (R1–R4)
                        → 3803518a (M1–M3) → 60209cd (F-A1/A2/A3)
                        → 6492eed (ROUND 5 owner 裁定 R5 + 同根一致性修复 R5-1/R5-2/R5-3)
-                       → 本轮 ROUND 6（F-B1：`README.md` 纳入完整 change surface）
+                       → 本轮 ROUND 6（F-B1：`README.md` 纳入完整 change surface；R6-1/R6-2/R6-3 同根修复）
 ```
 
 ## 0. 阅读契约与证据纪律
@@ -490,7 +490,7 @@ SCOPE    本 profile 内有效；**不是跨 runtime 通用不变量**
 5  README.md（§7.4 bootstrap 三件套 + 仓库树注记） ← F-B1 新增纳入（此前未审计）
 ```
 
-**`README.md` 的未来目标语义（F-B1 冻结）**：`README.md` 是 **bootstrap-facing 的派生消费者 / 运行时文档**，**不是**第二预算 authority。它只可把预算表述为 **`≤ 3500 UTF-8 bytes`**，或等价的「指向 `deployment/BOOTSTRAP_CONTRACT.md` §2.1 语义 owner」措辞；**不得**保留「≤3,500 字符」式的字符预算语义，也**不得**自行声明预算值、单位或 profile 语义。
+**`README.md` 的未来目标语义（F-B1 冻结；R6-3 收紧为 pointer-only）**：`README.md` 是 **bootstrap-facing 的派生消费者 / 运行时文档**，**不是**第二预算 authority。它**只可指向** `deployment/BOOTSTRAP_CONTRACT.md` §2.1 的语义 owner（例如「预算值、单位与 profile 语义见 `deployment/BOOTSTRAP_CONTRACT.md` §2.1」），**不得重述或自行声明**预算值、单位、profile 区分或 override 语义——与 `AGENTS.md` §10 的 pointer 模式一致，因为 `deployment/BOOTSTRAP_CONTRACT.md` §2.1 已冻结「其他 surface 只引用不重述」。同时**不得**保留「≤3,500 字符」式的字符预算语义。
 
 **`AGENTS.md` §10 的未来目标语义（冻结，二选一，优先 A）**：
 
@@ -1314,10 +1314,14 @@ REPAIR_ROUND             = 6（F-B1：把 `README.md` 纳入 REQ-W4-01 完整 ch
                             ROUND 5 = owner 裁定 R5 + 同根一致性修复 R5-1/R5-2/R5-3）
 ARCHITECTURE_REOPEN      = NO（ARCHITECTURE_REVIEW = PASS）
 REPAIR_SCOPE             = ROUND 6 F-B1（第五个 bootstrap 收敛面 = `README.md`）+ DIRECT SAME-ROOT CONSISTENCY ONLY
-                           （同根：同步更新全部「四 surface」枚举与轮次账本登记）
+                           （同根 R6-1：同步全部**活跃** 「四 surface」枚举；R6-2：轮次账本登记；
+                            R6-3：独立评审后同根修复——README 目标语义收紧为 pointer-only、
+                            §15 写面清单对齐、R5-3 登记补全、证据行号与归属措辞校正、
+                            非 canonical 出现点分类、R6-1 声称范围收窄、#12 票内残余登记）
 FILES_CHANGED             = docs/specs/P1_AGENT_ENGINEERING_GOVERNANCE_DELTA_SPEC.md（唯一）
-IMPLEMENTATION_FILES      = NONE（AGENTS.md / BOOTSTRAP_CONTRACT.md / validate_governance.py /
-                            references/* 均为被纳入 Spec 的未来实现面，本轮未修改）
+IMPLEMENTATION_FILES      = NONE（AGENTS.md / deployment/BOOTSTRAP_CONTRACT.md /
+                            deployment/MEMORY_POINTER_CANDIDATE.md / scripts/validate_governance.py /
+                            README.md / references/* 均为被纳入 Spec 的未来实现面，本轮未修改）
 ZHIHU_MODIFIED            = NONE
 CANONICAL_MODIFIED        = NONE（RULES.md / AGENTS.md / references/* 均未修改）
 ISSUE_9                   = OPEN（未关闭）
@@ -1761,9 +1765,13 @@ R5-2  轮次账本登记   补登 §0 头部、§15、§16.0 三处轮次账本�
                      `### 16.9`（原为嵌在 `### 16.8 ROUND 4` 内的 16.8.6）。
                      原因：追加提交后 §16.0 的 ROUND 4 行仍称"本文件当前内容"，
                      该陈述变为假；且 ROUND 5 未被任何账本记录。
+R5-3  引用可解析性（续） 把因 R5-2 的节提升而失效的两处既有前向引用（原标题锚 `16.8.6`，
+                     该节已提升为 `### 16.9`）改指 `§16.9.1`（提交 6492eed）。
+                     本行由 ROUND 6 的 R6-3 补登记：R5-3 此前已作为提交存在并被 §0/§15/§16.0
+                     引用，但未登记于本表（登记缺失，非新事实）。
 ```
 
-两项均为**同根一致性**修复：不改变任何槽位集、验收语义、接口所有权或阶段顺序。
+三项均为**同根一致性**修复：不改变任何槽位集、验收语义、接口所有权或阶段顺序。
 
 轮 1–3 的 `UNRESOLVED-01`..`08` 继续有效（合计 `UNRESOLVED-01`..`09`）。**均不阻塞 Spec 审查**：均为实现期/部署期变量，非 Spec 层权威冲突，且全部 fail-closed 处理。
 
@@ -1786,8 +1794,10 @@ COMPLETE_CHANGE_SURFACE      5 surfaces
   3  deployment/BOOTSTRAP_CONTRACT.md        （唯一语义 owner —— 不变）
   4  deployment/MEMORY_POINTER_CANDIDATE.md
   5  scripts/validate_governance.py          （消费方）
-README_TARGET_SEMANTICS      「≤ 3500 UTF-8 bytes」或等价的「指向 deployment/BOOTSTRAP_CONTRACT.md §2.1」措辞；
-                             不得保留字符预算语义；不得自行声明预算值 / 单位 / profile 语义
+README_TARGET_SEMANTICS      POINTER_ONLY（R6-3 收紧）：只可指向 deployment/BOOTSTRAP_CONTRACT.md §2.1
+                             的语义 owner；不得重述 / 自行声明预算值 / 单位 / profile 语义
+                             （与 AGENTS.md §10 一致——§2.1 冻结「其他 surface 只引用不重述」）；
+                             不得保留字符预算语义
 BUDGET_VALUE_CHANGED         NO（WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES = 3500；UNIT = UTF-8 编码字节数）
 TRUNCATION_POINT_CHANGED     NO（4028 bytes = 历史观测截断点；3500 **不是** "4028 减去隐含安全余量"）
 AC_17_COND_5_NARROWED        NO（维持仓库级无残留要求）
@@ -1800,20 +1810,42 @@ W5_SCOPE_CHANGED             NO（`DEPLOYMENT_ONLY`，未重开）
 裁定要点：
 
 - `AC-17` 第 5 项与 `MIG-07` 的**仓库级无残留要求不变**。本 ROUND 6 **扩大**被要求收敛的 surface 集合，而非放宽判据：**任何** canonical / bootstrap-facing surface 保留「3500 字符」式的有效预算语义，仍等于未完成。
-- `README.md` 是 **bootstrap-facing 的派生消费者 / 运行时文档**（其 §7.4 即 bootstrap 三件套；校验器把它列入 `REQUIRED_FILES` 与 `runtime_files`），**不是**第二预算 authority。它只可把预算表述为 `≤ 3500 UTF-8 bytes`，或指向 `deployment/BOOTSTRAP_CONTRACT.md` §2.1 的语义 owner。
+- `README.md` 是 **bootstrap-facing 的派生消费者 / 运行时文档**（其 §7.4 即 bootstrap 三件套；校验器把它列入 `REQUIRED_FILES` 与 `runtime_files`），**不是**第二预算 authority。它**只可指向** `deployment/BOOTSTRAP_CONTRACT.md` §2.1 的语义 owner，**不重述预算值 / 单位 / profile 语义**（R6-3 收紧；与 `AGENTS.md` §10 的 pointer 模式一致，因 §2.1 冻结「其他 surface 只引用不重述」）。
 - 本裁定是**范围扩张**，**不是**语义变更：预算值、单位、profile / override 语义、「`3500` ≠ `4028` 减安全余量」的区分，以及 W1/W2/W3/W5 的语义**全部不变**。
 - 受影响 requirement：**仅** `REQ-W4-01`。未新增机制、未新增 profile 系统、未新增 AC family、未新增 authority 层（`INV-07`）。
+- **受影响合同面（AR1-01 登记）**：`P1-T09` / Issue #12 的票内草稿合同**仍渲染「四个 surface」**（其 `WRITE_OWNERSHIP` 与 `CLOSURE_EVIDENCE` 均按四面表述），并引用了旧的 §7 集成行文本。该票的 re-baseline **尚未实施**，须在本 Spec 获批后按该票自身的 conformance 状态实施 —— 属 **#12 自身的一致性条件**，**不属**本 Spec 变更的完成条件（同 §16.9.1 对 #17 的处置）。
 
-**变更面实测证据（F-B1；本轮在 current main 上核验）**：
+**变更面实测证据（F-B1；本轮在 current main 上核验，行号即 main 行号）**：
 
 ```text
 README.md:487                     含 "≤3,500 字符"                        ← F-B1 残留冲突（此前未被审计）
 README.md:540                     含 "≤3,500 字符"                        ← F-B1 残留冲突（此前未被审计）
-AGENTS.md:138                     F-A1 面已收敛（该处已无字符预算语义）       ← ROUND 4 已纳入
-BOOTSTRAP_CONTRACT.md:7/25/46     A2 面已收敛（byte 措辞 + 3500≠4028 区分）  ← ROUND 4 已纳入
-MEMORY_POINTER_CANDIDATE.md:5     已收敛为 byte 语义                         ← ROUND 4 已纳入
-scripts/validate_governance.py    已改为 UTF-8 编码字节长度度量               ← ROUND 4 已纳入
+AGENTS.md:138                     该处已无字符预算语义                       ← 由 ROUND 4 (F-A1) 纳入审计范围
+BOOTSTRAP_CONTRACT.md:7/25        byte 措辞已对齐                          ← 由 ROUND 4 (A2) 纳入审计范围
+BOOTSTRAP_CONTRACT.md:44-45       "3500 bytes = 预算" / "4028 bytes = 截断点" ← 由 ROUND 4 (A2) 纳入审计范围
+MEMORY_POINTER_CANDIDATE.md:5     已收敛为 byte 语义 + 单点 owner 引用        ← 由 ROUND 4 纳入审计范围
+scripts/validate_governance.py:173 已改为 len(body.encode("utf-8"))         ← 由 ROUND 4 纳入审计范围
 ```
+
+两处须避免的误读：
+
+- 「纳入审计范围」指该面在 ROUND 4 被**列入** change surface；**实际收敛发生在实现期**（main 上由 #12 / P1-T09 落地，提交 `770388d`），**不是** ROUND 4 本身所为——ROUND 4 是 Spec 写作轮，`IMPLEMENTATION_AUTHORIZED = NO`。
+- 本 Spec 分支的 `references/` / `scripts/` 树是**旧 main 快照**（该分支 `scripts/validate_governance.py` 仍是字符版本）；上表行号与内容**一律以 current main 为准**。
+
+**非 canonical 的残留出现点（显式分类，不属本 change surface）**：
+
+```text
+audit/AUDIT_QUALITY_REVIEW.md:11,24   历史审计证据（不在 REQUIRED_FILES / runtime_files 内），不重写
+audit/MIGRATION_PLAN.md:7             历史审计证据（同上），不重写
+scripts/tests/test_p1_t09_*.py:*      P1-T09 回归测试的**反例夹具字面量**（R6-3 追加登记）：
+                                      故意保留旧措辞（LEGACY_CHARACTER_WORDING /
+                                      LEGACY_MARGIN_WORDING 及输入清单）以证明非空洞性，
+                                      属**非空洞性夹具**，非预算语义声明
+.agent/project-state.json:*           **状态快照**（R6-3 追加登记）：其文字是在**描述该缺陷本身**，
+                                      不在 REQUIRED_FILES / runtime_files 内，非预算语义声明
+```
+
+⇒ 因此 P1-T09 的仓库级关闭证据搜索必须按 **current canonical / bootstrap-facing surface** 的判据域解释（即 `AC-17` 第 5 项与 `MIG-07` 的判据域），**不是**字面上的「任意文件」；上述三类非 canonical 出现点（历史审计证据、非空洞性夹具、状态快照）**不构成残留**。
 
 **F-A1 残留审计为何漏掉 `README.md`**：ROUND 4 的 F-A1 残留审计只覆盖它自己枚举的三个文件加 `AGENTS.md`，**从未审计 `README.md`**；因此该缺口在 ROUND 4 客观上不可能被发现，直到 P1-T09 的仓库级关闭证据搜索才暴露。本记录**保留该事实，不追溯改写 ROUND 4 的记录**。
 
@@ -1822,8 +1854,11 @@ scripts/validate_governance.py    已改为 UTF-8 编码字节长度度量      
 #### 16.10.2 ROUND 6 同根一致性修复登记
 
 ```text
-R6-1  四→五 surface 枚举同步   把全部「四个 surface / 四 surface / 4 个 surface」陈述同步为五个，
-                             并把 `README.md` 加入枚举：
+R6-1  四→五 surface 枚举同步   把全部**活跃（current / live）**的「四个 surface / 四 surface /
+                             4 个 surface」陈述同步为五个，并把 `README.md` 加入枚举
+                             （**不含**历史轮次记录里的同类措辞——那是 §16.8.1 的 ROUND 4 记录，
+                             按非追溯政策保留；**也不含** W2 Review-Evidence 的「四个协作面」——
+                             那是另一主体）：
                                §3.4 REQ-W4-01「完整 canonical change surface」块（+ `README.md` 目标语义）
                                §3.4 授权边界「本轮不修改」文件清单（补 `MEMORY_POINTER_CANDIDATE.md`、`README.md`）
                                §4.1 Bootstrap 机制行（消费者：`AGENTS.md` §10 与 `README.md`）
@@ -1837,6 +1872,33 @@ R6-2  轮次账本登记             补登 §0 头部（`PRIOR_REVIEWED_SHA` / 
                              §15（`REPAIR_ROUND` / `REPAIR_SCOPE` / `NEXT`）、§16.0 轮次索引
                              （冻结 ROUND 5 行 + 新增 ROUND 6 行），并新增本节 `### 16.10`。
                              原因：ROUND 5 的教训——追加提交会使旧账本陈述变为假，须在同一提交内登记。
+R6-3  独立评审后同根修复       独立评审（AR1 = PASS；AR2 = CHANGES_REQUESTED，`F-1` BLOCK）后的同根修复：
+                              (a) **F-1（P1）** 把 `README.md` 目标语义由「可表述为 ≤3500 UTF-8 bytes，
+                                  **或**指向 owner」**收紧为 pointer-only**。原因：`deployment/
+                                  BOOTSTRAP_CONTRACT.md` §2.1 冻结「其他 surface 只引用不重述」，
+                                  而 README 正属「其他 surface」；兄弟面 `AGENTS.md` §10 已是
+                                  pointer-only，两者必须一致。原措辞同时「允许」与「禁止」重述
+                                  预算值/单位，自相矛盾，且为最自然的实现方式（保留原句只改单位）
+                                  发放了许可。
+                              (b) **F-2（P2）** §15 `IMPLEMENTATION_FILES` 写面清单与新 §3.4 清单对齐
+                                  （此前两处清单各自枚举，本次 R6-1 只更新了 §3.4，造成新分歧）。
+                              (c) **F-3（P2）/ AR1-02** §16.9.2 补登记 `R5-3`（该修复此前已作为提交存在
+                                  并被账本引用，但未登记于该表）。
+                              (d) **F-4 / F-5（P3）** 证据行号校正（`BOOTSTRAP_CONTRACT.md:46`
+                                  → `:44-45`）与归属措辞校正（「纳入审计范围」≠「实际收敛」）。
+                              (e) **F-7（P3）** 把非 canonical 出现点（历史审计证据、非空洞性夹具、
+                                  状态快照）显式分类，界定仓库级关闭证据的判据域。
+                              (f) **F-8（P3）** R6-1 的「全部」收窄为「全部活跃枚举」。
+                              (g) **AR1-01（P2）** 登记 #12 票内仍渲染四面的事实及其归属。
+                              **不修** F-6（P3）：README 非权威性的机械检查缺口 —— 留 backlog，
+                              因本轮不扩张验收机制，且 pointer-only 收紧后其爆炸半径已缩小。
+                              **记录（不修）** 潜在张力：`MIG-08` 的次选分支（`AGENTS.md` 显式
+                              derived summary "≤ 3500 UTF-8 bytes"）与 `deployment/
+                              BOOTSTRAP_CONTRACT.md` §2.1「其他 surface 只引用不重述」属**同类**
+                              潜在张力。本轮**不改**：`MIG-08` 是 ROUND 4 冻结的 AGENTS.md 契约
+                              （B 为显式次选），收窄它属实质变更、超出本 ROUND 的 same-root 范围；
+                              且实现已选优先项 A（pointer-only，见 `AGENTS.md:139`），当前**不存在**
+                              实际残留。呈交 owner 决定是否在后续轮次对齐。
 ```
 
-两项均为**同根一致性**修复：不改变任何预算值 / 单位 / 语义 owner / 验收判据宽度。轮 1–5 的 `UNRESOLVED` 项继续有效，**均不阻塞 Spec 审查**。
+三项（R6-1/R6-2/R6-3）均为**同根一致性**修复：不改变任何预算值 / 单位 / 语义 owner / 验收判据宽度。轮 1–5 的 `UNRESOLVED` 项继续有效，**均不阻塞 Spec 审查**。
