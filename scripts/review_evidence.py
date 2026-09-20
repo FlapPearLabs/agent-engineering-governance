@@ -1214,8 +1214,12 @@ def evidence_lifecycle_findings(pack, schema=None, *,
     """P1-T08 lifecycle findings for a pack's declared reuse, or [].
 
     Runs after structure, subject binding, the P1-T05 disposition and the
-    P1-T06 boundary (see main). An empty reuse block declares no reuse and
-    is never a finding; a DECLARED reuse is legal only when
+    P1-T06 boundary (see main). A FULLY-empty reuse block (every one of
+    `sourceEvidence` / `validFor` / `invalidation` blank, `dependencies`
+    empty -- the collect-skeleton form) asserts no claim and is never a
+    finding; a reuse object with ANY non-blank field or a non-empty
+    dependency list is a DECLARED claim, and a declared reuse is legal only
+    when
 
       * the claim scope is bounded (`reuse.validFor` non-empty),
       * the source evidence is identified (`reuse.sourceEvidence` non-empty;
@@ -1249,8 +1253,21 @@ def evidence_lifecycle_findings(pack, schema=None, *,
     dependencies = dependencies if isinstance(dependencies, list) else []
     source = reuse.get("sourceEvidence")
     source_text = source.strip() if isinstance(source, str) else ""
-    if not dependencies and not source_text:
-        # No reuse is declared: the lifecycle stage has nothing to consume.
+    valid_for = reuse.get("validFor")
+    valid_text = valid_for.strip() if isinstance(valid_for, str) else ""
+    invalidation = reuse.get("invalidation")
+    invalidation_text = (invalidation.strip()
+                         if isinstance(invalidation, str) else "")
+    declared = bool(dependencies or source_text or valid_text
+                    or invalidation_text)
+    if not declared:
+        # A fully-empty reuse object (all four fields blank / the dependency
+        # list empty) asserts no claim -- it is exactly the collect-skeleton
+        # form -- so the lifecycle stage has nothing to consume. A
+        # PARTIALLY populated reuse object is already a declaration: the
+        # claim exists even when its source evidence or its scope is missing
+        # or blank, so the legality rejections below must apply to it
+        # instead of silently passing (CE-07; fail-open repair).
         return []
 
     contract = schema if schema is not None else load_contract()["schema"]
@@ -1258,8 +1275,6 @@ def evidence_lifecycle_findings(pack, schema=None, *,
 
     findings: list = []
 
-    valid_for = reuse.get("validFor")
-    valid_text = valid_for.strip() if isinstance(valid_for, str) else ""
     if not valid_text:
         findings.append(_violation(
             "REJECT", "REUSE_SCOPE_UNBOUNDED", "$.reuse.validFor",

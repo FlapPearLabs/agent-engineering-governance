@@ -271,7 +271,7 @@ review_evidence.py collect  --repo R --base-sha SHA40 --candidate-sha SHA40
 占位符模式 --allow-placeholders
                         → subject 强制规则上**唯一**声明的例外（§7）：占位符形态模板不是对一个具体候选的
                           主张，故无需目标 subject；该模式下的通过**不**构成 AC-06 的 subject 强制。
-                          该豁免**只**覆盖本条 subject 规则与 §9.6 的 P1-T05 处置，
+                          该豁免**只**覆盖本条 subject 规则、§9.6 的 P1-T05 处置与 §5.3（`references/git-ci-integration.md`）的 P1-T08 生命周期阶段，
                           **不**覆盖 §9.7 的 P1-T06 取回边界（其边界语义只声明于 §9.7.1 / §9.7.2）
 ```
 
@@ -401,12 +401,13 @@ P1-T05 拥有的**三轴核验行为与处置**折叠进既有的 `validate` 流
 ```text
 contract load → pack parse → version → structure → subject 期望/绑定
              → 声明的结构轴 → P1-T05 三轴处置 → P1-T06 信任 / 取回边界
+             → P1-T08 证据生命周期（按引用追加；行为 owner：references/git-ci-integration.md §5.3）
              → 结构化输出 → 退出码
 ```
 
 处置**只在**结构层（§8 第 0–5 步，含 §9.1 的 subject 期望完整性与绑定比较）**全部通过之后**运行：任何更早的失败原样回显其违规、**不产出任何处置条目**（§9.6.3），**不进入处置**。因此 `repo` / `baseSha` / `candidateSha` 任一不符的包**永不**到达行为层 PASS，`STRUCTURALLY_VALID = NO` 的包同样如此。`evidence_disposition(pack, schema)` 是这一行为的内部入口（行为助手，**不是**公开子命令，也不构成第二个 CLI / 输出权威）。
 
-`--allow-placeholders` 是**唯一**声明的例外，且只豁免**处置**（§7：占位符形态模板不是对一个具体候选的主张）：该模式**不运行** P1-T05 三轴处置，也不产出任何处置条目；但**不豁免** P1-T06 的取回边界（§9.7.1），故该模式下的退出码由结构层**与边界**共同决定。
+`--allow-placeholders` 是**唯一**声明的例外，且只豁免**行为层**（§7：占位符形态模板不是对一个具体候选的主张）：该模式**不运行** P1-T05 三轴处置，也不产出任何处置条目；同样**不运行** P1-T08 证据生命周期阶段（该阶段的行为 owner 是 `references/git-ci-integration.md` §5.3，此处只按指针指认，不重声明）；但**不豁免** P1-T06 的取回边界（§9.7.1），故该模式下的退出码由结构层**与边界**共同决定。
 
 ### 9.6.2 处置规则（P1-T05 行为；值域引用 §4）
 
@@ -479,7 +480,7 @@ P1-T06 阶段的位置由 §9.6.1 的**同一行**顺序声明，本票只在该
 （`→ P1-T06 信任 / 取回边界`），不另立第二份顺序。因此边界**只在**结构层与 subject 层全部通过之后运行：
 更早的失败原样回显，不产出任何边界条目。
 
-边界**没有**占位符例外：`--allow-placeholders` 只豁免 §9.6 的 P1-T05 三轴处置，P1-T06 的取回边界在**每一个**
+边界**没有**占位符例外：`--allow-placeholders` 只豁免 §9.6 的 P1-T05 三轴处置与 §5.3（`references/git-ci-integration.md`）的 P1-T08 生命周期阶段，P1-T06 的取回边界在**每一个**
 `validate` 模式下都运行。该豁免既无声明依据（§8 的 `ERROR_SEMANTICS` 与 `AC-26` 都是无条件的），也无必要：
 模板自身的占位符值 `${REPO_RELATIVE_PATH_OR_CI_ARTIFACT_ID}` 不含分隔符、本就不匹配任何拒绝形态，
 故它照常通过边界而不需要任何豁免。

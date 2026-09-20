@@ -172,4 +172,4 @@ T4  authority / profile / toolchain 相关变化（authority profile toolchain c
 
 #### 机械消费边界
 
-生命周期检查在判定顺序中位于结构层、subject 绑定、P1-T05 三轴处置与 P1-T06 取回边界**之后**；不新增 CLI 模式（公开 argv surface 恒为 `collect` / `validate`），不新增信封键，失败条目走既有 `violations` 清单，其 reason 词表与结构类 / 声明类 / 调用类 / 处置类 / 边界类**互不相交**。占位符模式与 P1-T05 处置同样豁免生命周期检查（占位符形态模板不是对一个具体候选的复用主张）；取回边界照常运行。描述符的必需键集与核验状态值域由 CLI **从已加载合同运行时读取**，不在代码中重述（单一声明点纪律）。触发匹配是对声明记录的定向判定，不是对本清单的第二声明。
+生命周期检查在判定顺序中位于结构层、subject 绑定、P1-T05 三轴处置与 P1-T06 取回边界**之后**；不新增 CLI 模式（公开 argv surface 恒为 `collect` / `validate`），不新增信封键，失败条目走既有 `violations` 清单，其 reason 词表与结构类 / 声明类 / 调用类 / 处置类 / 边界类**互不相交**。占位符模式与 P1-T05 处置同样豁免生命周期检查（占位符形态模板不是对一个具体候选的复用主张）；取回边界照常运行。描述符的必需键集与核验状态值域由 CLI **从已加载合同运行时读取**，不在代码中重述（单一声明点纪律）。触发匹配是对声明记录的定向判定，不是对本清单的第二声明；定向失效的这一半由调用方提供的 `hit_triggers` 观测输入驱动——本 CLI 自身不消费任何外部观测，故 `REUSE_SCOPE_INVALIDATED` / `REUSE_CLAIM_INVALIDATED` 只对具备可观测性、按声明传入该观测流（the declared observation feed）的调用方可达，而 UNKNOWN / 形状不合法 / 来源合法性检查在**每一次** `validate` 上运行。
