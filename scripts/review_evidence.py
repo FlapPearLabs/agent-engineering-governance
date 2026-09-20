@@ -1162,6 +1162,31 @@ LIFECYCLE_REASONS = (
 REUSE_VERIFIED_STATE = "VERIFIED"
 
 
+# The reuse-descriptor SHAPE is P1-T04's (read from the contract below), but
+# the reuse-claim BLANK test belongs to this stage, and it must use the ONE
+# whitespace vocabulary this repository already declares: `ECMA262_WHITESPACE`
+# above (the ECMA-262 `\s` WhiteSpace + LineTerminator set, which is also what
+# the declared patterns are evaluated against). Python's `str.strip()` does NOT
+# agree with that declaration -- it misses U+FEFF, which IS ECMAScript
+# WhiteSpace and a realistic copy/paste artifact, and it strips U+001C-U+001F /
+# U+0085, which the declared set does not contain. A blank test written with
+# `str.strip()` therefore contradicts the file's own declaration and reads a
+# BOM-only `sourceEvidence` (a declared reuse claim with no identified source)
+# as "no claim at all", letting the pack exit 0. The declared set is compiled
+# once here and never restated.
+_BLANK_CHARS = re.compile("[" + ECMA262_WHITESPACE + "]")
+
+
+def _blank(text: str) -> bool:
+    """True when `text` is empty or holds only declared whitespace.
+
+    Grounded in the single declared whitespace vocabulary
+    (`ECMA262_WHITESPACE`): a string is blank exactly when EVERY character of
+    it is a member of that declared set, and the empty string is blank.
+    """
+    return not text or all(_BLANK_CHARS.fullmatch(char) for char in text)
+
+
 def _contract_descriptor_shape(contract) -> tuple:
     """The descriptor's required-key set and verification value domain.
 
@@ -1215,9 +1240,11 @@ def evidence_lifecycle_findings(pack, schema=None, *,
 
     Runs after structure, subject binding, the P1-T05 disposition and the
     P1-T06 boundary (see main). A FULLY-empty reuse block (every one of
-    `sourceEvidence` / `validFor` / `invalidation` blank, `dependencies`
-    empty -- the collect-skeleton form) asserts no claim and is never a
-    finding; a reuse object with ANY non-blank field or a non-empty
+    `sourceEvidence` / `validFor` / `invalidation` blank -- blank meaning
+    "empty or made only of the declared `ECMA262_WHITESPACE` set", see
+    `_blank` -- with `dependencies` empty, i.e. the collect-skeleton form)
+    asserts no claim and is never a finding; a reuse object with ANY
+    non-blank field or a non-empty
     dependency list is a DECLARED claim, and a declared reuse is legal only
     when
 
@@ -1252,12 +1279,14 @@ def evidence_lifecycle_findings(pack, schema=None, *,
     dependencies = reuse.get("dependencies")
     dependencies = dependencies if isinstance(dependencies, list) else []
     source = reuse.get("sourceEvidence")
-    source_text = source.strip() if isinstance(source, str) else ""
+    source_text = source if isinstance(source, str) and not _blank(source) \
+        else ""
     valid_for = reuse.get("validFor")
-    valid_text = valid_for.strip() if isinstance(valid_for, str) else ""
+    valid_text = (valid_for if isinstance(valid_for, str)
+                  and not _blank(valid_for) else "")
     invalidation = reuse.get("invalidation")
-    invalidation_text = (invalidation.strip()
-                         if isinstance(invalidation, str) else "")
+    invalidation_text = (invalidation if isinstance(invalidation, str)
+                         and not _blank(invalidation) else "")
     declared = bool(dependencies or source_text or valid_text
                     or invalidation_text)
     if not declared:
@@ -1267,7 +1296,9 @@ def evidence_lifecycle_findings(pack, schema=None, *,
         # PARTIALLY populated reuse object is already a declaration: the
         # claim exists even when its source evidence or its scope is missing
         # or blank, so the legality rejections below must apply to it
-        # instead of silently passing (CE-07; fail-open repair).
+        # instead of silently passing (CE-07; fail-open repair). "Blank"
+        # means blank by the repository's declared whitespace vocabulary
+        # (`_blank`), never by Python's `str.strip()`.
         return []
 
     contract = schema if schema is not None else load_contract()["schema"]
