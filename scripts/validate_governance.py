@@ -20,6 +20,15 @@ all checks PASS; never hard-code an expected number in documentation):
   - PORTABLE_SETUP capability matrix present
 
 NOT a workflow engine. Exit 0 = all checks PASS; exit 1 = any FAIL.
+
+``--json`` prints the same run as ONE machine-readable object on stdout
+(``verdict`` / ``passed`` / ``total`` / ``checks``) and changes nothing else:
+without the flag the human rendering and the exit codes are exactly as before.
+
+``consumer_disposition(exit_code, structured_result)`` is the product-side
+acceptance rule a consumer of a gate run applies. ``exit 0`` with a missing,
+malformed or self-contradictory structured result is ``CONSUMER_UNSATISFIED``
+-- the gate does not open -- and never ``PASS``.
 """
 from __future__ import annotations
 
@@ -29,6 +38,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+JSON_FLAG = "--json"
 
 # Single source of truth for public-release policy. Imported, not duplicated:
 # the patterns below must never drift from the public-release gate.
@@ -174,7 +185,108 @@ def memory_pointer_within_budget(body: str) -> tuple[bool, int]:
     return n <= WORKBUDDY_MEMORY_POINTER_BUDGET_BYTES, n
 
 
-def main() -> int:
+# --- P1-T16 / REQ-W4-04: product-side consumer acceptance rule ---------------
+# A gate does not open because a process exited 0. It opens because the process
+# exited 0 AND published a structured result that is well formed, internally
+# consistent and declares success. "exit 0 with nothing" is the D5 empty-run
+# row of the spec: CONSUMER_UNSATISFIED, never PASS (CONSUMER_UNSATISFIED is
+# not a verdict of this validator -- it is what the consumer concludes).
+#
+# Two result shapes are read, because this repo's gates publish two declared
+# output contracts: this validator's own `--json` report, and the evidence CLI
+# envelope (`REVIEW_EVIDENCE_CONTRACT_V1`, consumed as-is, never redefined).
+CONSUMER_UNSATISFIED = "CONSUMER_UNSATISFIED"
+CONSUMER_PASS = "PASS"
+CONSUMER_FAIL = "FAIL"
+
+
+def _result_object(structured_result):
+    """The structured result as an object; a raw stdout string is accepted."""
+    if isinstance(structured_result, dict):
+        return structured_result
+    if not isinstance(structured_result, str):
+        return None
+    try:
+        payload = json.loads(structured_result)
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _validator_report_ok(report, _exit_code):
+    """Reported success of this validator's `--json` report, else None.
+
+    None means "not a usable result": an absent/incomplete/oversized check
+    list, a non-boolean entry, or a verdict contradicting the entries. Such a
+    result is refused rather than believed.
+    """
+    verdict = report.get("verdict")
+    total = report.get("total")
+    passed = report.get("passed")
+    checks = report.get("checks")
+    if verdict not in (CONSUMER_PASS, CONSUMER_FAIL):
+        return None
+    if not isinstance(total, int) or isinstance(total, bool) or total < 1:
+        return None
+    if not isinstance(passed, int) or isinstance(passed, bool):
+        return None
+    if not isinstance(checks, list) or len(checks) != total:
+        return None
+    for entry in checks:
+        if not isinstance(entry, dict):
+            return None
+        if not isinstance(entry.get("name"), str) or not entry["name"]:
+            return None
+        if not isinstance(entry.get("ok"), bool):
+            return None
+    successes = sum(1 for entry in checks if entry["ok"])
+    if passed != successes or (verdict == CONSUMER_PASS) != (successes == total):
+        return None
+    return successes == total
+
+
+def _evidence_envelope_ok(envelope, exit_code):
+    """Reported success of the evidence CLI envelope, else None."""
+    ok = envelope.get("ok")
+    reported_exit = envelope.get("exitCode")
+    violations = envelope.get("violations")
+    if not isinstance(ok, bool):
+        return None
+    if not isinstance(reported_exit, int) or isinstance(reported_exit, bool):
+        return None
+    if not isinstance(violations, list):
+        return None
+    # The envelope must agree with the process it came from.
+    if reported_exit != exit_code or ok != (not violations):
+        return None
+    return ok
+
+
+def consumer_disposition(exit_code: int, structured_result) -> str:
+    """What a consumer of a gate run must do: PASS, FAIL, or neither.
+
+    * a non-zero exit is a refusal (FAIL);
+    * exit 0 with a missing, malformed or self-contradictory result is
+      CONSUMER_UNSATISFIED -- the gate does not open (UNKNOWN is not PASS);
+    * exit 0 with a well-formed result declaring success is PASS.
+    """
+    if exit_code != 0:
+        return CONSUMER_FAIL
+    report = _result_object(structured_result)
+    if report is None:
+        return CONSUMER_UNSATISFIED
+    for reader in (_validator_report_ok, _evidence_envelope_ok):
+        ok = reader(report, exit_code)
+        if ok is not None:
+            return CONSUMER_PASS if ok else CONSUMER_FAIL
+    return CONSUMER_UNSATISFIED
+
+
+def main(argv=None) -> int:
+    # argv is read HERE, never at import time: this module is also loaded as a
+    # library by other tests, and an import-time parse would hijack their argv.
+    as_json = JSON_FLAG in (sys.argv[1:] if argv is None else list(argv))
+
     # 1. required files
     missing = [f for f in REQUIRED_FILES if not (ROOT / f).is_file()]
     check("required-files-exist", not missing, f"missing={missing}")
@@ -472,11 +584,21 @@ def main() -> int:
     check("ticket-gate-documentation-wiring-only", not gate_missing,
           f"missing={gate_missing}")
 
-    # report
+    # report -- `--json` changes only the RENDERING of the same results: the
+    # checks, their order, the counts and the exit code are identical.
     failed = [r for r in results if not r[1]]
-    for name, ok, detail in results:
-        print(f"{'PASS' if ok else 'FAIL'}  {name}" + (f"  [{detail}]" if detail and not ok else ""))
-    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    if as_json:
+        print(json.dumps({
+            "verdict": CONSUMER_FAIL if failed else CONSUMER_PASS,
+            "passed": len(results) - len(failed),
+            "total": len(results),
+            "checks": [{"name": name, "ok": bool(ok), "detail": detail}
+                       for name, ok, detail in results],
+        }, ensure_ascii=False))
+    else:
+        for name, ok, detail in results:
+            print(f"{'PASS' if ok else 'FAIL'}  {name}" + (f"  [{detail}]" if detail and not ok else ""))
+        print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     return 1 if failed else 0
 
 
