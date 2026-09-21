@@ -38,3 +38,40 @@
 ## 3. 原始 MEMORY 的其余内容
 
 全部已在 V1 迁移中进入 canonical 文档（AGENTS/RULES/references）或按 R2 分区处理（机器事实 → deployment profile；偏好 → 指针文件）。台账见 `audit/PORTABILITY_HARDENING_EVIDENCE.md` §memory。**本文件不复制 MEMORY 正文**，也不构成第二权威层。
+
+## 4. Learning 关闭条件（按需 recipe；非每票模板）
+
+本节是 learning 条目关闭条件的**唯一 canonical owner**；其它 surface 只指针或链接到本节，不复述这些条件（`AC-38` / `CE-28`）。
+
+**按需**：本节是按需 recipe —— 只有需要关闭一个 learning 条目时才适用；它不是每票必填的字段组，不向常规工单增加必填字段，也不构成第二套状态机。
+
+关闭一个 learning 条目必须同时给出「显式处置（采纳 accept / 拒绝 reject）+ 理由 + 验证引用」；三者缺一即关闭无效。
+
+仅凭一句状态断言（fixed / done / resolved / 已修复 / 已完成 / 已解决）**不得**关闭 learning 条目 —— 状态字符串既不是处置，也不是证据。
+
+本节只使用最小处置词表 accept / reject，不引入新的全局枚举、状态机或字段名。
+
+状态合同：
+
+```text
+LEGAL    ACCEPT + 采纳理由 + 验证引用
+LEGAL    REJECT + 拒绝理由 + 验证引用
+ILLEGAL  仅状态断言（fixed / done / resolved / 已修复 / 已完成 / 已解决）-> 拒绝
+ILLEGAL  缺少采纳/拒绝理由 -> 拒绝
+ILLEGAL  缺少验证引用 -> 拒绝
+```
+
+错误语义（fail closed）：
+
+```text
+missing disposition      -> 关闭无效
+missing reason           -> 关闭无效
+missing verification ref -> 关闭无效
+assertion-only closure   -> 关闭无效
+```
+
+同一关闭条件 recipe 在两个 canonical 文件重复定义（双 owner）必须拒绝并收敛为单一 owner（`CE-28` / `AC-38`）。
+
+`CE-18`：一个 learning 条目在没有采纳/拒绝理由与验证引用时被关闭必须被拒绝。
+
+本节 recipe 属 canonical reference 变更，按 [AGENTS.md](../AGENTS.md) 第 8 节的治理变更协议执行；它只在关闭条件被应用时生效，不是逐票模板。
