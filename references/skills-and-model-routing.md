@@ -46,3 +46,36 @@
 
 - WorkBuddy：Agent 工具 `model` 参数（default/lite/reasoning）+ 会话模型选择；Hermes：runtime 模型配置。
 - 外部强评审当前人工搬运（PRE-EXTERNAL TERMINAL BARRIER 之后的 minimal handoff），见 AGENTS §10 与 deployment/BOOTSTRAP_CONTRACT.md。
+
+## 4. 派发元数据 recipe（MODEL_DISPATCH_METADATA；RISK FIRST, MODEL SECOND）
+
+派发决策按固定字段组记录并逐字段核对，不以散文冒充合同。字段组**顺序即语义**：
+
+```text
+ROLE
+TASK
+RISK
+MODEL_OR_TIER
+REASONING_EFFORT
+WHY
+EXPECTED_OUTPUT
+ESCALATE_IF
+```
+
+- **顺序是规范的（§2 的 RISK FIRST, MODEL SECOND 在此展开为字段序）**：`RISK` 必须先于 `MODEL_OR_TIER` 记录；先定风险，再由风险决定档位——风险驱动档位选择，反之不成立。
+- `MODEL_OR_TIER` 记录的是**档位 / profile 引用**（§2 的档位名），**不是**具体型号：具体型号是 **profile / 可更新值，不是不变量**。
+  后续 profile 更新换掉具体型号时，**不得要求改动本节的规范文本**——可核验性来自 profile 引用，不来自写死的型号字面量。
+- 缺任一字段 = 派发记录无效。
+- 顺序错误 = 派发记录无效。
+- 把不可核验的具体型号写死成不变量 = 缺陷，须如实上报，不得静默通过。
+- `ESCALATE_IF` **只引用** `AGENTS.md` §3 的 ESCALATION 触发清单，不在此重列触发项（清单的单一 owner 是 AGENTS §3）。
+- 本 recipe 的合法 / 非法集合是**局部的**：本节**不引入**全局状态机，也不引入共享枚举。
+
+```text
+LEGAL    RISK 记录在 MODEL_OR_TIER 之前的完整字段组
+LEGAL    MODEL_OR_TIER 解析为 profile 值，更新 profile 不需改不变量
+ILLEGAL  缺失任一字段
+ILLEGAL  把不可核验的具体型号写死为不变量
+```
+
+- CE-28：本字段组**只在本文件定义一次**；其它 surface 只指针 / 链接，不重复定义。
