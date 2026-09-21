@@ -131,10 +131,30 @@ verify                                            # LC-INV1..INV8；exit 1 = 违
 
 - 本 adapter 实现的 `contract_version` 见 `hooks/_continuity_state.py` `STATE_VERSION`（当前 **1**），必须等于 governance remote main 上 `schemas/project-state.schema.json` 的 `contract_version`。合同升版 → 本目录同步发 PR，二者永不分叉。
 
+## Deny-mapping contract（REQ-W4-03 / AC-18，S1 core —— 以合同陈述，非散文）
+
+`grounding_guard.py` 的退出码语义是**合同**，机械可验（合成测试 `tests/test_p1_t15_guard_deny_mapping.py`）：
+
+```text
+exit 0  = ALLOW
+exit 2  = REQUEST_BLOCK（请求宿主阻断）—— REQUEST 本身不构成 enforcement 证明；
+          "脚本打印 BLOCK"绝不是 deny 证据
+ENFORCED   = 仅当存在**可核验 deny 映射登记**：部署方把 runtime "exit 2 → 宿主 DENY"
+             的映射写成 machine-readable JSON，并经 env `ZCODE_DENY_MAPPING_REGISTRY`
+             指向该文件。必填字段：deny_mapping_version=1 / adapter="zcode" /
+             hook="grounding_guard.py" / allow_exit_code=0 / request_block_exit_code=2 /
+             host_decision_on_request_block="DENY" / recorded_at / recorded_by
+ADVISORY   = 无可核验映射时的诚实降级态（LEGAL）；权威 gate 仍是 orchestrator 纪律
+NOT_RUN    = live host deny 实测（REQ-W4-03-D / AC-18-D，W5，DEPLOYMENT_ONLY）本阶段
+             未执行 → 一律 NOT_RUN，NOT_RUN 永不等于 PASS
+```
+
+**ENFORCED-versus-ADVISORY 降级规则（fail-closed）**：登记未设置 / 文件缺失 / JSON 损坏 / 必填字段缺失 / 退出码与 0-2 合同不符 / host decision ≠ DENY / 不绑定本 hook → 一律按**无映射**处理，状态派生为 `ADVISORY`，**任何情况下不得派生为 ENFORCED**。声称 `ENFORCED` 而无可核验映射 = **合同违规**（`check_adapter_claim()` 拒绝）；降级 adapter 被记为 ENFORCED 同样拒绝。状态派生入口：`grounding_guard.py` 的 `load_deny_mapping()` / `runtime_status()` / `check_adapter_claim()` / `live_verification_status()`（S1 层 `live_verification_status()` 恒返回 NOT_RUN，任何登记字段都无法翻转——W5 拥有唯一升级路径）。live 半边（真实工具事件 → block → 宿主 deny → 目标未被修改）不在本合同内，不得以脚本打印冒充。
+
 ## 已知限制（诚实边界）
 
 - **PreToolUse payload 可靠性未证实（2026-09-06 ZCode 实测）**：`grounding_guard.py` 在 stdin 拿不到 `tool_input.file_path` 时 fail-open（advisory）。**权威 gate 仍是 orchestrator 纪律（合同 §7）**；hook 只把"忘记"变成机械可见。Pre-commit/pre-push 拦截同理：payload 不能可靠识别 `git commit`/`git push` 前**不实现**（合同 §9）。
 - Hook 只做机械检测与信号注入，**绝不**写语义决策（架构含义/用户决策/Spec 内容）——合同 §9 HOOK 不写语义决策。
 - **状态文档识别是名字启发式**（target/spec/adr/spike/architecture 路径子串，见 `_continuity_state.py`）：MADR 风格 `docs/decisions/` 等布局不会被自动标脏（fail-open 漏报）；`notes/speculation.md` 之类会误报。权威做法 = 按 index 的 `canonical_documents` pointers 分类，留待下一版；漏报时 orchestrator 仍按合同 §3 在 meaningful transition 手动 `record-event`。
-- 所有 hook 任何异常 exit 0，绝不阻塞会话启动/结束（`grounding_guard` 的 exit 2 = 显式 block 请求除外）。
+- 所有 hook 任何异常 exit 0，绝不阻塞会话启动/结束（`grounding_guard` 的 exit 2 = 显式 block 请求除外——exit 2 是 REQUEST_BLOCK，无 deny 映射登记即 ADVISORY，见上节 deny-mapping contract）。
 - CodeGraph 工具本身**不由 hook 调用**：hook 只维护 dirty 账本并发出 `SYNC_REQUIRED_ONCE / INDEX_MISSING` 指令，执行者是 orchestrator——因此合成测试无需安装 CodeGraph。
