@@ -75,3 +75,22 @@ assertion-only closure   -> 关闭无效
 `CE-18`：一个 learning 条目在没有采纳/拒绝理由与验证引用时被关闭必须被拒绝。
 
 本节 recipe 属 canonical reference 变更，按 [AGENTS.md](../AGENTS.md) 第 8 节的治理变更协议执行；它只在关闭条件被应用时生效，不是逐票模板。
+
+## 5. ORCHESTRATOR CLOSURE DOCTRINE (M1-M9)
+<!-- Canonical owner: references/engineering-memory.md -->
+<!-- Authority: Engineering Memory Doctrine for Autonomous Orchestrators -->
+
+Autonomous orchestrators and multi-agent harnesses MUST abide by the following nine mechanical closure predicates. A ticket closure or completion claim that violates these predicates is an `ORCHESTRATOR_FALSE_CLOSURE` and must be rejected fail-closed.
+
+* **M1 — CLOSE IS DERIVED**: `CLOSE_READY` is a mechanically evaluated boolean predicate over all required gates, never an orchestrator or implementer judgment. A ticket is closed ONLY when all closure predicates evaluate to TRUE.
+* **M2 — POST-INTEGRATION FIRST**: When a ticket requires post-integration verification, closing the ticket before post-integration CI completes with success is strictly prohibited. The legal sequence is: `MERGE -> POST-INTEGRATION CI START -> WAIT -> POST-INTEGRATION CI SUCCESS -> POST-INTEGRATION VERIFY PASS -> CLOSE`. Close timestamp MUST be strictly greater than CI completion timestamp.
+* **M3 — A FINDING REQUIRING CHANGE MUST LEAVE A NEW ARTIFACT**: If an independent review finding (P0/P1) requires a code, documentation, contract, or test change, closure evidence MUST contain a new commit SHA or an authoritative recorded amendment. Re-declaring closed without a new artifact or a persisted `NO_CHANGE_REQUIRED` independent ruling is prohibited.
+* **M4 — REVIEW SUMMARY IS NOT REVIEW EVIDENCE**: An orchestrator summary stating "Reviewer A PASS, Reviewer B PASS" cannot substitute for the reviewers' raw artifacts or legally referenceable evidence. Review quorum must be independently referenceable.
+* **M5 — OWNER CHAT DIRECTIVE MUST ENTER THE AUTHORITY CHAIN**: When a Product Owner authorizes a scope change during orchestration, the agent must persist that directive to a canonical authority surface (e.g. authoritative issue amendment comment or spec record) before relying on it. Chat context is not permanent repository authority.
+* **M6 — GREEN TESTS DO NOT PROVE A STRONGER CONTRACT**: CI green proves only that executed assertions passed. It does not prove unmodeled properties such as atomicity, durability, or crash consistency unless the test suite and platform semantics directly falsify and verify them.
+* **M7 — TERMINOLOGY MUST MATCH GUARANTEE**: Terminology must strictly reflect verified guarantees:
+  * `RECOVERABLE != ATOMIC`: A two-step replacement with an unlink gap is recoverable/fail-safe, but not physically atomic.
+  * `PROCESS_CRASH_SAFE != POWER_LOSS_DURABLE`: Tolerating process death does not prove surviving disk cache loss on power failure.
+  * `CONTENT_INTEGRITY != REUSE_AUTHORITY`: Valid bytes do not grant reuse authority unless bound by the authoritative checkpoint.
+* **M8 — ORCHESTRATOR CANNOT SELF-CERTIFY**: Implementers cannot give their own work final review pass, and orchestrators cannot certify their own closure evidence. Independent gates require distinct, independent review execution.
+* **M9 — CONTINUE-UNTIL-CLOSED DOES NOT MEAN BYPASS-GATES**: "Continue working until closed" means executing the cycle: `reproduce -> repair -> test -> re-review -> CI -> merge -> verify -> close`. It never permits skipping or weakening gates to force a premature closed state.
