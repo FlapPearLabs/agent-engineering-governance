@@ -755,16 +755,23 @@ def identity_problems(role: str, name: str, email: str, is_merge_commit: bool = 
 
 
 def head_commit_metadata(root: Path) -> dict[str, str]:
-    fmt = "%an%n%ae%n%cn%n%ce%n%p"
+    fmt = "%an%n%ae%n%cn%n%ce"
     proc = subprocess.run(["git", "-C", str(root), "log", "-1", f"--format={fmt}"],
                           capture_output=True, text=True)
     lines = proc.stdout.splitlines()
     if proc.returncode != 0 or len(lines) < 4:
         return {}
-    parents = lines[4].split() if len(lines) > 4 else []
+    # Count parents via git rev-parse HEAD^@ or git cat-file -p HEAD
+    # In shallow clones (%p in git log might be empty if parents aren't in shallow history,
+    # but cat-file -p HEAD always lists the raw parent headers written in the commit object)
+    cat_proc = subprocess.run(["git", "-C", str(root), "cat-file", "-p", "HEAD"],
+                              capture_output=True, text=True)
+    parent_count = 0
+    if cat_proc.returncode == 0:
+        parent_count = sum(1 for line in cat_proc.stdout.splitlines() if line.startswith("parent "))
     return {"author_name": lines[0], "author_email": lines[1],
             "committer_name": lines[2], "committer_email": lines[3],
-            "is_merge_commit": "true" if len(parents) >= 2 else "false"}
+            "is_merge_commit": "true" if parent_count >= 2 else "false"}
 
 
 def commit_metadata_gate(root: Path) -> int:
