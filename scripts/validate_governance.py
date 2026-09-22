@@ -282,6 +282,56 @@ def consumer_disposition(exit_code: int, structured_result) -> str:
     return CONSUMER_UNSATISFIED
 
 
+
+def check_closure_evidence_predicates(evidence: dict) -> tuple[bool, str]:
+    """
+    Evaluates mechanical closure predicates (M1-M9) on an integration closure record.
+    Returns (ok, reason).
+    """
+    # V1: Premature post-integration close
+    # close_timestamp must be strictly greater than post_integration_ci_completed_at
+    if evidence.get("requires_post_integration_ci", True):
+        ci_status = evidence.get("post_integration_ci_status")
+        ci_conclusion = evidence.get("post_integration_ci_conclusion")
+        ci_completed_at = evidence.get("post_integration_ci_completed_at")
+        close_timestamp = evidence.get("ticket_close_timestamp")
+
+        if ci_status != "completed" or ci_conclusion != "success":
+            return False, f"V1: post-integration CI not completed with success (status={ci_status}, conclusion={ci_conclusion})"
+
+        if ci_completed_at and close_timestamp:
+            if close_timestamp <= ci_completed_at:
+                return False, f"V1: premature close: ticket_close_timestamp ({close_timestamp}) <= ci_completed_at ({ci_completed_at})"
+
+    # V2: Review summary is not review evidence
+    if evidence.get("requires_dual_independent_review", False):
+        review_refs = evidence.get("independent_review_refs", [])
+        if not review_refs or len(review_refs) < 2:
+            return False, f"V2: review summary without independent raw artifacts or referenceable evidence (refs={review_refs})"
+
+    # V3: Open finding requiring change but candidate SHA is unchanged
+    findings = evidence.get("findings", [])
+    open_p0_p1 = [f for f in findings if f.get("severity") in ("P0", "P1") and f.get("status") == "open"]
+    for f in open_p0_p1:
+        if f.get("requires_change", True):
+            if evidence.get("candidate_sha") == f.get("reviewed_sha") and not evidence.get("no_change_authorized", False):
+                return False, f"V3: finding {f.get('id')} requires change but candidate_sha equals reviewed_sha without authorized amendment"
+
+    # V4: Scope amendment relies on chat rather than persisted authority
+    if evidence.get("relies_on_scope_amendment", False):
+        if not evidence.get("persisted_scope_amendment_ref"):
+            return False, "V4: scope amendment relies on chat/orchestrator context without persisted authority ref"
+
+    # V5: Guarantee overclaim relative to declared threat model
+    threat_model = evidence.get("threat_model")
+    declared_claims = evidence.get("declared_guarantees", [])
+    if threat_model == "PROCESS_CRASH_RECOVERY":
+        overclaims = [c for c in declared_claims if c in ("POWER_LOSS_DURABILITY", "STRICT_ATOMIC_REPLACEMENT", "ATOMIC_REPLACEMENT")]
+        if overclaims:
+            return False, f"V5: guarantee overclaim for threat model {threat_model}: {overclaims}"
+
+    return True, "OK"
+
 def main(argv=None) -> int:
     # argv is read HERE, never at import time: this module is also loaded as a
     # library by other tests, and an import-time parse would hijack their argv.
@@ -583,6 +633,23 @@ def main(argv=None) -> int:
     gate_missing = ticket_gate_wiring(ROOT)
     check("ticket-gate-documentation-wiring-only", not gate_missing,
           f"missing={gate_missing}")
+
+
+    # 28. Orchestrator closure doctrine (M1-M9) in engineering-memory
+    em_full = (ROOT / "references/engineering-memory.md").read_text(encoding="utf-8") if (ROOT / "references/engineering-memory.md").is_file() else ""
+    doctrine_ok = all(k in em_full for k in (
+        "ORCHESTRATOR CLOSURE DOCTRINE (M1-M9)",
+        "M1 — CLOSE IS DERIVED",
+        "M2 — POST-INTEGRATION FIRST",
+        "M3 — A FINDING REQUIRING CHANGE MUST LEAVE A NEW ARTIFACT",
+        "M4 — REVIEW SUMMARY IS NOT REVIEW EVIDENCE",
+        "M5 — OWNER CHAT DIRECTIVE MUST ENTER THE AUTHORITY CHAIN",
+        "M6 — GREEN TESTS DO NOT PROVE A STRONGER CONTRACT",
+        "M7 — TERMINOLOGY MUST MATCH GUARANTEE",
+        "M8 — ORCHESTRATOR CANNOT SELF-CERTIFY",
+        "M9 — CONTINUE-UNTIL-CLOSED DOES NOT MEAN BYPASS-GATES",
+    ))
+    check("orchestrator-closure-doctrine-present", doctrine_ok, "M1-M9 doctrine missing in references/engineering-memory.md")
 
     # report -- `--json` changes only the RENDERING of the same results: the
     # checks, their order, the counts and the exit code are identical.
