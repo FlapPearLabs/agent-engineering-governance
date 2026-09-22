@@ -728,8 +728,16 @@ def mask_email(value: str) -> str:
     return "<NON_CANONICAL_EMAIL>"
 
 
-def identity_problems(role: str, name: str, email: str) -> list[str]:
-    """Minimal check: does this identity match the intentional public one?"""
+def identity_problems(role: str, name: str, email: str, is_merge_commit: bool = False) -> list[str]:
+    """Minimal check: does this identity match the intentional public one?
+    
+    When a commit is a legitimate Git merge commit (has multiple parents),
+    the committer is legally GitHub <noreply@github.com>.
+    Ordinary commits must always match PUBLIC_PROJECT_IDENTITY for both author and committer.
+    """
+    if is_merge_commit and role == "committer":
+        if name.strip() == "GitHub" and email.strip() == "noreply@github.com":
+            return []
     problems: list[str] = []
     if name.strip() != PUBLIC_PROJECT_IDENTITY:
         problems.append(f"{role}_name != PUBLIC_PROJECT_IDENTITY "
@@ -747,14 +755,16 @@ def identity_problems(role: str, name: str, email: str) -> list[str]:
 
 
 def head_commit_metadata(root: Path) -> dict[str, str]:
-    fmt = "%an%n%ae%n%cn%n%ce"
+    fmt = "%an%n%ae%n%cn%n%ce%n%p"
     proc = subprocess.run(["git", "-C", str(root), "log", "-1", f"--format={fmt}"],
                           capture_output=True, text=True)
     lines = proc.stdout.splitlines()
     if proc.returncode != 0 or len(lines) < 4:
         return {}
+    parents = lines[4].split() if len(lines) > 4 else []
     return {"author_name": lines[0], "author_email": lines[1],
-            "committer_name": lines[2], "committer_email": lines[3]}
+            "committer_name": lines[2], "committer_email": lines[3],
+            "is_merge_commit": "true" if len(parents) >= 2 else "false"}
 
 
 def commit_metadata_gate(root: Path) -> int:
