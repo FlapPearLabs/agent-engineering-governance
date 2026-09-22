@@ -244,5 +244,56 @@ class TestOrchestratorClosureDoctrinePredicates(unittest.TestCase):
                 "committer", case_c["committer_name"], case_c["committer_email"],
                 is_merge_commit=False), [])
 
+    def test_malformed_parent_header_cannot_enable_merge_exception(self):
+        import scripts.validate_public_release as vpr
+
+        def commit(repo, tree, message, parents=(), committer_name="GitHub",
+                   committer_email="noreply@github.com"):
+            env = os.environ.copy()
+            env.update({
+                "GIT_AUTHOR_NAME": "FlapPearLabs",
+                "GIT_AUTHOR_EMAIL": "151931662+FlapPearLabs@users.noreply.github.com",
+                "GIT_COMMITTER_NAME": committer_name,
+                "GIT_COMMITTER_EMAIL": committer_email,
+            })
+            parent_args = [arg for parent in parents for arg in ("-p", parent)]
+            return subprocess.run(
+                ["git", "-C", str(repo), "commit-tree", tree, *parent_args],
+                input=message, capture_output=True, text=True, env=env, check=True,
+            ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "symbolic-ref", "HEAD", "refs/heads/test"], check=True)
+            tree = subprocess.run(
+                ["git", "-C", str(repo), "mktree"], input="", capture_output=True,
+                text=True, check=True,
+            ).stdout.strip()
+            real_parent = commit(repo, tree, "base\n", committer_name="FlapPearLabs",
+                                 committer_email="151931662+FlapPearLabs@users.noreply.github.com")
+            valid_single = commit(repo, tree, "A\n", (real_parent,))
+            raw = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", valid_single],
+                capture_output=True, text=True, check=True,
+            ).stdout
+            raw = raw.replace("\n\nA\n", "\nparent #987\n\nA\n", 1)
+            malformed = subprocess.run(
+                ["git", "-C", str(repo), "hash-object", "-t", "commit", "-w", "--stdin"],
+                input=raw, capture_output=True, text=True, check=True,
+            ).stdout.strip()
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/heads/test", malformed], check=True)
+
+            rev_list = subprocess.run(
+                ["git", "-C", str(repo), "rev-list", "--parents", "-n", "1", "HEAD"],
+                capture_output=True, text=True, check=True,
+            ).stdout.split()
+            self.assertEqual(len(rev_list), 2)
+            meta = vpr.head_commit_metadata(repo)
+            self.assertEqual(meta["is_merge_commit"], "false")
+            self.assertNotEqual(vpr.identity_problems(
+                "committer", meta["committer_name"], meta["committer_email"],
+                is_merge_commit=meta["is_merge_commit"] == "true"), [])
+
 if __name__ == "__main__":
     unittest.main()

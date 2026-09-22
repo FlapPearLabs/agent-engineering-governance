@@ -755,11 +755,11 @@ def identity_problems(role: str, name: str, email: str, is_merge_commit: bool = 
 
 
 def head_commit_metadata(root: Path) -> dict[str, str]:
-    fmt = "%an%n%ae%n%cn%n%ce"
+    fmt = "%H%n%an%n%ae%n%cn%n%ce"
     proc = subprocess.run(["git", "-C", str(root), "log", "-1", f"--format={fmt}"],
                           capture_output=True, text=True)
     lines = proc.stdout.splitlines()
-    if proc.returncode != 0 or len(lines) < 4:
+    if proc.returncode != 0 or len(lines) < 5:
         return {}
     # Count parents via git rev-parse HEAD^@ or git cat-file -p HEAD
     # In shallow clones (%p in git log might be empty if parents aren't in shallow history,
@@ -771,9 +771,19 @@ def head_commit_metadata(root: Path) -> dict[str, str]:
         # Commit headers end at the first blank line.  A commit message may
         # contain prose that starts with ``parent ``, which is not metadata.
         header = cat_proc.stdout.split("\n\n", 1)[0]
-        parent_count = sum(1 for line in header.splitlines() if line.startswith("parent "))
-    return {"author_name": lines[0], "author_email": lines[1],
-            "committer_name": lines[2], "committer_email": lines[3],
+        header_lines = header.splitlines()
+        oid_length = len(lines[0])
+        oid_pattern = re.compile(rf"[0-9a-f]{{{oid_length}}}")
+        if (header_lines and
+                re.fullmatch(rf"tree [0-9a-f]{{{oid_length}}}", header_lines[0])):
+            for line in header_lines[1:]:
+                if not line.startswith("parent "):
+                    break
+                if not oid_pattern.fullmatch(line[len("parent "):]):
+                    break
+                parent_count += 1
+    return {"author_name": lines[1], "author_email": lines[2],
+            "committer_name": lines[3], "committer_email": lines[4],
             "is_merge_commit": "true" if parent_count >= 2 else "false"}
 
 
