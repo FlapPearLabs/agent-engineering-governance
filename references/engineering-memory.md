@@ -43,6 +43,24 @@
 
 本节是 learning 条目关闭条件的**唯一 canonical owner**；其它 surface 只指针或链接到本节，不复述这些条件（`AC-38` / `CE-28`）。
 
+## 5. Orchestrator Closure Doctrine (Rules M1–M9)
+
+When orchestrating multi-agent workflows, ticket closures must satisfy mechanical predicates.
+The optimization target is NEVER the speed of reaching `CLOSED`, but rather `TRUTHFUL_CLOSURE`.
+
+- **M1 — CLOSE IS DERIVED**: `CLOSE_READY` must be mechanically derived from verifiable predicates. An orchestrator must never declare a ticket closed because it "looks done".
+- **M2 — POST-INTEGRATION FIRST**: Whenever post-integration verification is required, tickets must never be closed while post-integration CI is still pending/running. The lawful sequence is:
+  `MERGE` → `POST-INTEGRATION CI COMPLETE & SUCCESS` → `VERIFY PASS` → `CLOSE`.
+  The close timestamp must be strictly later than the CI completion timestamp.
+- **M3 — A FINDING REQUIRING CHANGE MUST LEAVE A NEW ARTIFACT**: If a reviewer finding requires a code, contract, doc, or test change, closure evidence must point to a NEW commit or authoritative amendment artifact. Zero-change closures on acknowledged findings are forbidden.
+- **M4 — REVIEW SUMMARY IS NOT REVIEW EVIDENCE**: An orchestrator summarizing "Reviewer A PASS, Reviewer B PASS" cannot substitute for traceable raw reviewer evidence artifacts with exact SHAs.
+- **M5 — OWNER CHAT DIRECTIVES MUST ENTER THE AUTHORITY CHAIN**: Chat-level instructions or scope amendments must be persisted to the repository's canonical authoritative surfaces before being relied upon. Chat context is not repository authority.
+- **M6 — GREEN TESTS DO NOT PROVE A STRONGER CONTRACT**: CI green only proves that asserted test cases passed; it does not prove atomicity, durability, or crash consistency beyond the verified threat model.
+- **M7 — TERMINOLOGY MUST MATCH GUARANTEE**: Strict distinction between `recoverable` vs `atomic`, `process-crash safe` vs `power-loss durable`, `fail-safe` vs `no-redo`. Never describe weaker guarantees with stronger terms.
+- **M8 — ORCHESTRATOR CANNOT SELF-CERTIFY**: Implementers cannot approve their own code; orchestrators cannot certify their own evidence. Independent gates require independent reviewers.
+- **M9 — CONTINUE-UNTIL-CLOSED DOES NOT MEAN BYPASS-GATES**: "Work until closed" means loop through `review -> repair -> re-review`, never `review FAIL -> reinterpret guarantee -> merge -> close`.
+
+
 **按需**：本节是按需 recipe —— 只有需要关闭一个 learning 条目时才适用；它不是每票必填的字段组，不向常规工单增加必填字段，也不构成第二套状态机。
 
 关闭一个 learning 条目必须同时给出「显式处置（采纳 accept / 拒绝 reject）+ 理由 + 验证引用」；三者缺一即关闭无效。
