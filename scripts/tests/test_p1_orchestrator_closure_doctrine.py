@@ -4,7 +4,10 @@ and machine-enforced closure predicate validation.
 """
 
 import unittest
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import sys
 
 # Add scripts directory to path
@@ -160,9 +163,6 @@ class TestOrchestratorClosureDoctrinePredicates(unittest.TestCase):
         ok, reason = check_closure_evidence_predicates(evidence)
         self.assertTrue(ok)
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_github_merge_committer_identity_positive_and_negative(self):
         import scripts.validate_public_release as vpr
         # Positive case 1: normal commit with canonical public identity
@@ -174,3 +174,75 @@ if __name__ == "__main__":
         # Negative case 2: merge commit with non-canonical personal author/committer must FAIL
         self.assertNotEqual(vpr.identity_problems("committer", "random_user", "random@example.com", is_merge_commit=True), [])
         self.assertNotEqual(vpr.identity_problems("author", "random_user", "random@example.com", is_merge_commit=True), [])
+
+    def test_github_merge_identity_regression_is_discovered(self):
+        test_names = {
+            test.id().rsplit(".", 1)[-1]
+            for test in unittest.defaultTestLoader.loadTestsFromTestCase(type(self))
+        }
+        self.assertIn("test_github_merge_committer_identity_positive_and_negative", test_names)
+
+    def test_head_commit_metadata_counts_only_header_parents(self):
+        import scripts.validate_public_release as vpr
+
+        def commit(repo, tree, message, parents=(), author_name="FlapPearLabs",
+                   author_email="151931662+FlapPearLabs@users.noreply.github.com",
+                   committer_name=None, committer_email=None):
+            committer_name = committer_name or author_name
+            committer_email = committer_email or author_email
+            env = os.environ.copy()
+            env.update({
+                "GIT_AUTHOR_NAME": author_name,
+                "GIT_AUTHOR_EMAIL": author_email,
+                "GIT_COMMITTER_NAME": committer_name,
+                "GIT_COMMITTER_EMAIL": committer_email,
+            })
+            parent_args = [arg for parent in parents for arg in ("-p", parent)]
+            result = subprocess.run(
+                ["git", "-C", str(repo), "commit-tree", tree, *parent_args],
+                input=message,
+                capture_output=True,
+                text=True,
+                env=env,
+                check=True,
+            )
+            return result.stdout.strip()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "symbolic-ref", "HEAD", "refs/heads/test"], check=True)
+            tree = subprocess.run(
+                ["git", "-C", str(repo), "mktree"], input="", capture_output=True,
+                text=True, check=True,
+            ).stdout.strip()
+
+            base = commit(repo, tree, "base\n")
+            single_parent = commit(repo, tree, "A\n\nparent #123\n", (base,))
+            (repo / ".git" / "shallow").write_text(single_parent + "\n")
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/heads/test", single_parent], check=True)
+            case_a = vpr.head_commit_metadata(repo)
+            self.assertEqual(case_a["is_merge_commit"], "false")
+
+            second_parent = commit(repo, tree, "B\n")
+            merge = commit(repo, tree, "D\n", (single_parent, second_parent),
+                           committer_name="GitHub", committer_email="noreply@github.com")
+            # B: true double-parent shape; D: the same legitimate GitHub merge
+            # shape, whose GitHub committer identity must remain accepted.
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/heads/test", merge], check=True)
+            case_b = vpr.head_commit_metadata(repo)
+            self.assertEqual(case_b["is_merge_commit"], "true")
+            self.assertEqual(vpr.identity_problems(
+                "committer", case_b["committer_name"], case_b["committer_email"],
+                is_merge_commit=case_b["is_merge_commit"] == "true"), [])
+
+            canonical_single = commit(repo, tree, "C\n", (base,))
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/heads/test", canonical_single], check=True)
+            case_c = vpr.head_commit_metadata(repo)
+            self.assertEqual(case_c["is_merge_commit"], "false")
+            self.assertEqual(vpr.identity_problems(
+                "committer", case_c["committer_name"], case_c["committer_email"],
+                is_merge_commit=False), [])
+
+if __name__ == "__main__":
+    unittest.main()

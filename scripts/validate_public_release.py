@@ -768,7 +768,10 @@ def head_commit_metadata(root: Path) -> dict[str, str]:
                               capture_output=True, text=True)
     parent_count = 0
     if cat_proc.returncode == 0:
-        parent_count = sum(1 for line in cat_proc.stdout.splitlines() if line.startswith("parent "))
+        # Commit headers end at the first blank line.  A commit message may
+        # contain prose that starts with ``parent ``, which is not metadata.
+        header = cat_proc.stdout.split("\n\n", 1)[0]
+        parent_count = sum(1 for line in header.splitlines() if line.startswith("parent "))
     return {"author_name": lines[0], "author_email": lines[1],
             "committer_name": lines[2], "committer_email": lines[3],
             "is_merge_commit": "true" if parent_count >= 2 else "false"}
