@@ -162,3 +162,15 @@ class TestOrchestratorClosureDoctrinePredicates(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_github_merge_committer_identity_positive_and_negative(self):
+        import scripts.validate_public_release as vpr
+        # Positive case 1: normal commit with canonical public identity
+        self.assertEqual(vpr.identity_problems("committer", "FlapPearLabs", "151931662+FlapPearLabs@users.noreply.github.com", is_merge_commit=False), [])
+        # Positive case 2: merge commit with GitHub committer
+        self.assertEqual(vpr.identity_problems("committer", "GitHub", "noreply@github.com", is_merge_commit=True), [])
+        # Negative case 1: normal commit (is_merge_commit=False) with GitHub committer must FAIL
+        self.assertNotEqual(vpr.identity_problems("committer", "GitHub", "noreply@github.com", is_merge_commit=False), [])
+        # Negative case 2: merge commit with non-canonical personal author/committer must FAIL
+        self.assertNotEqual(vpr.identity_problems("committer", "random_user", "random@example.com", is_merge_commit=True), [])
+        self.assertNotEqual(vpr.identity_problems("author", "random_user", "random@example.com", is_merge_commit=True), [])

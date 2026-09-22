@@ -401,11 +401,12 @@ def main(argv=None) -> int:
     #     intentional public project identity, not a secondary account handle.
     head_meta = vpr.head_commit_metadata(ROOT)
     if head_meta:
+        is_merge = head_meta.get("is_merge_commit") == "true"
         ident_problems = (
             vpr.identity_problems("author", head_meta["author_name"],
-                                  head_meta["author_email"])
+                                  head_meta["author_email"], is_merge_commit=is_merge)
             + vpr.identity_problems("committer", head_meta["committer_name"],
-                                    head_meta["committer_email"]))
+                                    head_meta["committer_email"], is_merge_commit=is_merge))
         check("head-commit-metadata-is-public-project-identity",
               not ident_problems, f"problems={ident_problems}")
     else:
