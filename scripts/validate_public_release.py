@@ -775,9 +775,12 @@ def commit_metadata_gate(root: Path) -> int:
         print("VIOLATIONS=1")
         print("  [IDENTITY/NO_HEAD_COMMIT] unable to read HEAD commit metadata")
         return 1
-    problems = (identity_problems("author", meta["author_name"], meta["author_email"])
+    proc_p = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%p"],
+                            capture_output=True, text=True)
+    is_merge = len(proc_p.stdout.strip().split()) > 1
+    problems = (identity_problems("author", meta["author_name"], meta["author_email"], is_merge_commit=is_merge)
                 + identity_problems("committer", meta["committer_name"],
-                                    meta["committer_email"]))
+                                    meta["committer_email"], is_merge_commit=is_merge))
     print(f"VIOLATIONS={len(problems)}")
     for p in problems:
         print(f"  [PUBLIC_ACCOUNT_IDENTITY] {p}")
