@@ -295,5 +295,79 @@ class TestOrchestratorClosureDoctrinePredicates(unittest.TestCase):
                 "committer", meta["committer_name"], meta["committer_email"],
                 is_merge_commit=meta["is_merge_commit"] == "true"), [])
 
+    def test_duplicate_parent_oid_does_not_enable_merge_exception(self):
+        import scripts.validate_public_release as vpr
+
+        tested_formats = []
+        for object_format in ("sha1", "sha256"):
+            with self.subTest(object_format=object_format):
+                with tempfile.TemporaryDirectory() as tmp:
+                    repo = Path(tmp)
+                    init_args = ["git", "init", "-q"]
+                    if object_format == "sha256":
+                        init_args.append("--object-format=sha256")
+                    init_args.append(str(repo))
+                    initialized = subprocess.run(init_args, capture_output=True, text=True)
+                    if initialized.returncode != 0:
+                        if object_format == "sha256":
+                            continue
+                        self.fail(initialized.stderr)
+                    tested_formats.append(object_format)
+                    subprocess.run(["git", "-C", str(repo), "symbolic-ref", "HEAD", "refs/heads/test"], check=True)
+                    tree = subprocess.run(
+                        ["git", "-C", str(repo), "mktree"], input="", capture_output=True,
+                        text=True, check=True,
+                    ).stdout.strip()
+
+                    def commit(message, parents=(), committer_name="FlapPearLabs",
+                               committer_email="151931662+FlapPearLabs@users.noreply.github.com"):
+                        env = os.environ.copy()
+                        env.update({
+                            "GIT_AUTHOR_NAME": "FlapPearLabs",
+                            "GIT_AUTHOR_EMAIL": "151931662+FlapPearLabs@users.noreply.github.com",
+                            "GIT_COMMITTER_NAME": committer_name,
+                            "GIT_COMMITTER_EMAIL": committer_email,
+                        })
+                        parent_args = [arg for parent in parents for arg in ("-p", parent)]
+                        return subprocess.run(
+                            ["git", "-C", str(repo), "commit-tree", tree, *parent_args],
+                            input=message, capture_output=True, text=True, env=env, check=True,
+                        ).stdout.strip()
+
+                    real_parent = commit("base\n")
+                    valid_single = commit(
+                        "single\n", (real_parent,),
+                        committer_name="GitHub", committer_email="noreply@github.com",
+                    )
+                    raw = subprocess.run(
+                        ["git", "-C", str(repo), "cat-file", "-p", valid_single],
+                        capture_output=True, text=True, check=True,
+                    ).stdout
+                    parent_line = next(
+                        line for line in raw.splitlines() if line.startswith("parent ")
+                    )
+                    raw = raw.replace(parent_line + "\n", parent_line + "\n" + parent_line + "\n", 1)
+                    duplicate_head = subprocess.run(
+                        ["git", "-C", str(repo), "hash-object", "-t", "commit", "-w", "--stdin"],
+                        input=raw, capture_output=True, text=True, check=True,
+                    ).stdout.strip()
+                    subprocess.run(["git", "-C", str(repo), "update-ref", "refs/heads/test", duplicate_head], check=True)
+
+                    header = raw.split("\n\n", 1)[0]
+                    parent_oids = [
+                        line[len("parent "):] for line in header.splitlines()
+                        if line.startswith("parent ")
+                    ]
+                    self.assertEqual(len(parent_oids), 2)
+                    self.assertEqual(len(set(parent_oids)), 1)
+                    self.assertEqual(len(parent_oids[0]), 40 if object_format == "sha1" else 64)
+                    meta = vpr.head_commit_metadata(repo)
+                    self.assertEqual(meta["is_merge_commit"], "false")
+                    self.assertNotEqual(vpr.identity_problems(
+                        "committer", meta["committer_name"], meta["committer_email"],
+                        is_merge_commit=meta["is_merge_commit"] == "true"), [])
+
+        self.assertIn("sha1", tested_formats)
+
 if __name__ == "__main__":
     unittest.main()

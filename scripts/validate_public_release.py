@@ -774,6 +774,7 @@ def head_commit_metadata(root: Path) -> dict[str, str]:
         header_lines = header.splitlines()
         oid_length = len(lines[0])
         oid_pattern = re.compile(rf"[0-9a-f]{{{oid_length}}}")
+        parent_oids: set[str] = set()
         if (header_lines and
                 re.fullmatch(rf"tree [0-9a-f]{{{oid_length}}}", header_lines[0])):
             for line in header_lines[1:]:
@@ -781,7 +782,8 @@ def head_commit_metadata(root: Path) -> dict[str, str]:
                     break
                 if not oid_pattern.fullmatch(line[len("parent "):]):
                     break
-                parent_count += 1
+                parent_oids.add(line[len("parent "):])
+        parent_count = len(parent_oids)
     return {"author_name": lines[1], "author_email": lines[2],
             "committer_name": lines[3], "committer_email": lines[4],
             "is_merge_commit": "true" if parent_count >= 2 else "false"}
