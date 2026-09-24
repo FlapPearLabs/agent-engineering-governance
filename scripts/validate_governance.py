@@ -381,6 +381,8 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
     for finding in findings:
         if not isinstance(finding, dict):
             return False, "V3: malformed finding"
+        if finding.get("severity") not in ("P0", "P1", "P2", "P3"):
+            return False, f"V3: finding {finding.get('id')} has invalid severity"
         if finding.get("severity") not in ("P0", "P1"):
             continue
         if finding.get("status") != "resolved":

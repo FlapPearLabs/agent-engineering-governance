@@ -42,6 +42,28 @@ def evidence():
 
 
 class ClosureGateTests(unittest.TestCase):
+    def test_real_cli_rejects_malformed_finding_severity(self):
+        for severity in ("P1 ", "P4", "", None, [], {}):
+            item = evidence()
+            item["findings"] = [{"id": "F-unsafe", "severity": severity, "status": "open"}]
+            run = subprocess.run([sys.executable, str(GATE), "--pre-close"],
+                                 input=json.dumps(item), text=True, capture_output=True)
+            with self.subTest(severity=severity):
+                self.assertEqual(1, run.returncode, run.stdout + run.stderr)
+                self.assertFalse(json.loads(run.stdout)["close_ready"])
+        item = evidence()
+        item["findings"] = [{"id": "F-missing", "status": "open"}]
+        run = subprocess.run([sys.executable, str(GATE), "--pre-close"],
+                             input=json.dumps(item), text=True, capture_output=True)
+        self.assertEqual(1, run.returncode, run.stdout + run.stderr)
+
+    def test_valid_p2_p3_severity_retains_backlog_semantics(self):
+        for severity in ("P2", "P3"):
+            item = evidence()
+            item["findings"] = [{"id": "F-backlog", "severity": severity, "status": "open"}]
+            with self.subTest(severity=severity):
+                self.assertTrue(check_closure_evidence_predicates(item)[0])
+
     def test_required_reachability_six_slots_fail_closed(self):
         for field in ("REAL_ENTRYPOINT", "PRODUCTION_CALL_CHAIN",
                       "OBSERVED_PRODUCTION_EFFECT", "PRODUCTION_CALLERS",
