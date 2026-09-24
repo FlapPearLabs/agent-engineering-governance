@@ -20,6 +20,8 @@ all checks PASS; never hard-code an expected number in documentation):
   - PORTABLE_SETUP capability matrix present
 
 NOT a workflow engine. Exit 0 = all checks PASS; exit 1 = any FAIL.
+``--pre-close`` / ``--post-close`` are separate, scoped integration-ticket
+closure checks over JSON on stdin; they do not run the repository self-checks.
 
 ``--json`` prints the same run as ONE machine-readable object on stdout
 (``verdict`` / ``passed`` / ``total`` / ``checks``) and changes nothing else:
@@ -35,6 +37,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -283,54 +286,135 @@ def consumer_disposition(exit_code: int, structured_result) -> str:
 
 
 
-def check_closure_evidence_predicates(evidence: dict) -> tuple[bool, str]:
-    """
-    Evaluates mechanical closure predicates (M1-M9) on an integration closure record.
-    Returns (ok, reason).
-    """
-    # V1: Premature post-integration close
-    # close_timestamp must be strictly greater than post_integration_ci_completed_at
-    if evidence.get("requires_post_integration_ci", True):
-        ci_status = evidence.get("post_integration_ci_status")
-        ci_conclusion = evidence.get("post_integration_ci_conclusion")
-        ci_completed_at = evidence.get("post_integration_ci_completed_at")
-        close_timestamp = evidence.get("ticket_close_timestamp")
+def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tuple[bool, str]:
+    """Check the supplied integration close-out facts; never grant exemptions from the pack."""
+    if not isinstance(evidence, dict):
+        return False, "closure evidence must be an object"
+    if any(k in evidence for k in ("requires_post_integration_ci", "requires_dual_independent_review", "no_change_authorized")):
+        return False, "caller-supplied gate exemptions are not authority"
 
-        if ci_status != "completed" or ci_conclusion != "success":
-            return False, f"V1: post-integration CI not completed with success (status={ci_status}, conclusion={ci_conclusion})"
+    sha = evidence.get("candidate_sha")
+    if not isinstance(sha, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", sha):
+        return False, "candidate_sha is missing or invalid"
 
-        if ci_completed_at and close_timestamp:
-            if close_timestamp <= ci_completed_at:
-                return False, f"V1: premature close: ticket_close_timestamp ({close_timestamp}) <= ci_completed_at ({ci_completed_at})"
+    def reference(value):
+        return isinstance(value, str) and value.startswith("https://") and len(value) > len("https://")
 
-    # V2: Review summary is not review evidence
-    if evidence.get("requires_dual_independent_review", False):
-        review_refs = evidence.get("independent_review_refs", [])
-        if not review_refs or len(review_refs) < 2:
-            return False, f"V2: review summary without independent raw artifacts or referenceable evidence (refs={review_refs})"
+    applicability = evidence.get("REACHABILITY_APPLICABILITY")
+    if applicability not in ("REQUIRED", "N/A"):
+        return False, "V1: reachability applicability must be REQUIRED or accepted N/A"
+    if (evidence.get("RUNTIME_REACHABLE") == "FALSE"
+            or ("INTEGRATION_COMPLETE" in evidence and evidence["INTEGRATION_COMPLETE"] != "TRUE")):
+        return False, "V1: disconnected or incomplete integration cannot close"
+    if applicability == "N/A":
+        reason = evidence.get("REACHABILITY_APPLICABILITY_REASON")
+        if (evidence.get("RUNTIME_REACHABLE") not in (None, "TRUE")
+                or not isinstance(reason, str) or not reason.strip()
+                or not reference(evidence.get("REACHABILITY_APPLICABILITY_ACCEPTANCE_REF"))):
+            return False, "V1: N/A requires a reason and reviewer/integrator acceptance ref"
+    elif (any(not isinstance(evidence.get(field), str) or not evidence[field].strip()
+              for field in ("REAL_ENTRYPOINT", "PRODUCTION_CALL_CHAIN", "OBSERVED_PRODUCTION_EFFECT"))
+          or not isinstance(evidence.get("PRODUCTION_CALLERS"), list)
+          or not evidence["PRODUCTION_CALLERS"]
+          or any(not isinstance(caller, str) or not caller.strip()
+                 for caller in evidence["PRODUCTION_CALLERS"])
+          or evidence.get("RUNTIME_REACHABLE") != "TRUE"
+          or not reference(evidence.get("EVIDENCE_REF"))
+          or evidence.get("INTEGRATION_COMPLETE") != "TRUE"):
+        return False, "V1: git-ci §5.1 production reachability evidence required"
 
-    # V3: Open finding requiring change but candidate SHA is unchanged
-    findings = evidence.get("findings", [])
-    open_p0_p1 = [f for f in findings if f.get("severity") in ("P0", "P1") and f.get("status") == "open"]
-    for f in open_p0_p1:
-        if f.get("requires_change", True):
-            if evidence.get("candidate_sha") == f.get("reviewed_sha") and not evidence.get("no_change_authorized", False):
-                return False, f"V3: finding {f.get('id')} requires change but candidate_sha equals reviewed_sha without authorized amendment"
+    if (evidence.get("post_integration_ci_status") != "completed"
+            or evidence.get("post_integration_ci_conclusion") != "success"
+            or not reference(evidence.get("post_integration_ci_run_ref"))
+            or not reference(evidence.get("post_integration_verify_ref"))):
+        return False, "V1: post-integration CI and verification evidence required"
 
-    # V4: Scope amendment relies on chat rather than persisted authority
-    if evidence.get("relies_on_scope_amendment", False):
-        if not evidence.get("persisted_scope_amendment_ref"):
-            return False, "V4: scope amendment relies on chat/orchestrator context without persisted authority ref"
+    def instant(key):
+        value = evidence.get(key)
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo is not None else None
+        except ValueError:
+            return None
 
-    # V5: Guarantee overclaim relative to declared threat model
-    threat_model = evidence.get("threat_model")
-    declared_claims = evidence.get("declared_guarantees", [])
-    if threat_model == "PROCESS_CRASH_RECOVERY":
-        overclaims = [c for c in declared_claims if c in ("POWER_LOSS_DURABILITY", "STRICT_ATOMIC_REPLACEMENT", "ATOMIC_REPLACEMENT")]
-        if overclaims:
-            return False, f"V5: guarantee overclaim for threat model {threat_model}: {overclaims}"
+    completed = instant("post_integration_ci_completed_at")
+    checked = instant("pre_close_checked_at")
+    if completed is None or checked is None or checked <= completed:
+        return False, "V1: pre-close check must follow completed CI with valid timestamps"
+    if post_close:
+        closed = instant("ticket_close_timestamp")
+        if closed is None or closed <= checked:
+            return False, "V1: premature close or missing actual close timestamp"
+        if not isinstance(evidence.get("pre_close_comment_ref"), str) or not re.fullmatch(
+                r"https://github\.com/[^/]+/[^/]+/issues/[0-9]+#issuecomment-[0-9]+",
+                evidence["pre_close_comment_ref"]):
+            return False, "V1: persisted pre-close result comment ref required"
 
+    refs = evidence.get("independent_review_refs")
+    if not isinstance(refs, list) or len(refs) < 2:
+        return False, "V2: two independent raw review references required"
+    reviewers, locations = set(), set()
+    for review in refs:
+        if not isinstance(review, dict):
+            return False, "V2: review summaries are not raw references"
+        reviewer, location = review.get("reviewer"), review.get("ref")
+        if (not isinstance(reviewer, str) or not reviewer.strip()
+                or not reference(location)
+                or review.get("reviewed_sha") != sha):
+            return False, "V2: review identity, reference, or exact SHA missing"
+        reviewers.add(reviewer.strip().casefold())
+        locations.add(location.strip())
+    if len(reviewers) < 2 or len(locations) < 2:
+        return False, "V2: duplicate reviewer or raw reference"
+
+    findings = evidence.get("findings")
+    if not isinstance(findings, list):
+        return False, "V3: findings inventory required"
+    for finding in findings:
+        if not isinstance(finding, dict):
+            return False, "V3: malformed finding"
+        if finding.get("severity") not in ("P0", "P1"):
+            continue
+        if finding.get("status") != "resolved":
+            return False, f"V3: finding {finding.get('id')} remains open"
+        old_sha = finding.get("reviewed_sha")
+        repaired = (finding.get("repair_sha") == sha
+                    and isinstance(old_sha, str)
+                    and re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", old_sha)
+                    and old_sha != sha)
+        no_change_ref = finding.get("independent_no_change_ruling_ref")
+        ruled = any(r.get("ref") == no_change_ref and r.get("decision") == "NO_CHANGE_REQUIRED"
+                    for r in refs)
+        if not repaired and not ruled:
+            return False, f"V3: finding {finding.get('id')} lacks a repair artifact or independent NO_CHANGE_REQUIRED ruling"
+
+    if evidence.get("relies_on_scope_amendment") and not evidence.get("persisted_scope_amendment_ref"):
+        return False, "V4: scope amendment lacks persisted authority ref"
+    if evidence.get("threat_model") == "PROCESS_CRASH_RECOVERY":
+        claims = evidence.get("declared_guarantees", [])
+        if not isinstance(claims, list):
+            return False, "V5: malformed declared guarantees"
+        if any(c in ("POWER_LOSS_DURABILITY", "STRICT_ATOMIC_REPLACEMENT", "ATOMIC_REPLACEMENT") for c in claims):
+            return False, "V5: guarantee overclaim for process crash recovery"
     return True, "OK"
+
+
+def closure_cli(*, post_close=False) -> int:
+    try:
+        evidence = json.load(sys.stdin)
+    except (ValueError, OSError):
+        evidence = None
+    if isinstance(evidence, dict) and not post_close:
+        evidence["pre_close_checked_at"] = datetime.now(timezone.utc).isoformat()
+    ok, reason = check_closure_evidence_predicates(evidence, post_close=post_close)
+    result = {"close_ready": ok, "reason": reason}
+    if isinstance(evidence, dict) and not post_close:
+        result["candidate_sha"] = evidence.get("candidate_sha")
+        result["checked_at"] = evidence["pre_close_checked_at"]
+    print(json.dumps(result, ensure_ascii=False))
+    return 0 if ok else 1
 
 def main(argv=None) -> int:
     # argv is read HERE, never at import time: this module is also loaded as a
@@ -671,4 +755,8 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--pre-close"]:
+        sys.exit(closure_cli())
+    if sys.argv[1:] == ["--post-close"]:
+        sys.exit(closure_cli(post_close=True))
     sys.exit(main())
