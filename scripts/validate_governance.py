@@ -315,7 +315,6 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
     elif (any(not isinstance(evidence.get(field), str) or not evidence[field].strip()
               for field in ("REAL_ENTRYPOINT", "PRODUCTION_CALL_CHAIN", "OBSERVED_PRODUCTION_EFFECT"))
           or not isinstance(evidence.get("PRODUCTION_CALLERS"), list)
-          or not evidence["PRODUCTION_CALLERS"]
           or any(not isinstance(caller, str) or not caller.strip()
                  for caller in evidence["PRODUCTION_CALLERS"])
           or evidence.get("RUNTIME_REACHABLE") != "TRUE"
@@ -326,7 +325,8 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
     if (evidence.get("post_integration_ci_status") != "completed"
             or evidence.get("post_integration_ci_conclusion") != "success"
             or not reference(evidence.get("post_integration_ci_run_ref"))
-            or not reference(evidence.get("post_integration_verify_ref"))):
+            or not reference(evidence.get("post_integration_verify_ref"))
+            or evidence.get("post_integration_verify_status") != "PASS"):
         return False, "V1: post-integration CI and verification evidence required"
 
     def instant(key):
@@ -340,9 +340,11 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
             return None
 
     completed = instant("post_integration_ci_completed_at")
+    verified = instant("post_integration_verified_at")
     checked = instant("pre_close_checked_at")
-    if completed is None or checked is None or checked <= completed:
-        return False, "V1: pre-close check must follow completed CI with valid timestamps"
+    if (completed is None or verified is None or checked is None
+            or not completed < verified < checked):
+        return False, "V1: pre-close check must follow PASS verification after completed CI"
     if post_close:
         closed = instant("ticket_close_timestamp")
         if closed is None or closed <= checked:
@@ -355,7 +357,7 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
     refs = evidence.get("independent_review_refs")
     if not isinstance(refs, list) or len(refs) < 2:
         return False, "V2: two independent raw review references required"
-    reviewers, locations = set(), set()
+    reviewers, locations, passes = set(), set(), set()
     for review in refs:
         if not isinstance(review, dict):
             return False, "V2: review summaries are not raw references"
@@ -366,8 +368,12 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
             return False, "V2: review identity, reference, or exact SHA missing"
         reviewers.add(reviewer.strip().casefold())
         locations.add(location.strip())
+        if review.get("decision") == "PASS":
+            passes.add(reviewer.strip().casefold())
     if len(reviewers) < 2 or len(locations) < 2:
         return False, "V2: duplicate reviewer or raw reference"
+    if len(reviewers) != len(refs) or len(locations) != len(refs) or len(passes) < 2:
+        return False, "V2: two distinct exact-SHA PASS reviews required"
 
     findings = evidence.get("findings")
     if not isinstance(findings, list):
@@ -390,7 +396,7 @@ def check_closure_evidence_predicates(evidence: dict, *, post_close=False) -> tu
         if not repaired and not ruled:
             return False, f"V3: finding {finding.get('id')} lacks a repair artifact or independent NO_CHANGE_REQUIRED ruling"
 
-    if evidence.get("relies_on_scope_amendment") and not evidence.get("persisted_scope_amendment_ref"):
+    if evidence.get("relies_on_scope_amendment") and not reference(evidence.get("persisted_scope_amendment_ref")):
         return False, "V4: scope amendment lacks persisted authority ref"
     if evidence.get("threat_model") == "PROCESS_CRASH_RECOVERY":
         claims = evidence.get("declared_guarantees", [])

@@ -26,6 +26,8 @@ def complete_evidence():
         "post_integration_ci_completed_at": "2026-09-21T18:11:47Z",
         "post_integration_ci_run_ref": "https://example.test/ci/1",
         "post_integration_verify_ref": "https://example.test/verify/1",
+        "post_integration_verify_status": "PASS",
+        "post_integration_verified_at": "2026-09-21T18:12:00Z",
         "REACHABILITY_APPLICABILITY": "REQUIRED",
         "REAL_ENTRYPOINT": "bin/production-entry",
         "PRODUCTION_CALL_CHAIN": "production entry -> wiring -> effect",
@@ -37,8 +39,8 @@ def complete_evidence():
         "pre_close_checked_at": "2026-09-21T18:15:00Z",
         "pre_close_comment_ref": "https://github.com/example/repo/issues/1#issuecomment-1",
         "independent_review_refs": [
-            {"reviewer": "A", "ref": "https://example.test/review/a", "reviewed_sha": sha},
-            {"reviewer": "B", "ref": "https://example.test/review/b", "reviewed_sha": sha},
+            {"reviewer": "A", "ref": "https://example.test/review/a", "reviewed_sha": sha, "decision": "PASS"},
+            {"reviewer": "B", "ref": "https://example.test/review/b", "reviewed_sha": sha, "decision": "PASS"},
         ],
         "findings": [],
     }

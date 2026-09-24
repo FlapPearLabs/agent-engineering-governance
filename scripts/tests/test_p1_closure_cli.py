@@ -23,6 +23,8 @@ def evidence():
         "pre_close_checked_at": "2026-09-21T18:15:00Z",
         "pre_close_comment_ref": "https://github.com/example/repo/issues/1#issuecomment-1",
         "post_integration_verify_ref": "https://example.test/verify/1",
+        "post_integration_verify_status": "PASS",
+        "post_integration_verified_at": "2026-09-21T18:12:00Z",
         "REACHABILITY_APPLICABILITY": "REQUIRED",
         "REAL_ENTRYPOINT": "bin/production-entry",
         "PRODUCTION_CALL_CHAIN": "production entry -> wiring -> effect",
@@ -32,8 +34,8 @@ def evidence():
         "EVIDENCE_REF": "https://example.test/evidence/reachability",
         "INTEGRATION_COMPLETE": "TRUE",
         "independent_review_refs": [
-            {"reviewer": "A", "ref": "https://example.test/review/a", "reviewed_sha": sha},
-            {"reviewer": "B", "ref": "https://example.test/review/b", "reviewed_sha": sha},
+            {"reviewer": "A", "ref": "https://example.test/review/a", "reviewed_sha": sha, "decision": "PASS"},
+            {"reviewer": "B", "ref": "https://example.test/review/b", "reviewed_sha": sha, "decision": "PASS"},
         ],
         "findings": [],
     }
@@ -45,7 +47,7 @@ class ClosureGateTests(unittest.TestCase):
                       "OBSERVED_PRODUCTION_EFFECT", "PRODUCTION_CALLERS",
                       "RUNTIME_REACHABLE", "EVIDENCE_REF"):
             item = evidence()
-            item[field] = [] if field == "PRODUCTION_CALLERS" else ""
+            item[field] = "not-a-list" if field == "PRODUCTION_CALLERS" else ""
             with self.subTest(field=field):
                 self.assertFalse(check_closure_evidence_predicates(item)[0])
         for field, value in (("RUNTIME_REACHABLE", "FALSE"),
@@ -53,6 +55,42 @@ class ClosureGateTests(unittest.TestCase):
             item = evidence()
             item[field] = value
             with self.subTest(field=field):
+                self.assertFalse(check_closure_evidence_predicates(item)[0])
+
+    def test_dynamic_runtime_path_can_have_no_static_production_callers(self):
+        item = evidence()
+        item["PRODUCTION_CALLERS"] = []
+        self.assertTrue(check_closure_evidence_predicates(item)[0])
+
+    def test_two_changes_required_reviews_do_not_form_pass_quorum(self):
+        item = evidence()
+        for review in item["independent_review_refs"]:
+            review["decision"] = "CHANGES_REQUIRED"
+        self.assertFalse(check_closure_evidence_predicates(item)[0])
+        item["independent_review_refs"][0]["decision"] = "PASS"
+        self.assertFalse(check_closure_evidence_predicates(item)[0])
+
+    def test_no_change_ruling_does_not_count_as_second_pass(self):
+        item = evidence()
+        item["independent_review_refs"][1]["decision"] = "NO_CHANGE_REQUIRED"
+        self.assertFalse(check_closure_evidence_predicates(item)[0])
+
+    def test_post_integration_verify_requires_pass_and_strict_order(self):
+        for status, verified_at in (("FAIL", "2026-09-21T18:12:00Z"),
+                                    ("PASS", None),
+                                    ("PASS", "2026-09-21T18:11:47Z"),
+                                    ("PASS", "2026-09-21T18:15:00Z")):
+            item = evidence()
+            item["post_integration_verify_status"] = status
+            item["post_integration_verified_at"] = verified_at
+            with self.subTest(status=status, verified_at=verified_at):
+                self.assertFalse(check_closure_evidence_predicates(item)[0])
+
+    def test_scope_amendment_requires_persisted_https_ref(self):
+        for ref in ("approved in chat", "chat://approval", ""):
+            item = evidence()
+            item.update(relies_on_scope_amendment=True, persisted_scope_amendment_ref=ref)
+            with self.subTest(ref=ref):
                 self.assertFalse(check_closure_evidence_predicates(item)[0])
 
     def test_na_requires_policy_reason_and_reviewer_acceptance(self):
@@ -123,9 +161,11 @@ class ClosureGateTests(unittest.TestCase):
         item = evidence()
         item["findings"] = [{"id": "F2", "severity": "P1", "status": "resolved",
                              "requires_change": False,
-                             "independent_no_change_ruling_ref": "https://example.test/review/a"}]
+                             "independent_no_change_ruling_ref": "https://example.test/review/c"}]
         self.assertFalse(check_closure_evidence_predicates(item)[0])
-        item["independent_review_refs"][0]["decision"] = "NO_CHANGE_REQUIRED"
+        item["independent_review_refs"].append({"reviewer": "C", "ref": "https://example.test/review/c",
+                                               "reviewed_sha": item["candidate_sha"],
+                                               "decision": "NO_CHANGE_REQUIRED"})
         self.assertTrue(check_closure_evidence_predicates(item)[0])
 
     def test_boolean_exemptions_cannot_skip_required_gates(self):
