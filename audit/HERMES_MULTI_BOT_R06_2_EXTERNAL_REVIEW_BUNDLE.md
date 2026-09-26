@@ -14,7 +14,7 @@ Class B (config) is embedded with deterministic secret redaction without leaking
 |---|---|---|---|---:|---|
 | S01 | Code SOUL | `/Users/songshiyao/.hermes/profiles/code/SOUL.md` | CLASS_A | 4712 | 2bd60a6faa55d7eefcc04d3a00a7fbdf9da19658fd81501144a03bb020ddc136 |
 | S02 | Code AGENTS | `/Users/songshiyao/.hermes/profiles/code/AGENTS.md` | CLASS_A | 5419 | 3fc8237a0a7af0c5139fec72d4cf53225ab93e77cea8d0a92a1885fdc0ab922b |
-| S03 | Code Config (Redacted) | `/Users/songshiyao/.hermes/profiles/code/config.yaml` | CLASS_B | 2210 | bc0bbcb59bd2da4e0f943b42f7290743f3147f1ceaf53de7f5be5395a689b799 |
+| S03 | Code Config (Redacted) | `/Users/songshiyao/.hermes/profiles/code/config.yaml` | CLASS_B | 3691 | 8084730ff38ae2ac338149dbb221c632ea8b8b3fd112b8d9b0ec2ec40012df50 |
 | S04 | Workflow Test Evidence | `/Users/songshiyao/Desktop/Projects/agent-engineering-governance/audit/CODE_LOCAL_EXECUTABLE_WORKFLOW_TEST.md` | CLASS_A | 3030 | f52df7cfb2e457eba4619478b93c180c00e6214c8c25435f3f099d9398ab546a |
 | S05 | Media SOUL | `/Users/songshiyao/.hermes/profiles/media/SOUL.md` | CLASS_A | 2996 | a314e3c72502166a07b804de1d9c8b636506384bc7965eda239fcce8974afce5 |
 | S06 | Research SOUL | `/Users/songshiyao/.hermes/profiles/research/SOUL.md` | CLASS_A | 3027 | 54bb8dd4fe66f0b6c72b17f972223d841558b17c5e75e4dea76f5ce09a31133e |
@@ -199,11 +199,11 @@ IyBHTE9CQUwgQ09ERSBFTkdJTkVFUklORyBDT05URVhUIChOT04tQVVUSE9SSVRBVElWRSBSRUZFUkVO
 ## PART S03 — Code Config (Redacted) (CLASS_B)
 - **SOURCE_PATH**: `/Users/songshiyao/.hermes/profiles/code/config.yaml`
 - **SOURCE_ROLE**: Runtime Model & Tool Configuration
-- **ORIGINAL_RAW_SHA256**: `bc0bbcb59bd2da4e0f943b42f7290743f3147f1ceaf53de7f5be5395a689b799`
-- **ORIGINAL_RAW_BYTES**: 2210
+- **ORIGINAL_RAW_SHA256**: `7994c58d657875918cd979972c4502ac78abb1353a41340f992f416d2a25c79b`
+- **ORIGINAL_RAW_BYTES**: 3708
 - **TRANSFORMATION**: SECRET_REDACTION
-- **EMBEDDED_PAYLOAD_BYTES**: 2210
-- **EMBEDDED_PAYLOAD_SHA256**: `bc0bbcb59bd2da4e0f943b42f7290743f3147f1ceaf53de7f5be5395a689b799`
+- **EMBEDDED_PAYLOAD_BYTES**: 3691
+- **EMBEDDED_PAYLOAD_SHA256**: `8084730ff38ae2ac338149dbb221c632ea8b8b3fd112b8d9b0ec2ec40012df50`
 
 ### Human-Readable Representation
 ```markdown
@@ -260,8 +260,8 @@ mcp_servers:
   agentmemory:
     command: /usr/bin/python3
     args:
-      - /Users/songshiyao/.agentmemory-patches/runtime-guard-code/guard.py
-      - mcp
+    - /Users/songshiyao/.agentmemory-patches/runtime-guard-code/guard.py
+    - mcp
     env:
       AGENTMEMORY_URL: http://localhost:3111
       AGENTMEMORY_FORCE_PROXY: '1'
@@ -271,36 +271,91 @@ mcp_servers:
   codegraph:
     command: /Users/songshiyao/.local/bin/codegraph
     args:
-      - serve
-      - --mcp
+    - serve
+    - --mcp
     timeout: 120
     connect_timeout: 60
     enabled: true
   chrome-devtools:
     command: npx
     args:
-      - -y
-      - chrome-devtools-mcp@latest
-      - --auto-connect
+    - -y
+    - chrome-devtools-mcp@latest
+    - --auto-connect
     timeout: 60
     connect_timeout: 30
     enabled: true
 custom_providers:
-  - name: Antigravity
-    base_url: http://127.0.0.1:8045/v1
-    key_env: ANTIGRAVITY_API_KEY
-    context_length: 1048576
-    discover_models: true
-  - name: OpenAI-Next
-    base_url: https://api.openai-next.com/v1
-    key_env: OPENAI_NEXT_API_KEY
-    context_length: 1048576
-    discover_models: true
+- name: Antigravity
+  base_url: http://127.0.0.1:8045/v1
+  api_key: <REDACTED:API_KEY>
+  key_env: ANTIGRAVITY_API_KEY
+  context_length: 1048576
+  discover_models: false
+  models:
+    claude-3-5-sonnet-20240620: {}
+    claude-3-5-sonnet-20241022: {}
+    claude-3-haiku-20240307: {}
+    claude-haiku-4: {}
+    claude-haiku-4-5-20251001: {}
+    claude-opus-4-5-20251101: {}
+    claude-opus-4-5-thinking: {}
+    claude-opus-4-6: {}
+    claude-opus-4-6-20260201: {}
+    claude-opus-4-6-thinking: {}
+    claude-opus-4.6: {}
+    claude-opus-4.6-thinking: {}
+    claude-sonnet-4-5: {}
+    claude-sonnet-4-6: {}
+    gemini-2.5-flash: {}
+    gemini-2.5-flash-lite: {}
+    gemini-2.5-flash-thinking: {}
+    gemini-3-pro: {}
+    gemini-3-pro-high: {}
+    gemini-3-pro-low: {}
+    gemini-3-pro-preview: {}
+    gemini-3.1-flash-lite: {}
+    gemini-3.1-pro: {}
+    gemini-3.1-pro-high: {}
+    gemini-3.1-pro-low: {}
+    gemini-3.1-pro-preview: {}
+    gemini-3.5-flash-lite: {}
+    gemini-3.6-flash-high: {}
+    gemini-3.6-flash-low: {}
+    gemini-3.6-flash-medium: {}
+    gemini-3.6-flash-tiered: {}
+    gemini-3.7-flash-high: {}
+    gemini-3.7-flash-low: {}
+    gemini-3.7-flash-medium: {}
+    gemini-3.7-flash-tiered: {}
+    gemini-3.8-flash-high: {}
+    gemini-3.8-flash-low: {}
+    gemini-3.8-flash-medium: {}
+    gemini-3.8-flash-tiered: {}
+    gemini-pro-agent: {}
+    gpt-3.5-turbo: {}
+    gpt-3.5-turbo-0125: {}
+    gpt-3.5-turbo-0613: {}
+    gpt-3.5-turbo-1106: {}
+    gpt-3.5-turbo-16k: {}
+    gpt-4: {}
+    gpt-4-0125-preview: {}
+    gpt-4-0613: {}
+    gpt-4-1106-preview: {}
+    gpt-4-turbo: {}
+    gpt-4-turbo-preview: {}
+    gpt-4o: {}
+    gpt-4o-2024-05-13: {}
+    gpt-4o-2024-08-06: {}
+    gpt-4o-mini: {}
+    gpt-4o-mini-2024-07-18: {}
+    internal-background-task: {}
+  models_discovered: true
 ```
 
 ### Machine-Authoritative Verbatim Base64 Payload
 -----BEGIN_SOURCE_BASE64:S03-----
-bW9kZWw6CiAgZGVmYXVsdDogZ2VtaW5pLTMuOC1mbGFzaC10aWVyZWQKICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgYmFzZV91cmw6IGh0dHA6Ly8xMjcuMC4wLjE6ODA0NS92MQogIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKYWdlbnQ6CiAgbWF4X3R1cm5zOiA5MAogIGdhdGV3YXlfdGltZW91dDogMTgwMAogIHJlc3RhcnRfZHJhaW5fdGltZW91dDogMTgwCiAgYXBpX21heF9yZXRyaWVzOiAzCiAgdG9vbF91c2VfZW5mb3JjZW1lbnQ6IGF1dG8KICB0YXNrX2NvbXBsZXRpb25fZ3VpZGFuY2U6IHRydWUKICBlbnZpcm9ubWVudF9wcm9iZTogdHJ1ZQogIGNvZGluZ19jb250ZXh0OiBhdXRvCiAgcmVhc29uaW5nX2VmZm9ydDogaGlnaAphdXhpbGlhcnk6CiAgY29tcHJlc3Npb246CiAgICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgICBtb2RlbDogZ2VtaW5pLTMuNy1mbGFzaC1oaWdoCmRpc3BsYXk6CiAgbGFuZ3VhZ2U6IHpoCm1lbW9yeToKICBtZW1vcnlfZW5hYmxlZDogdHJ1ZQogIHVzZXJfcHJvZmlsZV9lbmFibGVkOiB0cnVlCiAgd3JpdGVfYXBwcm92YWw6IGZhbHNlCiAgbWVtb3J5X2NoYXJfbGltaXQ6IDIyMDAKICB1c2VyX2NoYXJfbGltaXQ6IDEzNzUKICBwcm92aWRlcjogYWdlbnRtZW1vcnkKbW9kZWxfYWxpYXNlczoKICBzb25uZXQ6CiAgICBtb2RlbDogY2xhdWRlLXNvbm5ldC00LTYKICAgIHByb3ZpZGVyOiBjdXN0b206YW50aWdyYXZpdHkKICAgIGJhc2VfdXJsOiBodHRwOi8vMTI3LjAuMC4xOjgwNDUvdjEKICAgIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKICBwcm8taGlnaDoKICAgIG1vZGVsOiBnZW1pbmktMy4xLXByby1oaWdoCiAgICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgICBiYXNlX3VybDogaHR0cDovLzEyNy4wLjAuMTo4MDQ1L3YxCiAgICBrZXlfZW52OiBBTlRJR1JBVklUWV9BUElfS0VZCiAgb3B1czoKICAgIG1vZGVsOiBjbGF1ZGUtb3B1cy00LTYtdGhpbmtpbmcKICAgIHByb3ZpZGVyOiBjdXN0b206YW50aWdyYXZpdHkKICAgIGJhc2VfdXJsOiBodHRwOi8vMTI3LjAuMC4xOjgwNDUvdjEKICAgIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKICBmbGFzaDoKICAgIG1vZGVsOiBnZW1pbmktMy44LWZsYXNoLXRpZXJlZAogICAgcHJvdmlkZXI6IGN1c3RvbTphbnRpZ3Jhdml0eQogICAgYmFzZV91cmw6IGh0dHA6Ly8xMjcuMC4wLjE6ODA0NS92MQogICAga2V5X2VudjogQU5USUdSQVZJVFlfQVBJX0tFWQptY3Bfc2VydmVyczoKICBhZ2VudG1lbW9yeToKICAgIGNvbW1hbmQ6IC91c3IvYmluL3B5dGhvbjMKICAgIGFyZ3M6CiAgICAgIC0gL1VzZXJzL3NvbmdzaGl5YW8vLmFnZW50bWVtb3J5LXBhdGNoZXMvcnVudGltZS1ndWFyZC1jb2RlL2d1YXJkLnB5CiAgICAgIC0gbWNwCiAgICBlbnY6CiAgICAgIEFHRU5UTUVNT1JZX1VSTDogaHR0cDovL2xvY2FsaG9zdDozMTExCiAgICAgIEFHRU5UTUVNT1JZX0ZPUkNFX1BST1hZOiAnMScKICAgIHRpbWVvdXQ6IDYwCiAgICBjb25uZWN0X3RpbWVvdXQ6IDMwCiAgICBlbmFibGVkOiB0cnVlCiAgY29kZWdyYXBoOgogICAgY29tbWFuZDogL1VzZXJzL3NvbmdzaGl5YW8vLmxvY2FsL2Jpbi9jb2RlZ3JhcGgKICAgIGFyZ3M6CiAgICAgIC0gc2VydmUKICAgICAgLSAtLW1jcAogICAgdGltZW91dDogMTIwCiAgICBjb25uZWN0X3RpbWVvdXQ6IDYwCiAgICBlbmFibGVkOiB0cnVlCiAgY2hyb21lLWRldnRvb2xzOgogICAgY29tbWFuZDogbnB4CiAgICBhcmdzOgogICAgICAtIC15CiAgICAgIC0gY2hyb21lLWRldnRvb2xzLW1jcEBsYXRlc3QKICAgICAgLSAtLWF1dG8tY29ubmVjdAogICAgdGltZW91dDogNjAKICAgIGNvbm5lY3RfdGltZW91dDogMzAKICAgIGVuYWJsZWQ6IHRydWUKY3VzdG9tX3Byb3ZpZGVyczoKICAtIG5hbWU6IEFudGlncmF2aXR5CiAgICBiYXNlX3VybDogaHR0cDovLzEyNy4wLjAuMTo4MDQ1L3YxCiAgICBrZXlfZW52OiBBTlRJR1JBVklUWV9BUElfS0VZCiAgICBjb250ZXh0X2xlbmd0aDogMTA0ODU3NgogICAgZGlzY292ZXJfbW9kZWxzOiB0cnVlCiAgLSBuYW1lOiBPcGVuQUktTmV4dAogICAgYmFzZV91cmw6IGh0dHBzOi8vYXBpLm9wZW5haS1uZXh0LmNvbS92MQogICAga2V5X2VudjogT1BFTkFJX05FWFRfQVBJX0tFWQogICAgY29udGV4dF9sZW5ndGg6IDEwNDg1NzYKICAgIGRpc2NvdmVyX21vZGVsczogdHJ1ZQo=
+bW9kZWw6CiAgZGVmYXVsdDogZ2VtaW5pLTMuOC1mbGFzaC10aWVyZWQKICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgYmFzZV91cmw6IGh0dHA6Ly8xMjcuMC4wLjE6ODA0NS92MQogIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKYWdlbnQ6CiAgbWF4X3R1cm5zOiA5MAogIGdhdGV3YXlfdGltZW91dDogMTgwMAogIHJlc3RhcnRfZHJhaW5fdGltZW91dDogMTgwCiAgYXBpX21heF9yZXRyaWVzOiAzCiAgdG9vbF91c2VfZW5mb3JjZW1lbnQ6IGF1dG8KICB0YXNrX2NvbXBsZXRpb25fZ3VpZGFuY2U6IHRydWUKICBlbnZpcm9ubWVudF9wcm9iZTogdHJ1ZQogIGNvZGluZ19jb250ZXh0OiBhdXRvCiAgcmVhc29uaW5nX2VmZm9ydDogaGlnaAphdXhpbGlhcnk6CiAgY29tcHJlc3Npb246CiAgICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgICBtb2RlbDogZ2VtaW5pLTMuNy1mbGFzaC1oaWdoCmRpc3BsYXk6CiAgbGFuZ3VhZ2U6IHpoCm1lbW9yeToKICBtZW1vcnlfZW5hYmxlZDogdHJ1ZQogIHVzZXJfcHJvZmlsZV9lbmFibGVkOiB0cnVlCiAgd3JpdGVfYXBwcm92YWw6IGZhbHNlCiAgbWVtb3J5X2NoYXJfbGltaXQ6IDIyMDAKICB1c2VyX2NoYXJfbGltaXQ6IDEzNzUKICBwcm92aWRlcjogYWdlbnRtZW1vcnkKbW9kZWxfYWxpYXNlczoKICBzb25uZXQ6CiAgICBtb2RlbDogY2xhdWRlLXNvbm5ldC00LTYKICAgIHByb3ZpZGVyOiBjdXN0b206YW50aWdyYXZpdHkKICAgIGJhc2VfdXJsOiBodHRwOi8vMTI3LjAuMC4xOjgwNDUvdjEKICAgIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKICBwcm8taGlnaDoKICAgIG1vZGVsOiBnZW1pbmktMy4xLXByby1oaWdoCiAgICBwcm92aWRlcjogY3VzdG9tOmFudGlncmF2aXR5CiAgICBiYXNlX3VybDogaHR0cDovLzEyNy4wLjAuMTo4MDQ1L3YxCiAgICBrZXlfZW52OiBBTlRJR1JBVklUWV9BUElfS0VZCiAgb3B1czoKICAgIG1vZGVsOiBjbGF1ZGUtb3B1cy00LTYtdGhpbmtpbmcKICAgIHByb3ZpZGVyOiBjdXN0b206YW50aWdyYXZpdHkKICAgIGJhc2VfdXJsOiBodHRwOi8vMTI3LjAuMC4xOjgwNDUvdjEKICAgIGtleV9lbnY6IEFOVElHUkFWSVRZX0FQSV9LRVkKICBmbGFzaDoKICAgIG1vZGVsOiBnZW1pbmktMy44LWZsYXNoLXRpZXJlZAogICAgcHJvdmlkZXI6IGN1c3RvbTphbnRpZ3Jhdml0eQogICAgYmFzZV91cmw6IGh0dHA6Ly8xMjcuMC4wLjE6ODA0NS92MQogICAga2V5X2VudjogQU5USUdSQVZJVFlfQVBJX0tFWQptY3Bfc2VydmVyczoKICBhZ2VudG1lbW9yeToKICAgIGNvbW1hbmQ6IC91c3IvYmluL3B5dGhvbjMKICAgIGFyZ3M6CiAgICAtIC9Vc2Vycy9zb25nc2hpeWFvLy5hZ2VudG1lbW9yeS1wYXRjaGVzL3J1bnRpbWUtZ3VhcmQtY29kZS9ndWFyZC5weQogICAgLSBtY3AKICAgIGVudjoKICAgICAgQUdFTlRNRU1PUllfVVJMOiBodHRwOi8vbG9jYWxob3N0OjMxMTEKICAgICAgQUdFTlRNRU1PUllfRk9SQ0VfUFJPWFk6ICcxJwogICAgdGltZW91dDogNjAKICAgIGNvbm5lY3RfdGltZW91dDogMzAKICAgIGVuYWJsZWQ6IHRydWUKICBjb2RlZ3JhcGg6CiAgICBjb21tYW5kOiAvVXNlcnMvc29uZ3NoaXlhby8ubG9jYWwvYmluL2NvZGVncmFwaAogICAgYXJnczoKICAgIC0gc2VydmUKICAgIC0gLS1tY3AKICAgIHRpbWVvdXQ6IDEyMAogICAgY29ubmVjdF90aW1lb3V0OiA2MAogICAgZW5hYmxlZDogdHJ1ZQogIGNocm9tZS1kZXZ0b29sczoKICAgIGNvbW1hbmQ6IG5weAogICAgYXJnczoKICAgIC0gLXkKICAgIC0gY2hyb21lLWRldnRvb2xzLW1jcEBsYXRlc3QKICAgIC0gLS1hdXRvLWNvbm5lY3QKICAgIHRpbWVvdXQ6IDYwCiAgICBjb25uZWN0X3RpbWVvdXQ6IDMwCiAgICBlbmFibGVkOiB0cnVlCmN1c3RvbV9wcm92aWRlcnM6Ci0gbmFtZTogQW50aWdyYXZpdHkKICBiYXNlX3VybDogaHR0cDovLzEyNy4wLjAuMTo4MDQ1L3YxCiAgYXBpX2tleTogPFJFREFDVEVEOkFQSV9LRVk+CiAga2V5X2VudjogQU5USUdSQVZJVFlfQVBJX0tFWQogIGNvbnRleHRfbGVuZ3RoOiAxMDQ4NTc2CiAgZGlzY292ZXJfbW9kZWxzOiBmYWxzZQogIG1vZGVsczoKICAgIGNsYXVkZS0zLTUtc29ubmV0LTIwMjQwNjIwOiB7fQogICAgY2xhdWRlLTMtNS1zb25uZXQtMjAyNDEwMjI6IHt9CiAgICBjbGF1ZGUtMy1oYWlrdS0yMDI0MDMwNzoge30KICAgIGNsYXVkZS1oYWlrdS00OiB7fQogICAgY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMToge30KICAgIGNsYXVkZS1vcHVzLTQtNS0yMDI1MTEwMToge30KICAgIGNsYXVkZS1vcHVzLTQtNS10aGlua2luZzoge30KICAgIGNsYXVkZS1vcHVzLTQtNjoge30KICAgIGNsYXVkZS1vcHVzLTQtNi0yMDI2MDIwMToge30KICAgIGNsYXVkZS1vcHVzLTQtNi10aGlua2luZzoge30KICAgIGNsYXVkZS1vcHVzLTQuNjoge30KICAgIGNsYXVkZS1vcHVzLTQuNi10aGlua2luZzoge30KICAgIGNsYXVkZS1zb25uZXQtNC01OiB7fQogICAgY2xhdWRlLXNvbm5ldC00LTY6IHt9CiAgICBnZW1pbmktMi41LWZsYXNoOiB7fQogICAgZ2VtaW5pLTIuNS1mbGFzaC1saXRlOiB7fQogICAgZ2VtaW5pLTIuNS1mbGFzaC10aGlua2luZzoge30KICAgIGdlbWluaS0zLXBybzoge30KICAgIGdlbWluaS0zLXByby1oaWdoOiB7fQogICAgZ2VtaW5pLTMtcHJvLWxvdzoge30KICAgIGdlbWluaS0zLXByby1wcmV2aWV3OiB7fQogICAgZ2VtaW5pLTMuMS1mbGFzaC1saXRlOiB7fQogICAgZ2VtaW5pLTMuMS1wcm86IHt9CiAgICBnZW1pbmktMy4xLXByby1oaWdoOiB7fQogICAgZ2VtaW5pLTMuMS1wcm8tbG93OiB7fQogICAgZ2VtaW5pLTMuMS1wcm8tcHJldmlldzoge30KICAgIGdlbWluaS0zLjUtZmxhc2gtbGl0ZToge30KICAgIGdlbWluaS0zLjYtZmxhc2gtaGlnaDoge30KICAgIGdlbWluaS0zLjYtZmxhc2gtbG93OiB7fQogICAgZ2VtaW5pLTMuNi1mbGFzaC1tZWRpdW06IHt9CiAgICBnZW1pbmktMy42LWZsYXNoLXRpZXJlZDoge30KICAgIGdlbWluaS0zLjctZmxhc2gtaGlnaDoge30KICAgIGdlbWluaS0zLjctZmxhc2gtbG93OiB7fQogICAgZ2VtaW5pLTMuNy1mbGFzaC1tZWRpdW06IHt9CiAgICBnZW1pbmktMy43LWZsYXNoLXRpZXJlZDoge30KICAgIGdlbWluaS0zLjgtZmxhc2gtaGlnaDoge30KICAgIGdlbWluaS0zLjgtZmxhc2gtbG93OiB7fQogICAgZ2VtaW5pLTMuOC1mbGFzaC1tZWRpdW06IHt9CiAgICBnZW1pbmktMy44LWZsYXNoLXRpZXJlZDoge30KICAgIGdlbWluaS1wcm8tYWdlbnQ6IHt9CiAgICBncHQtMy41LXR1cmJvOiB7fQogICAgZ3B0LTMuNS10dXJiby0wMTI1OiB7fQogICAgZ3B0LTMuNS10dXJiby0wNjEzOiB7fQogICAgZ3B0LTMuNS10dXJiby0xMTA2OiB7fQogICAgZ3B0LTMuNS10dXJiby0xNms6IHt9CiAgICBncHQtNDoge30KICAgIGdwdC00LTAxMjUtcHJldmlldzoge30KICAgIGdwdC00LTA2MTM6IHt9CiAgICBncHQtNC0xMTA2LXByZXZpZXc6IHt9CiAgICBncHQtNC10dXJibzoge30KICAgIGdwdC00LXR1cmJvLXByZXZpZXc6IHt9CiAgICBncHQtNG86IHt9CiAgICBncHQtNG8tMjAyNC0wNS0xMzoge30KICAgIGdwdC00by0yMDI0LTA4LTA2OiB7fQogICAgZ3B0LTRvLW1pbmk6IHt9CiAgICBncHQtNG8tbWluaS0yMDI0LTA3LTE4OiB7fQogICAgaW50ZXJuYWwtYmFja2dyb3VuZC10YXNrOiB7fQogIG1vZGVsc19kaXNjb3ZlcmVkOiB0cnVlCg==
 -----END_SOURCE_BASE64:S03-----
 
 ## PART S04 — Workflow Test Evidence (CLASS_A)
