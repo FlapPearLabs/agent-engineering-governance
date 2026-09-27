@@ -43,11 +43,16 @@ class DenyMatrix(unittest.TestCase):
         "git push origin master -f",
         "git push --force-with-lease origin feature",
         "git push --force-with-lease=origin/feature origin feature",
-        "git push --force-if-includes origin feature",
-        "git push --force-if-includes",
         "git push --mirror origin",
         "git push --mirror",
         "git status && git push --mirror origin",
+        "git --config-env=remote.origin.mirror=V push origin",
+        "git --config-env=remote.origin.push=V push origin",
+        # The token after the key is an ENV VAR NAME, never the value, so these must be
+        # denied even though "0" would be falsy if it were misread as a literal value.
+        # Without the fail-closed branch these two are ALLOW - this is the discriminator.
+        "git --config-env=remote.origin.mirror=0 push origin",
+        "git --config-env=remote.origin.push=0 push origin",
         "git -C /tmp/somewhere push -f origin master",
         "git -C /tmp/repo push -f origin master",
         "git --git-dir=/tmp/repo/.git push --force",
@@ -109,6 +114,7 @@ class AllowMatrix(unittest.TestCase):
         "rm -rf /tmp/scratch",
         "git push --follow-tags origin master",
         "git push --dry-run origin master",
+        "git push --force-if-includes origin master",
         "git log --grep=force -n 5",
     ]
 
@@ -261,10 +267,22 @@ class ConfigInjectedForce(unittest.TestCase):
     DENIED = [
         "git -c remote.origin.mirror=true push origin",
         "git -c remote.origin.mirror=1 push origin",
-        "git --config=remote.origin.mirror=true push origin",
         "cd /tmp && git -c remote.origin.mirror=true push origin",
         "git -c remote.origin.push=+refs/heads/master:refs/heads/master push origin",
         "git -c remote.origin.push=+master push origin",
+        # Long form of -c. The VALUE is an env var name, not a literal, so the guard cannot
+        # judge it and denies fail-closed on the key alone. Measured real:
+        # `V=true git --config-env=remote.origin.mirror=V push origin` => "(forced update)".
+        "git --config-env=remote.origin.mirror=V push origin",
+        "git --config-env=remote.origin.push=V push origin",
+        # The token after the key is an ENV VAR NAME, never the value, so these must be
+        # denied even though "0" would be falsy if it were misread as a literal value.
+        # Without the fail-closed branch these two are ALLOW - this is the discriminator.
+        "git --config-env=remote.origin.mirror=0 push origin",
+        "git --config-env=remote.origin.push=0 push origin",
+        # NOT a git option (git 2.53.0: "unknown option: --config="). Parsed defensively:
+        # denying a command git would reject costs nothing.
+        "git --config=remote.origin.mirror=true push origin",
     ]
 
     ALLOWED = [
@@ -355,6 +373,41 @@ class DocumentedNonCoverage(unittest.TestCase):
         self.assertIn("已知未覆盖", readme)
         self.assertIn("shell", readme.lower())
         self.assertIn("+main", readme)
+        # Class 3 must be documented and must name the class that asserts it, so the README
+        # cannot claim a coverage boundary that no test holds.
+        self.assertIn("命令文本之外的载体", readme)
+        self.assertIn("PersistentStateCarriers", readme)
+        # The long-form config carrier must be documented as covered, not left implicit.
+        self.assertIn("--config-env", readme)
+
+
+class PersistentStateCarriers(unittest.TestCase):
+    """Disclosed non-coverage class 3: carriers that live outside the command string.
+
+    The guard reads ONE command string. A carrier installed earlier - written into
+    .git/config or ~/.gitconfig, or exported into the session environment before the session
+    started - is invisible to it, so both the command that installs the carrier and the later
+    push are allowed. Verified by hand: `git config --local remote.origin.mirror true`
+    followed by `git push origin` produces a real forced update this guard does not see.
+
+    Asserted so the boundary cannot silently decay from "disclosed" into "assumed", and so the
+    README cannot claim an assertion that does not exist.
+    """
+
+    NOT_CAUGHT = [
+        "git config --local remote.origin.mirror true",
+        "git config remote.origin.mirror true",
+        "git config remote.origin.push +refs/heads/*:refs/heads/*",
+        "git push origin",
+    ]
+
+    def test_carriers_outside_the_command_string_are_not_caught(self):
+        for command in self.NOT_CAUGHT:
+            with self.subTest(command=command):
+                self.assertIsNone(
+                    guard.classify(command),
+                    f"{command!r} is now caught - update the README non-coverage section",
+                )
 
 
 class SelfcheckParity(unittest.TestCase):
