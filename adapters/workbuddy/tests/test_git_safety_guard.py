@@ -260,12 +260,26 @@ class InCommandForceVectors(unittest.TestCase):
         "GIT_PUSH_FORCE=1 git push origin master",
         "GIT_PUSH_FORCE=true git push origin master",
         "cd /tmp && GIT_PUSH_FORCE=1 git push origin master",
+        # Cross-statement assignment: the assignment lives in a different shell statement,
+        # so a per-statement scan would miss it while bash still forces.
+        "export GIT_PUSH_FORCE=1 && git push origin master",
+        "export GIT_PUSH_FORCE=1 ; git push origin master",
+        "set -a; GIT_PUSH_FORCE=1; set +a; git push origin master",
+        "sh -c 'export GIT_PUSH_FORCE=1; git push origin master'",
+        # Fail-closed false positive, asserted so the trade stays visible.
+        "git push origin master GIT_PUSH_FORCE=1",
     ]
 
     ALLOWED = [
         "git -c push.force=false push origin master",
         "GIT_PUSH_FORCE=0 git push origin master",
+        "GIT_PUSH_FORCE= git push origin master",
+        "GIT_PUSH_FORCE=off git push origin master",
         "git -c user.name=someone push origin master",
+        # A force assignment with no push in the same command string is not a force push.
+        "GIT_PUSH_FORCE=1 ; echo no push here",
+        "export GIT_PUSH_FORCE=1 && git status",
+        "git -c push.force=false push origin master && GIT_PUSH_FORCE=0 git push origin master",
     ]
 
     def test_in_command_force_is_denied(self):
