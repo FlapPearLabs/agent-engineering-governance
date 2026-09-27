@@ -183,6 +183,8 @@ git push origin && git config remote.origin.mirror true   在 push 之后才设�
                        `git push --force`                 $(git push --force)
                        alias g=git; g push -f             function g { git "$@"; }; g push -f
                        ./renamed-wrapper push -f
+                       git -c alias.f='push -f' f origin  （**git 级**别名——被隐藏 token 的载体
+                                                         是 git config，机制与 shell 别名相同）
                        原因：字面 token `git` + `push` + force 标志被 shell 展开、别名或包装脚本
                        隐藏后，文本分析根本看不见。这一层应由会话级权限规则或宿主侧 deny 映射承担；
                        本 hook 不假装自己是那一层。
@@ -203,7 +205,9 @@ git push origin && git config remote.origin.mirror true   在 push 之后才设�
                            · 选项元数：`git --attr-source HEAD push -f`（未知取值型全局选项吞掉子命令）
                            · 管线：`git send-pack --force <url> <refspec>`
                        第 7 轮关掉了这四个**实例**，但**轴上仍然敞开**：
-                       · 取值型全局选项表是枚举，git 新增选项即可再次吞掉子命令；
+                       · 取值型全局选项表是**枚举，且今天就已不完整**——`--shallow-file` 取值、
+                         不在表内，实测 `git --shallow-file <file> push -f` 会真实强推；
+                         git 将来新增选项亦然；
                        · `_PUSH_LIKE` 之外的会更新 ref 的管线命令；
                        · 任何使字面 token 从字符串中消失的 shell 构造（第 2 条）。
                        要达到**封闭**保证的正确层次**不是本 hook**，而是**git 解析完参数之后**的

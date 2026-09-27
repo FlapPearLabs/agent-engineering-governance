@@ -418,6 +418,10 @@ class DocumentedNonCoverage(unittest.TestCase):
         # cannot claim a coverage boundary that no test holds.
         self.assertIn("命令文本之外的载体", readme)
         self.assertIn("PersistentStateCarriers", readme)
+        # Class 4 (the structural boundary) is the most important disclosure of all; pin it so
+        # it cannot silently disappear from the README while the code still relies on it.
+        self.assertIn("结构边界", readme)
+        self.assertIn("--shallow-file", readme)
         # The long-form config carrier must be documented as covered, not left implicit.
         self.assertIn("--config-env", readme)
 

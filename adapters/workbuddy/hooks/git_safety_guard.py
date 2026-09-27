@@ -44,6 +44,9 @@ KNOWN NON-COVERAGE (honest boundary, not an oversight)
            `git push -f`                $(git push -f)
            alias g=git; g push -f       function g { git "$@"; }; g push -f
            ./some-renamed-wrapper push -f
+           git -c alias.f='push -f' f origin   (a GIT-level alias - the carrier of the hidden
+                                               tokens is git config, but the mechanism is the
+                                               same: the literal tokens never appear)
        Anything that hides the literal tokens `git` + `push` + a force flag behind shell
        expansion, aliasing, or a wrapper script is invisible to this analysis. A session-level
        permission rule or a host-side deny mapping is the correct layer for that; this hook
@@ -64,7 +67,9 @@ KNOWN NON-COVERAGE (honest boundary, not an oversight)
            round 6   plumbing        git send-pack --force <url> <refspec>
        Round 7 closed those four instances. The AXES stay open:
            * a value-taking global option absent from _GIT_VALUE_FLAGS can still swallow the
-             subcommand - that list is an enumeration and git may add options;
+             subcommand. That list is an enumeration and is incomplete TODAY, not merely in
+             some future git: `--shallow-file` takes a value, is absent from it, and
+             `git --shallow-file <file> push -f` measurably force-updates the remote;
            * a refs-updating plumbing command outside _PUSH_LIKE;
            * any shell construct that removes the literal tokens from the string (item 2).
        The correct layer for a CLOSED guarantee is NOT this hook. It is a host-side policy that
@@ -247,9 +252,11 @@ def _split_subcommand(tokens: list[str], index: int) -> tuple[str | None, list[s
 # Why the key and not the mechanism: rounds 4 and 5 each added one config injection spelling,
 # and each time review found the next one (`--config-env` joined, then its space-separated
 # form, then the `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` environment
-# block). Enumerating spellings is the wrong shape - a spelling added by a future git would
-# silently escape. The carrier is the KEY; matching it covers every present and future
-# spelling with one rule.
+# block). Enumerating spellings is the wrong shape. The carrier is the KEY; matching it
+# covers every SPELLING of that one mechanism with a single rule - which is a statement about
+# spellings, NOT about closure. Quoting, option arity and plumbing are separate axes; see
+# KNOWN NON-COVERAGE item 4, and note that the value-flag enumeration below is incomplete
+# TODAY (--shallow-file takes a value and is absent), not only in some future git.
 #
 # Accepted fail-closed false positives (documented in the README, consistent with this
 # guard's existing stance on `echo 'git push -f'`):
