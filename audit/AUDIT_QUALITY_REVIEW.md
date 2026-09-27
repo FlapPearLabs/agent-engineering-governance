@@ -1,5 +1,7 @@
 # AUDIT_QUALITY_REVIEW — 对第一次治理审计的审计
 
+> **后续更正（追加，2026-09-27；本文历史原文不改写）**：本文 E-01 与 C01 写「MEMORY 指针候选必须 ≤~3,500 **字符**」——**单位错误**。权威单位是 **UTF-8 编码字节数（byte）**，不是字符数、不是 code point 数。预算值、单位、profile 区分与 override 语义的规范声明点 = `deployment/BOOTSTRAP_CONTRACT.md` §2.1；本文只作历史记录，**不得**被引用为预算或单位的 rule owner。同一更正也适用于 `audit/AS_IS_WORKBUDDY_V2.md` 中对同一数值的叙述。
+>
 > 基准：external reviewed HEAD `e5a4871`；外部评审：GPT-5.6 Sol（PR #1，CHANGES_REQUESTED，F1–F7）。
 > 目的：找出首审从 **OBSERVATION 滑向 DESIGN CHOICE 而未标注边界** 的位置；区分 MECHANICALLY_PROVEN / DIRECTLY_SUPPORTED / STRONG_INFERENCE / WEAK_INFERENCE / PREMATURE_DESIGN_ASSUMPTION / INCORRECT。
 > 方法：重读全部首审产物 + 重探真实环境（含新探针：CodeGraph `--help` 全量子命令、review-agent 契约、MEMORY 注入截断 byte offset、SKILL.md 元数据）。

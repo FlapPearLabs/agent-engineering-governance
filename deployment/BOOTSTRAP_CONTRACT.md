@@ -48,7 +48,7 @@ VALUE    3500
 UNIT     UTF-8 编码字节数（byte）—— 不是字符数（char），不是 code point 数
 SOURCE   WorkBuddy profile 安全预算（观测/profile 属性，不是规范常数）
 SCOPE    仅在本 WorkBuddy profile 内有效；不是跨 runtime 通用常数
-OWNER    本节；scripts/validate_governance.py 只消费该值
+OWNER    本节（deployment/BOOTSTRAP_CONTRACT.md）；scripts/validate_governance.py 只消费该值
 3500 bytes = 主动的规范预算（BUDGET）
 4028 bytes = 被动的历史观测截断点（TRUNCATION）；二者性质不同，不得互为定义，取 3500 只为不贴近 4028。
 非默认 profile 用自有预算时，必须先有该 profile 自身的已核验观测并**显式记录 OVERRIDE
