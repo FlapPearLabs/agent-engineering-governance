@@ -221,6 +221,7 @@ def cmd_install(p: dict) -> int:
     installed_digest_before = sha256(p["installed_hook"]) if installed_before else None
 
     settings_changed = not (len(our_entries) == 1 and our_entries[0] == desired_entry())
+    settings_existed_before = p["settings"].is_file()
     backup = None
     if settings_changed:
         backup = backup_settings(p)
@@ -246,6 +247,7 @@ def cmd_install(p: dict) -> int:
         "installed_sha256": sha256(p["installed_hook"]),
         "settings_backup": str(backup) if backup else None,
         "settings_backup_sha256": sha256(backup) if backup else None,
+        "settings_existed_before": settings_existed_before,
         "settings_changed": settings_changed,
         "previous_installed_sha256": installed_digest_before,
     }
@@ -256,7 +258,12 @@ def cmd_install(p: dict) -> int:
     print(f"  installed_hook      = {p['installed_hook']}")
     print(f"  installed_sha256    = {state['installed_sha256'][:16]}...")
     print(f"  settings_changed    = {settings_changed}")
-    print(f"  settings_backup     = {'recorded (local-only, outside any repository)' if backup else 'NONE (settings unchanged)'}")
+    if backup:
+        print("  settings_backup     = recorded (local-only, outside any repository)")
+    elif settings_changed:
+        print("  settings_backup     = NONE (no pre-existing file to back up; rollback will remove it)")
+    else:
+        print("  settings_backup     = NONE (settings unchanged - idempotent re-install)")
     print(f"  duplicate_guard     = NONE (idempotent: existing registration reused = {not settings_changed})")
     return EXIT_OK
 
@@ -326,13 +333,20 @@ def cmd_rollback(p: dict) -> int:
                     hooks.pop("PreToolUse", None)
                 if not hooks:
                     settings.pop("hooks", None)
-                write_settings(p, settings)
+            if settings or not state.get("settings_existed_before", True):
+                # Restore the pre-install shape: if there was no file before installing,
+                # leaving an empty `{}` behind is not a faithful rollback.
+                if settings:
+                    write_settings(p, settings)
+                else:
+                    p["settings"].unlink(missing_ok=True)
 
     if p["install_dir"].is_dir():
         shutil.rmtree(p["install_dir"])
 
     print("ROLLBACK = OK")
-    print(f"  settings_restored_from_backup = {bool(state.get('settings_backup'))}")
+    print(f"  restored_from_backup          = {bool(state.get('settings_backup'))}")
+    print(f"  settings_file_present_after   = {p['settings'].is_file()}")
     print(f"  install_dir_removed           = {not p['install_dir'].exists()}")
     print("  note: run `verify` and expect hook_installed = False")
     return EXIT_OK

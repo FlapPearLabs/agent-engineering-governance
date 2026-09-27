@@ -30,10 +30,24 @@ HOOK CONTRACT (WorkBuddy / CodeBuddy PreToolUse)
     exit 2 : block the tool call; stdout JSON `reason` / `hookSpecificOutput` is surfaced
 
 KNOWN NON-COVERAGE (honest boundary, not an oversight)
-    Force-push expressed as a refspec (`git push origin +main`) is NOT matched. It was left
-    out of V1 because the `+` prefix cannot be distinguished from an unusual ref name without
-    real ref resolution, and a false deny on an ordinary push was judged the worse failure.
-    Recorded so a reviewer does not read the deny set as complete.
+    Recorded so a reviewer does not read the deny set as complete. This guard is a *static
+    text classifier*, NOT a shell evaluator, and it is defense-in-depth rather than a sandbox.
+
+    1. refspec force push (`git push origin +main`) is NOT matched: `+` cannot be told apart
+       from an unusual ref name without real ref resolution, and a false deny on an ordinary
+       push was judged the worse failure.
+    2. Shell evaluation escapes static text entirely, and these are NOT caught:
+           C="git push -f"; $C          B=git; A='push -f'; $B $A
+           `git push -f`                $(git push -f)
+           alias g=git; g push -f       function g { git "$@"; }; g push -f
+           ./some-renamed-wrapper push -f
+       Anything that hides the literal tokens `git` + `push` + a force flag behind shell
+       expansion, aliasing, or a wrapper script is invisible to this analysis. A session-level
+       permission rule or a host-side deny mapping is the correct layer for that; this hook
+       deliberately does not pretend to be one.
+    3. In-command force via `-c push.force=true` and via a leading `GIT_PUSH_FORCE=1`
+       assignment ARE handled (added after review round 1) - see _push_force_via_git_config
+       and _push_force_via_env.
 """
 
 from __future__ import annotations
@@ -122,7 +136,38 @@ def _split_subcommand(tokens: list[str], index: int) -> tuple[str | None, list[s
     return tokens[j], tokens[j + 1 :]
 
 
-def _push_is_forced(rest: list[str]) -> bool:
+def _truthy(value: str) -> bool:
+    return value.strip().lower() not in ("", "0", "false", "no", "off")
+
+
+def _push_force_via_git_config(tokens: list[str]) -> bool:
+    """`git -c push.force=true push` / `git --config=push.force=1 push`."""
+    for index, token in enumerate(tokens):
+        if token == "-c" and index + 1 < len(tokens):
+            assignment = tokens[index + 1]
+        elif token.startswith("--config="):
+            assignment = token.split("=", 1)[1]
+        else:
+            continue
+        if "=" in assignment:
+            key, _, value = assignment.partition("=")
+            if key.strip().lower() == "push.force" and _truthy(value):
+                return True
+    return False
+
+
+def _push_force_via_env(tokens: list[str]) -> bool:
+    """`GIT_PUSH_FORCE=1 git push ...` - a leading assignment, no --force token anywhere."""
+    for token in tokens:
+        if "=" not in token:
+            continue
+        key, _, value = token.partition("=")
+        if key.strip().upper() in ("GIT_PUSH_FORCE", "PUSH_FORCE") and _truthy(value):
+            return True
+    return False
+
+
+def _push_is_forced(tokens: list[str], rest: list[str]) -> bool:
     for token in rest:
         if token == "--force":
             return True
@@ -130,6 +175,8 @@ def _push_is_forced(rest: list[str]) -> bool:
             return True
         if "f" in _short_flag_letters(token):
             return True
+    if _push_force_via_git_config(tokens) or _push_force_via_env(tokens):
+        return True
     return False
 
 
@@ -175,7 +222,7 @@ def _classify_tokens(tokens: list[str], depth: int) -> str | None:
         subcommand, rest = _split_subcommand(tokens, index)
         if subcommand is None:
             continue
-        if subcommand == "push" and _push_is_forced(rest):
+        if subcommand == "push" and _push_is_forced(tokens, rest):
             return CATEGORY_PUSH_FORCE
         if subcommand == "reset" and _reset_is_hard(rest):
             return CATEGORY_RESET_HARD
@@ -253,47 +300,65 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
 
+SELFCHECK_DENY = [
+    "git push --force",
+    "git push -f origin master",
+    "git push origin master -f",
+    "git push --force-with-lease origin feature",
+    "git push --force-with-lease=origin/feature origin feature",
+    "git push --force-if-includes",
+    "git -C /tmp/repo push -f origin master",
+    "git --git-dir=/tmp/repo/.git push --force",
+    "git -c push.force=true push origin master",
+    "git -c push.force=1 push origin master",
+    "GIT_PUSH_FORCE=1 git push origin master",
+    "cd /tmp && git push -fu origin master",
+    "git reset --hard",
+    "git reset --hard HEAD~3",
+    "git -C /tmp/x reset --hard",
+    "git clean -fd",
+    "git clean -df",
+    "git clean -fdx",
+    "git clean --force",
+    "git clean -f -d",
+]
+
+SELFCHECK_ALLOW = [
+    "git status",
+    "git fetch origin",
+    "git branch -a",
+    "git push origin master",
+    "git push -u origin feature",
+    "git push --set-upstream origin feature",
+    "git push --follow-tags origin master",
+    "git push --dry-run origin master",
+    "git -c push.force=false push origin master",
+    "GIT_PUSH_FORCE=0 git push origin master",
+    "git rebase main",
+    "git commit --amend --no-edit",
+    "git reset --soft HEAD~1",
+    "git reset HEAD -- file.txt",
+    "git clean -n",
+    "git clean -nd",
+    "git clean --dry-run -fd",
+    "git clean -X",
+    "git log --oneline -n 5",
+    "git diff --check",
+    "ls -la",
+]
+
+
 def _selfcheck() -> bool:
-    """Built-in matrix used by install.py VERIFY. Deterministic, no repository needed."""
-    must_deny = [
-        "git push --force",
-        "git push -f origin master",
-        "git push --force-with-lease origin feature",
-        "git push --force-if-includes",
-        "git -C /tmp/repo push -f origin master",
-        "cd /tmp && git push -fu origin master",
-        "git reset --hard",
-        "git reset --hard HEAD~3",
-        "git clean -fd",
-        "git clean -df",
-        "git clean -fdx",
-        "git clean --force",
-        "git clean -f -d",
-    ]
-    must_allow = [
-        "git status",
-        "git fetch origin",
-        "git branch -a",
-        "git push origin master",
-        "git push -u origin feature",
-        "git push --set-upstream origin feature",
-        "git rebase main",
-        "git commit --amend --no-edit",
-        "git reset --soft HEAD~1",
-        "git reset HEAD -- file.txt",
-        "git clean -n",
-        "git clean -nd",
-        "git clean --dry-run -fd",
-        "git clean -X",
-        "git log --oneline -n 5",
-        "git diff --check",
-        "ls -la",
-    ]
-    for command in must_deny:
+    """Built-in matrix used by install.py VERIFY. Deterministic, no repository needed.
+
+    Deliberately a strict subset of the unittest matrices; the tests assert that subset
+    relation so a form cannot be added to one matrix and silently missed by the other.
+    """
+    for command in SELFCHECK_DENY:
         if classify(command) is None:
             sys.stderr.write(f"selfcheck FAIL: expected DENY for {command!r}\n")
             return False
-    for command in must_allow:
+    for command in SELFCHECK_ALLOW:
         found = classify(command)
         if found is not None:
             sys.stderr.write(f"selfcheck FAIL: expected ALLOW for {command!r}, got {found}\n")

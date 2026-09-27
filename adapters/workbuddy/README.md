@@ -28,6 +28,18 @@ V1 只把这一条变成 `PreToolUse` 机械门。**其余一律不做**（见 �
 
 `UNKNOWN` 不等于可用。部署方必须跑完 §4 的负例测试，**在真实会话里观察到 deny**，才可声称该门生效。
 
+**强制等级用语（与 `adapters/zcode/` 的既有诚实契约对齐，不得混用）**：
+
+```text
+ENFORCED   存在**可核验的宿主 deny 映射**（运行时「exit 2 → 宿主 DENY」的机器可读登记），
+           且已在真实会话中观测到一次真实 deny。本适配器当前**不声称** ENFORCED。
+ADVISORY   无可核验 deny 映射时的诚实降级态（合法）。**当前状态即 ADVISORY**：
+           产物已评审、可部署，但宿主侧是否真的阻断尚未观测。
+NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`。
+```
+
+即：**本适配器当前 = `ADVISORY` + `live_verification = NOT_RUN`**。任何报告不得把它写成「已强制」。
+
 ## 3. Hook 的拒绝集与边界
 
 `hooks/git_safety_guard.py` 只拒三类：
@@ -48,8 +60,31 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
 **引号一致性（刻意 fail-closed）**：`bash -c 'git push -f'` 与 `git push -f` 同判。
 代价是**打印**这类字符串的命令（`echo 'git push -f'`）也会被拒。换一种写法即可，静默强推不可以。
 
-**已知未覆盖（诚实边界，非疏忽）**：以 refspec 表达的强推（`git push origin +main`）**不匹配**。
-原因：`+` 前缀无法在没有真实 ref 解析的情况下与非常规 ref 名区分，而误拒一次普通 push 被判定为更坏的失败。
+**命令内强推向量（评审第 1 轮后补入）**：不使用 `--force` / `-f` 也能造成强推的两种写法现在会被拒：
+
+```text
+git -c push.force=true push ...        （git config 注入）
+GIT_PUSH_FORCE=1 git push ...          （前置环境赋值）
+```
+
+**已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
+
+```text
+1. refspec 强推        git push origin +main
+                       原因：`+` 前缀无法在没有真实 ref 解析时与非常规 ref 名区分，
+                       而误拒一次普通 push 被判定为更坏的失败。
+
+2. shell 求值类        C="git push -f"; $C                B=git; A='push -f'; $B $A
+                       `git push --force`                 $(git push --force)
+                       alias g=git; g push -f             function g { git "$@"; }; g push -f
+                       ./renamed-wrapper push -f
+                       原因：字面 token `git` + `push` + force 标志被 shell 展开、别名或包装脚本
+                       隐藏后，文本分析根本看不见。这一层应由会话级权限规则或宿主侧 deny 映射承担；
+                       本 hook 不假装自己是那一层。
+```
+
+上述「未覆盖」不是可以靠加正则解决的缺陷；测试 `DocumentedNonCoverage` **主动断言这些形式确实不被捕获**，
+一旦哪天被捕获该测试即失败，迫使 README 同步更新——避免边界从「已披露」退化成「想当然」。
 
 **内部错误行为**：脚本内部异常 → **放行 + stderr 诊断**（不阻塞会话）。理由：本 hook 是纵深防御，
 不是主 gate；一个会崩的安全网不得让所有普通 Bash 调用失效。脚本仅用标准库、无网络、无子进程、无文件写入，

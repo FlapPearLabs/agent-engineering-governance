@@ -44,9 +44,12 @@ class DenyMatrix(unittest.TestCase):
         "git push --force-with-lease origin feature",
         "git push --force-with-lease=origin/feature origin feature",
         "git push --force-if-includes origin feature",
+        "git push --force-if-includes",
         "git -C /tmp/somewhere push -f origin master",
+        "git -C /tmp/repo push -f origin master",
         "git --git-dir=/tmp/repo/.git push --force",
         "cd /tmp/x && git push -f origin master",
+        "cd /tmp && git push -fu origin master",
         "git status && git push -f",
         "git push -f | cat",
         "git reset --hard",
@@ -241,6 +244,88 @@ class redirect_stderr_into:
     def __exit__(self, *exc):
         sys.stderr = self._saved
         return False
+
+
+class InCommandForceVectors(unittest.TestCase):
+    """Force expressed without any `--force`/`-f` token on the push itself.
+
+    Found in security review round 1: these produced a real forced push while the guard
+    reported ALLOW, because the force lived in git config or an environment assignment.
+    """
+
+    DENIED = [
+        "git -c push.force=true push origin master",
+        "git -c push.force=1 push origin master",
+        "git --config=push.force=true push origin master",
+        "GIT_PUSH_FORCE=1 git push origin master",
+        "GIT_PUSH_FORCE=true git push origin master",
+        "cd /tmp && GIT_PUSH_FORCE=1 git push origin master",
+    ]
+
+    ALLOWED = [
+        "git -c push.force=false push origin master",
+        "GIT_PUSH_FORCE=0 git push origin master",
+        "git -c user.name=someone push origin master",
+    ]
+
+    def test_in_command_force_is_denied(self):
+        for command in self.DENIED:
+            with self.subTest(command=command):
+                self.assertEqual(guard.classify(command), guard.CATEGORY_PUSH_FORCE)
+
+    def test_false_valued_force_settings_are_allowed(self):
+        for command in self.ALLOWED:
+            with self.subTest(command=command):
+                self.assertIsNone(guard.classify(command), f"expected ALLOW: {command!r}")
+
+
+class DocumentedNonCoverage(unittest.TestCase):
+    """Assert the DISCLOSED boundaries, so a gap cannot silently become an assumption.
+
+    These are not bugs to fix by text analysis: the literal tokens are simply not present
+    in the command string. If one of these ever starts being caught, this test fails and
+    the README's "known non-coverage" section must be updated with it.
+    """
+
+    NOT_CAUGHT = [
+        'C="git push -f"; $C',
+        "B=git; A='push -f'; $B $A",
+        "`git push --force`",
+        "$(git push --force)",
+        "git push origin +main",
+        "./some-renamed-wrapper push -f",
+    ]
+
+    def test_disclosed_bypasses_are_indeed_not_caught(self):
+        for command in self.NOT_CAUGHT:
+            with self.subTest(command=command):
+                self.assertIsNone(
+                    guard.classify(command),
+                    f"{command!r} is now caught - update the README non-coverage section",
+                )
+
+    def test_readme_documents_the_non_coverage(self):
+        readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+        self.assertIn("已知未覆盖", readme)
+        self.assertIn("shell", readme.lower())
+        self.assertIn("+main", readme)
+
+
+class SelfcheckParity(unittest.TestCase):
+    """install.py VERIFY runs `--selfcheck`; it must not drift from the tested matrix."""
+
+    def test_selfcheck_deny_is_a_subset_of_the_tested_deny_matrix(self):
+        tested = set(DenyMatrix.DENIED) | set(InCommandForceVectors.DENIED)
+        missing = set(guard.SELFCHECK_DENY) - tested
+        self.assertEqual(missing, set(), f"selfcheck asserts untested forms: {sorted(missing)}")
+
+    def test_selfcheck_allow_is_a_subset_of_the_tested_allow_matrix(self):
+        tested = set(AllowMatrix.ALLOWED) | set(InCommandForceVectors.ALLOWED)
+        missing = set(guard.SELFCHECK_ALLOW) - tested
+        self.assertEqual(missing, set(), f"selfcheck asserts untested forms: {sorted(missing)}")
+
+    def test_selfcheck_deny_and_allow_are_disjoint(self):
+        self.assertEqual(set(guard.SELFCHECK_DENY) & set(guard.SELFCHECK_ALLOW), set())
 
 
 if __name__ == "__main__":
