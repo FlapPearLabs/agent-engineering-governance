@@ -5,7 +5,7 @@ PURPOSE
     Deny, before execution, the small set of Git command forms that the governance
     hard invariants already prohibit outright. Nothing else.
 
-        git push --force / -f / --force-with-lease / --mirror
+        git push / git send-pack --force / -f / --force-with-lease / --mirror
         git push carrying a force injected through git config - matched by the CARRIER KEY
         named in the command string (`remote.<name>.mirror`, `remote.<name>.push`), whatever
         the injection spelling
@@ -54,6 +54,24 @@ KNOWN NON-COVERAGE (honest boundary, not an oversight)
        environment variable exported before the session started. This guard reads only the
        command string it is handed; persistent state is owned by the repository and the host,
        not by this classifier.
+    4. STRUCTURAL BOUNDARY - read this one first. A static classifier over an UNPARSED shell
+       command string cannot be made CLOSED. Three consecutive review rounds each found a new
+       open axis, and each time the finding was the same shape: "bypassed AND undisclosed".
+           round 5   spelling        --config-env separated ; the GIT_CONFIG_* block
+           round 6   quoting         git -c remote."origin".mirror=true push origin
+           round 6   option arity    git --attr-source HEAD push -f   (an unknown
+                                     value-taking global option swallows the subcommand)
+           round 6   plumbing        git send-pack --force <url> <refspec>
+       Round 7 closed those four instances. The AXES stay open:
+           * a value-taking global option absent from _GIT_VALUE_FLAGS can still swallow the
+             subcommand - that list is an enumeration and git may add options;
+           * a refs-updating plumbing command outside _PUSH_LIKE;
+           * any shell construct that removes the literal tokens from the string (item 2).
+       The correct layer for a CLOSED guarantee is NOT this hook. It is a host-side policy that
+       runs AFTER git has parsed its own arguments, or server-side branch protection on the
+       remote. Use this guard as a fast, cheap, fail-closed speed bump - not as the enforcement
+       boundary. Recorded because the durable fix for "bypassed AND undisclosed" is honest
+       disclosure, not one more pattern.
 
 MEASUREMENT BASIS (why the deny set is what it is)
     The deny set is derived from MEASUREMENT, not from belief about git. Each candidate was
@@ -101,12 +119,26 @@ MEASUREMENT BASIS (why the deny set is what it is)
     Round 6 STOPPED ENUMERATING SPELLINGS. Rounds 4 and 5 each added one config injection
     spelling and each time the next round of review found the one after it. That is a signal
     about shape, not about diligence: the carrier is the KEY, not the mechanism. The guard now
-    matches `remote.<name>.mirror` / `remote.<name>.push` in the command text whenever a push
-    is present, so every spelling - including one a future git has not invented yet - is
-    covered by the same rule. Net effect: `_config_assignments`, `_push_force_via_git_config`,
+    matches `remote.<name>.mirror` / `remote.<name>.push` whenever a push is present, so every
+    SPELLING of that one mechanism is covered by a single rule. That is a statement about
+    spellings, NOT about closure - round 6 review immediately defeated it through quoting and
+    option arity, which round 7 fixed as instances while leaving the axes open (item 4). The
+    previous sentence in this paragraph claimed more than the measurement supported. Net effect: `_config_assignments`, `_push_force_via_git_config`,
     `_truthy` and the two per-spelling regexes were DELETED - classification logic fell from
     355 to 343 lines. The file length is unchanged because the deleted mechanics were replaced
     by the documentation the new rule needs.
+
+    Round 7 changed three things and, more importantly, one claim:
+      * carrier detection now runs over TOKENS (already de-quoted) instead of the raw string,
+        so `git -c remote."origin".mirror=true push origin` - measured forcing - is caught;
+      * it no longer needs the subcommand to be located, so `git --attr-source HEAD
+        -c remote.origin.mirror=true push origin` is caught even though the arity bug hides the
+        subcommand;
+      * `--attr-source` joined _GIT_VALUE_FLAGS and `send-pack` is now push-equivalent, both
+        because they were measured to force while being allowed.
+    And the claim: "every spelling ... is covered by the same rule" held only for new spellings
+    of the same mechanism, not for quoting or option-arity tricks. Corrected above, and the
+    structural boundary is now stated as its own non-coverage item rather than implied away.
 """
 
 from __future__ import annotations
@@ -143,6 +175,7 @@ _GIT_VALUE_FLAGS = {
     "--namespace",
     "--exec-path",
     "--config-env",
+    "--attr-source",
 }
 
 
@@ -227,6 +260,11 @@ def _split_subcommand(tokens: list[str], index: int) -> tuple[str | None, list[s
 # Each costs one nonsensical command form; a silent force push costs a rewritten history.
 _FORCE_CONFIG_KEY = re.compile(r"remote\.[^\s\"'=:]{1,128}\.(?:mirror|push)", re.IGNORECASE)
 
+# Subcommands that update remote refs and therefore accept the force flags. `send-pack` is the
+# plumbing equivalent of `push`; measured: `git send-pack --force <url> <refspec>` force-updated
+# the remote while this guard allowed it.
+_PUSH_LIKE = ("push", "send-pack")
+
 
 def _push_is_forced(tokens: list[str], rest: list[str]) -> bool:
     """Force expressed by a FLAG on the push itself. Key-injected force is handled separately
@@ -269,26 +307,25 @@ _MAX_EXPANSION_DEPTH = 3
 
 
 def _classify_text(text: str, depth: int) -> str | None:
-    has_push = False
+    mentions_push_like = False
+    names_carrier_key = False
 
     for segment in _segments(text):
         tokens = _tokenize(segment)
         found = _classify_tokens(tokens, depth)
         if found is not None:
             return found
-        if not has_push:
-            for index, token in enumerate(tokens):
-                if _is_git_invocation(token):
-                    subcommand, _ = _split_subcommand(tokens, index)
-                    if subcommand == "push":
-                        has_push = True
-                        break
+        # Two deliberately SHAPE-INDEPENDENT checks, both over TOKENS rather than the raw
+        # string. Tokens are already quote-stripped by _tokenize, so `remote."origin".mirror`
+        # is seen as the key it really is; and neither check depends on locating the
+        # subcommand, so an unknown value-taking global option cannot hide them.
+        if not names_carrier_key and any(_FORCE_CONFIG_KEY.search(t) for t in tokens):
+            names_carrier_key = True
+        if not mentions_push_like and any(t in _PUSH_LIKE for t in tokens):
+            mentions_push_like = True
 
-    # Key-injected force. Deliberately spelling-independent: if a push appears anywhere in
-    # this command text and the text names a force-carrier config key anywhere in it, deny.
-    # This is what closes `-c`, `--config-env` (joined and separated), `--config=`, the
-    # `GIT_CONFIG_*` environment block, and any spelling a later git adds.
-    if has_push and _FORCE_CONFIG_KEY.search(text):
+    # Key-injected force: a refs-updating subcommand plus a named force-carrier key.
+    if mentions_push_like and names_carrier_key:
         return CATEGORY_PUSH_FORCE
     return None
 
@@ -300,7 +337,7 @@ def _classify_tokens(tokens: list[str], depth: int) -> str | None:
         subcommand, rest = _split_subcommand(tokens, index)
         if subcommand is None:
             continue
-        if subcommand == "push" and _push_is_forced(tokens, rest):
+        if subcommand in _PUSH_LIKE and _push_is_forced(tokens, rest):
             return CATEGORY_PUSH_FORCE
         if subcommand == "reset" and _reset_is_hard(rest):
             return CATEGORY_RESET_HARD
@@ -392,6 +429,9 @@ SELFCHECK_DENY = [
     "git --config-env=remote.origin.mirror=V push origin",
     "git --config-env remote.origin.mirror=V push origin",
     "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.mirror GIT_CONFIG_VALUE_0=true git push origin",
+    "git -c remote.\"origin\".mirror=true push origin",
+    "git --attr-source HEAD push -f origin master",
+    "git send-pack --force /tmp/origin.git refs/heads/master:refs/heads/master",
     "cd /tmp && git push -fu origin master",
     "git reset --hard",
     "git reset --hard HEAD~3",

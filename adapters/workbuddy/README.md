@@ -45,13 +45,15 @@ NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`�
 `hooks/git_safety_guard.py` 只拒三类：
 
 ```text
-GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --mirror
+GIT_PUSH_FORCE    git push / git send-pack --force | -f | --force-with-lease | --mirror
                   以及**命令文本中指名了强推载体 config 键**的 push：
                       remote.<name>.mirror
                       remote.<name>.push
-                  按**键**匹配、不按注入写法——故 `-c`、`--config-env`（等号与空格两种）、
-                  `--config=`、`GIT_CONFIG_COUNT/KEY_n/VALUE_n` 以及将来新增的写法
-                  都被同一条规则覆盖。
+                  按**键**匹配、不按注入写法——`-c`、`--config-env`（等号与空格两种）、
+                  `--config=`、`GIT_CONFIG_COUNT/KEY_n/VALUE_n` 都被同一条规则覆盖。
+                  判定在**去引号后的 token 上**做、且**不依赖子命令定位**，所以
+                  `remote."origin".mirror` 与「未知取值型全局选项吞掉子命令」也不能绕过。
+                  **但这不等于封闭**——见下第 4 条。
 GIT_RESET_HARD    git reset --hard
 GIT_CLEAN_FORCE   git clean 带 --force/-f 且不是 dry-run（-fd / -df / -fdx / -f / --force 等）
 ```
@@ -95,6 +97,7 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
                                 git --config=remote.<name>.mirror=true     （git 其实拒绝该写法）
 真实强推 → 已声明未覆盖       git push origin +main                （见下第 1 条）
                             命令文本之外的 config 载体            （见下第 3 条）
+                            **本分类器尚不能封闭的其它轴**         （见下第 4 条）
 并非强推 → 放行              --force-if-includes 单独出现         （--force-with-lease 的附属项）
                             -c push.force=true                    （git 没有 push.force 这个键）
                             GIT_PUSH_FORCE=1 / PUSH_FORCE=1       （git 不认这些环境变量）
@@ -149,7 +152,23 @@ git push origin && git config remote.origin.mirror true   在 push 之后才设�
 ```
 
 每一行的代价是「一个没人会写的命令形式」；静默强推的代价是被改写的历史。这条取舍与既有的
-`echo 'git push -f'` 同源，不是新政策。
+`echo 'git push -f'` 同源，不是新政策。该清单是**举例而非穷尽**（例如载体挂在**另一个远端**上，
+如 `git -c remote.upstream.mirror=true push origin`，同样会被拒而同样不会强推）。
+
+**评审第 7 轮的更正——补三个实例，同时收回一句过度声明**：
+
+```text
+实例（均已实测会强推、此前放行）：
+  引号        git -c remote."origin".mirror=true push origin
+              → 判定改为在**去引号 token** 上做（tokenizer 本来就去引号，旧代码却拿原始串正则匹配）
+  取值型选项  git --attr-source HEAD push -f origin master
+              → --attr-source 会吞掉 `push`，使子命令被误判；已把它加入取值型全局选项表
+  管线命令    git send-pack --force <url> <refspec>
+              → send-pack 是 push 的管线等价物，已与 push 同等对待
+
+收回的声明：第 6 轮写过「将来新增的写法都被覆盖」。该句只对**同一机制的新写法**成立，
+对引号与选项元数（arity）并不成立——第 6 轮评审正是从这两处绕过的。已按实际测量改正。
+```
 
 **已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
 
@@ -176,6 +195,20 @@ git push origin && git config remote.origin.mirror true   在 push 之后才设�
                        · 会话开始之前就已 export 的环境变量。
                        原因：本 guard 只读交给它的那一个命令串；持久配置、被包含的文件与环境继承
                        属于仓库与宿主，不归本分类器。若需要覆盖这一层，应由宿主侧 deny 映射承担。
+
+4. 结构边界（**先读这条**）  **对未经解析的 shell 命令串做静态分类，不可能做到封闭**。
+                       连续三轮评审各找到一条新轴，且形状完全相同——「被绕过 **且** 未披露」：
+                           · 拼写：`--config-env` 空格形式、`GIT_CONFIG_*` 块
+                           · 引号：`git -c remote."origin".mirror=true push origin`
+                           · 选项元数：`git --attr-source HEAD push -f`（未知取值型全局选项吞掉子命令）
+                           · 管线：`git send-pack --force <url> <refspec>`
+                       第 7 轮关掉了这四个**实例**，但**轴上仍然敞开**：
+                       · 取值型全局选项表是枚举，git 新增选项即可再次吞掉子命令；
+                       · `_PUSH_LIKE` 之外的会更新 ref 的管线命令；
+                       · 任何使字面 token 从字符串中消失的 shell 构造（第 2 条）。
+                       要达到**封闭**保证的正确层次**不是本 hook**，而是**git 解析完参数之后**的
+                       宿主侧策略，或**远端的分支保护**。请把本 guard 当作一道快速、便宜、
+                       fail-closed 的减速带，而不是强制边界。
 ```
 
 上述「未覆盖」不是可以靠加正则解决的缺陷：测试 `DocumentedNonCoverage` **主动断言第 1、2 类形式确实不被
