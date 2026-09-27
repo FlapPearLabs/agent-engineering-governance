@@ -45,10 +45,12 @@ NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`�
 `hooks/git_safety_guard.py` 只拒三类：
 
 ```text
-GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --force-if-includes | --mirror
+GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --mirror
                   以及经 git config 注入、命令行上不带 force 标志的载体：
-                      -c remote.<name>.mirror=true
+                      -c remote.<name>.mirror=<truthy>
                       -c remote.<name>.push=+<refspec>
+                      --config-env=remote.<name>.mirror=<envvar>
+                      --config-env=remote.<name>.push=<envvar>
 GIT_RESET_HARD    git reset --hard
 GIT_CLEAN_FORCE   git clean 带 --force/-f 且不是 dry-run（-fd / -df / -fdx / -f / --force 等）
 ```
@@ -60,10 +62,18 @@ git rebase          git commit --amend        Edit / Write
 git push --follow-tags      git reset --soft      git clean -n / --dry-run
 ```
 
-**与 `references/git-ci-integration.md` §2 的一处有意差异（部署方必须知道）**：§2 对「可弃的一次性
-worktree（未评审、未推送、可重建）」豁免 `reset --hard` / `clean -fd`。本 guard **不做这个豁免**——
-区分「可弃 worktree」需要可机读的执行状态权威，而 V1 没有。因此本 guard 在该点上比 §2 **更严**，
-且是 fail-closed 方向的差异；它不新增规则，也不放宽 §2 的任何要求。
+**与 `references/git-ci-integration.md` 的两处有意差异（部署方必须知道）**：该文件对破坏性工作区动作
+设了两处放宽，本 guard **两处都不做**：
+
+```text
+§2    对「可弃的一次性 worktree（未评审、未推送、可重建）」豁免 reset --hard / clean -fd
+§5.2  把「有 pre-state 记录 + 保全集 + post-state 记录」的破坏性动作判为 LEGAL
+      （该节是这一面的 canonical owner；本 README 只指针，不重述其 recipe id）
+```
+
+两者都需要可机读的执行状态权威（判断一个 worktree 是否可弃、一个事务是否已完整记录），而 V1 没有。
+因此本 guard 在这两点上**比 §2 / §5.2 更严**，且方向是 fail-closed；它不新增规则，也不放宽这两节的
+任何要求。把这条差异写出来，是为了避免读者把「更严」误读成规则本身。
 
 **引号一致性（刻意 fail-closed）**：`bash -c 'git push -f'` 与 `git push -f` 同判。
 代价是**打印**这类字符串的命令（`echo 'git push -f'`）也会被拒。换一种写法即可，静默强推不可以。
@@ -73,11 +83,15 @@ worktree（未评审、未推送、可重建）」豁免 `reset --hard` / `clean
 
 ```text
 真实强推 → 拒绝              --force | -f | --force-with-lease | --mirror
-                            -c remote.<name>.mirror=true
+                            -c remote.<name>.mirror=<truthy>
                             -c remote.<name>.push=+<refspec>
-真实强推 → 已声明未覆盖       git push origin +main        （见下第 1 条）
-并非强推 → 放行              -c push.force=true            （git 没有 push.force 这个键）
-                            GIT_PUSH_FORCE=1 / PUSH_FORCE=1（git 不认这些环境变量）
+                            --config-env=remote.<name>.mirror=<envvar>
+                            --config-env=remote.<name>.push=<envvar>
+真实强推 → 已声明未覆盖       git push origin +main                （见下第 1 条）
+                            持久 .git/config / ~/.gitconfig 载体（见下第 3 条）
+并非强推 → 放行              --force-if-includes 单独出现         （--force-with-lease 的附属项）
+                            -c push.force=true                    （git 没有 push.force 这个键）
+                            GIT_PUSH_FORCE=1 / PUSH_FORCE=1       （git 不认这些环境变量）
 ```
 
 `git help --config` 列出 `push.default` / `push.followTags` / `push.useForceIfIncludes` 等，
@@ -90,14 +104,29 @@ worktree（未评审、未推送、可重建）」豁免 `reset --hard` / `clean
 确认为真实强推、而此前被放行的 `--mirror` 与 config 注入载体。移除项与加入项都在测试矩阵中显式断言
 （`MeasuredNonVectors` / `ConfigInjectedForce`），使这次更正不会被静默回退。
 
+**评审第 5 轮的更正**：同一把尺子继续量下去，又得到两处修正——都是「用一样的判据」，不是新政策：
+
+```text
+加入  --config-env=<name>=<envvar>    `-c` 的长形兄弟，git 亦确有该选项。
+                                    实测 V=true git --config-env=remote.origin.mirror=V push origin
+                                    造成真实强推，而此前被放行。
+                                    其值不在命令文本里、hook 也看不见 shell 环境，故对匹配键
+                                    **fail-closed 拒绝**（即使该变量恰好是假值）——这是一处
+                                    刻意接受的假阳性，写在明处而非藏起来。
+移除  --force-if-includes             实测单独出现时不强推（rc=1、远端未动）；而它真实出现时必然
+                                    与 --force / --force-with-lease 同现，那两种写法早已被拒。
+                                    故它对检测**零边际贡献**，只增加假阳性面——判据与第 4 轮
+                                    移除那批规则完全相同。此前代码与本表互相矛盾，现已一致。
+```
+
 **已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
 
 ```text
 1. refspec 强推        git push origin +main
                        原因：实测 `git check-ref-format --branch "+main"` 判定 `+main` 为
                        **合法分支名**，故前导 `+` 在纯文本层无法与非常规 ref 名区分；
-                       而误拒一次普通 push 被判定为更坏的失败。这一条是唯一「实测会强推
-                       但仍放行」的形式，且已显式断言在案。
+                       而误拒一次普通 push 被判定为更坏的失败。这是「实测会强推但仍放行」
+                       的形式之一（另一类是第 3 条的持久 config 载体），且已显式断言在案。
 
 2. shell 求值类        C="git push -f"; $C                B=git; A='push -f'; $B $A
                        `git push --force`                 $(git push --force)
@@ -113,8 +142,9 @@ worktree（未评审、未推送、可重建）」豁免 `reset --hard` / `clean
                        不归本分类器。若需要覆盖这一层，应由宿主侧 deny 映射承担。
 ```
 
-上述「未覆盖」不是可以靠加正则解决的缺陷；测试 `DocumentedNonCoverage` **主动断言这些形式确实不被捕获**，
-一旦哪天被捕获该测试即失败，迫使 README 同步更新——避免边界从「已披露」退化成「想当然」。
+上述「未覆盖」不是可以靠加正则解决的缺陷：测试 `DocumentedNonCoverage` **主动断言第 1、2 类形式确实不被
+捕获**；第 3 类（命令文本之外的载体）由 `PersistentStateCarriers` **同样断言不被捕获**。一旦哪天被捕获，
+该测试即失败，迫使 README 同步更新——避免边界从「已披露」退化成「想当然」。
 
 **宿主契约依赖（部署方须知）**：`decide()` 要求 `tool_name` 为 `bash`（大小写不敏感）且
 `tool_input.command` 为字符串。若宿主改了工具名拼写或载荷形状，本 guard 会**静默放行**，而
