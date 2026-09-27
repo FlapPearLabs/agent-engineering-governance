@@ -45,9 +45,31 @@ KNOWN NON-COVERAGE (honest boundary, not an oversight)
        expansion, aliasing, or a wrapper script is invisible to this analysis. A session-level
        permission rule or a host-side deny mapping is the correct layer for that; this hook
        deliberately does not pretend to be one.
-    3. In-command force via `-c push.force=true` and via a leading `GIT_PUSH_FORCE=1`
-       assignment ARE handled (added after review round 1) - see _push_force_via_git_config
-       and _push_force_via_env.
+    3. A force carrier that is NOT present in the command text at all: a repository- or
+       global-level config file (`remote.origin.mirror true`, or a `remote.<name>.push`
+       entry with a `+` refspec written into `.git/config` or `~/.gitconfig`), or an
+       environment variable exported before the session started. This guard reads only the
+       command string it is handed; persistent state is owned by the repository and the host,
+       not by this classifier.
+
+MEASUREMENT BASIS (why the deny set is what it is)
+    The deny set is derived from MEASUREMENT, not from belief about git. Each candidate was
+    run on git 2.53.0 against a divergent local/remote pair and judged by whether the remote
+    ref actually moved ("(forced update)"). Result:
+
+        REAL FORCE   --force | -f | --force-with-lease | --mirror
+                     -c remote.<name>.mirror=true
+                     -c remote.<name>.push=+<refspec>
+        NOT FORCE    -c push.force=true                (git has no `push.force` key)
+                     GIT_PUSH_FORCE=1 / PUSH_FORCE=1   (git honours no such variable)
+        `git help --config` lists push.default / push.followTags / push.useForceIfIncludes
+        and no `push.force`.
+
+    Review rounds 1-3 added deny rules for the two NOT FORCE forms, on the mistaken premise
+    that they force. Round 4 REMOVED them: denying a valid, non-forcing command serves no
+    invariant and violates R8 ("which demonstrated failure does this prevent?"). Round 4 also
+    ADDED `--mirror` and the config-injected carriers, which measurably do force and were
+    previously allowed.
 """
 
 from __future__ import annotations
@@ -59,6 +81,8 @@ import sys
 DENY_EXIT_CODE = 2
 GUARD_ID = "WORKBUDDY_PRE_TOOL_USE_GIT_SAFETY_GUARD"
 
+# Stable category ids; part of the denial contract. GIT_PUSH_FORCE names the CATEGORY
+# (a force push). It is not, and never was, an environment variable git honours.
 CATEGORY_PUSH_FORCE = "GIT_PUSH_FORCE"
 CATEGORY_RESET_HARD = "GIT_RESET_HARD"
 CATEGORY_CLEAN_FORCE = "GIT_CLEAN_FORCE"
@@ -140,55 +164,56 @@ def _truthy(value: str) -> bool:
     return value.strip().lower() not in ("", "0", "false", "no", "off")
 
 
-def _push_force_via_git_config(tokens: list[str]) -> bool:
-    """`git -c push.force=true push` / `git --config=push.force=1 push`."""
-    for index, token in enumerate(tokens):
+# Config keys that carry a force with NO flag token on the command line. Both were measured
+# to produce a real "(forced update)" on git 2.53.0; `remote.<name>.mirror` is a documented
+# git key (`git help --config`).
+_MIRROR_KEY = re.compile(r"^remote\..+\.mirror$", re.IGNORECASE)
+_REMOTE_PUSH_KEY = re.compile(r"^remote\..+\.push$", re.IGNORECASE)
+
+
+def _config_assignments(tokens: list[str]) -> list[str]:
+    """Every `-c <k=v>` / `--config=<k=v>` assignment string present in the token list."""
+    found: list[str] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
         if token == "-c" and index + 1 < len(tokens):
-            assignment = tokens[index + 1]
-        elif token.startswith("--config="):
-            assignment = token.split("=", 1)[1]
-        else:
+            found.append(tokens[index + 1])
+            index += 2
             continue
-        if "=" in assignment:
-            key, _, value = assignment.partition("=")
-            if key.strip().lower() == "push.force" and _truthy(value):
-                return True
-    return False
+        if token.startswith("--config="):
+            found.append(token.split("=", 1)[1])
+        index += 1
+    return found
 
 
-def _env_force_assignment(token: str) -> bool:
-    """`GIT_PUSH_FORCE=1` / `PUSH_FORCE=true`, optionally behind a shell keyword.
+def _push_force_via_git_config(tokens: list[str]) -> bool:
+    """Config-injected force that carries no flag token of its own.
 
-    `export GIT_PUSH_FORCE=1` arrives as a single token once quoting is normalised, so the
-    declaration keyword has to be stripped before the key is compared.
+    Deliberately does NOT look for `push.force`: that key does not exist in git (measured,
+    see the module docstring), so matching it only produced false positives.
     """
-    candidate = token.strip()
-    for keyword in ("export ", "declare -x ", "declare ", "local ", "readonly ", "env "):
-        if candidate.startswith(keyword):
-            candidate = candidate[len(keyword) :]
-            break
-    if "=" not in candidate:
-        return False
-    key, _, value = candidate.partition("=")
-    return key.strip().upper() in ("GIT_PUSH_FORCE", "PUSH_FORCE") and _truthy(value)
-
-
-def _push_force_via_env(tokens: list[str]) -> bool:
-    """`GIT_PUSH_FORCE=1 git push ...` - no --force token anywhere on the push itself."""
-    return any(_env_force_assignment(token) for token in tokens)
+    for assignment in _config_assignments(tokens):
+        if "=" not in assignment:
+            continue
+        key, _, value = assignment.partition("=")
+        key = key.strip()
+        if _MIRROR_KEY.match(key) and _truthy(value):
+            return True
+        if _REMOTE_PUSH_KEY.match(key) and value.strip().startswith("+"):
+            return True
+    return False
 
 
 def _push_is_forced(tokens: list[str], rest: list[str]) -> bool:
     for token in rest:
-        if token == "--force":
+        if token in ("--force", "--mirror"):
             return True
         if token.startswith("--force-with-lease") or token.startswith("--force-if-includes"):
             return True
         if "f" in _short_flag_letters(token):
             return True
-    if _push_force_via_git_config(tokens) or _push_force_via_env(tokens):
-        return True
-    return False
+    return _push_force_via_git_config(tokens)
 
 
 def _reset_is_hard(rest: list[str]) -> bool:
@@ -219,30 +244,10 @@ _MAX_EXPANSION_DEPTH = 3
 
 
 def _classify_text(text: str, depth: int) -> str | None:
-    segments = _segments(text)
-    has_push = False
-
-    for segment in segments:
-        tokens = _tokenize(segment)
-        found = _classify_tokens(tokens, depth)
+    for segment in _segments(text):
+        found = _classify_tokens(_tokenize(segment), depth)
         if found is not None:
             return found
-        if not has_push:
-            for index, token in enumerate(tokens):
-                if _is_git_invocation(token):
-                    subcommand, _ = _split_subcommand(tokens, index)
-                    if subcommand == "push":
-                        has_push = True
-                        break
-
-    # Cross-statement environment force. `export GIT_PUSH_FORCE=1 && git push origin main`
-    # puts the assignment in a DIFFERENT statement from the push, so a per-statement scan
-    # misses it while bash still forces. Fail closed: a truthy force assignment anywhere in
-    # the same command string, combined with a push anywhere in it, is denied.
-    if has_push:
-        for segment in segments:
-            if any(_env_force_assignment(token) for token in _tokenize(segment)):
-                return CATEGORY_PUSH_FORCE
     return None
 
 
@@ -338,11 +343,11 @@ SELFCHECK_DENY = [
     "git push --force-with-lease origin feature",
     "git push --force-with-lease=origin/feature origin feature",
     "git push --force-if-includes",
+    "git push --mirror origin",
     "git -C /tmp/repo push -f origin master",
     "git --git-dir=/tmp/repo/.git push --force",
-    "git -c push.force=true push origin master",
-    "git -c push.force=1 push origin master",
-    "GIT_PUSH_FORCE=1 git push origin master",
+    "git -c remote.origin.mirror=true push origin",
+    "git -c remote.origin.push=+refs/heads/master:refs/heads/master push origin",
     "cd /tmp && git push -fu origin master",
     "git reset --hard",
     "git reset --hard HEAD~3",
@@ -363,8 +368,11 @@ SELFCHECK_ALLOW = [
     "git push --set-upstream origin feature",
     "git push --follow-tags origin master",
     "git push --dry-run origin master",
-    "git -c push.force=false push origin master",
-    "GIT_PUSH_FORCE=0 git push origin master",
+    "git -c remote.origin.mirror=false push origin",
+    # Measured NOT to force (see the module docstring). Asserted at deploy-verify time so the
+    # removed false-positive deny rules cannot creep back in unnoticed.
+    "git -c push.force=true push origin master",
+    "GIT_PUSH_FORCE=1 git push origin master",
     "git rebase main",
     "git commit --amend --no-edit",
     "git reset --soft HEAD~1",

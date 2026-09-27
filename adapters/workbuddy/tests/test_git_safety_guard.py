@@ -45,6 +45,9 @@ class DenyMatrix(unittest.TestCase):
         "git push --force-with-lease=origin/feature origin feature",
         "git push --force-if-includes origin feature",
         "git push --force-if-includes",
+        "git push --mirror origin",
+        "git push --mirror",
+        "git status && git push --mirror origin",
         "git -C /tmp/somewhere push -f origin master",
         "git -C /tmp/repo push -f origin master",
         "git --git-dir=/tmp/repo/.git push --force",
@@ -246,51 +249,80 @@ class redirect_stderr_into:
         return False
 
 
-class InCommandForceVectors(unittest.TestCase):
-    """Force expressed without any `--force`/`-f` token on the push itself.
+class ConfigInjectedForce(unittest.TestCase):
+    """Force carried by git config, with no flag token on the command line itself.
 
-    Found in security review round 1: these produced a real forced push while the guard
-    reported ALLOW, because the force lived in git config or an environment assignment.
+    Review round 4 replaced a falsified vector family with this one. Measured on git 2.53.0:
+    `-c remote.<name>.mirror=true` and `-c remote.<name>.push=+<refspec>` each moved a
+    divergent ref on the remote ("(forced update)"), while the previously-denied
+    `-c push.force=true` did not (git has no such key).
     """
 
     DENIED = [
+        "git -c remote.origin.mirror=true push origin",
+        "git -c remote.origin.mirror=1 push origin",
+        "git --config=remote.origin.mirror=true push origin",
+        "cd /tmp && git -c remote.origin.mirror=true push origin",
+        "git -c remote.origin.push=+refs/heads/master:refs/heads/master push origin",
+        "git -c remote.origin.push=+master push origin",
+    ]
+
+    ALLOWED = [
+        "git -c remote.origin.mirror=false push origin",
+        "git -c remote.origin.mirror= push origin",
+        "git -c remote.origin.push=refs/heads/master:refs/heads/master push origin",
+        "git -c user.name=someone push origin master",
+        "git -c remote.origin.mirror=true status",
+    ]
+
+    def test_config_injected_force_is_denied(self):
+        for command in self.DENIED:
+            with self.subTest(command=command):
+                self.assertEqual(guard.classify(command), guard.CATEGORY_PUSH_FORCE)
+
+    def test_non_forcing_config_is_allowed(self):
+        for command in self.ALLOWED:
+            with self.subTest(command=command):
+                self.assertIsNone(guard.classify(command), f"expected ALLOW: {command!r}")
+
+
+class MeasuredNonVectors(unittest.TestCase):
+    """Forms an earlier review round denied, which MEASUREMENT showed cannot force.
+
+    `push.force` is not a git config key (`git help --config` lists push.default,
+    push.followTags, push.useForceIfIncludes and no push.force) and git honours no
+    GIT_PUSH_FORCE / PUSH_FORCE variable. On git 2.53.0 each of these was rejected as
+    non-fast-forward with the remote ref unchanged, i.e. they are ordinary safe pushes.
+
+    Round 4 removed the deny rules for them because denying a valid, non-forcing command
+    serves no invariant and violates R8. They are asserted ALLOW here so the removal cannot
+    be silently reverted and the false-positive surface cannot creep back.
+    """
+
+    ALLOWED = [
         "git -c push.force=true push origin master",
         "git -c push.force=1 push origin master",
         "git --config=push.force=true push origin master",
         "GIT_PUSH_FORCE=1 git push origin master",
         "GIT_PUSH_FORCE=true git push origin master",
+        "PUSH_FORCE=1 git push origin master",
         "cd /tmp && GIT_PUSH_FORCE=1 git push origin master",
-        # Cross-statement assignment: the assignment lives in a different shell statement,
-        # so a per-statement scan would miss it while bash still forces.
         "export GIT_PUSH_FORCE=1 && git push origin master",
         "export GIT_PUSH_FORCE=1 ; git push origin master",
         "set -a; GIT_PUSH_FORCE=1; set +a; git push origin master",
         "sh -c 'export GIT_PUSH_FORCE=1; git push origin master'",
-        # Fail-closed false positive, asserted so the trade stays visible.
         "git push origin master GIT_PUSH_FORCE=1",
-    ]
-
-    ALLOWED = [
-        "git -c push.force=false push origin master",
+        "git push origin main # GIT_PUSH_FORCE=1",
         "GIT_PUSH_FORCE=0 git push origin master",
-        "GIT_PUSH_FORCE= git push origin master",
-        "GIT_PUSH_FORCE=off git push origin master",
-        "git -c user.name=someone push origin master",
-        # A force assignment with no push in the same command string is not a force push.
-        "GIT_PUSH_FORCE=1 ; echo no push here",
-        "export GIT_PUSH_FORCE=1 && git status",
-        "git -c push.force=false push origin master && GIT_PUSH_FORCE=0 git push origin master",
     ]
 
-    def test_in_command_force_is_denied(self):
-        for command in self.DENIED:
-            with self.subTest(command=command):
-                self.assertEqual(guard.classify(command), guard.CATEGORY_PUSH_FORCE)
-
-    def test_false_valued_force_settings_are_allowed(self):
+    def test_fictional_force_carriers_are_not_denied(self):
         for command in self.ALLOWED:
             with self.subTest(command=command):
-                self.assertIsNone(guard.classify(command), f"expected ALLOW: {command!r}")
+                self.assertIsNone(
+                    guard.classify(command),
+                    f"expected ALLOW (measured not to force): {command!r}",
+                )
 
 
 class DocumentedNonCoverage(unittest.TestCase):
@@ -329,12 +361,16 @@ class SelfcheckParity(unittest.TestCase):
     """install.py VERIFY runs `--selfcheck`; it must not drift from the tested matrix."""
 
     def test_selfcheck_deny_is_a_subset_of_the_tested_deny_matrix(self):
-        tested = set(DenyMatrix.DENIED) | set(InCommandForceVectors.DENIED)
+        tested = set(DenyMatrix.DENIED) | set(ConfigInjectedForce.DENIED)
         missing = set(guard.SELFCHECK_DENY) - tested
         self.assertEqual(missing, set(), f"selfcheck asserts untested forms: {sorted(missing)}")
 
     def test_selfcheck_allow_is_a_subset_of_the_tested_allow_matrix(self):
-        tested = set(AllowMatrix.ALLOWED) | set(InCommandForceVectors.ALLOWED)
+        tested = (
+            set(AllowMatrix.ALLOWED)
+            | set(ConfigInjectedForce.ALLOWED)
+            | set(MeasuredNonVectors.ALLOWED)
+        )
         missing = set(guard.SELFCHECK_ALLOW) - tested
         self.assertEqual(missing, set(), f"selfcheck asserts untested forms: {sorted(missing)}")
 

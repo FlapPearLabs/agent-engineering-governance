@@ -45,7 +45,10 @@ NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`�
 `hooks/git_safety_guard.py` 只拒三类：
 
 ```text
-GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --force-if-includes
+GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --force-if-includes | --mirror
+                  以及经 git config 注入、命令行上不带 force 标志的载体：
+                      -c remote.<name>.mirror=true
+                      -c remote.<name>.push=+<refspec>
 GIT_RESET_HARD    git reset --hard
 GIT_CLEAN_FORCE   git clean 带 --force/-f 且不是 dry-run（-fd / -df / -fdx / -f / --force 等）
 ```
@@ -57,30 +60,44 @@ git rebase          git commit --amend        Edit / Write
 git push --follow-tags      git reset --soft      git clean -n / --dry-run
 ```
 
+**与 `references/git-ci-integration.md` §2 的一处有意差异（部署方必须知道）**：§2 对「可弃的一次性
+worktree（未评审、未推送、可重建）」豁免 `reset --hard` / `clean -fd`。本 guard **不做这个豁免**——
+区分「可弃 worktree」需要可机读的执行状态权威，而 V1 没有。因此本 guard 在该点上比 §2 **更严**，
+且是 fail-closed 方向的差异；它不新增规则，也不放宽 §2 的任何要求。
+
 **引号一致性（刻意 fail-closed）**：`bash -c 'git push -f'` 与 `git push -f` 同判。
 代价是**打印**这类字符串的命令（`echo 'git push -f'`）也会被拒。换一种写法即可，静默强推不可以。
 
-**命令内强推向量**：不使用 `--force` / `-f` 也能造成强推的写法现在会被拒：
+**拒绝集是「实测」得出的，不是「相信」得出的**。每个候选向量都在 git 2.53.0 上跑过「本地与远端
+已分叉」的真实场景，判据是**远端 ref 是否真的移动**（`(forced update)`）：
 
 ```text
-git -c push.force=true push ...            （git config 注入；--config= 亦覆盖）
-GIT_PUSH_FORCE=1 git push ...              （环境赋值）
-export GIT_PUSH_FORCE=1 && git push ...    （跨语句赋值——与上面同判，见下）
-set -a; GIT_PUSH_FORCE=1; set +a; git push ...
+真实强推 → 拒绝              --force | -f | --force-with-lease | --mirror
+                            -c remote.<name>.mirror=true
+                            -c remote.<name>.push=+<refspec>
+真实强推 → 已声明未覆盖       git push origin +main        （见下第 1 条）
+并非强推 → 放行              -c push.force=true            （git 没有 push.force 这个键）
+                            GIT_PUSH_FORCE=1 / PUSH_FORCE=1（git 不认这些环境变量）
 ```
 
-**跨语句 env 赋值（评审第 2 轮后补入）**：`export GIT_PUSH_FORCE=1 && git push …` 把赋值放在了
-**另一条语句**里，逐语句扫描会漏掉而 bash 仍会强推。现在按 fail-closed 处理：
-**同一命令串内**任意位置出现真值 force 赋值 **且** 任意位置存在 `git push` → 拒绝。
-代价是 `git push origin main GIT_PUSH_FORCE=1` 这类并非真强推的写法也会被拒——与既有 fail-closed
-取向一致，并已在测试中断言。
+`git help --config` 列出 `push.default` / `push.followTags` / `push.useForceIfIncludes` 等，
+**没有 `push.force`**。
+
+**评审第 4 轮的更正（诚实记录，不掩埋）**：第 1–3 轮曾把 `-c push.force=true` 与前置
+`GIT_PUSH_FORCE=1` 当作强推载体并加了拒绝规则，其依据是一个**未经实测的假设**。实测证明该假设为假：
+两者都被 git 以 non-fast-forward 拒绝、远端 ref 未动。因此第 4 轮**移除**了这些规则——拒绝一条合法
+且不会强推的命令不服务于任何不变量，并违反 R8「它防住哪一次已发生的失效？」。同一轮**加入**了实测
+确认为真实强推、而此前被放行的 `--mirror` 与 config 注入载体。移除项与加入项都在测试矩阵中显式断言
+（`MeasuredNonVectors` / `ConfigInjectedForce`），使这次更正不会被静默回退。
 
 **已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
 
 ```text
 1. refspec 强推        git push origin +main
-                       原因：`+` 前缀无法在没有真实 ref 解析时与非常规 ref 名区分，
-                       而误拒一次普通 push 被判定为更坏的失败。
+                       原因：实测 `git check-ref-format --branch "+main"` 判定 `+main` 为
+                       **合法分支名**，故前导 `+` 在纯文本层无法与非常规 ref 名区分；
+                       而误拒一次普通 push 被判定为更坏的失败。这一条是唯一「实测会强推
+                       但仍放行」的形式，且已显式断言在案。
 
 2. shell 求值类        C="git push -f"; $C                B=git; A='push -f'; $B $A
                        `git push --force`                 $(git push --force)
@@ -89,10 +106,19 @@ set -a; GIT_PUSH_FORCE=1; set +a; git push ...
                        原因：字面 token `git` + `push` + force 标志被 shell 展开、别名或包装脚本
                        隐藏后，文本分析根本看不见。这一层应由会话级权限规则或宿主侧 deny 映射承担；
                        本 hook 不假装自己是那一层。
+
+3. 命令文本之外的载体  已写入 .git/config 或 ~/.gitconfig 的 `remote.<name>.mirror` / 带 `+` 的
+                       `remote.<name>.push`；以及会话开始之前就已 export 的环境变量。
+                       原因：本 guard 只读交给它的那一个命令串；持久配置与环境继承属于仓库与宿主，
+                       不归本分类器。若需要覆盖这一层，应由宿主侧 deny 映射承担。
 ```
 
 上述「未覆盖」不是可以靠加正则解决的缺陷；测试 `DocumentedNonCoverage` **主动断言这些形式确实不被捕获**，
 一旦哪天被捕获该测试即失败，迫使 README 同步更新——避免边界从「已披露」退化成「想当然」。
+
+**宿主契约依赖（部署方须知）**：`decide()` 要求 `tool_name` 为 `bash`（大小写不敏感）且
+`tool_input.command` 为字符串。若宿主改了工具名拼写或载荷形状，本 guard 会**静默放行**，而
+`install.py verify` 检测不到这一点。该风险等级为 UNKNOWN，登记在此以免被读成「无此风险」。
 
 **内部错误行为**：脚本内部异常 → **放行 + stderr 诊断**（不阻塞会话）。理由：本 hook 是纵深防御，
 不是主 gate；一个会崩的安全网不得让所有普通 Bash 调用失效。脚本仅用标准库、无网络、无子进程、无文件写入，
@@ -155,7 +181,9 @@ adapters/workbuddy/
 ├── README.md                          本文件
 ├── install.py                         INSTALL / VERIFY / ROLLBACK / STATUS
 ├── hooks/git_safety_guard.py          PreToolUse command hook（待部署产物）
-└── tests/test_git_safety_guard.py     确定性测试矩阵（无网络 / 无仓库 / 无子进程）
+└── tests/
+    ├── test_git_safety_guard.py       拒绝集 / 放行集 / 已披露未覆盖 / 自检一致性
+    └── test_install.py                安装器：幂等、冲突即停、备份摘要、回滚
 ```
 
 CI 执行：`python3 -m unittest discover -s adapters/workbuddy/tests`（见 `.github/workflows/governance-ci.yml`）。
