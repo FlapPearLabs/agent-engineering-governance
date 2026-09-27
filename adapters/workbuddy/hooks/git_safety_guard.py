@@ -156,15 +156,26 @@ def _push_force_via_git_config(tokens: list[str]) -> bool:
     return False
 
 
+def _env_force_assignment(token: str) -> bool:
+    """`GIT_PUSH_FORCE=1` / `PUSH_FORCE=true`, optionally behind a shell keyword.
+
+    `export GIT_PUSH_FORCE=1` arrives as a single token once quoting is normalised, so the
+    declaration keyword has to be stripped before the key is compared.
+    """
+    candidate = token.strip()
+    for keyword in ("export ", "declare -x ", "declare ", "local ", "readonly ", "env "):
+        if candidate.startswith(keyword):
+            candidate = candidate[len(keyword) :]
+            break
+    if "=" not in candidate:
+        return False
+    key, _, value = candidate.partition("=")
+    return key.strip().upper() in ("GIT_PUSH_FORCE", "PUSH_FORCE") and _truthy(value)
+
+
 def _push_force_via_env(tokens: list[str]) -> bool:
-    """`GIT_PUSH_FORCE=1 git push ...` - a leading assignment, no --force token anywhere."""
-    for token in tokens:
-        if "=" not in token:
-            continue
-        key, _, value = token.partition("=")
-        if key.strip().upper() in ("GIT_PUSH_FORCE", "PUSH_FORCE") and _truthy(value):
-            return True
-    return False
+    """`GIT_PUSH_FORCE=1 git push ...` - no --force token anywhere on the push itself."""
+    return any(_env_force_assignment(token) for token in tokens)
 
 
 def _push_is_forced(tokens: list[str], rest: list[str]) -> bool:
@@ -208,10 +219,30 @@ _MAX_EXPANSION_DEPTH = 3
 
 
 def _classify_text(text: str, depth: int) -> str | None:
-    for segment in _segments(text):
-        found = _classify_tokens(_tokenize(segment), depth)
+    segments = _segments(text)
+    has_push = False
+
+    for segment in segments:
+        tokens = _tokenize(segment)
+        found = _classify_tokens(tokens, depth)
         if found is not None:
             return found
+        if not has_push:
+            for index, token in enumerate(tokens):
+                if _is_git_invocation(token):
+                    subcommand, _ = _split_subcommand(tokens, index)
+                    if subcommand == "push":
+                        has_push = True
+                        break
+
+    # Cross-statement environment force. `export GIT_PUSH_FORCE=1 && git push origin main`
+    # puts the assignment in a DIFFERENT statement from the push, so a per-statement scan
+    # misses it while bash still forces. Fail closed: a truthy force assignment anywhere in
+    # the same command string, combined with a push anywhere in it, is denied.
+    if has_push:
+        for segment in segments:
+            if any(_env_force_assignment(token) for token in _tokenize(segment)):
+                return CATEGORY_PUSH_FORCE
     return None
 
 

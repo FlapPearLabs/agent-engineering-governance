@@ -60,12 +60,20 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
 **引号一致性（刻意 fail-closed）**：`bash -c 'git push -f'` 与 `git push -f` 同判。
 代价是**打印**这类字符串的命令（`echo 'git push -f'`）也会被拒。换一种写法即可，静默强推不可以。
 
-**命令内强推向量（评审第 1 轮后补入）**：不使用 `--force` / `-f` 也能造成强推的两种写法现在会被拒：
+**命令内强推向量**：不使用 `--force` / `-f` 也能造成强推的写法现在会被拒：
 
 ```text
-git -c push.force=true push ...        （git config 注入）
-GIT_PUSH_FORCE=1 git push ...          （前置环境赋值）
+git -c push.force=true push ...            （git config 注入；--config= 亦覆盖）
+GIT_PUSH_FORCE=1 git push ...              （环境赋值）
+export GIT_PUSH_FORCE=1 && git push ...    （跨语句赋值——与上面同判，见下）
+set -a; GIT_PUSH_FORCE=1; set +a; git push ...
 ```
+
+**跨语句 env 赋值（评审第 2 轮后补入）**：`export GIT_PUSH_FORCE=1 && git push …` 把赋值放在了
+**另一条语句**里，逐语句扫描会漏掉而 bash 仍会强推。现在按 fail-closed 处理：
+**同一命令串内**任意位置出现真值 force 赋值 **且** 任意位置存在 `git push` → 拒绝。
+代价是 `git push origin main GIT_PUSH_FORCE=1` 这类并非真强推的写法也会被拒——与既有 fail-closed
+取向一致，并已在测试中断言。
 
 **已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
 
