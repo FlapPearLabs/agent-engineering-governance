@@ -50,6 +50,14 @@ class DenyMatrix(unittest.TestCase):
         "git --config-env remote.origin.mirror=V push origin",
         "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.mirror"
         " GIT_CONFIG_VALUE_0=true git push origin",
+        # Quoting inside the key. The guard checks TOKENS, which _tokenize has already
+        # de-quoted, so `remote."origin".mirror` is seen as the key it really is.
+        'git -c remote."origin".mirror=true push origin',
+        'git -c remote.or"igin".mirror=true push origin',
+        # An unknown value-taking global option must not be able to hide the subcommand.
+        "git --attr-source HEAD push -f origin master",
+        # Plumbing equivalent of push.
+        "git send-pack --force /tmp/origin.git refs/heads/master:refs/heads/master",
         "git -C /tmp/somewhere push -f origin master",
         "git -C /tmp/repo push -f origin master",
         "git --git-dir=/tmp/repo/.git push --force",
@@ -112,6 +120,8 @@ class AllowMatrix(unittest.TestCase):
         "git push --follow-tags origin master",
         "git push --dry-run origin master",
         "git push --force-if-includes origin master",
+        # send-pack WITHOUT a force flag is an ordinary, non-forcing pack operation.
+        "git send-pack /tmp/origin.git refs/heads/master:refs/heads/master",
         "git log --grep=force -n 5",
     ]
 
@@ -284,6 +294,11 @@ class ConfigInjectedForce(unittest.TestCase):
         "git --config=remote.origin.mirror=true push origin",
         # Nested in a quoted payload, like every other deny rule.
         "bash -c 'git -c remote.origin.mirror=true push origin'",
+        # The arity-independent path: the carrier key is detected without needing to locate the
+        # subcommand, so `--attr-source` (which swallows `push`) cannot hide it.
+        "git --attr-source HEAD -c remote.origin.mirror=true push origin",
+        "git --attr-source HEAD -c remote.origin.push=+refs/heads/master:refs/heads/master"
+        " push origin",
     ]
 
     ALLOWED = [
