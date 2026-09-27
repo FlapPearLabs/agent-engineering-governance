@@ -23,8 +23,25 @@ upstream producers / validators & canonicalizers / direct callers /
 downstream consumers / persisted artifacts / state owners /
 identity & provenance owners / error & failure propagation /
 security & privacy propagation / sibling analogous modules /
-adjacent ticket authority boundaries / stale-invalidation deps
+adjacent ticket authority boundaries / stale-invalidation deps /
+execution-infrastructure surfaces（见下）
 ```
+
+**execution-infrastructure surfaces** —— 并行 lane 的写面冲突**不只**来自产品文件。
+即使两张票的产品写面互不相交，它们仍可能同时需要修改**执行基础设施面**：
+
+```text
+CI workflow 的步骤 / job 清单
+测试清单、套件登记索引、测试发现配置（含 snapshot / manifest 形式）
+生成索引与 barrel 文件
+任何"新增条目必须登记"的共享注册表（suite registry / fixture index / 路由表）
+```
+
+这类面有一个共同特征：**登记 ≠ 执行** —— 条目被写入登记文件，不代表它会被真实执行；反之亦然
+（`REGISTERED != EXECUTED`）。因此两张票各自的"我只加了一行"都成立，合在一起却构成**同一文件的并发写**。
+
+构建 surface manifest 时必须把这类面**单独列出**，按 §8 的 shared-file single-writer 处理，
+**不得**因"产品行为互不冲突"而默认并行。
 
 存在未知的重大仓库关系时不开始实质实现（先查清或 STOP）。LOW 票可裁剪为 surface 摘要。
 
@@ -162,7 +179,7 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 
 ## 5. 实现与自审
 
-- `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify` 只在 GREEN 之后且不得改行为/合同。
+- `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify-code` 只在 GREEN 之后且不得改行为/合同（名称以本机 `SKILL.md` frontmatter `name` 为准，见 `references/skills-and-model-routing.md` §1）。
 - skill 使用声明需可核验证据（被实际调用/读取），否则报 `UNVERIFIED`。
 - 自审（/code-review 等）只是 worker 证据；**当独立评审 gate 存在时**（AGENTS §3 风险矩阵）不满足该 gate（RULES R4）。
 

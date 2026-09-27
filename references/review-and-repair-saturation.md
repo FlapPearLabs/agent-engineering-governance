@@ -219,3 +219,42 @@ NOT_SEEN + 完整结论        -> REJECT，或降级为 MORE_EVIDENCE_REQUIRED
   仍只在 §6 声明，本节不复制、不弱化、不改写。
 - **只引用不重定义**：`references/review-evidence.md` 只引用 / 链接本 recipe，不重复定义它；
   本 recipe 同样不重声明该接口的字段名、闭合集与机器形状。
+
+## 8. PRE-EXTERNAL TERMINAL BARRIER（外部评审交接前的当前 HEAD 收敛门）
+
+> 本节是该 gate 的 **canonical 声明点**。此前本仓多处引用该术语却无定义（悬空引用：`references/skills-and-model-routing.md` §3 曾指向 `AGENTS.md` §10，而 §10 是 bootstrap 主题，不含该定义）。本节补齐定义；其它 surface 只指针 / 链接，不重复定义（CE-28）。
+
+**适用面**：reviewer route 被显式指定为**外部**评审（不同 runtime / 外部强模型 / 人工搬运）时。
+内部子代理评审 route **不**适用本节——其交接发生在同一 runtime 内，成本与漂移风险不同。
+
+**核心命题**：
+
+```text
+PUSH != READY_FOR_EXTERNAL_REVIEW
+```
+
+push 候选或创建 PR **都不是**终态。进入外部交接前，当前 **exact remote HEAD** 必须同时满足：
+
+```text
+REMOTE_HEAD_STABLE
+  AND STATIC_GATES_COMPLETE
+  AND DYNAMIC_GATES_COMPLETE
+  AND CI_TERMINAL                        （CI 为终态；pending / unknown / 未分类不得充当终态）
+  AND CONFIGURED_AUTOMATED_REVIEW_STATE_KNOWN
+  AND CURRENT_HEAD_FINDINGS_RECONCILED
+```
+
+**规则**：
+
+- 目的 = 外部评审是稀缺资源，**一次到位**；把尚未收敛的候选交出去会产生外部往返，并使"被评审对象"在往返中漂移。
+- **任何新编辑使旧 SHA 的 static / dynamic / CI / 评审证据失效**（与 §5 的 exact-SHA 绑定同源），必须重新满足本 barrier，不得沿用旧证据交接。
+- 满足 barrier 后按 §5 的 novelty-first packet 输出**最小 handoff**（只引用 exact SHA / 仓内路径 / Issue，不复制正文），此时终态为 `READY_FOR_EXTERNAL_REVIEW`。
+- 本 barrier **只决定"何时可以交出去"**，不改变 quorum / exact-SHA / PASS 契约，也不指定"谁审"（后者是 §1 L2 与 `references/skills-and-model-routing.md` §1 的范围）。
+
+```text
+LEGAL    满足全部六个条件后交接，并给出 minimal handoff
+ILLEGAL  仅 push / 开 PR 即宣称进入外部评审           -> REJECT（premature handoff）
+ILLEGAL  CI 非终态（pending / unknown）时交接         -> REJECT（CI != TERMINAL）
+ILLEGAL  交接后又编辑候选而未重新满足 barrier         -> REJECT（stale barrier）
+ILLEGAL  以本 barrier 豁免 quorum / exact-SHA         -> REJECT（barrier 不是豁免）
+```
