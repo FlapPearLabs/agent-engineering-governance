@@ -5,6 +5,7 @@
 >
 > - `BOOTSTRAP_STATIC_VALIDATION = PASS` —— §2.1 预算断言通过；B1–B6 成文；§2.4 交付契约及其仓侧校验器已接入；`scripts/validate_governance.py` 全绿；governance-ci green。
 > - `BOOTSTRAP_LIVE_VALIDATION = PARTIAL` —— 机制层与静态层已证；端到端注入观测的取得条件见 §4，不得用笼统 PASS 措辞覆盖。
+> - **维护约束**：`deployment/` 受 `no-raw-memory-archive` 的 8 KiB 上限约束。本文件已接近该上限——**记录类内容一律写入 `audit/`，本节只放合同与状态字段**；新增前先确认余量。
 
 ## 1. 注入事实（结论层；证据 owner = `audit/AS_IS_WORKBUDDY_V3.md`）
 
@@ -35,9 +36,9 @@ AUTO_INJECTION != FULL_GOVERNANCE_DELIVERY
 
 ### 2.1 MEMORY 指针（自动可见层）
 
-- `deployment/MEMORY_POINTER_CANDIDATE.md` = 替换 `~/.workbuddy/MEMORY.md` 的候选全文（治理指针 + 读取清单 + 4 条 B 层不变量摘要），受下方冻结预算约束（单位 = UTF-8 字节，不是字符数）。
+- 候选全文 = `deployment/MEMORY_POINTER_CANDIDATE.md`（治理指针 + 读取清单 + 4 条 B 层不变量摘要），受下方冻结预算约束。
 - **部署 = 把候选内容写入 `~/.workbuddy/MEMORY.md`**（一次性、可回滚：旧 MEMORY 原始备份 **local-only（Git 之外）**；`deployment/archive/` 只收 sanitized 快照并过 R2 第一层扫描）。
-- 前置条件：`GOVERNANCE_CORE = PASS` + skills 指南就绪 + product owner 对 live 部署的**显式授权**。
+- 前置：`GOVERNANCE_CORE = PASS` + skills 指南就绪 + owner 对 live 部署的**显式授权**。
 
 **冻结的预算合同（本节是本合同的唯一语义 owner：预算值、单位、profile 区分、override 语义与观测截断点区分只在此处声明；其他 surface 只引用不重述）**：
 
@@ -47,14 +48,14 @@ VALUE    3500
 UNIT     UTF-8 编码字节数（byte）—— 不是字符数（char），不是 code point 数
 SOURCE   WorkBuddy profile 安全预算（观测/profile 属性，不是规范常数）
 SCOPE    仅在本 WorkBuddy profile 内有效；不是跨 runtime 通用常数
-OWNER    本节（deployment/BOOTSTRAP_CONTRACT.md）；scripts/validate_governance.py 只消费该值
+OWNER    本节；scripts/validate_governance.py 只消费该值
 3500 bytes = 主动的规范预算（BUDGET）
 4028 bytes = 被动的历史观测截断点（TRUNCATION）；二者性质不同，不得互为定义，取 3500 只为不贴近 4028。
 非默认 profile 用自有预算时，必须先有该 profile 自身的已核验观测并**显式记录 OVERRIDE
 （值 + 来源 + 观测依据）**；静默替换 = 违规。无已核验 profile 则回落 3500。
 ```
 
-**单位一致性**：`scripts/validate_governance.py` 的授权测量必须是 `len(body.encode("utf-8"))`，不得用字符长度；`AGENTS.md` §10 只作本篇指针，不重述预算值。
+**单位一致性**：`scripts/validate_governance.py` 的授权测量必须是 `len(body.encode("utf-8"))`；`AGENTS.md` §10 只作指针，不重述预算值。
 
 ### 2.2 会话开工清单（agent 执行，每工程会话一次）
 
@@ -69,8 +70,8 @@ B5 核验新鲜 remote truth（有 remote 时）：fetch 后核对 default branc
 B6 输出引导回执：GOVERNANCE_LOADED=... / REPO_AUTHORITY=... / OVERRIDES=...
 ```
 
-- 不可静默跳过：B1 失败 → `GOVERNANCE_POINTER_MISSING`（不阻断非工程任务）；B3 失败 → 该仓无项目权威，纯 D 层默认生效。
-- 回执是**证据**（票据包 / Stage Packet 可引用）；仓本地权威可**加严**本清单，不得削弱 B1–B5 的读取义务。
+- 不可静默跳过：B1 失败 → `GOVERNANCE_POINTER_MISSING`；B3 失败 → 该仓无项目权威，纯 D 层默认生效。
+- 回执是**证据**；仓本地权威可**加严**本清单，不得削弱 B1–B5 的读取义务。
 
 ### 2.3 机械自检（治理仓 CI）
 
@@ -84,16 +85,16 @@ B6 输出引导回执：GOVERNANCE_LOADED=... / REPO_AUTHORITY=... / OVERRIDES=.
 仓根 CODEBUDDY.md = WORKBUDDY_BOOTSTRAP_POINTER
   显式声明「不覆盖 RULES.md / Approved Specs / AGENTS.md / 当前票授权」
   只做一件事：命令 agent 先完整读取被指向的权威，再动手
-  由仓侧 delivery-contract 校验器保护：尺寸 + 必备指针 + 不得膨胀为第二份 AGENTS.md
+  仓侧 delivery-contract 校验器保护：尺寸 + 必备指针 + 不得膨胀为第二份 AGENTS.md
   + 不得出现权限授予 / gate 豁免语句 + 回执 schema 完整
 ```
 
 - 它是**指针，不是权威层**：不得授予权限、改变自动模式、定义例外或豁免 gate；**不得**为迁就注入上限而删减 `AGENTS.md` 的成熟治理语义。
-- 尺寸约束的 owner = **目标仓自己的校验器**（须用 §1 的 JS string length 语义）；本合同不替任何仓规定数值。参考实现：zhihu-grabber-toolkit 的 `CODEBUDDY.md` + `scripts/validate-codebuddy-bootstrap.mjs`；本仓不 vendor 之。
+- 尺寸约束的 owner = **目标仓自己的校验器**（须用 §1 的 JS string length 语义）。参考实现：zhihu-grabber-toolkit 的 `CODEBUDDY.md` + `scripts/validate-codebuddy-bootstrap.mjs`；本仓不 vendor 之。
 
 ## 3. Fresh-session 验证协议
 
-在中立新工作区开新会话（无项目 AGENTS/RULES）逐项核验：B1 指针注入 → BOOTSTRAP_CHECKLIST 回执正确 → zhihu-grabber-toolkit 的 C 层权威已发现 → 运行时实际选中 `CODEBUDDY.md`（非 `AGENTS.md`）、未被截断、随后**完整读取** AGENTS/RULES/project-memory → 硬安全 hook 正 / 负 / 回滚三组（`adapters/workbuddy/`）。
+中立新工作区开新会话（无项目 AGENTS/RULES）逐项核验：B1 指针注入 → 回执正确 → zhihu-grabber-toolkit 的 C 层权威已发现 → 运行时实际选中 `CODEBUDDY.md`、未被截断、随后**完整读取** AGENTS/RULES/project-memory → 硬安全 hook 正 / 负 / 回滚三组（`adapters/workbuddy/`）。
 
 ## 4. 部署验收记录
 
@@ -110,6 +111,6 @@ FRESH_SESSION_SELECTED_GUIDANCE = NOT_PROVABLE_IN_THIS_RECORD（理由与取证�
 
 ## 5. 边界
 
-- 已关闭的旧 UNKNOWN：「工作区根 AGENTS.md 是否被自动注入」→ **关**：注入**是**发生的，但被 `MAX_GUIDANCE_CHARS` 截断，且 `RULES.md` 不在清单内（结论限 §1 的 profile/版本；升级后须重新取证）。
+- 已关闭的旧 UNKNOWN：「工作区根 AGENTS.md 是否被自动注入」→ **关**：注入**是**发生的，但被 `MAX_GUIDANCE_CHARS` 截断，且 `RULES.md` 不在清单内（限 §1 的 profile/版本；升级后须重新取证）。
 - 仍未解决（保持 UNKNOWN，不得靠推断填补）：MEMORY 预算的官方可配置性；`GUIDANCE_FILES` / `MAX_GUIDANCE_CHARS` 的未来版本稳定性；hooks 在 WorkBuddy 内的实际接线面与端到端 deny 观测；`~/.codebuddy/settings.json` 是否被 WorkBuddy 读取。详见 V3 §6。
 - 跨 runtime（Hermes/Codex）：重复 §2.2 清单即可；§2.1 与 §2.4 的机制假设仅针对 §1 标注的 profile。

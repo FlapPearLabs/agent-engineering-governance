@@ -44,7 +44,9 @@ return wrapXmlTextElement("project_guidance",
   （含 `/implement` 强制入口与 `/tdd`）均不进入首轮上下文。
 - 边界（不得过度概括）：该截断**不等于**治理不可达。`AGENTS.md` §2（Bootstrap）落在保留区内，
   它要求 agent 每次开工完整读取 `AGENTS.md` / `RULES.md` / `project-memory`。
-  故正确表述是四个分离的性质，而不是"只有 28.5% 治理可达"：
+  故正确表述是四个分离的性质，而不是"只有 28.5% 治理可达"。
+  **下列字段名与取值的规范声明点 = `deployment/BOOTSTRAP_CONTRACT.md` §1；本处只是引述其观测依据，
+  不构成第二声明点，也不得被引用为 rule owner。**
 
 ```text
 FIRST_TURN_AUTO_INJECTION_COVERAGE = PARTIAL

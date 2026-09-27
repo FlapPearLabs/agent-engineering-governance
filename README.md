@@ -58,7 +58,7 @@
 |---|---|
 | **Agent 按什么流程干活？** | Execution Stage 编组 → Ticket Lane 生命周期（合同抽取 + 反例 TDD + 独立评审 + real CI）→ 串行集成。详见 [AGENTS.md](AGENTS.md) 与 [references/](references/) |
 | **Agent 的权威从哪来、谁覆盖谁？** | 六层权威模型（A 平台 > B 普适不变量 > C 仓权威 > D 全局默认 > E 方法 > F 记忆）。详见 §4 与 [audit/AUTHORITY_MAP_V2.md](audit/AUTHORITY_MAP_V2.md) |
-| **新会话 / 新机器 / 新 runtime 如何可靠加载这套治理？** | MEMORY 指针 + 开工清单 + 机械自检（bootstrap 三件套）。详见 §2 / §7 与 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) |
+| **新会话 / 新机器 / 新 runtime 如何可靠加载这套治理？** | MEMORY 指针 + 仓侧 bootstrap 指针 + 开工清单 + 机械自检（bootstrap 四件套）。详见 §2 / §7 与 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) |
 
 ### 1.1 为什么存在
 
@@ -480,13 +480,20 @@ REQUIRED MCP 全集 = **codegraph / context7 / gh_grep**（平台连接器不是
 
 验收标准 `REQUIRED_MCP_READY`：三个 server 在 agent 的 MCP 工具面可列出并各完成一次健康查询；缺任一 → 回执 `MISSING_MCP` 并按 CANONICAL_SOURCE 获取；无法获取 → 按对应降级路径如实报告，不伪造。真实凭据/真实宿主 MCP 配置永不提交（RULES R2）。详见 [mcp/README.md](mcp/README.md)。
 
-### 7.4 MEMORY 指针（WorkBuddy bootstrap）
+### 7.4 WorkBuddy bootstrap（注入通道与指针）
 
-平台实测**不会自动加载**项目 AGENTS.md/RULES.md；唯一已证实的自动全局注入通道是 `~/.workbuddy/MEMORY.md` 头部（实测截断点 byte 4028）。因此 bootstrap 三件套：
+**平台注入事实**（WorkBuddy 5.5.3 profile 观测；机制与证据的唯一详情 owner = [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) §1 与 [audit/AS_IS_WORKBUDDY_V3.md](audit/AS_IS_WORKBUDDY_V3.md) §1，本节不复述数值）：
+
+- **通道 1（无条件）**：`~/.workbuddy/MEMORY.md` 头部作为 `<user_memory>` 注入。
+- **通道 2（有条件且被截断）**：工作区根 project guidance —— 运行时取 `GUIDANCE_FILES` 的**第一个存在者**（`CODEBUDDY.md` > `.codebuddy/CODEBUDDY.md` > `AGENTS.md`），并在运行时上限处**静默裁剪**。
+- `RULES.md` **不在** `GUIDANCE_FILES` 内 → **永不**经通道 2 到达。
+
+即 `AUTO_INJECTION != FULL_GOVERNANCE_DELIVERY`；四个必须分开的性质（含字段名 owner）见 BOOTSTRAP_CONTRACT §1。因此 bootstrap **四件套**：
 
 1. **MEMORY 指针**（自动可见层）：[deployment/MEMORY_POINTER_CANDIDATE.md](deployment/MEMORY_POINTER_CANDIDATE.md)，含治理仓指针 + 读取清单 + 4 条不变量摘要（该指针的预算值、单位与 profile 语义见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) §2.1）。部署 = 写入 `~/.workbuddy/MEMORY.md`（旧 MEMORY 原始备份 local-only，Git 之外）。
-2. **开工清单**（agent 执行，每工程会话一次）：B1 读指针 → B2 读治理仓 → B3 发现仓内权威 → B4 应用冲突算法 → B5 输出 3 行引导回执。见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md)。
-3. **机械自检**：`python3 scripts/validate_governance.py`，push 前必跑。
+2. **仓侧 bootstrap 指针**：目标仓根 `CODEBUDDY.md`（**仅指针，不是权威层**；交付形状见 BOOTSTRAP_CONTRACT §2.4；参考实现见 zhihu-grabber-toolkit）。
+3. **开工清单**（agent 执行，每工程会话一次）：B1 读指针 → B2 读治理仓 → B3 发现仓内权威 → B4 应用冲突算法 → B5 核验新鲜 remote truth → B6 输出引导回执。见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md) §2.2。
+4. **机械自检**：`python3 scripts/validate_governance.py`，push 前必跑。
 
 ### 7.5 治理自检与 CI
 
@@ -536,7 +543,7 @@ agent-engineering-governance/
 ├── adapters/zcode/            ← ZCode hook 参考实现 + 合成测试矩阵（PS / CG / LC，CI 接入）
 ├── deployment/                ← bootstrap 与部署（designated 机器事实允许区）
 │   ├── PORTABLE_SETUP.md                  新 Agent 17 步入口 + 能力矩阵 + receipt schema
-│   ├── BOOTSTRAP_CONTRACT.md              治理如何被新会话真实看到（三件套 + 验证状态）
+│   ├── BOOTSTRAP_CONTRACT.md              治理如何被新会话真实看到（四件套 + 验证状态 + 状态字段）
 │   ├── MEMORY_POINTER_CANDIDATE.md        MEMORY 替换候选（预算语义见 BOOTSTRAP_CONTRACT.md §2.1）
 │   └── deployment-profile.md              宿主/环境事实（MACHINE-SPECIFIC ALLOWED）
 ├── skills/README.md           ← 主线 13 skill 获取指南（SOURCE/FALLBACK，不 vendor 源码）
@@ -594,7 +601,7 @@ MODE C：手工 Relevant Surface Manifest + 定向源码阅读，如实报告 `C
 RULES R2 双层分区：机器事实的豁免要求 `deployment/` 路径 **AND** `MACHINE-SPECIFIC ALLOWED` 头标记两条件同时成立（PUBLIC 仓则连该豁免也不存在）；凭据 / local OS identity 任何位置禁止。这是校验器机械强制的（§7.5、§7.6）。
 
 **Q5：WorkBuddy 新会话会自动加载本治理吗？**
-不会自动加载项目 AGENTS/RULES（实测无证据支持）。可靠通道 = MEMORY 指针（§7.4）+ 会话开工清单；其他 runtime 在会话首条消息粘贴 §3 提示词即可。
+部分。工作区根 guidance 通道会自动注入 `GUIDANCE_FILES` 的**第一个存在者**（`CODEBUDDY.md` / `.codebuddy/CODEBUDDY.md` / `AGENTS.md`），但会在运行时上限处被**静默截断**，且 `RULES.md` 不在该清单内。可靠交付 = MEMORY 指针（§7.4）+ 仓侧 bootstrap 指针 + 会话开工清单；其他 runtime 在会话首条消息粘贴 §3 提示词即可。详见 [deployment/BOOTSTRAP_CONTRACT.md](deployment/BOOTSTRAP_CONTRACT.md)。
 
 **Q6：评审结论显示大量 findings 还能算完成吗？**
 能。合法成功态 = `PASS / PASS_WITH_NONBLOCKING_FINDINGS / SATURATION_REACHED_WITH_BACKLOG`。`ZERO_FINDINGS` 不是完成定义；目标是无**高价值** blocker + 修复饱和。

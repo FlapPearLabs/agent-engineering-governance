@@ -45,7 +45,7 @@
 ## 3. 平台映射备注
 
 - WorkBuddy：Agent 工具 `model` 参数（default/lite/reasoning）+ 会话模型选择；Hermes：runtime 模型配置。
-- 外部强评审当前人工搬运（PRE-EXTERNAL TERMINAL BARRIER 之后的 minimal handoff）；该 barrier 的**定义与判定 owner = `references/review-and-repair-saturation.md` §7**，本节只引用，不重复定义。
+- 外部强评审当前人工搬运（PRE-EXTERNAL TERMINAL BARRIER 之后的 minimal handoff）；该 barrier 的**定义与判定 owner = `references/review-and-repair-saturation.md` §8**，本节只引用，不重复定义。
 
 ## 4. 派发元数据 recipe（MODEL_DISPATCH_METADATA；RISK FIRST, MODEL SECOND）
 

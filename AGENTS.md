@@ -140,5 +140,5 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
   2. **工作区根 project guidance** —— 运行时取 `GUIDANCE_FILES` 的第一个存在者（`CODEBUDDY.md` > `.codebuddy/CODEBUDDY.md` > `AGENTS.md`，命中即止、不合并），并按运行时的 guidance 上限**截断**。
 - 引导机制 = `deployment/BOOTSTRAP_CONTRACT.md`：MEMORY 指针（候选文本 `deployment/MEMORY_POINTER_CANDIDATE.md`）+ 工作区根 bootstrap 指针的交付形状（该合同 §2.4；仓侧实现示例见 zhihu-grabber-toolkit）+ 会话开工 BOOTSTRAP 清单（读治理 canonical + 发现并读取仓内 AGENTS/RULES 全文 + 核验新鲜 remote truth + 应用 AUTHORITY_MAP_V2 冲突算法）+ `scripts/validate_governance.py` 自检。
 - **显式声明（取代本文件此前的「WorkBuddy 不自动加载项目 AGENTS.md/RULES.md」结论；该旧结论已被 §1 的运行时源码证据证伪）**：项目 `AGENTS.md` **会**经通道 2 到达，但**在截断点处被静默裁剪**（尾部只追加一行 omitted 标记，无结构提示）；`RULES.md` **不在** `GUIDANCE_FILES` 内，因此**永不**经该通道到达。
-- 由此必须区分的四个性质（字段名 owner = `deployment/BOOTSTRAP_CONTRACT.md` §1.2）：`FIRST_TURN_AUTO_INJECTION_COVERAGE` / `FULL_GOVERNANCE_REACHABILITY` / `FULL_GOVERNANCE_AUTOMATIC_DELIVERY` / `MECHANICAL_ENFORCEMENT`。**不得**把「自动注入了一部分」表述为「治理已交付」；`AUTO_INJECTION != FULL_GOVERNANCE_DELIVERY`。
+- 由此必须区分的四个性质（字段名 owner = `deployment/BOOTSTRAP_CONTRACT.md` §1）：`FIRST_TURN_AUTO_INJECTION_COVERAGE` / `FULL_GOVERNANCE_REACHABILITY` / `FULL_GOVERNANCE_AUTOMATIC_DELIVERY` / `MECHANICAL_ENFORCEMENT`。**不得**把「自动注入了一部分」表述为「治理已交付」；`AUTO_INJECTION != FULL_GOVERNANCE_DELIVERY`。
 - 上述机制事实是**观测/profile 事实**（与具体 WorkBuddy 版本绑定），不是跨版本常数；版本升级后必须重新取证并回改 §1。
