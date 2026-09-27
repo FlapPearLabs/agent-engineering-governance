@@ -46,11 +46,12 @@ NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`�
 
 ```text
 GIT_PUSH_FORCE    git push --force | -f | --force-with-lease | --mirror
-                  以及经 git config 注入、命令行上不带 force 标志的载体：
-                      -c remote.<name>.mirror=<truthy>
-                      -c remote.<name>.push=+<refspec>
-                      --config-env=remote.<name>.mirror=<envvar>
-                      --config-env=remote.<name>.push=<envvar>
+                  以及**命令文本中指名了强推载体 config 键**的 push：
+                      remote.<name>.mirror
+                      remote.<name>.push
+                  按**键**匹配、不按注入写法——故 `-c`、`--config-env`（等号与空格两种）、
+                  `--config=`、`GIT_CONFIG_COUNT/KEY_n/VALUE_n` 以及将来新增的写法
+                  都被同一条规则覆盖。
 GIT_RESET_HARD    git reset --hard
 GIT_CLEAN_FORCE   git clean 带 --force/-f 且不是 dry-run（-fd / -df / -fdx / -f / --force 等）
 ```
@@ -83,12 +84,17 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
 
 ```text
 真实强推 → 拒绝              --force | -f | --force-with-lease | --mirror
-                            -c remote.<name>.mirror=<truthy>
-                            -c remote.<name>.push=+<refspec>
-                            --config-env=remote.<name>.mirror=<envvar>
-                            --config-env=remote.<name>.push=<envvar>
+                            任何指名 remote.<name>.mirror / remote.<name>.push 的
+                            命令行 config 注入；以下每一种写法都实测过：
+                                -c remote.<name>.mirror=true
+                                -c remote.<name>.push=+<refspec>
+                                --config-env=remote.<name>.mirror=V        （等号形式）
+                                --config-env remote.<name>.mirror=V        （空格形式）
+                                GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.<name>.mirror
+                                    GIT_CONFIG_VALUE_0=true
+                                git --config=remote.<name>.mirror=true     （git 其实拒绝该写法）
 真实强推 → 已声明未覆盖       git push origin +main                （见下第 1 条）
-                            持久 .git/config / ~/.gitconfig 载体（见下第 3 条）
+                            命令文本之外的 config 载体            （见下第 3 条）
 并非强推 → 放行              --force-if-includes 单独出现         （--force-with-lease 的附属项）
                             -c push.force=true                    （git 没有 push.force 这个键）
                             GIT_PUSH_FORCE=1 / PUSH_FORCE=1       （git 不认这些环境变量）
@@ -119,6 +125,32 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
                                     移除那批规则完全相同。此前代码与本表互相矛盾，现已一致。
 ```
 
+**评审第 6 轮的更正——换形状，而不是再加一条规则**：
+
+```text
+第 4 轮加了 `-c` / `--config-env=` 的解析；第 5 轮补上 `--config-env` 的空格形式；
+第 5 轮评审随即又找到 `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n`
+与空格形式仍可强推。两轮各补一种写法、每次又被找到下一种——这说明**问题在形状，不在勤勉**。
+
+第 6 轮改为**按键匹配**：只要命令文本里出现 `remote.<name>.mirror` 或
+`remote.<name>.push`，且同一段文本里存在 push，即拒绝。于是
+`_config_assignments` / `_push_force_via_git_config` / `_truthy` 与两条按写法的正则
+**被删除**（分类逻辑净减 12 行：355 → 343）、覆盖面更大，且不必在将来 git 新增写法时
+再补一次。文件总行数持平——删掉的是机械，补上的是这条规则必须的解释。
+```
+
+**由此刻意接受的假阳性**（写成测试断言，见 `AcceptedFalsePositives`）：命令里只要**指名**了载体键
+就会被拒，即使它并不能强推：
+
+```text
+git -c remote.origin.mirror=false push origin             命名了键，但不能强推
+git -c remote.origin.push=refs/heads/x:refs/heads/x      值不是 + 强推 refspec
+git push origin && git config remote.origin.mirror true   在 push 之后才设键
+```
+
+每一行的代价是「一个没人会写的命令形式」；静默强推的代价是被改写的历史。这条取舍与既有的
+`echo 'git push -f'` 同源，不是新政策。
+
 **已知未覆盖（诚实边界，非疏忽）**——本 guard 是**静态文本分类器，不是 shell 求值器**，且是纵深防御而非沙箱：
 
 ```text
@@ -136,10 +168,14 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
                        隐藏后，文本分析根本看不见。这一层应由会话级权限规则或宿主侧 deny 映射承担；
                        本 hook 不假装自己是那一层。
 
-3. 命令文本之外的载体  已写入 .git/config 或 ~/.gitconfig 的 `remote.<name>.mirror` / 带 `+` 的
-                       `remote.<name>.push`；以及会话开始之前就已 export 的环境变量。
-                       原因：本 guard 只读交给它的那一个命令串；持久配置与环境继承属于仓库与宿主，
-                       不归本分类器。若需要覆盖这一层，应由宿主侧 deny 映射承担。
+3. 命令文本之外的载体  **本 guard 读不到其内容的任何配置来源**：
+                       · 已写入 .git/config 或 ~/.gitconfig 的 `remote.<name>.mirror` /
+                         带 `+` 的 `remote.<name>.push`；
+                       · 命令行上指名的**配置文件**（`-c include.path=<file>`、`includeIf.*`）
+                         ——载体在文件内部，命令文本并不指名键；
+                       · 会话开始之前就已 export 的环境变量。
+                       原因：本 guard 只读交给它的那一个命令串；持久配置、被包含的文件与环境继承
+                       属于仓库与宿主，不归本分类器。若需要覆盖这一层，应由宿主侧 deny 映射承担。
 ```
 
 上述「未覆盖」不是可以靠加正则解决的缺陷：测试 `DocumentedNonCoverage` **主动断言第 1、2 类形式确实不被
@@ -155,6 +191,10 @@ git push --follow-tags      git reset --soft      git clean -n / --dry-run
 使该路径实际不可达，并由测试矩阵断言。
 
 **不泄漏**：拒绝理由只含稳定分类 id，**绝不回显、绝不落盘被拒命令文本**——hook 不得成为凭据外泄面。
+
+**规模特性（非安全缺陷，但部署方应知）**：分类工作量对「同一命令串中 git 调用出现的次数」是二次的；
+实测 880 KB 的命令约 14.5 s CPU。宿主应对单条命令长度设上限，本 hook 不代为设限
+（设限会引入它自己的一类误拒）。
 
 ## 4. 部署（INSTALL / VERIFY / ROLLBACK）
 

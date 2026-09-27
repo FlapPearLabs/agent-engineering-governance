@@ -47,12 +47,9 @@ class DenyMatrix(unittest.TestCase):
         "git push --mirror",
         "git status && git push --mirror origin",
         "git --config-env=remote.origin.mirror=V push origin",
-        "git --config-env=remote.origin.push=V push origin",
-        # The token after the key is an ENV VAR NAME, never the value, so these must be
-        # denied even though "0" would be falsy if it were misread as a literal value.
-        # Without the fail-closed branch these two are ALLOW - this is the discriminator.
-        "git --config-env=remote.origin.mirror=0 push origin",
-        "git --config-env=remote.origin.push=0 push origin",
+        "git --config-env remote.origin.mirror=V push origin",
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.mirror"
+        " GIT_CONFIG_VALUE_0=true git push origin",
         "git -C /tmp/somewhere push -f origin master",
         "git -C /tmp/repo push -f origin master",
         "git --git-dir=/tmp/repo/.git push --force",
@@ -258,39 +255,45 @@ class redirect_stderr_into:
 class ConfigInjectedForce(unittest.TestCase):
     """Force carried by git config, with no flag token on the command line itself.
 
-    Review round 4 replaced a falsified vector family with this one. Measured on git 2.53.0:
-    `-c remote.<name>.mirror=true` and `-c remote.<name>.push=+<refspec>` each moved a
-    divergent ref on the remote ("(forced update)"), while the previously-denied
-    `-c push.force=true` did not (git has no such key).
+    Matched by the CARRIER KEY, not by an enumerated spelling. Rounds 4 and 5 each added one
+    injection spelling and each time review found the next one (joined `--config-env`, then its
+    space-separated form, then the `GIT_CONFIG_*` block). Measured on git 2.53.0, every one of
+    these moved a divergent ref on the remote ("(forced update)").
     """
 
     DENIED = [
+        # -c <key>=<value>
         "git -c remote.origin.mirror=true push origin",
         "git -c remote.origin.mirror=1 push origin",
         "cd /tmp && git -c remote.origin.mirror=true push origin",
         "git -c remote.origin.push=+refs/heads/master:refs/heads/master push origin",
         "git -c remote.origin.push=+master push origin",
-        # Long form of -c. The VALUE is an env var name, not a literal, so the guard cannot
-        # judge it and denies fail-closed on the key alone. Measured real:
-        # `V=true git --config-env=remote.origin.mirror=V push origin` => "(forced update)".
+        # --config-env, both spellings. Its value token is an ENV VAR NAME, not a value, and
+        # the hook cannot see the environment, so the key alone is enough to deny.
         "git --config-env=remote.origin.mirror=V push origin",
         "git --config-env=remote.origin.push=V push origin",
-        # The token after the key is an ENV VAR NAME, never the value, so these must be
-        # denied even though "0" would be falsy if it were misread as a literal value.
-        # Without the fail-closed branch these two are ALLOW - this is the discriminator.
-        "git --config-env=remote.origin.mirror=0 push origin",
-        "git --config-env=remote.origin.push=0 push origin",
-        # NOT a git option (git 2.53.0: "unknown option: --config="). Parsed defensively:
-        # denying a command git would reject costs nothing.
+        "git --config-env remote.origin.mirror=V push origin",
+        "git --config-env remote.origin.push=V push origin",
+        # GIT_CONFIG_COUNT / KEY_n / VALUE_n - config injection through the environment.
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.mirror"
+        " GIT_CONFIG_VALUE_0=true git push origin",
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.push"
+        " GIT_CONFIG_VALUE_0=+refs/heads/master:refs/heads/master git push origin",
+        # Not a git option (git 2.53.0: "unknown option: --config="). Denied anyway, because
+        # the rule is spelling-independent.
         "git --config=remote.origin.mirror=true push origin",
+        # Nested in a quoted payload, like every other deny rule.
+        "bash -c 'git -c remote.origin.mirror=true push origin'",
     ]
 
     ALLOWED = [
-        "git -c remote.origin.mirror=false push origin",
-        "git -c remote.origin.mirror= push origin",
-        "git -c remote.origin.push=refs/heads/master:refs/heads/master push origin",
+        # A config override that is not a force carrier stays allowed.
         "git -c user.name=someone push origin master",
+        "git -c push.force=true push origin master",
+        # Naming the key WITHOUT a push is a state change, not a force push. The guard only
+        # analyses the command string it is handed - see PersistentStateCarriers.
         "git -c remote.origin.mirror=true status",
+        "git config remote.origin.mirror true",
     ]
 
     def test_config_injected_force_is_denied(self):
@@ -298,10 +301,33 @@ class ConfigInjectedForce(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(guard.classify(command), guard.CATEGORY_PUSH_FORCE)
 
-    def test_non_forcing_config_is_allowed(self):
+    def test_key_without_a_push_is_allowed(self):
         for command in self.ALLOWED:
             with self.subTest(command=command):
                 self.assertIsNone(guard.classify(command), f"expected ALLOW: {command!r}")
+
+
+class AcceptedFalsePositives(unittest.TestCase):
+    """Fail-closed false positives this guard ACCEPTS, asserted so they stay deliberate.
+
+    Round 6 replaced spelling enumeration with carrier-KEY matching. The price is that a
+    command which merely NAMES the key in a push context is denied even when it cannot force.
+    Each case below costs one nonsensical command form; a silent force push costs a rewritten
+    history. If a future change makes one of these ALLOW again, this test fails and the
+    README's trade-off note must be updated with it.
+    """
+
+    DENIED_ALTHOUGH_NOT_FORCING = [
+        "git -c remote.origin.mirror=false push origin",
+        "git -c remote.origin.mirror= push origin",
+        "git -c remote.origin.push=refs/heads/master:refs/heads/master push origin",
+        "git push origin && git config remote.origin.mirror true",
+    ]
+
+    def test_accepted_false_positives_are_denied(self):
+        for command in self.DENIED_ALTHOUGH_NOT_FORCING:
+            with self.subTest(command=command):
+                self.assertEqual(guard.classify(command), guard.CATEGORY_PUSH_FORCE)
 
 
 class MeasuredNonVectors(unittest.TestCase):
@@ -399,6 +425,10 @@ class PersistentStateCarriers(unittest.TestCase):
         "git config remote.origin.mirror true",
         "git config remote.origin.push +refs/heads/*:refs/heads/*",
         "git push origin",
+        # A config FILE named on the command line, or reached through an include: the carrier
+        # lives inside the file, which this guard cannot read. Measured: `git config --local
+        # remote.origin.mirror true` followed by `git push origin` is a real forced update.
+        "git -c include.path=/tmp/other.cfg push origin",
     ]
 
     def test_carriers_outside_the_command_string_are_not_caught(self):
