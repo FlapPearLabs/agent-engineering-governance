@@ -98,41 +98,90 @@ def _load_p1_t17():
 
 
 # The receipt surface may only POINT at the disposition domain, never spell it
-# out. An earlier guard matched one literal spelling, so appending the same
-# enumeration with different punctuation slipped through; this detector looks
-# for the tell-tale pattern instead: several disposition names appearing
-# together in one span, which is what any restatement looks like.
-_DISPOSITION_LIST = re.compile(
-    "|".join(re.escape(d) for d in PROMOTION_DISPOSITIONS))
+# out. Two earlier guards failed here in different ways: one matched a single
+# literal spelling, and the next one only looked at members sharing a LINE --
+# so a one-per-line bullet list passed. This detector is structural instead. It
+# asks a question that no amount of reformatting can answer: are two domain
+# members separated ONLY by enumeration punctuation? Prose between two members
+# (a justification, a condition, a label) is what distinguishes a mention from
+# a value domain, and prose is not made of separators.
+_ENUM_SEPARATORS = " \t\r\n|,、/\\|·•+*`~-_=()[]{}<>\"'　"
+
+_MEMBER = re.compile(
+    r"KEEP_AS_REVIEWER_RESPONSIBILITY|KEEP_AS_HUMAN_DECISION|"
+    r"FOLLOWUP_TOOLING_TICKET|PROMOTE_NOW|KEEP_AS_TEST|"
+    # Abbreviations fork the domain silently, so they count as members too.
+    # The negative lookahead stops KEEP_AS_REVIEW from matching the prefix of
+    # the canonical KEEP_AS_REVIEWER_RESPONSIBILITY.
+    r"KEEP_AS_REVIEW(?![A-Z_])|KEEP_AS_HUMAN(?![A-Z_])")
+
+# A real enumeration is dense: "A / B", "A | B", one bullet per line. A long
+# run of prose between two members means the document is explaining something,
+# not declaring a domain. The cap keeps a table of unrelated prose from
+# reading as one huge span.
+_MAX_ENUM_SPAN = 80
 
 
 def _restates_disposition_domain(text: str) -> bool:
     """True if the text spells out the disposition value domain as a set.
 
     Delegation ("处置取值集合 = §21.3") names no disposition at all, so the
-    scan is anchored on real enum members rather than on prose. Two members on
-    one line is already an enumeration: a receipt that writes down any subset
-    of the domain is restating it, because the consumer then has to guess
-    whether the missing members were deliberately excluded.
+    scan is anchored on real enum members rather than on prose.
 
-    A judgement rule that happens to name two outcomes -- "PROMOTE_NOW only
-    when ..., otherwise FOLLOWUP_TOOLING_TICKET" -- is not a value domain, so
-    a line that binds a condition to a disposition is skipped. The markers are
-    deliberately narrow: a bare "当" also opens ordinary prose ("当 X 为 NO
-    时"), so only the phrasing that actually binds a condition counts. What
-    matters is whether the line presents the values as the set of possible
-    values, not whether it mentions two of them.
+    The test is line-agnostic on purpose. An earlier version required two
+    members on one line, which a bullet list defeats trivially -- and a guard
+    that a reformatting can defeat is not a guard. Instead, two members count
+    as a restatement when everything between them is enumeration punctuation.
+
+    That also removes the need for a marker list of conditional phrasings. The
+    earlier version had to whitelist "otherwise" and friends to avoid false
+    positives on judgement rules, and a bare "当" still leaked through because
+    it also opens ordinary prose. Here a judgement rule is skipped for a
+    structural reason instead of a lexical one: "PROMOTE_NOW only when X,
+    otherwise FOLLOWUP_TOOLING_TICKET" puts English words between the members,
+    so it is prose, not a value domain.
     """
-    for line in text.splitlines():
-        if "KEEP_AS_REVIEW |" in line or "KEEP_AS_HUMAN |" in line:
+    matches = list(_MEMBER.finditer(text))
+    for left, right in zip(matches, matches[1:]):
+        between = text[left.end():right.start()]
+        if len(between) <= _MAX_ENUM_SPAN and not (
+                set(between) - set(_ENUM_SEPARATORS)):
             return True
-        found = set(_DISPOSITION_LIST.findall(line))
-        if len(found) < 2:
-            continue
-        if any(marker in line for marker in ("只在", "否则", "仅当", "才成立")):
-            continue
-        return True
     return False
+
+
+_HIGH_GATE_ANCHOR = "`PROMOTION_VALUE = HIGH` 通常要求**同时**满足"
+
+
+def _high_clauses(text: str) -> list[str]:
+    """The conjunction clauses of the PROMOTION_VALUE = HIGH gate.
+
+    Extracted once so the positive test and the mutation probe cannot drift
+    apart: if each parsed the block its own way, a probe could "pass" simply
+    because it looked somewhere the real test does not.
+
+    The block is fenced, so parsing stops at the closing fence. An earlier
+    version read to the end of the document and duly reported section 21.2,
+    21.3 and the whole layer ladder as "clauses of the value gate" -- 30-odd
+    spurious failures that all pointed at the parser, not at the policy.
+    """
+    _, _, rest = text.partition(_HIGH_GATE_ANCHOR)
+    if not rest:
+        return []
+    # Skip to the opening fence on its own line, then stop at the closing
+    # one. partition("```text") is not enough: the anchor's own sentence is
+    # followed by a fence, but so is every later block, and a naive split
+    # read straight through 21.2 and 21.3 -- reporting the whole layer ladder
+    # as clauses of the value gate.
+    lines = rest.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines)
+                     if line.strip() == "```text") + 1
+    except StopIteration:
+        return []
+    end = next((i for i in range(start, len(lines))
+                if lines[i].strip() == "```"), len(lines))
+    return [line for line in lines[start:end] if line.strip()]
 
 
 class CanonicalOwnershipTests(unittest.TestCase):
@@ -341,6 +390,29 @@ class ReviewerAuthorityTests(unittest.TestCase):
         body = read(REVIEW_REL)
         self.assertIn("不**削弱 RULES R4", body)
 
+    def test_repeat_signal_defers_to_the_promotion_value_gate(self):
+        """"Repeat" is a signal, never a verdict. The gate is the value gate.
+
+        This delegation was previously asserted only inside a synthetic string
+        in the negative controls, which is the one place an assertion cannot
+        protect anything. A reviewer removed it from the real document and the
+        suite stayed green, leaving section 6.5 free to read as "reviewers keep
+        finding it, so build the gate" -- the exact rule proliferation the
+        section exists to prevent.
+        """
+        body = read(REVIEW_REL)
+        section = body.split("### 6.5", 1)[1]
+        self.assertIn("§21.1 的 value gate", section)
+        self.assertIn("一次出现 ≠ 自动治理缺陷", section)
+
+    def test_review_file_declares_the_framework_as_the_single_owner(self):
+        """The saturation file is a pointer surface, and says so out loud."""
+        body = read(REVIEW_REL)
+        self.assertIn("唯一声明点", body)
+        self.assertIn("references/static-analysis-and-code-intelligence.md", body)
+        # 4.1 routes the mechanical-detectability metadata back to 21 as well.
+        self.assertIn("§21（value-gated", body)
+
 
 class FastFullSemanticsTests(unittest.TestCase):
     """FAST and FULL are complementary, never substitutes."""
@@ -444,28 +516,122 @@ class BLayerBoundaryTests(unittest.TestCase):
     def test_agents_pointer_exists_without_being_a_second_declaration(self):
         """AGENTS.md carries the mechanism, but must not own the value domains.
 
-        It may name the dispositions so a reader can route to the owner, but
-        the framework must remain the only place that defines them, and
-        AGENTS.md must point there rather than stand alone.
+        Two independent reviewers converged on the same hole here: this guard
+        used to REQUIRE "KEEP_AS_REVIEWER_RESPONSIBILITY" to appear in
+        AGENTS.md, which meant the file that re-enumerated all five
+        dispositions was the one shape the suite insisted on. A guard that
+        pins a duplicate in place is worse than no guard, because it reads as
+        evidence the invariant holds.
+
+        So the rule is now stated the other way round. AGENTS.md carries the
+        mechanism and the routing; the framework section 21 owns the value
+        domains, and AGENTS.md may not restate them -- as a set, with any
+        punctuation, on any number of lines. The same detector that guards the
+        ticket lane guards this file, so the two surfaces cannot drift apart.
         """
         body = read(AGENTS_REL)
         self.assertIn("DEFECT_TO_GATE_PROMOTION", body)
         self.assertIn("FAST_GATE / FULL_GATE", body)
         # It routes to the canonical owners instead of restating their content.
-        self.assertIn("references/static-analysis-and-code-intelligence.md",
-                      body)
-        self.assertIn("references/ticket-lane.md", body)
-        self.assertIn("references/git-ci-integration.md", body)
-        # The full canonical form appears only in the owner's own line.
-        self.assertIn("KEEP_AS_REVIEWER_RESPONSIBILITY", body)
-        self.assertNotIn("KEEP_AS_REVIEW |", body)
-        self.assertNotIn("KEEP_AS_HUMAN |", body)
+        for owner in ("references/static-analysis-and-code-intelligence.md",
+                      "references/ticket-lane.md",
+                      "references/review-and-repair-saturation.md",
+                      "references/git-ci-integration.md"):
+            with self.subTest(owner=owner):
+                self.assertIn(owner, body)
+        # No disposition may be named at all: the owner defines the domain.
+        self.assertFalse(
+            _restates_disposition_domain(body),
+            "AGENTS.md must delegate the disposition domain to framework 21.3")
         # AGENTS.md may show non-collapse pairs (NOT_CONFIGURED != PASS) as
         # examples; it must not present the value domain as a closed set.
         # The framework owns the closed set, so no "the seven values are ..."
         # enumeration may appear here.
         self.assertNotIn("七值", body)
         self.assertNotIn("状态值域 = ", body)
+
+    def test_no_pointer_document_restates_the_disposition_domain(self):
+        """Single-owner discipline applies to EVERY surface, not one block.
+
+        The earlier guards each looked at a single pre-split block of a single
+        file, so a restatement added anywhere else -- AGENTS.md, README.md, the
+        end of the review saturation file -- was invisible. Reviewers found
+        three such holes by appending an enumeration and watching zero tests
+        fail.
+
+        The owner itself is excluded on purpose: framework 21.3 is where the
+        values are DEFINED, and the detector would of course fire there.
+        """
+        for rel in (AGENTS_REL, README_REL, TICKET_REL, REVIEW_REL, CI_REL,
+                    PAIN_REL):
+            with self.subTest(rel=rel):
+                self.assertFalse(
+                    _restates_disposition_domain(read(rel)),
+                    f"{rel} must point at the owner, not restate the domain")
+
+    def test_promotion_value_axis_domain_has_a_single_owner(self):
+        """PROMOTION_VALUE is a value domain too, and 21.1 owns it.
+
+        The same single-owner rule that covers the dispositions covers this
+        axis. A receipt that writes "PROMOTION_VALUE = HIGH / MEDIUM / LOW"
+        has forked it just as surely as an abbreviated disposition would.
+        """
+        framework = read(FRAMEWORK_REL)
+        self.assertIn("PROMOTION_VALUE               HIGH / MEDIUM / LOW / "
+                      "NOT_APPLICABLE", framework)
+        for rel in (AGENTS_REL, TICKET_REL, REVIEW_REL, CI_REL, PAIN_REL):
+            with self.subTest(rel=rel):
+                self.assertNotIn(
+                    "PROMOTION_VALUE = HIGH", read(rel),
+                    f"{rel} must not restate the PROMOTION_VALUE domain")
+
+    def test_every_section_pointer_resolves_to_a_real_heading(self):
+        """A pointer to a section that does not exist is a broken contract.
+
+        Both reviewers demoted or renamed section 21.3 as a probe and no test
+        failed: the guards checked that the text "21.3" was mentioned, never
+        that a heading with that number still exists. A pointer is only a
+        delegation if it resolves.
+        """
+        for rel, needle in ((TICKET_REL, "§21.3"), (REVIEW_REL, "§21.1"),
+                            (REVIEW_REL, "§21.2"), (CI_REL, "§10.1"),
+                            (AGENTS_REL, "§21.3"),
+                            (TICKET_REL, "### 9.3"), (TICKET_REL, "### 9.4")):
+            with self.subTest(rel=rel, needle=needle):
+                self.assertIn(needle, read(rel),
+                              f"{rel} should point at {needle}")
+        # Framework 21.3 must still be a subsection of 21, not a demoted
+        # sibling: promoting it to "##" would silently take it out from
+        # under the section it belongs to.
+        framework = read(FRAMEWORK_REL)
+        self.assertIn("### 21.3 处置（disposition）", framework)
+        self.assertNotIn("\n## 21.3", framework)
+        # And the three subsections the rest of the repo cites must all exist.
+        for heading in ("### 21.1 ", "### 21.2 ", "### 21.3 "):
+            with self.subTest(heading=heading):
+                self.assertIn(heading, framework)
+
+    def test_promotion_value_high_is_a_conjunction_not_a_disjunction(self):
+        """The HIGH bar is AND-ed. Turning "+" into "或" must fail.
+
+        A reviewer flipped one line of the 21.1 conjunction from "+ 误报风险
+        足够低" to "或 误报风险足够低" and no test noticed. That single
+        character turns "all of these must hold" into "any of these is
+        enough" -- it deletes the value gate while every marker stays in
+        place, which is precisely the failure mode this suite cannot see by
+        grepping.
+        """
+        body = read(FRAMEWORK_REL)
+        self.assertIn(_HIGH_GATE_ANCHOR, body)
+        clauses = _high_clauses(body)
+        self.assertGreaterEqual(len(clauses), 5)
+        for clause in clauses[1:]:
+            with self.subTest(clause=clause):
+                self.assertTrue(
+                    clause.startswith("+ "),
+                    "every HIGH clause must be AND-ed: " + clause)
+                self.assertNotIn("或", clause,
+                                 "a disjunctive clause deletes the value gate")
 
     def test_pain_row_does_not_restate_the_disposition_domain(self):
         """The audit ledger records intent; it must not fork the value domain.
@@ -602,6 +768,14 @@ class NegativeControlTests(unittest.TestCase):
             "fast-not-replace-full-ci":
                 lambda b: "CI_FAST PASS != CI_FULL PASS" in b,
             "declares-21": lambda b: "## 21. DEFECT_TO_GATE_PROMOTION" in b,
+            # The 21.3 subsection must stay a subsection: a reviewer demoted it
+            # to "##" as a probe and the ownership guards never noticed,
+            # because they only counted the string "21.3" in prose.
+            "21-3-is-a-subsection":
+                lambda b: "### 21.3 处置（disposition）" in b
+                and "\n## 21.3" not in b,
+            "21-1-still-present": lambda b: "### 21.1 " in b,
+            "21-2-still-present": lambda b: "### 21.2 " in b,
         }
         for name, guard in fw_guards.items():
             if rel == FRAMEWORK_REL and not guard(mutated):
@@ -613,6 +787,13 @@ class NegativeControlTests(unittest.TestCase):
             "finding-not-automatic-gate": lambda b: "!=** 自动建门" in b,
             "executor-must-verify": lambda b: "仍必须核验" in b,
             "repeat-signal-not-weaken-r4": lambda b: "不**削弱 RULES R4" in b,
+            # 6.5 is the clause that makes the repeat signal safe, because it
+            # routes promotion back through the value gate. A reviewer reworded
+            # exactly this delegation away and zero tests fired.
+            "repeat-signal-defers-to-value-gate":
+                lambda b: "§21.1 的 value gate" in b,
+            "single-owner-declared": lambda b: "唯一声明点" in b,
+            "finding-routes-to-21": lambda b: "§21（value-gated" in b,
         }
         for name, guard in review_guards.items():
             if rel == REVIEW_REL and not guard(mutated):
@@ -706,12 +887,31 @@ class NegativeControlTests(unittest.TestCase):
         self.assertIn("framework:keeps-regression-test-rule", fired)
 
     def test_removing_the_whole_promotion_section_is_detectable(self):
-        """Deleting section 21 wholesale must light up several guards."""
-        original = read(FRAMEWORK_REL)
-        truncated = original.split("## 21. DEFECT_TO_GATE_PROMOTION")[0]
-        self.assertNotIn("## 21. DEFECT_TO_GATE_PROMOTION", truncated)
-        guard = lambda b: "## 21. DEFECT_TO_GATE_PROMOTION" in b  # noqa: E731
-        self.assertFalse(guard(truncated))
+        """Deleting section 21 wholesale must light up several guards.
+
+        The first version of this control truncated the document and then
+        asserted the heading was absent from the truncation -- which only
+        proves str.split works, and is the exact self-referential antipattern
+        its own neighbours warn about. The honest form needs a mutation the
+        existing replace helper can express, so this one drops the section
+        heading and its first clause: if the guards only look for one marker,
+        a partial deletion would slip through, and that is the case worth
+        proving.
+        """
+        fired = self._guards_that_fail_on(
+            FRAMEWORK_REL, "## 21. DEFECT_TO_GATE_PROMOTION（缺陷类下沉到机器门）",
+            "## 21. 机械门下沉")
+        self.assertIn("framework:declares-21", fired)
+        # The heading is not the only thing that identifies the section: the
+        # body is still there, so a rename must not be able to pass by leaving
+        # every marker in place. The 21.x subsection guards are the ones that
+        # notice the section stopped being the canonical promotion surface, so
+        # a rename that keeps "## 21." intact is exactly the case that needs a
+        # separate check rather than an extra count here.
+        renamed = self._without(
+            FRAMEWORK_REL, "## 21. DEFECT_TO_GATE_PROMOTION（缺陷类下沉到机器门）",
+            "## 21. 机械门下沉")
+        self.assertIn("## 21. ", renamed)
 
     # -- mutation 2: let a fast/full boundary collapse ----------------------
 
@@ -803,19 +1003,102 @@ class NegativeControlTests(unittest.TestCase):
     def test_appending_a_disposition_enumeration_is_detected(self):
         """Restating the domain with different punctuation must not slip by.
 
-        The earlier guard matched one exact spelling, so appending the same
-        enumeration without backticks produced zero failures.
+        Two earlier generations of this guard failed the same way: one matched
+        a single literal spelling, the next required two members on one LINE.
+        A bullet list therefore defeated it, and so did a comma instead of a
+        slash. The detector is now structural, so the shapes below are just
+        the ones a reviewer actually tried.
         """
+        base = read(TICKET_REL)
         for appended in (
                 "\n处置取值集合 = PROMOTE_NOW | FOLLOWUP_TOOLING_TICKET | "
                 "KEEP_AS_TEST | KEEP_AS_REVIEWER_RESPONSIBILITY\n",
                 "\n处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET`\n",
-                "\nPROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST\n"):
+                "\nPROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST\n",
+                # One member per line: defeats any line-based detector.
+                "\n- PROMOTE_NOW\n- FOLLOWUP_TOOLING_TICKET\n- KEEP_AS_TEST\n",
+                # Comma separated rather than slashed.
+                "\n处置取值集合 = PROMOTE_NOW, KEEP_AS_TEST\n",
+                # Abbreviations fork the domain silently.
+                "\n处置 = KEEP_AS_REVIEW | KEEP_AS_HUMAN\n"):
             with self.subTest(appended=appended.strip()[:40]):
                 self.assertTrue(
-                    _restates_disposition_domain(read(TICKET_REL) + appended),
+                    _restates_disposition_domain(base + appended),
                     "an appended enumeration is a restatement")
-        self.assertFalse(_restates_disposition_domain(read(TICKET_REL)))
+        # The pristine document must not trip the detector, or the guard
+        # would be protecting nothing.
+        self.assertFalse(_restates_disposition_domain(base))
+
+    def test_restating_the_domain_in_agents_or_readme_is_detectable(self):
+        """Both reviewers found the same hole in a different file.
+
+        The ownership guards were scoped to one pre-split block of the ticket
+        lane, so appending the enumeration to AGENTS.md or README.md produced
+        zero failures -- and AGENTS.md was in fact carrying one all along.
+        The detector now runs over every pointer surface, so a reformatting of
+        the document cannot move the violation out of reach.
+        """
+        for rel in (AGENTS_REL, README_REL):
+            for appended in (
+                    "\n处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / "
+                    "KEEP_AS_TEST`\n",
+                    "\n- PROMOTE_NOW\n- KEEP_AS_HUMAN_DECISION\n"):
+                with self.subTest(rel=rel, appended=appended.strip()[:30]):
+                    self.assertTrue(_restates_disposition_domain(
+                        read(rel) + appended),
+                        f"a restatement appended to {rel} must be detected")
+
+    def test_dropping_the_repeat_signal_delegation_is_detectable(self):
+        """6.5 must keep routing repeats back through the value gate.
+
+        Without this delegation the section reads as "reviewers keep finding
+        it, therefore build the gate" -- the rule proliferation it exists to
+        prevent. The delegation used to be asserted only in a synthetic
+        string, so removing it from the real document changed nothing.
+        """
+        fired = self._guards_that_fail_on(
+            REVIEW_REL, "晋升仍走 §21.1 的 value gate",
+            "晋升仍走评审判断")
+        self.assertIn("review:repeat-signal-defers-to-value-gate", fired)
+
+    def test_demoting_or_renaming_section_21_3_is_detectable(self):
+        """A pointer only delegates if it resolves to a heading.
+
+        A reviewer renamed 21.3 to 21.4 -- orphaning the pointer in the ticket
+        lane -- and separately demoted it from "###" to "##", moving it out
+        from under section 21. Both probes produced zero failures, because
+        every guard counted the token "21.3" in prose and never looked for a
+        heading.
+        """
+        for old, new in (
+                ("### 21.3 处置（disposition）", "### 21.4 处置（disposition）"),
+                ("### 21.3 处置（disposition）", "## 21.3 处置（disposition）")):
+            with self.subTest(new=new):
+                fired = self._guards_that_fail_on(FRAMEWORK_REL, old, new)
+                self.assertIn("framework:21-3-is-a-subsection", fired)
+
+    def test_flipping_the_value_gate_to_a_disjunction_is_detectable(self):
+        """HIGH is a conjunction. One "或" turns it into a tautology.
+
+        This is the failure the whole suite is blind to by construction: a
+        reviewer changed "+ 误报风险足够低" to "或 误报风险足够低" and every
+        marker stayed in place while the meaning inverted. Marker presence is
+        not semantic validation -- the framework says so itself -- so the
+        polarity has to be asserted directly.
+        """
+        body = read(FRAMEWORK_REL)
+        original = body
+        mutated = body.replace("+ 误报风险足够低", "或 误报风险足够低")
+        self.assertNotEqual(original, mutated, "the clause under test moved")
+        self.assertIn("或 误报风险足够低", mutated)
+        # The pristine document satisfies the polarity guard; the mutation
+        # must not. Both sides are asserted so neither can pass vacuously.
+        polarity = lambda b: all(  # noqa: E731
+            c.startswith("+ ") and "或" not in c
+            for c in _high_clauses(b)[1:])
+        self.assertTrue(polarity(original), "pristine must satisfy polarity")
+        self.assertFalse(polarity(mutated),
+                         "a disjunctive clause deletes the value gate")
 
     def test_receipt_restating_the_status_domain_is_detectable(self):
         """The banned domain token must be absent now and visible when added.
