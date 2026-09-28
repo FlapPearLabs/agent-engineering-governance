@@ -112,5 +112,6 @@ FRESH_SESSION_SELECTED_GUIDANCE = NOT_PROVABLE_IN_THIS_RECORD（理由与取证�
 ## 5. 边界
 
 - 已关闭的旧 UNKNOWN：「工作区根 AGENTS.md 是否被自动注入」→ **关**：注入**是**发生的，但被 `MAX_GUIDANCE_CHARS` 截断，且 `RULES.md` 不在清单内（限 §1 的 profile/版本；升级后须重新取证）。
-- 仍未解决（保持 UNKNOWN，不得靠推断填补）：MEMORY 预算的官方可配置性；`GUIDANCE_FILES` / `MAX_GUIDANCE_CHARS` 的未来版本稳定性；hooks 在 WorkBuddy 内的实际接线面与端到端 deny 观测；`~/.codebuddy/settings.json` 是否被 WorkBuddy 读取。详见 V3 §6。
+- 已关闭的旧 UNKNOWN：「hooks 接线面与端到端 deny 观测」→ **关**（2026-09-28 实测：注册 1 条 + 执行前拦截）；状态 owner = `adapters/workbuddy/README.md` §2。
+- 仍未解决（保持 UNKNOWN，不得靠推断填补）：MEMORY 预算的官方可配置性；`GUIDANCE_FILES` / `MAX_GUIDANCE_CHARS` 的未来版本稳定性；`~/.codebuddy/settings.json` 是否被 WorkBuddy 读取。详见 V3 §6。
 - 跨 runtime（Hermes/Codex）：重复 §2.2 清单即可；§2.1 与 §2.4 的机制假设仅针对 §1 标注的 profile。
