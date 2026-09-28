@@ -29,6 +29,7 @@ WHAT THIS FILE DOES NOT PROVE
   judgement belongs to an independent reviewer.
 """
 import importlib.util
+import re
 import shutil
 import tempfile
 import unittest
@@ -94,6 +95,44 @@ def _load_p1_t17():
     import importlib
     return importlib.import_module(
         "scripts.tests.test_p1_t17_static_gate_framework_semantics")
+
+
+# The receipt surface may only POINT at the disposition domain, never spell it
+# out. An earlier guard matched one literal spelling, so appending the same
+# enumeration with different punctuation slipped through; this detector looks
+# for the tell-tale pattern instead: several disposition names appearing
+# together in one span, which is what any restatement looks like.
+_DISPOSITION_LIST = re.compile(
+    "|".join(re.escape(d) for d in PROMOTION_DISPOSITIONS))
+
+
+def _restates_disposition_domain(text: str) -> bool:
+    """True if the text spells out the disposition value domain as a set.
+
+    Delegation ("处置取值集合 = §21.3") names no disposition at all, so the
+    scan is anchored on real enum members rather than on prose. Two members on
+    one line is already an enumeration: a receipt that writes down any subset
+    of the domain is restating it, because the consumer then has to guess
+    whether the missing members were deliberately excluded.
+
+    A judgement rule that happens to name two outcomes -- "PROMOTE_NOW only
+    when ..., otherwise FOLLOWUP_TOOLING_TICKET" -- is not a value domain, so
+    a line that binds a condition to a disposition is skipped. The markers are
+    deliberately narrow: a bare "当" also opens ordinary prose ("当 X 为 NO
+    时"), so only the phrasing that actually binds a condition counts. What
+    matters is whether the line presents the values as the set of possible
+    values, not whether it mentions two of them.
+    """
+    for line in text.splitlines():
+        if "KEEP_AS_REVIEW |" in line or "KEEP_AS_HUMAN |" in line:
+            return True
+        found = set(_DISPOSITION_LIST.findall(line))
+        if len(found) < 2:
+            continue
+        if any(marker in line for marker in ("只在", "否则", "仅当", "才成立")):
+            continue
+        return True
+    return False
 
 
 class CanonicalOwnershipTests(unittest.TestCase):
@@ -320,9 +359,11 @@ class FastFullSemanticsTests(unittest.TestCase):
                 self.assertIn("CI_FAST PASS != CI_FULL PASS", read(rel))
 
     def test_local_fast_and_ci_fast_are_distinct(self):
+        """Asserting a bare "!=" is far too weak; assert both definitions."""
         body = read(CI_REL)
-        self.assertIn("### 3.4", body)
-        self.assertIn("≠", body)
+        self.assertIn("### 3.4 LOCAL_FAST_GATE vs CI_FAST_GATE", body)
+        self.assertIn("LOCAL_FAST_GATE = 开发/代理的快速反馈回路", body)
+        self.assertIn("CI_FAST_GATE    = 干净环境中的可复现确认", body)
 
     def test_ci_should_not_be_the_first_place_a_low_level_defect_is_found(self):
         body = read(CI_REL)
@@ -401,12 +442,53 @@ class BLayerBoundaryTests(unittest.TestCase):
         self.assertIn("不**把任何语言特定工具升格为普适硬不变量", body)
 
     def test_agents_pointer_exists_without_being_a_second_declaration(self):
+        """AGENTS.md carries the mechanism, but must not own the value domains.
+
+        It may name the dispositions so a reader can route to the owner, but
+        the framework must remain the only place that defines them, and
+        AGENTS.md must point there rather than stand alone.
+        """
         body = read(AGENTS_REL)
         self.assertIn("DEFECT_TO_GATE_PROMOTION", body)
         self.assertIn("FAST_GATE / FULL_GATE", body)
-        for disp in PROMOTION_DISPOSITIONS:
-            with self.subTest(disp=disp):
-                self.assertIn(disp, body)
+        # It routes to the canonical owners instead of restating their content.
+        self.assertIn("references/static-analysis-and-code-intelligence.md",
+                      body)
+        self.assertIn("references/ticket-lane.md", body)
+        self.assertIn("references/git-ci-integration.md", body)
+        # The full canonical form appears only in the owner's own line.
+        self.assertIn("KEEP_AS_REVIEWER_RESPONSIBILITY", body)
+        self.assertNotIn("KEEP_AS_REVIEW |", body)
+        self.assertNotIn("KEEP_AS_HUMAN |", body)
+        # AGENTS.md may show non-collapse pairs (NOT_CONFIGURED != PASS) as
+        # examples; it must not present the value domain as a closed set.
+        # The framework owns the closed set, so no "the seven values are ..."
+        # enumeration may appear here.
+        self.assertNotIn("七值", body)
+        self.assertNotIn("状态值域 = ", body)
+
+    def test_pain_row_does_not_restate_the_disposition_domain(self):
+        """The audit ledger records intent; it must not fork the value domain.
+
+        Once the ticket lane was raised to "reference only, never restate",
+        an inline copy in the pain row became the one unguarded duplicate.
+        """
+        body = read(PAIN_REL)
+        self.assertIn("## P21", body)
+        self.assertFalse(
+            _restates_disposition_domain(body),
+            "the pain row must reference the section 21.3 domain, not copy it")
+
+    def test_pain_row_sits_before_the_summary_table(self):
+        """P01..P21 are all listed before the roll-up table."""
+        body = read(PAIN_REL)
+        self.assertLess(body.index("## P21 "), body.index("## 汇总判定表"))
+        self.assertLess(body.index("## P20 "), body.index("## P21 "))
+        # The P20 baseline evidence stays attached to P20.
+        p20 = body.index("## P20 ")
+        p21 = body.index("## P21 ")
+        self.assertLess(p20, body.index("### P20 BASELINE"))
+        self.assertLess(body.index("### P20 BASELINE"), p21)
 
 
 class DogfoodTests(unittest.TestCase):
@@ -549,7 +631,7 @@ class NegativeControlTests(unittest.TestCase):
             "no-abbreviated-domain":
                 lambda b: "KEEP_AS_REVIEW |" not in b and "KEEP_AS_HUMAN |" not in b,
             "no-disposition-restatement-in-4-1":
-                lambda b: "处置 = `PROMOTE_NOW" not in b,
+                lambda b: not _restates_disposition_domain(b),
             "has-delegation-marker": lambda b: "<§8 状态值域>" in b,
             "has-9-3-anchor": lambda b: "### 9.3" in b,
             "has-9-4-anchor": lambda b: "### 9.4" in b,
@@ -705,14 +787,35 @@ class NegativeControlTests(unittest.TestCase):
     def test_receipt_restating_the_disposition_domain_in_4_1_is_detectable(self):
         """The section 4.1 pointer must delegate, not enumerate the domain.
 
-        A reviewer found this hole by deleting a value from the enumeration:
-        nothing failed, because the guard only inspected section 9.4.
+        An independent reviewer found this hole by deleting a value from the
+        enumeration: nothing failed, because the guard only inspected one
+        literal spelling inside one block. The anchor below is the short
+        delegation phrase, so rewording the surrounding prose does not break
+        the test while removing the delegation does.
         """
         fired = self._guards_that_fail_on(
-            TICKET_REL,
-            "**处置取值集合 = §21.3**（本节不重述、不缩写——重述即双 owner，同 §9 值域纪律）",
-            "处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_REVIEWER`")
+            TICKET_REL, "处置取值集合 = §21.3",
+            "处置取值集合 = PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / "
+            "KEEP_AS_TEST / KEEP_AS_REVIEWER_RESPONSIBILITY / "
+            "KEEP_AS_HUMAN_DECISION（此处重述）")
         self.assertIn("ticket:no-disposition-restatement-in-4-1", fired)
+
+    def test_appending_a_disposition_enumeration_is_detected(self):
+        """Restating the domain with different punctuation must not slip by.
+
+        The earlier guard matched one exact spelling, so appending the same
+        enumeration without backticks produced zero failures.
+        """
+        for appended in (
+                "\n处置取值集合 = PROMOTE_NOW | FOLLOWUP_TOOLING_TICKET | "
+                "KEEP_AS_TEST | KEEP_AS_REVIEWER_RESPONSIBILITY\n",
+                "\n处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET`\n",
+                "\nPROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST\n"):
+            with self.subTest(appended=appended.strip()[:40]):
+                self.assertTrue(
+                    _restates_disposition_domain(read(TICKET_REL) + appended),
+                    "an appended enumeration is a restatement")
+        self.assertFalse(_restates_disposition_domain(read(TICKET_REL)))
 
     def test_receipt_restating_the_status_domain_is_detectable(self):
         """The banned domain token must be absent now and visible when added.
@@ -743,19 +846,38 @@ class NegativeControlTests(unittest.TestCase):
 
 
 class OutOfScopeTests(unittest.TestCase):
-    def test_contradictory_prose_is_out_of_scope(self):
-        """Marker checks cannot judge prose; that is the reviewer's job."""
-        doc = (ROOT / FRAMEWORK_REL).read_text(encoding="utf-8")
+    def test_marker_checks_cannot_judge_prose(self):
+        """Marker presence is not semantic validation -- and that is declared.
+
+        A document can carry every marker this module checks and still
+        contradict itself in prose. The framework must therefore say so
+        explicitly, so nobody mistakes a green suite for a semantic review.
+        """
+        doc = read(FRAMEWORK_REL)
         self.assertIn("LOWEST ≠ WEAKEST", doc)
-        # A self-contradicting sentence would still satisfy every marker above.
-        self.assertTrue(doc)
+        self.assertIn("不裁决", doc)
+        # The ticket's own test file declares the same limit.
+        self.assertIn("Marker presence is NOT semantic validation",
+                      Path(__file__).read_text(encoding="utf-8"))
 
     def test_no_defect_database_or_new_state_store(self):
         body = read(FRAMEWORK_REL)
         self.assertIn("不**新建状态数据库", body)
+        self.assertIn("不**新建状态数据库", read(TICKET_REL) + read(FRAMEWORK_REL))
 
-    def test_test_file_itself_is_discovered(self):
-        self.assertTrue(Path(__file__).is_file())
+    def test_forbidden_overbuild_is_not_proposed(self):
+        """The spec's explicit non-goals must stay non-goals."""
+        body = read(FRAMEWORK_REL) + read(AGENTS_REL)
+        for banned in ("defect database", "central CI platform",
+                       "linter server"):
+            with self.subTest(banned=banned):
+                self.assertNotIn(banned, body)
+
+    def test_this_file_is_part_of_the_discovered_suite(self):
+        """CI runs `unittest discover -s scripts/tests`; be in that glob."""
+        self.assertEqual("test_p1_t18_defect_promotion_fast_full.py",
+                         Path(__file__).name)
+        self.assertTrue((ROOT / "scripts/tests" / Path(__file__).name).is_file())
 
 
 if __name__ == "__main__":
