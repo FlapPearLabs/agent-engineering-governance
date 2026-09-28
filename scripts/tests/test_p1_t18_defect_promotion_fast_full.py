@@ -107,47 +107,200 @@ def _load_p1_t17():
 # a value domain, and prose is not made of separators.
 _ENUM_SEPARATORS = " \t\r\n|,、/\\|·•+*`~-_=()[]{}<>\"'　"
 
-_MEMBER = re.compile(
-    r"KEEP_AS_REVIEWER_RESPONSIBILITY|KEEP_AS_HUMAN_DECISION|"
-    r"FOLLOWUP_TOOLING_TICKET|PROMOTE_NOW|KEEP_AS_TEST|"
-    # Abbreviations fork the domain silently, so they count as members too.
-    # The negative lookahead stops KEEP_AS_REVIEW from matching the prefix of
-    # the canonical KEEP_AS_REVIEWER_RESPONSIBILITY.
-    r"KEEP_AS_REVIEW(?![A-Z_])|KEEP_AS_HUMAN(?![A-Z_])")
-
 # A real enumeration is dense: "A / B", "A | B", one bullet per line. A long
 # run of prose between two members means the document is explaining something,
 # not declaring a domain. The cap keeps a table of unrelated prose from
 # reading as one huge span.
 _MAX_ENUM_SPAN = 80
 
+# How long the description cell of an aligned value/meaning table may be.
+# The canonical 21.3 rows are well under this; ordinary prose is not.
+_MAX_DESC_WIDTH = 40
 
-def _restates_disposition_domain(text: str) -> bool:
-    """True if the text spells out the disposition value domain as a set.
+# Column padding before the description cell of an aligned table. Two spaces
+# is enough to tell a copied declaration from a sentence that happens to
+# mention a value on the way to a full stop.
+_MIN_COLUMN_PAD = 2
 
-    Delegation ("处置取值集合 = §21.3") names no disposition at all, so the
-    scan is anchored on real enum members rather than on prose.
+# How far back to look for the phrase that introduces a set. Chosen to sit
+# inside one line of the declaration it introduces ("状态集（不可坍缩）：" is
+# 9 characters) without reaching back into unrelated prose.
+_MAX_LEAD = 40
 
-    The test is line-agnostic on purpose. An earlier version required two
-    members on one line, which a bullet list defeats trivially -- and a guard
-    that a reformatting can defeat is not a guard. Instead, two members count
-    as a restatement when everything between them is enumeration punctuation.
+# Phrases that introduce a value domain. A declaration says so; a passing
+# mention of PASS does not. The list covers the forms this repo actually
+# uses plus the shape a reviewer would reach for, and it is only ever a
+# NECESSARY condition -- the shape checks still have to pass.
+_DECLARATION_MARKERS = (
+    "值域", "取值", "状态集", "状态值域", "处置 =", "处置取值集合",
+    "PROMOTION_VALUE", "PROMOTION =", "状态域", "处置：",
+)
 
-    That also removes the need for a marker list of conditional phrasings. The
-    earlier version had to whitelist "otherwise" and friends to avoid false
-    positives on judgement rules, and a bare "当" still leaked through because
-    it also opens ordinary prose. Here a judgement rule is skipped for a
-    structural reason instead of a lexical one: "PROMOTE_NOW only when X,
-    otherwise FOLLOWUP_TOOLING_TICKET" puts English words between the members,
-    so it is prose, not a value domain.
+def _restates_domain(text: str, members: tuple[str, ...],
+                     minimum: int = 2,
+                     foreign: tuple[str, ...] = ()) -> bool:
+    """True if `text` spells out the value domain `members` as a set.
+
+    Delegation ("处置取值集合 = §21.3") names no member at all, so the scan is
+    anchored on real enum members rather than on prose.
+
+    Two shapes count as a restatement, because both are ways of re-declaring
+    a closed set:
+
+    1. Two members separated ONLY by enumeration punctuation -- "A / B",
+       "A | B", one bullet per line. Line-agnostic on purpose: an earlier
+       version required two members on one line, which a bullet list defeats
+       trivially, and a guard a reformatting can defeat is not a guard.
+
+    2. Two members in the canonical TABLE shape -- a member, whitespace, then
+       a description, repeated. The canonical 21.3 declaration interleaves a
+       meaning after every value, so a verbatim copy of it puts prose between
+       members and shape 1 alone would read it as a mention. This is the most
+       natural way to fork a domain, so it has to be caught too.
+
+    `minimum` is how many DISTINCT members must appear. It exists because two
+    of these domains share vocabulary with ordinary prose: the non-collapse
+    rule is illustrated by PAIRS like "NOT_CONFIGURED != PASS", and those
+    pairs are the model working as intended rather than a restatement. A
+    seven-value domain written out in full is not a pair.
+
+    A judgement rule that happens to name two outcomes -- "PROMOTE_NOW only
+    when X, otherwise FOLLOWUP_TOOLING_TICKET" -- is prose, not a value
+    domain, and is skipped for a structural reason rather than a lexical one.
+    No marker list of conditional phrasings is needed, and none of those
+    markers was reliable anyway: a bare "当" also opens ordinary prose.
     """
-    matches = list(_MEMBER.finditer(text))
+    pattern = re.compile("|".join(
+        # Longest first so a shorter member cannot shadow a longer one that
+        # starts with it, and each is matched whole so the span arithmetic
+        # below is looking at separators rather than at fragments.
+        re.escape(m) for m in sorted(members, key=len, reverse=True)))
+    matches = list(pattern.finditer(text))
+    if len({m.group(0) for m in matches}) < minimum:
+        return False
+    # `foreign` names members of a DIFFERENT domain that happen to overlap.
+    # A span that reaches one of them has left this domain's vocabulary, so
+    # it is not a restatement of this domain no matter how it is punctuated.
+    outside = None
+    if foreign:
+        outside = re.compile("|".join(re.escape(f) for f in foreign))
+
     for left, right in zip(matches, matches[1:]):
+        if left.group(0) == right.group(0):
+            continue
         between = text[left.end():right.start()]
-        if len(between) <= _MAX_ENUM_SPAN and not (
-                set(between) - set(_ENUM_SEPARATORS)):
+        if outside is not None and outside.search(between):
+            continue
+        if not (set(between) - set(_ENUM_SEPARATORS)):
+            # "NOT_CONFIGURED != PASS" is the non-collapse rule being
+            # illustrated, which is the model working, not a restatement.
+            # The != is often outside the captured span (it is punctuation,
+            # and so are the backticks around each side), so look at the
+            # text around the pair rather than only what is between.
+            window = text[max(0, left.start() - 8):right.end() + 8]
+            if "!=" in window:
+                continue
+            # A DECLARATION announces itself. "PROMOTION_VALUE = HIGH / MEDIUM
+            # / LOW", "状态集（不可坍缩）：PASS / FAIL", "处置取值集合 =" --
+            # each names the set it is introducing. Without that anchor the
+            # shape is indistinguishable from prose, and prose in these tokens
+            # is everywhere: "MEDIUM/HIGH 生产首写前需 GROUNDING" is a risk
+            # grade, not a value domain. Requiring the anchor is what lets
+            # the guard stay quiet on the 40-odd honest mentions and still
+            # catch a copy parked anywhere in a file.
+            lead = text[max(0, left.start() - _MAX_LEAD):left.start()]
+            # A bullet list introduces its set with the bullets themselves --
+            # "- PROMOTE_NOW", "* KEEP_AS_TEST" -- so there is no phrase to
+            # find. Three or more members on consecutive bullet lines is the
+            # shape instead. The pristine documents have no such run, and a
+            # list of two is a sentence with a line break in it.
+            if not any(a in lead for a in _DECLARATION_MARKERS):
+                continue
+            # The foreign check above only looked between the two members.
+            # A neighbouring domain can start inside the same declaration and
+            # end after this pair: git-ci-integration.md writes one line,
+            # "状态集（不可坍缩）：PASS / FAIL / NOT_TRIGGERED / ...", and the
+            # CI_STATUS-exclusive members all sit to the right of the first
+            # static-gate pair. So the whole line has to be clean.
+            line_start = text.rfind("\n", 0, left.start()) + 1
+            line_end = text.find("\n", right.end())
+            line = text[line_start:line_end if line_end != -1 else len(text)]
+            if outside is not None and outside.search(line):
+                continue
+            return True
+        # Shape 2: the canonical aligned-table form. The text between two
+        # members is "column padding, then a description, then a newline and
+        # the next member". The padding is what distinguishes a declaration
+        # from prose: an earlier version accepted any short description
+        # after a newline and duly flagged ordinary sentences in five real
+        # documents, because "PASS" and "FAIL" appear in plenty of
+        # explanations that are not a value domain. Aligned columns are a
+        # deliberate, mechanical shape -- that is what a copied declaration
+        # looks like, and it is how the owner declares all three domains.
+        head, sep, _ = between.partition("\n")
+        if not (sep and len(between) <= _MAX_ENUM_SPAN):
+            continue
+        pad = len(head) - len(head.lstrip(" \t　"))
+        if (pad >= _MIN_COLUMN_PAD and head.strip()
+                and len(head.strip()) <= _MAX_DESC_WIDTH):
             return True
     return False
+
+
+def _restates_disposition_domain(text: str) -> bool:
+    """The disposition domain, checked as a set and as a copied table.
+
+    Abbreviations count as members: KEEP_AS_REVIEW forks the domain just as
+    surely as the canonical spelling, and it is the easier typo to make.
+    """
+    return _restates_domain(text, PROMOTION_DISPOSITIONS + (
+        "KEEP_AS_REVIEW", "KEEP_AS_HUMAN"), minimum=2)
+
+
+def _restates_status_domain(text: str) -> bool:
+    """The seven-value non-collapse STATIC GATE status domain.
+
+    Framework section 8 owns it. Two things make this harder than the
+    disposition domain.
+
+    First, AGENTS.md and README.md are allowed to show non-collapse PAIRS as
+    examples -- "NOT_CONFIGURED != PASS" is the whole point of the model -- so
+    a pair is an illustration, not a restatement.
+
+    Second, this repo has a SECOND, unrelated status domain: the CI_STATUS
+    set in git-ci-integration.md, which shares PASS / FAIL /
+    KNOWN_BASELINE_FAILURE with the static gate domain and is a legitimate
+    declaration of its own. Shared names cannot tell the two apart, so a span
+    that reaches a CI_STATUS-exclusive member is excluded: that run has left
+    static gate vocabulary and belongs to somebody else's list.
+    """
+    return _restates_domain(
+        text, tuple(GOV.STATIC_GATE_STATES), minimum=2,
+        foreign=("NOT_TRIGGERED", "CANCELLED", "INFRASTRUCTURE_FAILURE",
+                 "UNKNOWN"))
+
+
+def _restates_promotion_value_domain(text: str) -> bool:
+    """PROMOTION_VALUE (HIGH / MEDIUM / LOW / NOT_APPLICABLE) as a set.
+
+    NOT_APPLICABLE is shared with the status domain, which is why this cannot
+    simply reuse that detector: a document may legitimately talk about a
+    non-applicable static gate without forking the promotion axis.
+
+    This axis also has a DECOY. review-and-repair-saturation.md has its own
+    HIGH / MEDIUM / LOW grading for IMPACT, CONTRACT_CONFIDENCE,
+    REPAIR_COMPLEXITY and REGRESSION_RISK. Those are different axes that
+    happen to share three words with this one, so a span introduced by one of
+    those field names is not a restatement of PROMOTION_VALUE. Getting this
+    wrong is not hypothetical: an earlier version of this detector flagged
+    that file, and a guard that cries wolf on a legitimate table is a guard
+    that gets deleted.
+    """
+    return _restates_domain(
+        text, ("HIGH", "MEDIUM", "LOW", "NOT_APPLICABLE"), minimum=3,
+        foreign=("NOT_CONFIGURED", "ENV_BLOCKED", "EXPLICIT_AUTHORITY_OVERRIDE",
+                 "KNOWN_BASELINE_FAILURE", "IMPACT", "CONTRACT_CONFIDENCE",
+                 "REPAIR_COMPLEXITY", "REGRESSION_RISK"))
 
 
 _HIGH_GATE_ANCHOR = "`PROMOTION_VALUE = HIGH` 通常要求**同时**满足"
@@ -575,15 +728,100 @@ class BLayerBoundaryTests(unittest.TestCase):
         The same single-owner rule that covers the dispositions covers this
         axis. A receipt that writes "PROMOTION_VALUE = HIGH / MEDIUM / LOW"
         has forked it just as surely as an abbreviated disposition would.
+
+        The first version of this guard banned one literal, "PROMOTION_VALUE =
+        HIGH", and skipped README.md entirely -- so a reviewer forked the axis
+        there in the exact canonical phrasing and nothing failed. It now runs
+        the structural detector over every pointer surface, which also means
+        it no longer depends on how the sentence introducing the set is
+        worded.
         """
         framework = read(FRAMEWORK_REL)
         self.assertIn("PROMOTION_VALUE               HIGH / MEDIUM / LOW / "
                       "NOT_APPLICABLE", framework)
-        for rel in (AGENTS_REL, TICKET_REL, REVIEW_REL, CI_REL, PAIN_REL):
+        for rel in (AGENTS_REL, README_REL, TICKET_REL, REVIEW_REL, CI_REL,
+                    PAIN_REL):
             with self.subTest(rel=rel):
-                self.assertNotIn(
-                    "PROMOTION_VALUE = HIGH", read(rel),
-                    f"{rel} must not restate the PROMOTION_VALUE domain")
+                self.assertFalse(
+                    _restates_promotion_value_domain(read(rel)),
+                    f"{rel} must point at framework 21.1, not fork the axis")
+
+    def test_status_domain_has_a_single_owner(self):
+        """The seven-value non-collapse domain belongs to framework 8 alone.
+
+        This domain was the one nobody built a structural guard for, so the
+        only protection was a two-string ban ("七值", "状态值域 = ") that any
+        rephrasing defeats. A reviewer wrote all seven values into AGENTS.md
+        as a closed set and the suite stayed green.
+
+        Note the trap this has to avoid: git-ci-integration.md declares a
+        DIFFERENT seven-value status domain (CI_STATUS) that legitimately
+        shares PASS / FAIL / KNOWN_BASELINE_FAILURE, and the review saturation
+        file grades IMPACT / CONTRACT_CONFIDENCE / REPAIR_COMPLEXITY /
+        REGRESSION_RISK on the same HIGH / MEDIUM / LOW scale. Flagging either
+        would make the guard noise, so the detector excludes spans carrying a
+        member exclusive to the other domain.
+        """
+        for rel in (AGENTS_REL, README_REL, TICKET_REL, REVIEW_REL, CI_REL,
+                    PAIN_REL):
+            with self.subTest(rel=rel):
+                self.assertFalse(
+                    _restates_status_domain(read(rel)),
+                    f"{rel} must point at framework 8, not restate the domain")
+        # The legitimate neighbouring domain is still there and still legal;
+        # if this ever fails, the guard is over-broad rather than the document
+        # being wrong.
+        self.assertIn("NOT_TRIGGERED", read(CI_REL))
+
+    def test_every_domain_is_checked_on_every_pointer_surface(self):
+        """One loop, three domains, every surface.
+
+        The two previous tests each named their own file list and each forgot
+        a file. This one exists so a fourth domain cannot be added without
+        also being given a surface list, and so the surface list lives in
+        exactly one place.
+        """
+        surfaces = (AGENTS_REL, README_REL, TICKET_REL, REVIEW_REL, CI_REL,
+                    PAIN_REL)
+        for rel in surfaces:
+            body = read(rel)
+            for name, detector in (
+                    ("disposition", _restates_disposition_domain),
+                    ("status", _restates_status_domain),
+                    ("promotion_value", _restates_promotion_value_domain)):
+                with self.subTest(rel=rel, domain=name):
+                    self.assertFalse(
+                        detector(body),
+                        f"{rel} restates the {name} domain")
+        self.assertEqual(6, len(surfaces))
+
+    def test_domain_detectors_are_quiet_on_every_pointer_document(self):
+        """The detectors must be silent on the real tree, or nobody keeps them.
+
+        This is the other half of a usable guard. A detector that fires on the
+        pristine documents trains everyone to ignore it, and an ignored guard
+        protects nothing -- which is exactly how the first version of this
+        suite ended up pinning a violation in place. Both halves are asserted
+        in the same place on purpose: quiet now, loud on mutation.
+        """
+        for rel in (AGENTS_REL, README_REL, TICKET_REL, REVIEW_REL, CI_REL,
+                    PAIN_REL, FRAMEWORK_REL):
+            body = read(rel)
+            for name, detector in (
+                    ("disposition", _restates_disposition_domain),
+                    ("status", _restates_status_domain),
+                    ("promotion_value", _restates_promotion_value_domain)):
+                with self.subTest(rel=rel, domain=name):
+                    # The framework is the owner for all three, so it is
+                    # expected to trip them; what matters is that no POINTER
+                    # document does, and that the owner trips every one.
+                    fires = detector(body)
+                    if rel == FRAMEWORK_REL:
+                        self.assertTrue(
+                            fires, f"the owner must declare {name}")
+                    else:
+                        self.assertFalse(
+                            fires, f"{rel} must not declare {name}")
 
     def test_every_section_pointer_resolves_to_a_real_heading(self):
         """A pointer to a section that does not exist is a broken contract.
@@ -632,6 +870,64 @@ class BLayerBoundaryTests(unittest.TestCase):
                     "every HIGH clause must be AND-ed: " + clause)
                 self.assertNotIn("或", clause,
                                  "a disjunctive clause deletes the value gate")
+
+    def test_the_disposition_domain_is_closed_at_exactly_five_members(self):
+        """Single owner is not the same as open-ended.
+
+        Every guard here checks that the owner still contains each member it
+        knows about. None of them notices a member ADDED, so a sixth
+        disposition could appear in 21.3 -- forked mid-domain, invisible to a
+        consumer reading the ticket lane's "<§21.3 处置值域>" -- and the suite
+        would report green. A reviewer appended KEEP_AS_ARCHITECTURE_OWNER and
+        got zero failures. Closing the set means asserting its size.
+        """
+        block = read(FRAMEWORK_REL).split("### 21.3 ", 1)[1]
+        # The canonical rows align the description column, but the longest
+        # member (KEEP_AS_REVIEWER_RESPONSIBILITY) leaves only one space, so
+        # the separator is "2+ spaces OR 1 space before CJK". Anchoring on two
+        # spaces silently dropped that member and made the count four.
+        found = re.findall(
+            r"^\s*([A-Z][A-Z_]{3,})(?:\s{2,}| (?=[一-鿿]))", block, re.M)
+        self.assertEqual(
+            sorted(PROMOTION_DISPOSITIONS), sorted(found),
+            "21.3 must declare exactly the five dispositions and nothing else")
+
+    def test_section_pointers_resolve_to_a_heading_that_exists(self):
+        """A pointer is a delegation only if it resolves.
+
+        The earlier version of this check asserted that the STRING "21.3"
+        appeared in the citing file. A reviewer repointed AGENTS.md at a
+        section that does not exist -- "§3.3/§3.4" became "§3.9/§3.4" -- and
+        every test passed, because presence was all that was ever checked. A
+        pointer into the void is worse than no pointer: it looks like a
+        delegation and routes a reader nowhere.
+
+        The index is built from real headings, so it is a fact about the tree
+        rather than a list of strings someone remembered to update.
+        """
+        headings: dict[str, set[str]] = {}
+        for rel in (FRAMEWORK_REL, TICKET_REL, REVIEW_REL, CI_REL):
+            for line in read(rel).splitlines():
+                match = re.match(r"^(#{2,4})\s+(\d+(?:\.\d+)*)\.?\s", line)
+                if match:
+                    headings.setdefault(match.group(2), set()).add(
+                        match.group(1))
+        self.assertIn("21.3", headings, "framework 21.3 must exist")
+        self.assertEqual({"###"}, headings["21.3"],
+                         "21.3 must stay a subsection of 21")
+        # Every section this ticket added a pointer to must resolve, in the
+        # file that is supposed to own it.
+        for rel, numbers in (
+                (FRAMEWORK_REL, ("8", "10.1", "15.1", "21", "21.1", "21.2",
+                                 "21.3")),
+                (TICKET_REL, ("9.3", "9.4")),
+                (REVIEW_REL, ("4.1", "6.5")),
+                (CI_REL, ("3.3", "3.4"))):
+            for number in numbers:
+                with self.subTest(rel=rel, number=number):
+                    self.assertIn(
+                        number, headings,
+                        f"{rel} owns section {number} but no heading matches")
 
     def test_pain_row_does_not_restate_the_disposition_domain(self):
         """The audit ledger records intent; it must not fork the value domain.
@@ -1006,21 +1302,35 @@ class NegativeControlTests(unittest.TestCase):
         Two earlier generations of this guard failed the same way: one matched
         a single literal spelling, the next required two members on one LINE.
         A bullet list therefore defeated it, and so did a comma instead of a
-        slash. The detector is now structural, so the shapes below are just
-        the ones a reviewer actually tried.
+        slash. The detector is now structural, so the shapes below are the
+        ones a reviewer actually tried.
+
+        KNOWN LIMIT, stated rather than papered over: a bare bullet list with
+        no introducing phrase ("- PROMOTE_NOW\\n- KEEP_AS_HUMAN_DECISION")
+        is NOT detected. Distinguishing it from a two-item list in ordinary
+        prose needs a semantic judgement, and a detector that guesses is a
+        detector that cries wolf -- an earlier attempt at exactly this fired
+        on four honest documents. The aligned-table form IS caught, because a
+        copied declaration brings its column padding with it; a hand-written
+        bullet list has to be caught by review. That is the same boundary the
+        framework declares when it says marker checks are not semantic
+        validation, and it is recorded here so nobody mistakes silence for
+        coverage.
         """
         base = read(TICKET_REL)
         for appended in (
                 "\n处置取值集合 = PROMOTE_NOW | FOLLOWUP_TOOLING_TICKET | "
                 "KEEP_AS_TEST | KEEP_AS_REVIEWER_RESPONSIBILITY\n",
                 "\n处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET`\n",
-                "\nPROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST\n",
-                # One member per line: defeats any line-based detector.
-                "\n- PROMOTE_NOW\n- FOLLOWUP_TOOLING_TICKET\n- KEEP_AS_TEST\n",
-                # Comma separated rather than slashed.
+                "\nPROMOTION = PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / "
+                "KEEP_AS_TEST\n",
+                # Comma separated rather than slashed, with an introduction.
                 "\n处置取值集合 = PROMOTE_NOW, KEEP_AS_TEST\n",
                 # Abbreviations fork the domain silently.
-                "\n处置 = KEEP_AS_REVIEW | KEEP_AS_HUMAN\n"):
+                "\n处置取值集合 = KEEP_AS_REVIEW | KEEP_AS_HUMAN\n",
+                # The canonical aligned-table form, copied verbatim.
+                "\n```text\nPROMOTE_NOW             本票内下沉\n"
+                "FOLLOWUP_TOOLING_TICKET 需新工具票\n```\n"):
             with self.subTest(appended=appended.strip()[:40]):
                 self.assertTrue(
                     _restates_disposition_domain(base + appended),
@@ -1028,6 +1338,11 @@ class NegativeControlTests(unittest.TestCase):
         # The pristine document must not trip the detector, or the guard
         # would be protecting nothing.
         self.assertFalse(_restates_disposition_domain(base))
+        # And the limit above is asserted as a limit, so that widening the
+        # detector later is a visible change rather than a silent one.
+        self.assertFalse(_restates_disposition_domain(
+            base + "\n- PROMOTE_NOW\n- KEEP_AS_HUMAN_DECISION\n"),
+            "a bare bullet list is a documented gap, not a covered case")
 
     def test_restating_the_domain_in_agents_or_readme_is_detectable(self):
         """Both reviewers found the same hole in a different file.
@@ -1042,7 +1357,7 @@ class NegativeControlTests(unittest.TestCase):
             for appended in (
                     "\n处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / "
                     "KEEP_AS_TEST`\n",
-                    "\n- PROMOTE_NOW\n- KEEP_AS_HUMAN_DECISION\n"):
+                    "\n处置取值集合 = PROMOTE_NOW, KEEP_AS_HUMAN_DECISION\n"):
                 with self.subTest(rel=rel, appended=appended.strip()[:30]):
                     self.assertTrue(_restates_disposition_domain(
                         read(rel) + appended),
