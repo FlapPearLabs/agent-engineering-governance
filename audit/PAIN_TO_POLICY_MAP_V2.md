@@ -163,6 +163,50 @@
 - SHOULD_BE_GLOBAL：证明真实性原则 YES；执行 recipe DEFAULT_ONLY（受 R1 与项目显式权威约束，冲突先 STOP）。
 - MACHINE_ENFORCED：仅 recipe 接线与已知结构事实；SEMANTIC_JUDGMENT = INDEPENDENT_REVIEW。反例与验证边界见 `audit/SPEC_TICKET_GATE_IMPLEMENTATION.md`。
 
+## P20 机器可证的编码缺陷逃到动态测试 / 模型评审 / CI（2026-09-28 增补）
+
+- FAILURE_CLASS（`REGISTERED != EXECUTED` 家族）：(a) 有代码面但**无语言相称静态工具**；(b) **已配置**的静态工具没有被真正执行；(c) 机器可证的缺陷（syntax / undefined name / unused import）被留到动态测试、模型评审甚至 CI 之后才发现。
+- REAL INCIDENT / REPEATED FAILURE：
+  - **GOV（一手、可复现）**：本治理仓在本次采纳前含 **35 个 Python 文件 / 22,994 行**，而 `pyproject.toml` / `ruff.toml` / `.ruff.toml` / `mypy.ini` / `.flake8` / `tox.ini` / `pytest.ini` / `setup.cfg` / `requirements*.txt` / `.pre-commit-config.yaml` / `Makefile` **全部不存在**——代码面存在、语言相称静态工具完全缺失。这是本痛点在本仓的直接实例，不依赖任何外部传闻。
+  - **OWNER-BRIEFED（owner 在本次任务书中提供；本仓未独立核验）**：zhihu-grabber-toolkit 曾有 JavaScript 语法缺陷抵达 master，原因是相关研究子系统没有语法门。按 RULES R3，此行标记为 **owner 报告而非已核实事实**，不得据此升级出更强的历史结论。
+- SOURCE_EVIDENCE：本仓 `git ls-files` 语言普查 + 工具配置存在性检查（下方 P20 BASELINE 即其记录）；AGENTS.md 既有的 `MECHANICAL PROOF BEFORE MODEL REASONING` / `USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`；`references/static-analysis-and-code-intelligence.md` 旧版仅止于"发现原生工具"，**未**定义执行义务、状态语义与证据形态。
+- ROOT_CAUSE：static-first 当时只是**方向**而非**可执行机制**——缺 (i) 发现协议、(ii) 已配置工具必须执行的默认、(iii) 非坍缩的状态语义、(iv) 新仓与遗留仓的采纳分流。
+- WHAT_WENT_WRONG：(a) 无门 → 缺陷类只在更贵的地方被发现；(b) 有配置无执行 → `CONFIG_FILE_EXISTS` 被当成 `GATE_EXECUTED`；(c) 工具缺失被静默读作"没问题"（`NOT_CONFIGURED` 冒充 `PASS`）。
+- POLICY_INTENDED：跨语言静态门框架 = 发现（`STATIC_TOOLING_DISCOVERY`）→ profile / 状态模型 → `CONFIGURED_STATIC_TOOLING_MUST_RUN` → GREENFIELD 与 LEGACY 分流 → 票级 `STATIC_GATE_RECEIPT`；本仓按其采纳最小 correctness 基线并在 CI **真实执行**。
+- CURRENT_BEST_ABSTRACTION：static-first 的**机制化**。语言特定工具**不**升格为 B 层不变量——策略停在 D 层默认 + C 层仓政策（与 P17/P18 的分层结论一致）。
+- R8 四问：(1) 防哪次真实失效 → 上述 (a)(b)(c)，其中 (a) 已在本仓实证；(2) 机器能否更便宜地做 → 能，且本框架**本身**就是机器门（compile / lint）；(3) 每个风险级都需要吗 → 否，静态门按"变更面是否含代码 + 仓是否已配置该工具"触发，LOW 无强制；(4) 能否降级为 reference/默认 → **是**，整套框架为 D 层默认，推荐矩阵 recommendation-only，仓可显式 OVERRIDE。
+- SHOULD_BE_GLOBAL = **DEFAULT_ONLY**（configured-tooling-must-run 与状态非坍缩作为 D 层默认；**不**新增 B 层条目，`RULES.md` 未改动）。
+- CAN_BE_MACHINE_ENFORCED：**部分**。文档接线与"CI 是否真的执行静态门"可机械校验（`scripts/validate_governance.py` 的 `ci-executes-static-gate` / `static-gate-documentation-wiring-only`）；"某门是否适用于本次变更 / 是否真的跑过"仍需评审判断。
+- NEEDS_AGENT_JUDGMENT = YES（判定变更面适用性）。NEEDS_HUMAN_JUDGMENT = NO（常规流程）。
+- 与既有痛点的关系：P01 / P02（发明架构）、P19（证明真实性）邻域；本项**不**新建权威文件，canonical owner 复用既有 `references/static-analysis-and-code-intelligence.md`（避免双 owner，CE-28 语义）。
+- MACHINE_ENFORCED = PARTIAL。
+
+### P20 BASELINE（采纳前对干净 main 实测）
+
+```text
+BASELINE_TOOL      = ruff
+BASELINE_COMMAND   = ruff check --no-cache --select <SET> .   （仓根执行）
+
+BASELINE_FINDINGS_BY_CANDIDATE_SET
+  E9,F          ->   5     F841 x5
+  E4,E7,E9,F    ->  19     + E702 x13, + E402 x1
+  E             -> 555     E501 x541, E702 x13, E402 x1
+  UP            -> 143
+  RUF           -> 189
+  B             ->   6
+  I             ->   3
+  PLE           ->   0
+  E9 (alone)    ->   0
+
+FINDING_CLASSES    = correctness: 未使用变量（F841）
+                     style/modernisation: 一行多语句（E702）、行过长（E501）、
+                     导入位置（E402）、pyupgrade / ruff-native / isort
+ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F841
+                     （全部经逐点判定为行为中性），**不**触碰样式面。
+                     未采纳集合保持为独立工具票的候选（§20 禁止把首次采纳
+                     做成样式迁移）。
+```
+
 ## 汇总判定表
 
 | PAIN | SHOULD_BE_GLOBAL | 机器可 enforce | agent 判断 | 人判断 |
@@ -185,3 +229,4 @@
 | P16 冗长报告 | DEFAULT_ONLY | 部分 | YES | NO |
 | P17 仓政策全局化 | NO(字面)/YES(原则) | YES(校验器可查) | NO | NO |
 | P18 全局压倒仓 | **YES**(分层机制) | 部分 | NO | 冲突 YES |
+| P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |

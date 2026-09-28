@@ -114,7 +114,7 @@ class ContinuityBase(unittest.TestCase):
 
     def commit_all(self, repo, msg="c1"):
         git(["add", "-A"], str(repo))
-        r = git(["commit", "-m", msg], str(repo))
+        git(["commit", "-m", msg], str(repo))
         return git(["rev-parse", "HEAD"], str(repo)).stdout.strip()
 
     def write_state(self, repo, remote=None, head="", **overrides):
@@ -778,7 +778,7 @@ class CodeGraphLifecycleTests(ContinuityBase):
     # ancestry) stales an existing receipt
     def test_cg13_malformed_receipt_and_real_rebase(self):
         repo = self.mk_repo()
-        head = self.commit_all(repo)
+        self.commit_all(repo)
         # malformed receipt written straight into runtime state (hand-edit / drift)
         self.full_ground(repo, ticket="T-1", risk="MEDIUM", mode="graph")
         # truncate the receipt to make it malformed (missing required keys).

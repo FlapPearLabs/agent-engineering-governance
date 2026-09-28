@@ -155,7 +155,10 @@ def main() -> int:
     remote = data.get("remote")
     deferred = isinstance(remote, str) and remote == ""
     if deferred:
-        reason = str(data.get("recovery_snapshot", {}).get("last_state_flush_reason", ""))
+        # Intentionally discarded: the lookup is evaluated for its failure
+        # semantics (a malformed, non-dict recovery_snapshot raises here, before
+        # check 6 reports it), and the reason string itself is not asserted.
+        _reason = str(data.get("recovery_snapshot", {}).get("last_state_flush_reason", ""))
         check("remote-format", True, "empty remote accepted only as DEFERRED marker")
     else:
         check("remote-format", isinstance(remote, str) and bool(REMOTE_RE.match(remote or "")),

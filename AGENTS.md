@@ -47,6 +47,8 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 - `DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`：机器能证明的不进模型评审（L0 先清场）。
 - `DO_NOT_REPLACE_SEMANTIC_REASONING_WITH_STATIC_TOOL_OUTPUT`：静态输出不裁决语义/合同/所有权。
 - 语言栈选择：`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`（详情 `references/static-analysis-and-code-intelligence.md`）。
+- **STATIC GATE FRAMEWORK（D 层默认）**：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest/构建/工具配置/CI/脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`；**不得**因"测试是绿的"而静默跳过）→ 门状态**不得坍缩**（`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`CONFIG_FILE_EXISTS != GATE_EXECUTED`、`LINTER_CONFIGURED != LINTER_PASSED`、`FORMAT_PASS != LINT_PASS`）→ 结论进票级 `STATIC_GATE_RECEIPT`。政策唯一详情 = `references/static-analysis-and-code-intelligence.md`；语言**推荐**矩阵（推荐，非安装强制）= `references/static-tooling-profiles.md`；票级收据字段 = `references/ticket-lane.md` §9。
+- 本框架**不**把任何语言特定工具升格为普适硬不变量（`RULES.md` 无语言/工具策略）；静态门**不**取代 TDD/动态测试/独立评审。
 
 ## 1. 角色模型
 
@@ -71,7 +73,9 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 ## 3. TICKET LANE（风险分级生命周期）
 
 生命周期（MEDIUM 基线）：
-`AUTHORIZED TICKET → exact base SHA → isolated branch/worktree → 读权威 → 自然缝识别 → CodeGraph grounding → Relevant Surface Manifest → Contract Extraction → counterexample 设计 → TDD RED → /implement → GREEN → 回归 → fresh independent review（L1）→（有价值才）repair → PR → real CI（或仓政策等价证据形态）→（触发时）post-CI/adversarial → merge gate → 串行集成 → remote verify → tracker`
+`AUTHORIZED TICKET → exact base SHA → isolated branch/worktree → 读权威 → 自然缝识别 → CodeGraph grounding → Relevant Surface Manifest → Contract Extraction → counterexample 设计 → TDD RED → /implement → applicable static / mechanical gates（STATIC_GATE_RECEIPT）→ GREEN → 回归 → fresh independent review（L1）→（有价值才）repair → PR → real CI（或仓政策等价证据形态）→（触发时）post-CI/adversarial → merge gate → 串行集成 → remote verify → tracker`
+
+静态/机械门的位置固定在 `IMPLEMENT` 之后、`DYNAMIC GREEN` 之前：机器可证的缺陷类先清场（阶段顺序与 GREENFIELD/LEGACY 差异见 `references/static-analysis-and-code-intelligence.md` §12/§15；收据字段见 `references/ticket-lane.md` §9）。
 
 | 风险 | 典型 | 独立评审 gate（R4 语义） | grounding/合同 | 额外 |
 |---|---|---|---|---|

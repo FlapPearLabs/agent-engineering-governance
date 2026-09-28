@@ -1425,7 +1425,7 @@ class ReviewEvidenceContractTests(unittest.TestCase):
                     "validate", "--pack", str(path),
                     "--expect-repo", REPO_OK, "--expect-base-sha", BASE_SHA,
                     "--expect-candidate-sha", CANDIDATE_SHA])
-                payload = self.parse_stdout(completed)
+                self.parse_stdout(completed)
                 self.assertEqual(0, completed.returncode,
                                  f"stdout={completed.stdout[:600]}")
 

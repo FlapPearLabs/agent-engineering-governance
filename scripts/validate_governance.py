@@ -54,6 +54,7 @@ REQUIRED_FILES = [
     "references/codegraph-grounding.md",
     "references/skills-and-model-routing.md",
     "references/static-analysis-and-code-intelligence.md",
+    "references/static-tooling-profiles.md",
     "references/engineering-memory.md",
     "references/project-state-persistence.md",
     "references/project-continuity-contract.md",
@@ -77,6 +78,11 @@ REQUIRED_FILES = [
     "skills/README.md", "mcp/README.md", "mcp/example/mcp.example.json",
     "scripts/validate_governance.py",
     ".github/workflows/governance-ci.yml",
+    # Static-gate configuration (P1-T17). These are the repository-controlled,
+    # pinned provisioning surfaces, so their absence is a real regression: the
+    # gate would degrade to "whatever binary happens to be installed".
+    "ruff.toml",
+    "requirements-dev.txt",
 ]
 
 CANONICAL_MCP = ["codegraph", "context7", "gh_grep"]
@@ -160,6 +166,130 @@ def ticket_gate_wiring(root: Path) -> list[str]:
         body = path.read_text(encoding="utf-8")
         missing.extend(name + ": " + marker for marker in markers if marker not in body)
     return missing
+
+
+# --- STATIC GATE FRAMEWORK wiring (P1-T17) ----------------------------------
+# Documentation wiring only. Beyond marker presence it enforces the ONE thing
+# that is structural rather than semantic: the static-gate STATUS VALUE DOMAIN
+# has exactly one declaration site, and the ticket receipt delegates to it.
+#
+# Marker presence is explicitly NOT semantic validation -- a contradictory
+# sentence about static gates passes every check here. The boundary is stated
+# in test_p1_t17_static_gate_framework_semantics.py.
+STATIC_GATE_FRAMEWORK_REL = "references/static-analysis-and-code-intelligence.md"
+STATIC_GATE_RECEIPT_REL = "references/ticket-lane.md"
+STATIC_GATE_PROFILES_REL = "references/static-tooling-profiles.md"
+
+# The complete allowed value domain of a static gate result.
+STATIC_GATE_STATES = (
+    "PASS", "FAIL", "NOT_CONFIGURED", "NOT_APPLICABLE",
+    "KNOWN_BASELINE_FAILURE", "ENV_BLOCKED", "EXPLICIT_AUTHORITY_OVERRIDE",
+)
+
+# Token that only has meaning as part of the domain declaration. Its presence in
+# the receipt would mean the receipt re-declared the domain (dual owner).
+STATIC_GATE_DOMAIN_ONLY_TOKEN = "EXPLICIT_AUTHORITY_OVERRIDE"
+
+# Every gate category in the receipt must DELEGATE its value domain to the
+# framework's status model instead of restating it: six categories.
+STATIC_GATE_RECEIPT_DELEGATION = "§8 状态值域"
+STATIC_GATE_RECEIPT_DELEGATIONS_MIN = 6
+
+# Markers that distinguish an EXECUTED static gate from a merely REGISTERED one
+# in CI (provisioning + the actual invocations).
+STATIC_GATE_CI_MARKERS = ("requirements-dev.txt", "ruff check", "compileall")
+
+STATIC_GATE_WIRING = {
+    "AGENTS.md": (
+        "CONFIGURED_STATIC_TOOLING_MUST_RUN",
+        "STATIC_TOOLING_DISCOVERY",
+        "STATIC_GATE_RECEIPT",
+        "references/static-analysis-and-code-intelligence.md",
+        "references/static-tooling-profiles.md",
+        "references/ticket-lane.md",
+    ),
+    STATIC_GATE_FRAMEWORK_REL: (
+        "STATIC_TOOLING_DISCOVERY",
+        "STATIC_GATE_PROFILE",
+        "CONFIGURED TOOLING IS MANDATORY",
+        "CHEAP LANGUAGE-NATIVE CHECKS",
+        "GREENFIELD",
+        "ESTABLISHED / LEGACY",
+        "MONOREPO RULE",
+        "LSP_AVAILABLE_ON_ONE_AGENT_MACHINE",
+        "FORMAT_PASS != LINT_PASS",
+        "STATIC_ANALYSIS != BEHAVIORAL_CONTRACT_TEST",
+        "static-tooling-profiles.md",
+        "ticket-lane.md",
+    ),
+    STATIC_GATE_PROFILES_REL: (
+        "Canonical owner",
+        "MINIMUM_MECHANICAL_CHECK",
+        "RECOMMENDED_LINTER",
+        "RECOMMENDED_TYPE_OR_COMPILER_CHECK",
+        "OPTIONAL_DEEP_STATIC_ANALYZER",
+        "FORMAT_CHECK",
+    ),
+    STATIC_GATE_RECEIPT_REL: (
+        "STATIC_GATE_RECEIPT",
+        "CHANGED_LANGUAGE_SURFACES",
+        "SYNTAX_OR_COMPILER",
+        "GIT_DIFF_CHECK",
+        "STATIC_TOOLING_GAPS",
+        "BASELINE_COMPARISON",
+        "STATIC_GATES_COMPLETE",
+        STATIC_GATE_FRAMEWORK_REL,
+    ),
+}
+
+
+def static_gate_wiring(root: Path) -> list[str]:
+    """Static documentation wiring only; never evaluates whether a gate ran."""
+    problems: list[str] = []
+    for name, markers in STATIC_GATE_WIRING.items():
+        path = root / name
+        if not path.is_file():
+            problems.append(name + ": missing file")
+            continue
+        body = path.read_text(encoding="utf-8")
+        problems.extend(name + ": " + marker
+                        for marker in markers if marker not in body)
+
+    # The status value domain is declared in exactly ONE document.
+    framework = root / STATIC_GATE_FRAMEWORK_REL
+    if not framework.is_file():
+        problems.append(STATIC_GATE_FRAMEWORK_REL + ": missing file")
+    else:
+        body = framework.read_text(encoding="utf-8")
+        absent = [s for s in STATIC_GATE_STATES if s not in body]
+        if absent:
+            problems.append(
+                STATIC_GATE_FRAMEWORK_REL + ": status-domain-incomplete=" + repr(absent))
+
+    receipt = root / STATIC_GATE_RECEIPT_REL
+    if receipt.is_file():
+        text = receipt.read_text(encoding="utf-8")
+        n = text.count(STATIC_GATE_RECEIPT_DELEGATION)
+        if n < STATIC_GATE_RECEIPT_DELEGATIONS_MIN:
+            problems.append(
+                f"{STATIC_GATE_RECEIPT_REL}: value-domain-delegations={n} "
+                f"(need >= {STATIC_GATE_RECEIPT_DELEGATIONS_MIN})")
+        if STATIC_GATE_DOMAIN_ONLY_TOKEN in text:
+            problems.append(
+                f"{STATIC_GATE_RECEIPT_REL}: re-declares the status value domain "
+                f"({STATIC_GATE_DOMAIN_ONLY_TOKEN}); dual owner with "
+                f"{STATIC_GATE_FRAMEWORK_REL}")
+    return problems
+
+
+def static_gate_ci_wiring(ci_text: str) -> list[str]:
+    """CI markers that make the static gate EXECUTED rather than REGISTERED.
+
+    A pinned requirements file plus a config file only *register* a gate. The
+    gate opens because a workflow step actually invokes it, which is why the
+    invocation markers are part of this predicate and not documentation prose.
+    """
+    return [m for m in STATIC_GATE_CI_MARKERS if m not in ci_text]
 
 
 # MEMORY pointer budget. The VALUE and UNIT are owned by
@@ -634,6 +764,19 @@ def main(argv=None) -> int:
     gate_missing = ticket_gate_wiring(ROOT)
     check("ticket-gate-documentation-wiring-only", not gate_missing,
           f"missing={gate_missing}")
+
+    # 27a. CI actually EXECUTES the adopted static gate. REGISTERED != EXECUTED:
+    #      a config file plus a pinned dependency is not a gate, and a gate that
+    #      exists but is never invoked here would be silently NOT_RUN.
+    static_ci_missing = static_gate_ci_wiring(ci_text)
+    check("ci-executes-static-gate", not static_ci_missing,
+          f"missing={static_ci_missing}")
+
+    # 27b. Static-gate framework documentation wiring, including the structural
+    #      single-declaration rule for the status value domain.
+    static_missing = static_gate_wiring(ROOT)
+    check("static-gate-documentation-wiring-only", not static_missing,
+          f"missing={static_missing}")
 
 
     # 28. Orchestrator closure doctrine (M1-M9) in engineering-memory

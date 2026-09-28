@@ -483,7 +483,6 @@ class SharedFileSingleWriterTests(unittest.TestCase):
             f"legal={legal}")
         self.assertEqual(len(illegal), 3, f"illegal={illegal}")
         self.assertIn("最终回读", legal[0])
-        joined = " | ".join(illegal)
         for label, markers in (
                 ("concurrent writers", CONCURRENT_ILLEGAL_MARKERS),
                 ("missing expected entry", MISSING_ENTRY_ILLEGAL_MARKERS),

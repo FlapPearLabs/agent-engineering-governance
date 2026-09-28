@@ -19,6 +19,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # ---------------------------------------------------------------------
+      # STATIC / MECHANICAL GATES
+      # Policy: references/static-analysis-and-code-intelligence.md
+      #   section 15 -- machine-provable failures are cleared BEFORE the
+      #     expensive dynamic suites (static-first execution order).
+      #   section 14 -- the toolchain is provisioned from the repository-pinned
+      #     requirements file; a binary that happens to exist on the runner is
+      #     NOT evidence that this gate is reproducible.
+      #   section 9  -- a configured tool must actually run. REGISTERED IS NOT
+      #     EXECUTED: the pinned dependency below only opens the gate because
+      #     the two steps after it invoke it.
+      # ---------------------------------------------------------------------
+      - name: Provision pinned static toolchain
+        run: python3 -m pip install -r requirements-dev.txt
+      - name: Static gate - Python syntax / compile validation
+        run: python3 -m compileall -q scripts adapters
+      - name: Static gate - Ruff correctness lint (ruleset pinned in ruff.toml)
+        run: python3 -m ruff check .
       - name: Run governance self-validation
         run: python3 scripts/validate_governance.py
       - name: Test governance documentation wiring checks

@@ -1,0 +1,11 @@
+# Static-gate toolchain for this repository, PINNED.
+#
+# Policy: references/static-analysis-and-code-intelligence.md section 14
+# (NO GLOBAL TOOL DEPENDENCY). The static gate must be reproducible from
+# repository-controlled configuration: a binary that happens to be installed
+# on one machine is NOT evidence that the repository gate is reproducible
+# (`GLOBAL_BINARY_PRESENT != REPOSITORY_GATE_REPRODUCIBLE`). CI installs this
+# file, and the pinned version is what makes a local run comparable to CI.
+#
+# Keep in sync with ruff.toml when the ruleset is deliberately revised.
+ruff==0.15.18

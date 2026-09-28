@@ -399,6 +399,8 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?  → 强 / 外部评
 
 两条铁律：`DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`（机器能证明的不进模型评审）；`DO_NOT_REPLACE_SEMANTIC_REASONING_WITH_STATIC_TOOL_OUTPUT`（静态输出不裁决语义）。
 
+**跨语言静态门框架**（把 static-first 变成可跨异构仓执行的操作规程）：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest / 构建 / 工具配置 / CI / 脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`）→ 门状态**七值非坍缩**（`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`FORMAT_PASS != LINT_PASS`）→ 结论进票级 `STATIC_GATE_RECEIPT`。GREENFIELD 与 ESTABLISHED/LEGACY 分流；矩阵是**推荐不是安装强制**；静态门是**成本闸门**，不取代 TDD / 动态测试 / 独立评审。唯一详情 = [references/static-analysis-and-code-intelligence.md](references/static-analysis-and-code-intelligence.md)；语言矩阵 = [references/static-tooling-profiles.md](references/static-tooling-profiles.md)；票级收据 = [references/ticket-lane.md](references/ticket-lane.md) §9。
+
 ### 6.3 工程风格（durable 汇总锚点）
 
 Minimum correct architecture；explicit ownership；simple boundaries；deterministic behavior；**fail closed where required；no silent fallback**（fallback 必须在合同中声明 ALLOWED/FORBIDDEN）；no unnecessary abstraction / speculative future-proofing / overengineering；testable seams；replaceable components。详见 [references/engineering-memory.md](references/engineering-memory.md)。
@@ -424,6 +426,7 @@ Minimum correct architecture；explicit ownership；simple boundaries；determin
 新 Agent 开工前对目标环境逐行盘点（Git / GitHub access / CodeGraph / LSP / AST / formatter / linter / type checker / test runner / canonical Skills / canonical MCP / CI access），每项回报 STATUS + VERIFY + FALLBACK + BLOCKING 与否。完整矩阵见 [deployment/PORTABLE_SETUP.md](deployment/PORTABLE_SETUP.md)。要点：
 
 - 语言工具链**由目标仓决定**（`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`），绝不注入无关工具链。
+- 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`）；**不得**因为测试是绿的而静默跳过，且不得依赖"某台机器恰好装了某工具"（工具须由仓库受控版本或确定性 CI provisioning 提供）。本仓自身采纳的最小 Python 静态门 = `ruff.toml`（钉住 correctness 规则集）+ `requirements-dev.txt`（钉住版本），在 CI 中**先于**昂贵测试执行。
 - 测试 gate 不可豁免；CodeGraph 非普适硬 gate（缺了如实标注并降级，见 §5.6）。
 
 ### 7.2 Skills（主线 13 项）
@@ -549,6 +552,7 @@ agent-engineering-governance/
 ├── skills/README.md           ← 主线 13 skill 获取指南（SOURCE/FALLBACK，不 vendor 源码）
 ├── mcp/                       ← REQUIRED MCP 三项 + example/mcp.example.json 占位符模板
 ├── scripts/validate_governance.py  ← 治理机械自检（CI 接入 governance-ci.yml）
+├── ruff.toml + requirements-dev.txt ← 本仓自身采纳的 Python 静态门（规则集与版本均钉住）
 ├── .github/workflows/         ← CI
 └── audit/                     ← 历史证据（AS-IS / 演化 / GAP / 痛点映射 / 权威分层 / 迁移 /
                                  场景对抗 / 质量复核 / 可移植性加固证据）—— 非 runtime 权威

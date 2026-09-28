@@ -223,3 +223,46 @@ ILLEGAL  以编辑工具调用成功充当内容核验              -> REJECT（
 
 - CE-17 共享文件多项预期更新中任一在最终回读时缺失 → 必须检出（modification incomplete）。
 - CE-28 同一 recipe 在两个 canonical 文件重复定义（双 owner）→ 必须拒绝并收敛为单一 owner；其它 surface（含 execution-stage.md）只指针/链接，不重复定义。
+
+## 9. STATIC_GATE_RECEIPT（票级静态门收据）
+
+> 本节是 **STATIC_GATE_RECEIPT 的 canonical 声明面**（canonical owner = AGENTS.md §3；框架政策唯一详情 = `references/static-analysis-and-code-intelligence.md` §5–§19）。
+> **状态值域不在本节重述**——取值集合与硬语义的**唯一声明点** = `references/static-analysis-and-code-intelligence.md` §8（STATIC GATE STATUS MODEL）。本节只声明收据**字段**，并**引用**该值域。重述值域 = 双 owner（同 §8.3 CE-28 处置）。
+
+承载正确性或存在代码面的票（MEDIUM/HIGH；LOW 无强制）在 `SELF REVIEW` 之前产出：
+
+```text
+STATIC_GATE_RECEIPT
+
+CHANGED_LANGUAGE_SURFACES =            # 本次 diff 实际触及的语言/代码面（来自 diff，不是来自猜测）
+
+SYNTAX_OR_COMPILER =        <§8 状态值域>
+FORMAT =                    <§8 状态值域>
+LINT =                      <§8 状态值域>
+TYPECHECK =                 <§8 状态值域>
+DEEP_STATIC_ANALYSIS =      <§8 状态值域>
+SCHEMA_CONFIG =             <§8 状态值域>
+
+GIT_DIFF_CHECK =                       # 仓库全局机械门（diff 级：冲突标记/空白/路径/secret 扫描类）
+STATIC_TOOLING_GAPS =                  # 期望能力缺失清单（无则 NONE）
+BASELINE_COMPARISON =                  # 仅当某门为 KNOWN_BASELINE_FAILURE 或新采纳工具时需要
+STATIC_GATES_COMPLETE = YES | NO
+```
+
+### 9.1 判定规则
+
+- **不要求每个类别都是 PASS。** 例如未采纳静态类型的项目 `TYPECHECK = NOT_APPLICABLE` 合法；无 schema 的仓库 `SCHEMA_CONFIG = NOT_APPLICABLE` 合法。
+- `STATIC_GATES_COMPLETE = YES` **不得**在以下任一情形成立：
+  - 仓库**已配置**的适用工具被静默跳过（`CONFIG_FILE_EXISTS != GATE_EXECUTED`；AGENTS §ENGINEERING EVIDENCE ROUTING 的 configured-tooling 默认）；
+  - 任一适用门处于 §8 值域中的**非 PASS**状态（`NOT_APPLICABLE` 除外）而未按 §8 语义务实上报；
+  - 仅有 `FORMAT = PASS` 而无任何正确性门（`FORMAT_PASS != LINT_PASS`）。
+- `KNOWN_BASELINE_FAILURE` 只能以**提案**形态出现（RULES R3）；接受权在独立侧。
+- `BASELINE_COMPARISON` 是**新工具采纳或基线类失败**的必需伴随证据：记录 `BASELINE_COMMAND` / `BASELINE_FINDINGS` / `FINDING_CLASSES` / `ADOPTION_COST`，落地形态 = `references/static-analysis-and-code-intelligence.md` §13。
+- 收据是**证据**，不是判定权：它不替代 RULES R4 的独立评审 gate，也不使静态门的绿灯升级为语义/合同结论。
+
+### 9.2 反例
+
+- CE-30 仓库配了 ESLint，但收据里 `LINT` 直接写 `PASS` 而没有执行证据 → 必须拒绝（`LINTER_CONFIGURED != LINTER_PASSED`）。
+- CE-31 适用语言有廉价语法门但收据写 `NOT_CONFIGURED` 却仍标 `STATIC_GATES_COMPLETE = YES` → 必须拒绝。
+- CE-32 只有 `FORMAT = PASS` 就声明静态门完成 → 必须拒绝（`FORMAT_PASS != LINT_PASS`）。
+- CE-33 把 `ENV_BLOCKED` 记为 `PASS` / 在摘要中省略 → 必须拒绝（`ENV_BLOCKED != PASS`）。
