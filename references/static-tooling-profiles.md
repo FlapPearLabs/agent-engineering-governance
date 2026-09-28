@@ -4,7 +4,7 @@
 >
 > **本文件是推荐，不是安装强制。** 任何仓库都不因为"本表列了某工具"而必须采用它；采用与否由 §12（GREENFIELD vs ESTABLISHED/LEGACY）与 §13（LEGACY ADOPTION RULE）判定，且通常应是一张独立工具票。
 > 表内的工具名是**生态惯例候选**；实际命令**必须**来自目标仓的 `STATIC_TOOLING_DISCOVERY`（§6），不是从本表照抄。
-> 档位语义（唯一声明点 = 本文件）：
+> 档位语义（**档位名与语义的唯一声明点 = 本文件**；`references/static-analysis-and-code-intelligence.md` §11 只作指针，不重述清单）：
 
 ```text
 MINIMUM_MECHANICAL_CHECK            # 最廉价的语法/编译/解析校验；无此门 = 该语言无机械底线

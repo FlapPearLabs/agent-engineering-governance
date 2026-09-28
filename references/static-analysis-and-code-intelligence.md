@@ -189,15 +189,7 @@ Terraform validate           JSON / YAML / TOML 解析
 
 ## 11. 跨语言推荐矩阵（指针）
 
-`references/static-tooling-profiles.md` **只**拥有推荐档位，且必须区分：
-
-```text
-MINIMUM_MECHANICAL_CHECK
-RECOMMENDED_LINTER
-RECOMMENDED_TYPE_OR_COMPILER_CHECK
-OPTIONAL_DEEP_STATIC_ANALYZER
-FORMAT_CHECK
-```
+`references/static-tooling-profiles.md` **只**拥有推荐档位：档位**名与语义的唯一声明点 = 该文件**。本文件**不重述档位清单**——与 §8 状态值域同一纪律（单一声明点；重述 = 双 owner，处置见 `ticket-lane.md` §8.3 CE-28）。
 
 该矩阵是**推荐，不是普适安装强制**；采用与否按 §12/§13 判定。
 

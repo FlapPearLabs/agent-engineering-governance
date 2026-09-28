@@ -73,7 +73,7 @@ NON_COLLAPSE_PAIRS = (
     ("FORMAT_PASS", "LINT_PASS"),
 )
 
-# §22: static tools do not replace tests or review.
+# §19: static tools do not replace tests or review.
 STATIC_DOES_NOT_REPLACE = (
     "STATIC_ANALYSIS != BEHAVIORAL_CONTRACT_TEST",
     "STATIC_ANALYSIS != ARCHITECTURE_REVIEW",
@@ -81,7 +81,9 @@ STATIC_DOES_NOT_REPLACE = (
     "STATIC_ANALYSIS != PRODUCT_CORRECTNESS",
 )
 
-# §8/§11: the twenty language profiles the matrix must carry.
+# The twenty language profiles the matrix must carry, each asserted as a real
+# section HEADING (not a loose substring -- "C" would otherwise be satisfied by
+# "Canonical owner"). Declaration site: references/static-tooling-profiles.md.
 PROFILE_LANGUAGES = (
     "JavaScript", "TypeScript", "Python", "Go", "Rust", "Java", "Kotlin",
     "C", "C++", "C#", "Swift", "Ruby", "PHP", "Shell", "Terraform",
@@ -90,12 +92,18 @@ PROFILE_LANGUAGES = (
 
 # Names that must NOT appear in the B layer: a language-specific tool becoming
 # a universal hard invariant is the failure this ticket exists to prevent.
+#
+# CURATION: only tokens that are unambiguous as tool names are listed. Ordinary
+# English words that happen to be tool names ("black", "biome", "bandit") and
+# product names that occur in normal prose ("maven") are deliberately EXCLUDED,
+# because they would fire on sentences such as "black box" and produce a false
+# positive; the enumeration is a guard for its members, not a proof of absence.
 LANGUAGE_SPECIFIC_TOOLS = (
-    "ruff", "eslint", "oxlint", "biome", "prettier", "mypy", "pyright",
-    "pylint", "flake8", "tsc", "clippy", "rustfmt", "gofmt", "go vet",
-    "staticcheck", "shellcheck", "shfmt", "bandit", "hadolint", "sqlfluff",
-    "yamllint", "taplo", "tflint", "rubocop", "swiftlint", "ktlint", "detekt",
-    "checkstyle", "spotbugs", "clang-tidy", "black", "isort", "maven",
+    "ruff", "eslint", "oxlint", "prettier", "mypy", "pyright", "pylint",
+    "flake8", "tsc", "clippy", "rustfmt", "gofmt", "go vet", "staticcheck",
+    "shellcheck", "shfmt", "hadolint", "sqlfluff", "yamllint", "taplo",
+    "tflint", "rubocop", "swiftlint", "ktlint", "detekt", "checkstyle",
+    "spotbugs", "clang-tidy", "isort",
 )
 
 
@@ -202,10 +210,24 @@ class StaticGateFrameworkWiringTests(unittest.TestCase):
                       "the matrix must state that commands come from repository "
                       "discovery, not from the table")
 
-    def test_every_language_profile_is_present(self):
+    def test_recommendation_tier_names_have_one_declaration_site(self):
+        # Same rule as the status domain: the framework points at the matrix
+        # instead of re-listing its tiers.
+        self.mutate(FRAMEWORK, "## 11. 跨语言推荐矩阵（指针）",
+                    "## 11. 跨语言推荐矩阵（指针）\n\n"
+                    "MINIMUM_MECHANICAL_CHECK\n")
+        problems = governance.static_gate_wiring(self.root)
+        self.assertTrue(
+            any("recommendation tier" in p for p in problems),
+            f"re-listing the tier names was not rejected: {problems}")
+
+    def test_every_language_profile_is_asserted_as_a_heading(self):
         text = (ROOT / PROFILES).read_text(encoding="utf-8")
-        missing = [lang for lang in PROFILE_LANGUAGES if lang not in text]
-        self.assertEqual([], missing, f"missing language profiles: {missing}")
+        missing = [lang for lang in PROFILE_LANGUAGES
+                   if not re.search(rf"(?m)^##\s+\d+\.\s+{re.escape(lang)}\s*$",
+                                    text)]
+        self.assertEqual([], missing,
+                         f"missing language profile headings: {missing}")
 
     def test_status_model_does_not_collapse(self):
         text = (ROOT / FRAMEWORK).read_text(encoding="utf-8")
@@ -244,14 +266,44 @@ class StaticGateFrameworkWiringTests(unittest.TestCase):
 
     def test_ci_dependency_without_invocation_is_rejected(self):
         """REGISTERED != EXECUTED: provisioning alone must not satisfy the gate."""
-        ci = (ROOT / CI_REL).read_text(encoding="utf-8")
-        for invocation in ("ruff check", "compileall"):
-            with self.subTest(removed=invocation):
-                stripped = "\n".join(
-                    line for line in ci.splitlines()
-                    if invocation not in line)
-                self.assertIn(invocation,
-                              governance.static_gate_ci_wiring(stripped))
+        text = (
+            "  - run: python3 -m pip install -r requirements-dev.txt\n"
+            "  - run: python3 -m unittest discover -s scripts/tests\n")
+        problems = governance.static_gate_ci_wiring(text)
+        self.assertTrue(any("compileall" in p for p in problems), problems)
+        self.assertTrue(any("ruff" in p for p in problems), problems)
+
+    def test_gate_strings_in_comments_do_not_satisfy_the_gate(self):
+        """A counterexample raised in review: substring presence is not execution.
+
+        The predicate reads ordered `run:` steps, so gate commands surviving only
+        in comments must not open the gate.
+        """
+        text = (
+            "# run: python3 -m pip install -r requirements-dev.txt\n"
+            "# run: python3 -m compileall -q scripts adapters\n"
+            "# run: python3 -m ruff check .\n"
+            "  - run: python3 -m unittest discover -s scripts/tests\n")
+        self.assertTrue(governance.static_gate_ci_wiring(text),
+                        "commented-out gate steps must not satisfy the check")
+
+    def test_static_gate_must_precede_the_suites(self):
+        """Policy section 15: the gates run before the expensive suites."""
+        ordered = (
+            "  - run: python3 -m pip install -r requirements-dev.txt\n"
+            "  - run: python3 -m compileall -q scripts adapters\n"
+            "  - run: python3 -m ruff check .\n"
+            "  - run: python3 -m unittest discover -s scripts/tests\n")
+        self.assertEqual([], governance.static_gate_ci_wiring(ordered))
+        inverted = (
+            "  - run: python3 -m pip install -r requirements-dev.txt\n"
+            "  - run: python3 -m compileall -q scripts adapters\n"
+            "  - run: python3 -m unittest discover -s scripts/tests\n"
+            "  - run: python3 -m ruff check .\n")
+        problems = governance.static_gate_ci_wiring(inverted)
+        self.assertTrue(
+            any("static gate order" in p for p in problems),
+            f"a lint gate after the suites must be rejected: {problems}")
 
     def test_pinned_toolchain_is_repository_controlled(self):
         """§14: no reliance on a globally installed binary."""

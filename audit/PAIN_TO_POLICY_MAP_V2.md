@@ -201,6 +201,10 @@ BASELINE_FINDINGS_BY_CANDIDATE_SET
 FINDING_CLASSES    = correctness: 未使用变量（F841）
                      style/modernisation: 一行多语句（E702）、行过长（E501）、
                      导入位置（E402）、pyupgrade / ruff-native / isort
+NOTE               = 上表以 ruff 默认 target-version 测量（与 BASELINE_COMMAND 一致）。
+                     仅 `UP` 行对 target-version 敏感：同一选择在 `target-version =
+                     "py312"` 下为 147 而非 143。采纳行 `E9,F` 两种设定下均为 0
+                     （修复前为 5）。该差异已同步标注在 `ruff.toml`。
 ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F841
                      （全部经逐点判定为行为中性），**不**触碰样式面。
                      未采纳集合保持为独立工具票的候选（§20 禁止把首次采纳

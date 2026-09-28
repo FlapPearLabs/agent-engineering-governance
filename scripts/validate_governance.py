@@ -195,9 +195,16 @@ STATIC_GATE_DOMAIN_ONLY_TOKEN = "EXPLICIT_AUTHORITY_OVERRIDE"
 STATIC_GATE_RECEIPT_DELEGATION = "§8 状态值域"
 STATIC_GATE_RECEIPT_DELEGATIONS_MIN = 6
 
-# Markers that distinguish an EXECUTED static gate from a merely REGISTERED one
-# in CI (provisioning + the actual invocations).
-STATIC_GATE_CI_MARKERS = ("requirements-dev.txt", "ruff check", "compileall")
+# The recommendation tiers. Same single-owner rule as the status domain: the
+# tier names and their semantics are declared in the profiles document and must
+# NOT be re-listed in the framework document.
+STATIC_GATE_TIERS = (
+    "MINIMUM_MECHANICAL_CHECK",
+    "RECOMMENDED_LINTER",
+    "RECOMMENDED_TYPE_OR_COMPILER_CHECK",
+    "OPTIONAL_DEEP_STATIC_ANALYZER",
+    "FORMAT_CHECK",
+)
 
 STATIC_GATE_WIRING = {
     "AGENTS.md": (
@@ -244,7 +251,12 @@ STATIC_GATE_WIRING = {
 
 
 def static_gate_wiring(root: Path) -> list[str]:
-    """Static documentation wiring only; never evaluates whether a gate ran."""
+    """Static documentation wiring only; never evaluates whether a gate ran.
+
+    Marker presence is NOT semantic validation. The only structural rules here
+    are the single-declaration rules (status value domain, recommendation tier
+    names) and the receipt's delegation to the status model.
+    """
     problems: list[str] = []
     for name, markers in STATIC_GATE_WIRING.items():
         path = root / name
@@ -255,16 +267,21 @@ def static_gate_wiring(root: Path) -> list[str]:
         problems.extend(name + ": " + marker
                         for marker in markers if marker not in body)
 
-    # The status value domain is declared in exactly ONE document.
+    # The status value domain is declared in exactly ONE document, and the
+    # recommendation tier names in exactly one other.
     framework = root / STATIC_GATE_FRAMEWORK_REL
-    if not framework.is_file():
-        problems.append(STATIC_GATE_FRAMEWORK_REL + ": missing file")
-    else:
+    if framework.is_file():
         body = framework.read_text(encoding="utf-8")
         absent = [s for s in STATIC_GATE_STATES if s not in body]
         if absent:
             problems.append(
                 STATIC_GATE_FRAMEWORK_REL + ": status-domain-incomplete=" + repr(absent))
+        restated = [t for t in STATIC_GATE_TIERS if t in body]
+        if restated:
+            problems.append(
+                f"{STATIC_GATE_FRAMEWORK_REL}: re-declares the recommendation tier "
+                f"names {restated}; their only declaration site is "
+                f"{STATIC_GATE_PROFILES_REL}")
 
     receipt = root / STATIC_GATE_RECEIPT_REL
     if receipt.is_file():
@@ -282,14 +299,69 @@ def static_gate_wiring(root: Path) -> list[str]:
     return problems
 
 
-def static_gate_ci_wiring(ci_text: str) -> list[str]:
-    """CI markers that make the static gate EXECUTED rather than REGISTERED.
+def ci_run_commands(ci_text: str) -> list[str]:
+    """The ordered ``run:`` command bodies of a workflow file.
 
-    A pinned requirements file plus a config file only *register* a gate. The
-    gate opens because a workflow step actually invokes it, which is why the
-    invocation markers are part of this predicate and not documentation prose.
+    Handles both step forms: the block form (``        run: cmd``) and the
+    inline list form (``      - run: cmd``).
     """
-    return [m for m in STATIC_GATE_CI_MARKERS if m not in ci_text]
+    prefix = "run:"
+    commands: list[str] = []
+    for line in ci_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            stripped = stripped[len("- "):].lstrip()
+        if stripped.startswith(prefix):
+            commands.append(stripped[len(prefix):].strip())
+    return commands
+
+
+def static_gate_ci_wiring(ci_text: str) -> list[str]:
+    """What would leave the static gate merely REGISTERED in CI.
+
+    A pinned requirements file plus a config file only *register* a gate; the
+    gate is EXECUTED because an ordered ``run:`` step invokes it before the
+    expensive suites (policy section 15). This predicate checks exactly that
+    mechanically decidable property: real invocation steps exist, the toolchain
+    is provisioned, and both static invocations precede the first suite step.
+
+    It does NOT prove the runner executed anything -- only the run log can.
+    """
+    runs = ci_run_commands(ci_text)
+    if not runs:
+        return ["no run: steps found in the workflow"]
+
+    def first(predicate) -> int:
+        for index, command in enumerate(runs):
+            if predicate(command):
+                return index
+        return -1
+
+    found = {
+        "provision (requirements-dev.txt)": first(
+            lambda c: "requirements-dev.txt" in c),
+        "compileall gate": first(lambda c: "compileall" in c),
+        "ruff gate": first(lambda c: "ruff check" in c),
+        "test/validation suites": first(
+            lambda c: "unittest" in c or "validate_governance.py" in c
+            or "validate_public_release.py" in c),
+    }
+    absent = [name for name, index in found.items() if index < 0]
+    if absent:
+        return [f"{name}: no run: step invokes it" for name in absent]
+
+    problems: list[str] = []
+    gate_order = (found["provision (requirements-dev.txt)"],
+                  found["compileall gate"], found["ruff gate"])
+    for index in gate_order:
+        if index > found["test/validation suites"]:
+            problems.append(
+                "static gate order: step index "
+                f"{index} runs after the first suite step "
+                f"{found['test/validation suites']}; section 15 requires the "
+                "static gates first")
+            break
+    return problems
 
 
 # MEMORY pointer budget. The VALUE and UNIT are owned by

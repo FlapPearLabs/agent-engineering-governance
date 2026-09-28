@@ -399,7 +399,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?  → 强 / 外部评
 
 两条铁律：`DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`（机器能证明的不进模型评审）；`DO_NOT_REPLACE_SEMANTIC_REASONING_WITH_STATIC_TOOL_OUTPUT`（静态输出不裁决语义）。
 
-**跨语言静态门框架**（把 static-first 变成可跨异构仓执行的操作规程）：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest / 构建 / 工具配置 / CI / 脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`）→ 门状态**七值非坍缩**（`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`FORMAT_PASS != LINT_PASS`）→ 结论进票级 `STATIC_GATE_RECEIPT`。GREENFIELD 与 ESTABLISHED/LEGACY 分流；矩阵是**推荐不是安装强制**；静态门是**成本闸门**，不取代 TDD / 动态测试 / 独立评审。唯一详情 = [references/static-analysis-and-code-intelligence.md](references/static-analysis-and-code-intelligence.md)；语言矩阵 = [references/static-tooling-profiles.md](references/static-tooling-profiles.md)；票级收据 = [references/ticket-lane.md](references/ticket-lane.md) §9。
+**跨语言静态门框架**（把 static-first 变成可跨异构仓执行的操作规程）：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest / 构建 / 工具配置 / CI / 脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`）→ 门状态**七值非坍缩**（非穷尽示例：`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`FORMAT_PASS != LINT_PASS`；完整语义以框架 §8 为准）→ 结论进票级 `STATIC_GATE_RECEIPT`。GREENFIELD 与 ESTABLISHED/LEGACY 分流；矩阵是**推荐不是安装强制**；静态门是**成本闸门**，不取代 TDD / 动态测试 / 独立评审。唯一详情 = [references/static-analysis-and-code-intelligence.md](references/static-analysis-and-code-intelligence.md)；语言矩阵 = [references/static-tooling-profiles.md](references/static-tooling-profiles.md)；票级收据 = [references/ticket-lane.md](references/ticket-lane.md) §9。
 
 ### 6.3 工程风格（durable 汇总锚点）
 

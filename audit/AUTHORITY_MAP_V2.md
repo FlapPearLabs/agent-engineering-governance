@@ -48,7 +48,7 @@
 ### D. GLOBAL DEFAULT ENGINEERING WORKFLOW（全局默认工作流）
 | 字段 | 内容 |
 |---|---|
-| SCOPE | seam-first 分解、风险分级评审、隔离 lane/worktree 默认、CodeGraph grounding、repair 饱和与预算默认、exact-SHA 评审协议、Stage 编组、novelty-first 报告 |
+| SCOPE | seam-first 分解、风险分级评审、隔离 lane/worktree 默认、CodeGraph grounding、repair 饱和与预算默认、exact-SHA 评审协议、Stage 编组、novelty-first 报告、**跨语言静态门框架**（发现 / profile / 状态语义 / configured-tooling-must-run / 票级 STATIC_GATE_RECEIPT） |
 | CAN_OVERRIDE | E、F |
 | CAN_BE_OVERRIDDEN_BY | A、B、C |
 | CONFLICT_BEHAVIOR | 作为默认生效；被覆盖时记录 OVERRIDE；未被覆盖时按本仓 references 执行 |

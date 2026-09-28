@@ -155,9 +155,14 @@ def main() -> int:
     remote = data.get("remote")
     deferred = isinstance(remote, str) and remote == ""
     if deferred:
-        # Intentionally discarded: the lookup is evaluated for its failure
-        # semantics (a malformed, non-dict recovery_snapshot raises here, before
-        # check 6 reports it), and the reason string itself is not asserted.
+        # Behaviour-preserving rebinding (F841). The lookup MUST stay evaluated:
+        # on a malformed, non-dict recovery_snapshot it raises here, before check
+        # 6 below can report the snapshot shape, so dropping the evaluation would
+        # change this gate's failure surface -- and a static-tooling ticket must
+        # not change validator behaviour.
+        # NOTE (pre-existing, out of scope here): a gate that tracebacks on
+        # malformed committed state instead of emitting a clean FAIL is a
+        # robustness defect in its own right. This rename does not endorse it.
         _reason = str(data.get("recovery_snapshot", {}).get("last_state_flush_reason", ""))
         check("remote-format", True, "empty remote accepted only as DEFERRED marker")
     else:

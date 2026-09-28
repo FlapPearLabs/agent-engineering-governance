@@ -12,20 +12,32 @@
 #     F  - pyflakes: undefined names, unused imports, unused variables,
 #          redefinitions (= correctness classes, not formatting)
 #
-# MEASURED BASELINE ON CLEAN main (ruff 0.15.18, before this ticket's repairs):
-#   select=["E9","F"]         5 findings   <- adopted
-#   select=["E4","E7","E9","F"] 19 findings (adds 13 x E702 semicolon-style)
-#   select=["E"]             555 findings (541 of them E501 line-too-long)
-#   select=["UP"]            143 findings
-#   select=["RUF"]           189 findings
-#   select=["B"]               6 findings
-#   select=["I"]               3 findings
+# MEASURED BASELINE ON CLEAN main (ruff 0.15.18, before this ticket's repairs).
+# Every row was measured as `ruff check --no-cache --select <SET> .` at the
+# repository root, with ruff's DEFAULT target version. That is why the UP row
+# reads 143: the same selection under this file's `target-version = "py312"`
+# reports 147. UP is the only target-version-sensitive row; the others are
+# identical either way, and the ADOPTED row reports 0 under both (5 before the
+# repairs, all F841).
+#
+#   select=["E9","F"]            5 findings  <- ADOPTED (F841 x5)
+#   select=["E4","E7","E9","F"] 19 findings  (adds E702 x13 + E402 x1)
+#   select=["E"]               555 findings  (E501 x541 + E702 x13 + E402 x1)
+#   select=["UP"]              143 findings  (147 under target-version=py312)
+#   select=["RUF"]             189 findings
+#   select=["B"]                 6 findings
+#   select=["I"]                 3 findings
+#   select=["E9"]                0 findings
+#   select=["PLE"]               0 findings
 #
 # DELIBERATELY NOT ENABLED: E/UP/RUF/I/B. On the numbers above, enabling them
-# turns the first adoption into a style/modernisation migration, which
-# section 20 rules out and section 19 forbids doing to make a tool green. They
-# stay legitimate candidates for a SEPARATE tooling ticket with its own
-# baseline measurement.
+# turns this first adoption into a style/modernisation migration. Section 13
+# (LEGACY ADOPTION RULE) forbids exactly that inside an unrelated ticket;
+# section 18 forbids reflowing unrelated files during tool adoption; section 20
+# states the minimum-complexity rule (R8) behind the choice. They remain
+# legitimate candidates for a SEPARATE tooling ticket with its own baseline
+# measurement -- see the adoption record in
+# `audit/PAIN_TO_POLICY_MAP_V2.md` (P20 + its BASELINE block).
 #
 # The `select` list is pinned EXPLICITLY and never left implicit: new Ruff
 # releases add rules to the default set, and a gate whose rule set silently
