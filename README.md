@@ -401,6 +401,11 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?  → 强 / 外部评
 
 **跨语言静态门框架**（把 static-first 变成可跨异构仓执行的操作规程）：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest / 构建 / 工具配置 / CI / 脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`）→ 门状态**七值非坍缩**（非穷尽示例：`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`FORMAT_PASS != LINT_PASS`；完整语义以框架 §8 为准）→ 结论进票级 `STATIC_GATE_RECEIPT`。GREENFIELD 与 ESTABLISHED/LEGACY 分流；矩阵是**推荐不是安装强制**；静态门是**成本闸门**，不取代 TDD / 动态测试 / 独立评审。唯一详情 = [references/static-analysis-and-code-intelligence.md](references/static-analysis-and-code-intelligence.md)；语言矩阵 = [references/static-tooling-profiles.md](references/static-tooling-profiles.md)；票级收据 = [references/ticket-lane.md](references/ticket-lane.md) §9。
 
+**缺陷类下沉与 FAST/FULL 执行类别**（让机器可证的缺陷不再消耗模型评审预算）：
+
+- **DEFECT_TO_GATE_PROMOTION**：发现真实缺陷后按**缺陷类**问"能否被机械可靠检出"，只有**晋升有价值**（真实/高置信 + 判定确定 + 误报风险低 + 代价低 + 语义稳定 + 无隐藏产品语义判断）才下沉到**最便宜可靠机械层**（parser/compiler → linter → typechecker → formatter(仅格式) → schema 校验 → 仓库静态校验器 → 回归/合同测试 → CI 注册守卫 → runtime hook → 独立评审 → 人类）。**一次出现 ≠ 自动晋升**；`LOWEST ≠ WEAKEST`；行为知识仍住回归测试（`BUG KNOWLEDGE → REGRESSION TEST` 保留）。详见 [references/static-analysis-and-code-intelligence.md](references/static-analysis-and-code-intelligence.md) §21。
+- **FAST_GATE / FULL_GATE**：`FAST_GATE` 是便宜确定性的预检（语法/lint/typecheck/schema/`git diff --check`/廉价校验器/聚焦测试），**先于昂贵测试与模型评审**；`FULL_GATE` 是更广集成证据（全量套件/集成/跨平台/构建发布）。**双向不豁免**：`FAST != FULL`，`FULL PASS` 不抹掉 `FAST` 失败。`LOCAL_FAST_GATE`（开发反馈）≠ `CI_FAST_GATE`（干净环境可复现）——目标是确定性低层缺陷不在 CI 第一次被发现。两者是**执行类别**，不要求两个 CI job。详见框架 §10.1 与 [references/git-ci-integration.md](references/git-ci-integration.md) §3.3/§3.4。
+
 ### 6.3 工程风格（durable 汇总锚点）
 
 Minimum correct architecture；explicit ownership；simple boundaries；deterministic behavior；**fail closed where required；no silent fallback**（fallback 必须在合同中声明 ALLOWED/FORBIDDEN）；no unnecessary abstraction / speculative future-proofing / overengineering；testable seams；replaceable components。详见 [references/engineering-memory.md](references/engineering-memory.md)。

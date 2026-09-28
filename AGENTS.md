@@ -49,6 +49,8 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 - 语言栈选择：`USE_REPOSITORY_NATIVE_STATIC_TOOLING_FIRST`（详情 `references/static-analysis-and-code-intelligence.md`）。
 - **STATIC GATE FRAMEWORK（D 层默认）**：**先发现后规定**（`STATIC_TOOLING_DISCOVERY`：从 manifest/构建/工具配置/CI/脚本发现，**不**凭文件扩展名推断）→ 仓库**已配置**且覆盖本次变更面的静态工具**必须执行**（`CONFIGURED_STATIC_TOOLING_MUST_RUN`；**不得**因"测试是绿的"而静默跳过）→ 门状态**不得坍缩**（非穷尽示例：`NOT_CONFIGURED != PASS`、`ENV_BLOCKED != PASS`、`KNOWN_BASELINE_FAILURE != PASS`、`TOOL_EXISTS != TOOL_EXECUTED`、`CONFIG_FILE_EXISTS != GATE_EXECUTED`、`LINTER_CONFIGURED != LINTER_PASSED`、`FORMAT_PASS != LINT_PASS`）→ 结论进票级 `STATIC_GATE_RECEIPT`。政策唯一详情 = `references/static-analysis-and-code-intelligence.md`；语言**推荐**矩阵（推荐，非安装强制）= `references/static-tooling-profiles.md`；票级收据字段 = `references/ticket-lane.md` §9。
 - 本框架**不**把任何语言特定工具升格为普适硬不变量（`RULES.md` 无语言/工具策略）；静态门**不**取代 TDD/动态测试/独立评审。
+- **DEFECT_TO_GATE_PROMOTION（D 层默认）**：发现真实缺陷后按**缺陷类**（非单行）问"能否被机械可靠检出"→ 能且**晋升有价值**（真实/高置信 + 判定确定 + 误报风险低 + 执行与维护代价低 + 语义稳定 + 无隐藏产品语义判断）才下沉到**最便宜可靠机械层**（parser/compiler → linter → typechecker → formatter(仅格式) → schema 校验 → 仓库静态校验器 → 回归/合同测试 → CI 注册守卫 → runtime hook → 独立评审 → 人类）。处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST / KEEP_AS_REVIEWER_RESPONSIBILITY / KEEP_AS_HUMAN_DECISION`。**一次出现 ≠ 自动晋升**（防规则指数扩散）；**LOWEST ≠ WEAKEST**（选层标准是"可靠检出"）；`BUG KNOWLEDGE → REGRESSION TEST` 对行为缺陷继续有效，携带行为知识的回归测试**不得**被 lint 规则替换。本票内下沉只在"已有工具 + 微小局部 + 无新依赖 + 无基线 churn + 无架构变更 + 同一缺陷类"时成立，否则记 `MECHANIZATION_FOLLOWUP_CANDIDATE` 交独立工具票。reviewer finding 的机械可检测性元数据是**建议性证据**，**不**授予改治理/装工具/扩 scope/自动开票的权威（`FINDING != AUTOMATIC_TRUTH != AUTOMATIC_GATE`）。唯一详情 = `references/static-analysis-and-code-intelligence.md` §21；票级收据 = `references/ticket-lane.md` §9.4；评审联动 = `references/review-and-repair-saturation.md` §4.1/§6.5。
+- **FAST_GATE / FULL_GATE（D 层默认）**：`FAST_GATE` = 便宜确定性的预检（语法/编译、lint、typecheck、schema/config、`git diff --check`、廉价仓库校验器、聚焦测试、廉价静态/安全扫描），目标是**快速失败**，先于昂贵测试与模型评审；`FULL_GATE` = 更广集成证据（全量套件、集成、跨平台、历史兼容、昂贵静态安全、构建/发布门）。**双向不豁免**：`FAST != FULL`、`CI_FAST PASS != CI_FULL PASS`、`FULL PASS` 不抹掉 `FAST` 失败。`LOCAL_FAST_GATE`（开发反馈回路）≠ `CI_FAST_GATE`（干净环境可复现确认）——目标是**确定性低层缺陷不该在 CI 第一次被发现**，但本地不可行时**如实上报**而非编造。FAST/FULL 是**执行类别**，**不**要求两个 CI job。票级收据 = `references/ticket-lane.md` §9.3；类别语义 = `references/static-analysis-and-code-intelligence.md` §10.1；CI 侧执行 = `references/git-ci-integration.md` §3.3/§3.4。
 
 ## 1. 角色模型
 
@@ -75,7 +77,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 生命周期（MEDIUM 基线）：
 `AUTHORIZED TICKET → exact base SHA → isolated branch/worktree → 读权威 → 自然缝识别 → CodeGraph grounding → Relevant Surface Manifest → Contract Extraction → counterexample 设计 → TDD RED → /implement → applicable static / mechanical gates（STATIC_GATE_RECEIPT）→ GREEN → 回归 → fresh independent review（L1）→（有价值才）repair → PR → real CI（或仓政策等价证据形态）→（触发时）post-CI/adversarial → merge gate → 串行集成 → remote verify → tracker`
 
-静态/机械门的位置固定在 `IMPLEMENT` 之后、`DYNAMIC GREEN` 之前：机器可证的缺陷类先清场（阶段顺序与 GREENFIELD/LEGACY 差异见 `references/static-analysis-and-code-intelligence.md` §12/§15；收据字段见 `references/ticket-lane.md` §9）。
+静态/机械门的位置固定在 `IMPLEMENT` 之后、`DYNAMIC GREEN` 之前：机器可证的缺陷类先清场（阶段顺序与 GREENFIELD/LEGACY 差异见 `references/static-analysis-and-code-intelligence.md` §12/§15；FAST/FULL 类别见 §10.1；收据字段见 `references/ticket-lane.md` §9/§9.3）。
 
 | 风险 | 典型 | 独立评审 gate（R4 语义） | grounding/合同 | 额外 |
 |---|---|---|---|---|
@@ -113,7 +115,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 - 分级：L0 机器核验（SHA、diff 语义范围、测试、回归、ancestry、secret/路径扫描）；L1 独立评审（fresh context、独立 grounding、≥2 个非复制新反例）；L2 外部/最强评审（按 §3 ESCALATION 清单触发）。
 - 评审顺序：权威 → 票 → repo 图 → 合同 → 反例 → diff → 测试 → CI；主问题："这个 exact SHA 是否在真实仓库中实现了合同？"
 - 修复收敛：`SEVERITY != REPAIR_AUTHORITY`；REPAIR_VALUE gate；`NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET = 2`（**默认值**，owner/仓政策可覆盖）；耗尽 → CONVERGENCE_ARBITER 五选一；`NO_KNOWN_HIGH_VALUE_BLOCKER` + 低边际价值 → SATURATION；**高价值 blocker 永不豁免**。
-- CI：`LOCAL_TESTS != REAL_PR_CI`；状态不可坍缩（NOT_TRIGGERED/UNKNOWN/KNOWN_BASELINE_FAILURE 永不 = PASS）；real CI 为默认，**仓政策可定义等价证据形态**（显式 OVERRIDE），诚实性底线（R3）不可豁免。
+- CI：`LOCAL_TESTS != REAL_PR_CI`；状态不可坍缩（NOT_TRIGGERED/UNKNOWN/KNOWN_BASELINE_FAILURE 永不 = PASS）；real CI 为默认，**仓政策可定义等价证据形态**（显式 OVERRIDE），诚实性底线（R3）不可豁免。CI 内部按 `CI_FAST` / `CI_FULL` 执行类别组织（**不**要求两个 job），详见 `references/git-ci-integration.md` §3.3/§3.4。
 - 详见 `references/review-and-repair-saturation.md` 与 `references/git-ci-integration.md`。
 
 ## 7. AUTO-ADVANCE 与 STOP

@@ -172,7 +172,7 @@ Cargo workspace 配置了 Clippy  → 适用的 Rust 变更必须跑 Clippy
 - **不得**因为"测试是绿的"就静默跳过已配置的工具。
 - 反向同样成立：**不要**因为某工具在本机全局存在就声称仓库有该门（§14）。
 
-## 10. CHEAP LANGUAGE-NATIVE CHECKS
+## 10. CHEAP LANGUAGE-NATIVE CHECKS（FAST_GATE 的适用范围）
 
 对有代码的语言，只要仓库正常工具链里存在**廉价的**编译器/解析器/语法检查，优先在动态测试之前跑：
 
@@ -186,6 +186,51 @@ Terraform validate           JSON / YAML / TOML 解析
 ```
 
 **不要**在工具链各不相同的情况下硬编码单一"万能命令"；命令来自 §6 的发现结果。
+
+### 10.1 FAST_GATE / FULL_GATE 执行分类
+
+本节是 **FAST_GATE / FULL_GATE 语义与边界的 canonical 声明面**（执行落点见 `references/git-ci-integration.md` §3）。
+
+**FAST_GATE** = 便宜的、确定性的**预检**，目标是**快速失败**，先于昂贵测试与模型评审：
+
+```text
+语法 / parser / compiler 检查
+lint
+typecheck（语言有类型时）
+schema / config 校验
+git diff --check
+廉价的仓库校验器
+聚焦测试（focused tests）
+廉价的静态/安全扫描
+```
+
+属性：`FAST` / `DETERMINISTIC` / `HIGH_SIGNAL` / 尽量**本地可离线** / 便宜到适合迭代执行。
+
+- **不**强加普适 wall-clock SLA（各仓工具链差异过大，硬性秒数会诱发"为了达标而削弱门"）。
+- **不**要求无关语言的工具链（仓里没有的语言不构成缺口）。
+
+**FULL_GATE** = 更广的集成证据：
+
+```text
+全量单元/回归套件
+集成测试
+跨平台矩阵
+历史兼容性
+完整离线套件
+昂贵的静态/安全分析
+打包/构建验证
+发布/公开门
+```
+
+两条互不替代，**双向都不豁免**：
+
+```text
+FAST 不替代 FULL：FAST PASS 不等于集成证据充分
+FULL 不豁免 FAST：FULL PASS 不抹掉 FAST 阶段的失败
+CI_FAST PASS != CI_FULL PASS
+```
+
+FAST/FULL 是**执行类别**，**不**要求必须是两个独立 CI job。
 
 ## 11. 跨语言推荐矩阵（指针）
 
@@ -306,6 +351,31 @@ CONTRACT / COUNTEREXAMPLE DESIGN
 
 在 `STATIC / MECHANICAL GATES` 内部：可行时**先跑更便宜/更高信号**的已配置工具，再跑更贵的。
 
+### 15.1 FAST_GATE / FULL_GATE 在 canonical 顺序中的位置
+
+把 §10.1 的执行类别嵌入既有阶段链（**不**新增阶段，只标注类别）：
+
+```text
+CONTRACT / COUNTEREXAMPLE DESIGN
+→ TDD RED（需要时）
+→ IMPLEMENT
+→ LOCAL FAST_GATE          ← §10.1 便宜确定性预检
+→ DYNAMIC GREEN / 聚焦测试
+→ FULL 本地套件（相关范围）
+→ SELF REVIEW
+→ PUSH
+→ CI_FAST_GATE            ← 干净环境可复现的等价确认
+→ CI_FULL_GATE            ← 更广集成/发布证据
+→ INDEPENDENT REVIEW
+→ REPAIR / DEFECT PROMOTION 分类（§21）
+→ MERGE
+```
+
+两条边界保持：
+
+- **不**因已有 TDD RED/GREEN 证据就机械重复跑同一个聚焦测试（同一执行不重复计证据）。
+- `LOCAL_FAST_GATE` 与 `CI_FAST_GATE` 的分工见 `references/git-ci-integration.md` §3。
+
 ## 16. MONOREPO RULE
 
 monorepo 可以包含多个静态 profile。示例：
@@ -377,3 +447,91 @@ STATIC_ANALYSIS != PRODUCT_CORRECTNESS
 - 本框架**不**新增 B 层不变量；语言/工具特定策略停留在 D 层默认 + C 层仓政策。
 - 本框架**不**新建状态数据库；§7/§8 是证据结构。
 - 新增强制门必须回答 R8 四问（防哪次真实失效 / 机器能否更便宜地做 / 每个风险级是否都需要 / 能否降级为 reference 或默认），并在 `audit/PAIN_TO_POLICY_MAP_V2.md` 留痛点行。
+
+## 21. DEFECT_TO_GATE_PROMOTION（缺陷类下沉到机器门）
+
+> 本节是 **DEFECT_TO_GATE_PROMOTION 语义的 canonical 声明面**。票级落点 = `references/ticket-lane.md` §9；reviewer 侧元数据与饱和联动 = `references/review-and-repair-saturation.md` §4/§6.5；CI 侧执行分类 = `references/git-ci-integration.md` §3。
+
+方向：
+
+```text
+DEFECT KNOWLEDGE → LOWEST RELIABLE MECHANICAL LAYER
+MODEL REVIEW BUDGET → RESERVED FOR NON-MECHANICAL PROBLEMS
+```
+
+**LOWEST ≠ WEAKEST**：选层标准是"能**可靠**检出该缺陷类"，不是"能省多少评审"。语义/产品判断**不得**为了降低评审负载被塞进静态检查（§3/§19）。
+
+### 21.1 晋升判定（value-gated，不是自动规则扩散）
+
+单个真实缺陷被修复后，评估**缺陷类**能否被机械可靠检出。至少回答：
+
+```text
+DEFECT_CLASS                  这个缺陷的稳定语义类目
+REAL_OR_HIGH_CONFIDENCE       真实或高置信（而非合成/推测）
+REACHABLE                     现实可达状态
+DETERMINISTICALLY_DETECTABLE  判定可机械复现，不依赖主观解读
+EXISTING_TOOL_CAN_DETECT      现有工具/门已能检出（无需新依赖）
+FALSE_POSITIVE_RISK           误报风险（高风险 → 不晋升）
+EXECUTION_COST                执行代价（应与迭代回路相称）
+MAINTENANCE_COST              长期维护代价（规则漂移/版本 churn）
+SEMANTIC_JUDGMENT_REQUIRED    是否需要语义/产品判断（需要 → 不下沉）
+BEST_ENFORCEMENT_LAYER        §21.2 层级中的最便宜可靠层
+PROMOTION_VALUE               HIGH / MEDIUM / LOW / NOT_APPLICABLE
+```
+
+`PROMOTION_VALUE = HIGH` 通常要求**同时**满足：
+
+```text
+真实/高置信缺陷类
++ 判定确定
++ 误报风险足够低
++ 执行与维护代价足够低
++ 语义稳定（不随产品意图漂移）
++ 不含隐藏的产品语义判断
+```
+
+**一次出现 ≠ 治理缺陷。** 不得因单次发现就新增强制规则（否则规则会指数扩散，误报本身成为新缺陷类）。
+
+### 21.2 LOWEST RELIABLE MECHANICAL LAYER（概念层级）
+
+```text
+parser / compiler
+→ linter
+→ type checker
+→ formatter（仅格式缺陷）
+→ schema / config validator
+→ 仓库特定静态校验器
+→ 回归 / 合同测试
+→ CI 注册与执行守卫
+→ runtime hook / policy
+→ 独立评审
+→ 人类 / product owner
+```
+
+选择规则：沿层级向下找**第一个能可靠检出该缺陷类**的层。找不到（需要语义判断、误报高、或代价过高）→ 留在测试/评审/人类，**不硬塞**。
+
+既有 §19 保留不变：携带**行为知识**的回归测试**不得**被"能覆盖某个实现形状的 lint 规则"替换。`BUG KNOWLEDGE → REGRESSION TEST` 对行为缺陷继续有效；本节只把**机械可判**的那部分下沉。
+
+### 21.3 处置（disposition）
+
+```text
+PROMOTE_NOW                    本票内下沉到已有机械层
+FOLLOWUP_TOOLING_TICKET        需新工具/新依赖/新 CI 架构 → 独立工具票
+KEEP_AS_TEST                   行为知识 → 回归/合同测试
+KEEP_AS_REVIEWER_RESPONSIBILITY 机器不可判 → 留在评审
+KEEP_AS_HUMAN_DECISION         需产品/架构裁决 → 人类
+```
+
+**本票内下沉的允许条件**（全部满足才在当前 repair 内做）：
+
+```text
+现有工具已存在
++ 变更微小且局部
++ 无新依赖
++ 无广泛基线 churn
++ 无架构变更
++ 无无关文件
++ 与本票修复属同一缺陷类
+```
+
+任一不满足 → **先修当前缺陷**，记录 `MECHANIZATION_FOLLOWUP_CANDIDATE`，采纳放到**专门工具票**。§12/§13 的既有规则继续适用：遗留仓缺工具 → `FOLLOWUP_TOOLING_TICKET`，**不得**在无关功能票里顺手装整套工具链。

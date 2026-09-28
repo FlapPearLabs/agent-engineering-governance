@@ -52,6 +52,30 @@
 - 每条未修复 finding 必带：FINDING / SEVERITY_OPINION(P0–P3) / DEFECT_CLASS / REACHABILITY / REPAIR_VALUE / DISPOSITION(REPAIRED|BACKLOG|ROUTE_TO_OWNER|INFORMATIONAL|OUT_OF_SCOPE) / WHY_NOT_REPAIRED / OWNER。
 - WHO_OWNS_THE_FIX：根因属他模块/他票权威 → ROUTE_TO_OWNER，不造第二弱策略凑零 findings。
 
+### 4.1 缺陷的机械可检测性元数据（**建议性证据**）
+
+reviewer finding **MAY** 附带以下**建议性**元数据，帮助 executor 判断该缺陷类能否下沉到机器门：
+
+```text
+DEFECT_CLASS =              # 稳定语义类目
+MACHINE_DETECTABLE = YES / NO / UNCERTAIN
+CANDIDATE_MECHANICAL_LAYER = # §21.2 层级中的候选层
+PROMOTION_VALUE = HIGH / MEDIUM / LOW / NOT_APPLICABLE
+```
+
+**权威边界（不可越界）**——reviewer **不**因附带这些元数据而获得：
+
+```text
+修改治理的权威
+安装工具的权威
+扩当前票 scope 的权威
+自动创建下游票的权威
+```
+
+- finding **!=** 自动真理：executor / orchestrator **仍必须核验**该 finding（`OBSERVATION_IS_EVIDENCE_NOT_AUTHORITY`，§6.1）。
+- finding **!=** 自动建门：晋升判定与处置见 `references/static-analysis-and-code-intelligence.md` §21（value-gated，非自动规则扩散）。
+- 语义/合同判断类 finding 的 `MACHINE_DETECTABLE` 通常为 `NO`，应明确标出以免被误下沉（框架 §3/§19）。
+
 ## 5. Reporting（novelty-first 模板）
 
 ```
@@ -138,6 +162,22 @@ CE-28-D  REJECT     同一规则在两个 canonical 文件各有一份定义（�
 指针纪律    其它 canonical surface 只引用 / 链接该接口；重复定义 → 拒绝并收敛回单一 owner
 消费方纪律  消费方不得自带局部副本替代 canonical 声明（第二声明点 = CE-28 违约）
 ```
+
+### 6.5 重复低层发现 = 缺门证据（与晋升机制联动）
+
+> 晋升判定与处置的唯一声明点 = `references/static-analysis-and-code-intelligence.md` §21。本节只声明**评审/饱和侧的联动语义**。
+
+原则：
+
+```text
+reviewers 反复花独立评审预算重新发现同一确定性的低层缺陷类
+→ 这是"缺少合适机械门"的证据
+```
+
+- **一次出现 ≠ 自动治理缺陷。** 单次发现**不**构成晋升理由；晋升仍走 §21.1 的 value gate（否则规则会指数扩散，误报本身成为新缺陷类）。
+- 门一旦建立并生效，reviewer **不**应再把独立评审预算反复花在该机器可判缺陷类上（`DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`）——按 §1 的 L1 纪律，不重复报告 L0 已可确定性检出的问题。
+- 该联动**不**削弱 RULES R4 独立评审 gate，也不使静态门绿灯升级为语义/合同结论（框架 §19）。
+- `REPAIR_SATURATION_REACHED = YES` 判据（§3）**不**因存在机械可判缺陷而自动成立：饱和是**修复预算**判据，晋升是**门建设**判据，两者独立。
 
 ## 7. 审计可见性 recipe（按需；`REQ-W4-02a` / `AC-13` / `AC-38`）
 

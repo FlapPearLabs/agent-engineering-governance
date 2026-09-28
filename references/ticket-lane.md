@@ -177,6 +177,8 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 - 不为此制造低价值测试：无合同意义的实现细节；已被 formatter/linter 机械强制的行为；低价值合成态（REPAIR_VALUE 已裁定的 long-tail）。
 - 测试应编码**有意义的行为知识**（回归、边界、fail-closed、producer/consumer 合同、持久化、身份/provenance、已知反例）。
 
+**缺陷类机械化（与 §4.1 并列的第二条去向）**：当 `CAN_THIS_FAILURE_BE_CAPTURED_AS_A_STABLE_TEST?` 为 **NO**（机械可判、非行为知识）时，按 `references/static-analysis-and-code-intelligence.md` §21 评估**缺陷类**能否下沉到更低可靠机械层，处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_REVIEWER_RESPONSIBILITY / KEEP_AS_HUMAN_DECISION`。回归测试**不得**被"能覆盖某个实现形状的 lint 规则"替换（框架 §19 保留）。
+
 ## 5. 实现与自审
 
 - `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify-code` 只在 GREEN 之后且不得改行为/合同（名称以本机 `SKILL.md` frontmatter `name` 为准，见 `references/skills-and-model-routing.md` §1）。
@@ -267,3 +269,66 @@ STATIC_GATES_COMPLETE = YES | NO
 - CE-31 适用语言有廉价语法门但收据写 `NOT_CONFIGURED` 却仍标 `STATIC_GATES_COMPLETE = YES` → 必须拒绝。
 - CE-32 只有 `FORMAT = PASS` 就声明静态门完成 → 必须拒绝（`FORMAT_PASS != LINT_PASS`）。
 - CE-33 把 `ENV_BLOCKED` 记为 `PASS` / 在摘要中省略 → 必须拒绝（`ENV_BLOCKED != PASS`）。
+
+### 9.3 FAST_GATE_RECEIPT / FULL_GATE_RECEIPT（执行类别收据）
+
+> 分类语义与边界的唯一声明点 = `references/static-analysis-and-code-intelligence.md` §10.1；CI 侧执行 = `references/git-ci-integration.md` §3。本节只声明**票级字段**，并**复用 §9 已有的状态值域**（不另立一套 PASS 语义）。
+
+`FAST_GATE_RECEIPT`（在 `SELF REVIEW` 之前产出；类别值域 = §8）：
+
+```text
+FAST_GATE_RECEIPT
+
+SYNTAX_COMPILER =         <§8 状态值域>
+LINT =                   <§8 状态值域>
+TYPECHECK =              <§8 状态值域>
+SCHEMA_CONFIG =          <§8 状态值域>
+REPO_STATIC_VALIDATORS = <§8 状态值域>
+GIT_DIFF_CHECK =         <§8 状态值域>
+FOCUSED_TESTS =          <§8 状态值域>
+
+FAST_GATE_COMPLETE = YES | NO
+NON_PASS_ITEMS =         # 逐项列出上表中的非 PASS 项及证据；无则 NONE
+```
+
+- `FAST_GATE_COMPLETE = YES` **不得**在任一适用项非 PASS 且未按 §8 语义务实上报时成立；`NOT_APPLICABLE` 合法（如无类型系统的语言 `TYPECHECK = NOT_APPLICABLE`）。
+- `FAST_GATE_COMPLETE = YES` **不等于**集成证据充分（`FAST != FULL`，框架 §10.1）。
+
+`FULL_GATE_RECEIPT`（**仅当**当前证据架构因显式收据而受益时才要求；否则可用等价证据形态并显式 OVERRIDE 记录）：
+
+```text
+FULL_GATE_RECEIPT
+
+FULL_TESTS =             <§8 状态值域>
+INTEGRATION =            <§8 状态值域>
+CROSS_PLATFORM =         <§8 状态值域>
+HISTORICAL_COMPAT =      <§8 状态值域>
+EXPENSIVE_SECURITY_STATIC = <§8 状态值域>
+RELEASE_GATES =          <§8 状态值域>
+
+FULL_GATE_COMPLETE = YES | NO
+```
+
+- **不**强制每个项目填满每个类别；`NOT_APPLICABLE` 是合法取值。
+- `FULL_GATE_COMPLETE = YES` **不**抹掉 `FAST_GATE` 阶段的失败（框架 §10.1 双向不豁免）。
+
+### 9.4 DEFECT_PROMOTION_RECEIPT（缺陷类晋升收据）
+
+> 判定模型与处置值域的唯一声明点 = `references/static-analysis-and-code-intelligence.md` §21.1/§21.3。本节只声明字段。
+
+在 reviewer / CI / 测试发现**有意义**缺陷后按比例产出（**不**要求为每个 typo 或琐碎 finding 产出）：
+
+```text
+DEFECT_PROMOTION_RECEIPT
+
+DEFECT_CLASS =              # 稳定语义类目
+CURRENT_DEFECT_FIXED = YES | NO
+MACHINE_DETECTABLE = YES | NO | UNCERTAIN
+EXISTING_MACHINE_OWNER =    # 已有的机械归属；无则 NONE
+BEST_DURABLE_OWNER =        # §21.2 层级中的最便宜可靠层
+PROMOTION = PROMOTE_NOW | FOLLOWUP_TOOLING_TICKET | KEEP_AS_TEST | KEEP_AS_REVIEW | KEEP_AS_HUMAN
+RATIONALE =
+```
+
+- 本收据是**分类证据**，**不**自动创建门、不自动开票、不扩当前票 scope（框架 §21.3；RULES R6）。
+- `PROMOTION = PROMOTE_NOW` 只在框架 §21.3 的本票内允许条件**全部**满足时才成立；否则 `FOLLOWUP_TOOLING_TICKET`。

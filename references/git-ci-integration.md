@@ -43,6 +43,47 @@ CANDIDATE_CAUSED_FAILURE / CI_CLASSIFICATION / REVIEWER_ACCEPTED_CLASSIFICATION
 
 - Worker 分类 = PROPOSAL_ONLY（R3）。自动化评审不可用（配额/故障）= `UNAVAILABLE`，不是 PENDING，也不得静默豁免 gate——按仓政策路由到指定独立评审。
 
+### 3.3 CI_FAST / CI_FULL（执行类别；不要求两个 job）
+
+> 类别语义与边界的唯一声明点 = `references/static-analysis-and-code-intelligence.md` §10.1。本节只声明 **CI 侧执行语义**。
+
+```text
+CI_FAST  = 干净环境中可复现的等价快速预检（§10.1 FAST_GATE 的远程对应）
+CI_FULL  = 更广的集成/发布证据（§10.1 FULL_GATE 的远程对应）
+```
+
+- **不**要求必须是两个独立 GitHub Actions job：仓可按自身需要用**一个 workflow 内的有序步骤**，或拆成 fast / full 两个 job。**不**为了标签好看而重构 CI。
+- 关键要求：
+
+```text
+FAST 门在可行时先于昂贵门执行
+REGISTERED != EXECUTED（已配置的门必须真跑）
+CI_FAST PASS != CI_FULL PASS
+CI_FULL PASS 不抹掉 FAST 门失败
+```
+
+### 3.4 LOCAL_FAST_GATE vs CI_FAST_GATE
+
+```text
+LOCAL_FAST_GATE = 开发/代理的快速反馈回路（本机、本地可离线）
+CI_FAST_GATE    = 干净环境中的可复现确认
+```
+
+期望模型：
+
+```text
+LOCAL_FAST_GATE → 在首次常规 push 之前 PASS（可行时）
+CI_FAST_GATE    → 远程重跑等价的可复现检查
+```
+
+因此工作流目标是：
+
+```text
+CI 不应是确定性低层缺陷第一次被发现的地方
+```
+
+这是**工作流目标**，**不是**编造本机不存在之工具的许可：本地执行不可行时**如实上报**（`ENV_BLOCKED` / `NOT_CONFIGURED`，框架 §8 值域），不得用"本地已过"掩饰未执行。
+
 ## 4. Scope 核验（L0；语义优先）
 
 - 默认校验 = **语义 scope**：changed files 落在票声明的行为范围 / expected surface 内。
