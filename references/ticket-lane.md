@@ -326,9 +326,10 @@ CURRENT_DEFECT_FIXED = YES | NO
 MACHINE_DETECTABLE = YES | NO | UNCERTAIN
 EXISTING_MACHINE_OWNER =    # 已有的机械归属；无则 NONE
 BEST_DURABLE_OWNER =        # §21.2 层级中的最便宜可靠层
-PROMOTION = PROMOTE_NOW | FOLLOWUP_TOOLING_TICKET | KEEP_AS_TEST | KEEP_AS_REVIEW | KEEP_AS_HUMAN
+PROMOTION = <§21.3 处置值域>
 RATIONALE =
 ```
 
+- `PROMOTION` 的取值集合与硬语义的**唯一声明点** = `references/static-analysis-and-code-intelligence.md` §21.3；本节只**引用**，不缩写、不重述（缩写即双 owner，同 §9 值域纪律）。
 - 本收据是**分类证据**，**不**自动创建门、不自动开票、不扩当前票 scope（框架 §21.3；RULES R6）。
 - `PROMOTION = PROMOTE_NOW` 只在框架 §21.3 的本票内允许条件**全部**满足时才成立；否则 `FOLLOWUP_TOOLING_TICKET`。

@@ -494,6 +494,8 @@ PROMOTION_VALUE               HIGH / MEDIUM / LOW / NOT_APPLICABLE
 
 ### 21.2 LOWEST RELIABLE MECHANICAL LAYER（概念层级）
 
+> 与 §1 的区别（避免双 owner 解读）：§1 是**事实源层级**（用什么工具拿到事实：grep / AST / LSP / CodeGraph / 源码）；本节是**缺陷强制执行层级**（用什么门长期拦住这类缺陷）。两者正交，不互相替代。
+
 ```text
 parser / compiler
 → linter

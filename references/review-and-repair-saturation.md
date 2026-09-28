@@ -72,7 +72,7 @@ PROMOTION_VALUE = HIGH / MEDIUM / LOW / NOT_APPLICABLE
 自动创建下游票的权威
 ```
 
-- finding **!=** 自动真理：executor / orchestrator **仍必须核验**该 finding（`OBSERVATION_IS_EVIDENCE_NOT_AUTHORITY`，§6.1）。
+- finding **!=** 自动真理：executor / orchestrator **仍必须核验**该 finding（§6.1「观测是证据，不是权威」：观测永不自我授权）。
 - finding **!=** 自动建门：晋升判定与处置见 `references/static-analysis-and-code-intelligence.md` §21（value-gated，非自动规则扩散）。
 - 语义/合同判断类 finding 的 `MACHINE_DETECTABLE` 通常为 `NO`，应明确标出以免被误下沉（框架 §3/§19）。
 
