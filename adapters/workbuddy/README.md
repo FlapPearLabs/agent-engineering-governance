@@ -19,12 +19,12 @@ V1 只把这一条变成 `PreToolUse` 机械门。**其余一律不做**（见 �
 | 假设 | 状态 | 依据 |
 |---|---|---|
 | WorkBuddy 会话内 home = `~/.workbuddy`（`CODEBUDDY_CONFIG_DIR`） | FACT | `getWorkbuddyConfigDir()`；`~/.workbuddy/{skills,plugins,logs}` 实测印证 |
-| 用户级 settings = `<home>/settings.json` | **INFERENCE**（未做端到端 deny 实测） | `PathUtils.getSettingsFilePath(USER)` = `getHomeDir()/SETTINGS_FILENAME` |
+| 用户级 settings = `<home>/settings.json` | **FACT**（2026-09-28 端到端 deny 实测） | 源码推断 + 已安装注册与 live deny 实测（见本节末 AFTER 块） |
 | `PreToolUse` 支持 `permissionDecision = "deny"` 且判为 blocking | FACT | CLI bundle 内 `hookSpecificOutput.permissionDecision` 处理分支 |
 | command hook 退出码 2 = 阻塞该工具调用 | FACT | 随 App 发布的 `hooks.md`「简单方式：退出代码」 |
 | hook 以 stdin JSON 接收 `hook_event_name` / `tool_name` / `tool_input` | FACT | 随 App 发布的 `hooks.md`「Hook 输入」 |
 | hooks 功能状态 | **Beta**（接口可能调整） | 随 App 发布的 `hooks.md` 顶部标注 |
-| hook 配置在 WorkBuddy 会话内的**实际接线面** | **UNKNOWN** | 无端到端 deny 观测；`~/.workbuddy/settings.json` 当前无 `hooks` 键 |
+| hook 配置在 WorkBuddy 会话内的**实际接线面** | **OBSERVED**（2026-09-28） | `~/.workbuddy/settings.json` 现有 1 条 PreToolUse 注册（matcher `Bash`）；真实会话中命中拒绝面的工具调用**在执行前**被宿主拦截（见本节末 AFTER 块） |
 
 `UNKNOWN` 不等于可用。部署方必须跑完 §4 的负例测试，**在真实会话里观察到 deny**，才可声称该门生效。
 
@@ -32,13 +32,31 @@ V1 只把这一条变成 `PreToolUse` 机械门。**其余一律不做**（见 �
 
 ```text
 ENFORCED   存在**可核验的宿主 deny 映射**（运行时「exit 2 → 宿主 DENY」的机器可读登记），
-           且已在真实会话中观测到一次真实 deny。本适配器当前**不声称** ENFORCED。
-ADVISORY   无可核验 deny 映射时的诚实降级态（合法）。**当前状态即 ADVISORY**：
-           产物已评审、可部署，但宿主侧是否真的阻断尚未观测。
+           且已在真实会话中观测到一次真实 deny。
+ADVISORY   无可核验 deny 映射时的诚实降级态（合法）：产物已评审、可部署，
+           但宿主侧是否真的阻断尚未观测。
 NOT_RUN    live 端到端 deny 实测未执行。`NOT_RUN` 永不等于 `PASS`。
 ```
 
-即：**本适配器当前 = `ADVISORY` + `live_verification = NOT_RUN`**。任何报告不得把它写成「已强制」。
+**部署前（2026-09-27 评审时，历史记录）**：`ADVISORY` + `live_verification = NOT_RUN`
+（当时无 deny 映射登记、无 live 观测）。
+
+**部署后 / 实况验证（2026-09-28 实测，WorkBuddy 5.5.3）**：
+**本适配器当前 = `ENFORCED`**——**仅**在下列限定内成立：
+
+- 限于本文件 §3 文档化的拒绝面；分类器仍是**非封闭**的静态文本分类器
+  （KNOWN NON-COVERAGE 第 4 类「结构边界」不变，`--shallow-file` 等"今日即不完整"
+  实例仍在，shell 求值 / 别名 / 文本外 config 等类全部不变）；
+- deny 映射登记 = `~/.workbuddy/settings.json` 的 PreToolUse 注册（机器可读；已部署产物
+  sha256 `b22b0659…` 与集成源 `cea9acc` 一致）+ 宿主真实拦截观测；
+- 观测到的 deny = 真实会话中命中拒绝面的工具调用**在执行前**被宿主拦截
+  （2026-09-27 两次、2026-09-28 一次；2026-09-28 为真实的 `git push --force` 形式）；
+- 状态只对**观测到的 WorkBuddy profile** 成立，不随版本自动延续；
+  hook 卸载 / 注册缺失 / 宿主行为变化 → 回落 `ADVISORY`。
+
+`NOT_RUN 永不等于 PASS` 的规则不变。**任何报告不得据此写成**：所有强推路径已不可能 /
+所有破坏性 Git 行为已被阻止 / 本 hook 是完整的 Git 安全边界 / 静态命令分类器已封闭——
+这些都不成立（见 §3 已知未覆盖）。
 
 ## 3. Hook 的拒绝集与边界
 
@@ -260,7 +278,9 @@ python3 adapters/workbuddy/install.py rollback   # 机械回滚
 
 ### 4.2 部署状态
 
-本地部署状态（不是本仓事实）登记在 `deployment/BOOTSTRAP_CONTRACT.md` §4 的字段块内，
+本地部署状态的登记点 = 本文件 §2 的「部署后 / 实况验证」块；
+安装器留痕（`install-state.json`、带 sha256 的 settings 备份）在本机
+`~/.workbuddy/{hooks,backups}/workbuddy-git-safety-guard/`，不入库。
 逐项观测与边界见 `audit/AS_IS_WORKBUDDY_V3.md` §7。
 
 ## 5. V1 显式不做的事

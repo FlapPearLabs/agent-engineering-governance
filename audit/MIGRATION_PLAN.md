@@ -3,6 +3,11 @@
 > STATUS: PLAN_ONLY。本文件描述"如果候选治理获批，如何把现状迁到目标态"。
 > 本审计**未**修改 `~/.workbuddy/MEMORY.md`、live skills、live MCP、任何产品仓。
 >
+> **单位更正（追加，2026-09-28；本文历史原文不改写）**：本文写「MEMORY 指针候选必须
+> ≤~3,500 **字符**」——**单位错误**。权威单位是 **UTF-8 编码字节数（byte）**；预算值、单位、
+> profile 区分与 override 语义的规范声明点 = `deployment/BOOTSTRAP_CONTRACT.md` §2.1。
+> 本文是 STATUS: PLAN_ONLY 的历史计划记录，**不得**被引用为预算或单位的 rule owner。
+> 同一更正见 `audit/AUDIT_QUALITY_REVIEW.md` 头注。
 > **V2 增补（F1–F7 修复后）**：
 > 1. Batch 1 的"新 MEMORY.md"已物化为 `deployment/MEMORY_POINTER_CANDIDATE.md`（≤3,500 字符，实测截断点 4028）；部署前置 = fresh 评审 APPROVE + skills manifest 补齐 + owner 授权（deployment/BOOTSTRAP_CONTRACT.md §2.1）。
 > 2. 风险模型定稿为 **LOW/MEDIUM/HIGH 三级 + ESCALATION 触发清单**（原四级 CRITICAL 并入触发清单）。
