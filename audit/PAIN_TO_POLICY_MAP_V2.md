@@ -253,5 +253,6 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P16 冗长报告 | DEFAULT_ONLY | 部分 | YES | NO |
 | P17 仓政策全局化 | NO(字面)/YES(原则) | YES(校验器可查) | NO | NO |
 | P18 全局压倒仓 | **YES**(分层机制) | 部分 | NO | 冲突 YES |
+| P19 分解入口上下文丢失 | YES(原则)/DEFAULT(recipe) | 部分 | 部分 | 冲突 YES |
 | P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |

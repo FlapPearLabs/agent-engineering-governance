@@ -60,7 +60,7 @@ reviewer finding **MAY** 附带以下**建议性**元数据，帮助 executor �
 DEFECT_CLASS =              # 稳定语义类目
 MACHINE_DETECTABLE = YES / NO / UNCERTAIN
 CANDIDATE_MECHANICAL_LAYER = # §21.2 层级中的候选层
-PROMOTION_VALUE = HIGH / MEDIUM / LOW / NOT_APPLICABLE
+PROMOTION_VALUE = # 见框架 §21.1（reviewer 建议值，不自动生效）
 ```
 
 **权威边界（不可越界）**——reviewer **不**因附带这些元数据而获得：
