@@ -299,21 +299,64 @@ def static_gate_wiring(root: Path) -> list[str]:
     return problems
 
 
+CI_RUN_PREFIX = "run:"
+CI_BLOCK_SCALAR_MARKERS = ("|", ">", "|-", ">-", "|+", ">+", "|2", ">2")
+
+
 def ci_run_commands(ci_text: str) -> list[str]:
     """The ordered ``run:`` command bodies of a workflow file.
 
-    Handles both step forms: the block form (``        run: cmd``) and the
-    inline list form (``      - run: cmd``).
+    Handles the three step forms a GitHub workflow actually uses: the block form
+    (``        run: cmd``), the inline list form (``      - run: cmd``), and the
+    YAML block scalar (``run: |`` followed by indented lines). A block scalar is
+    folded into one command body so a legitimate multi-line step is not mistaken
+    for a missing gate.
     """
-    prefix = "run:"
+    lines = ci_text.splitlines()
     commands: list[str] = []
-    for line in ci_text.splitlines():
-        stripped = line.strip()
+    line_index = 0
+    while line_index < len(lines):
+        raw = lines[line_index]
+        stripped = raw.strip()
         if stripped.startswith("- "):
             stripped = stripped[len("- "):].lstrip()
-        if stripped.startswith(prefix):
-            commands.append(stripped[len(prefix):].strip())
+        if not stripped.startswith(CI_RUN_PREFIX):
+            line_index += 1
+            continue
+        body = stripped[len(CI_RUN_PREFIX):].strip()
+        if body in CI_BLOCK_SCALAR_MARKERS:
+            base_indent = len(raw) - len(raw.lstrip())
+            block: list[str] = []
+            line_index += 1
+            while line_index < len(lines):
+                candidate = lines[line_index]
+                if not candidate.strip():
+                    block.append("")
+                    line_index += 1
+                    continue
+                if (len(candidate) - len(candidate.lstrip())) <= base_indent:
+                    break
+                block.append(candidate.strip())
+                line_index += 1
+            commands.append(" ".join(part for part in block if part))
+            continue
+        commands.append(body)
+        line_index += 1
     return commands
+
+
+# The invocation a gate step must actually contain. A bare substring test is not
+# enough: `run: echo "ruff check"` mentions the gate without invoking it. These
+# patterns match the documented invocation forms with or without the block-arg
+# form, so mentioning the name as a string argument no longer opens the gate.
+CI_GATE_INVOCATIONS = (
+    ("provision (requirements-dev.txt)",
+     lambda c: "-r requirements-dev.txt" in c),
+    ("compileall gate",
+     lambda c: "-m compileall" in c or c.startswith("compileall")),
+    ("ruff gate",
+     lambda c: "-m ruff check" in c or c.startswith("ruff check")),
+)
 
 
 def static_gate_ci_wiring(ci_text: str) -> list[str]:
@@ -321,9 +364,9 @@ def static_gate_ci_wiring(ci_text: str) -> list[str]:
 
     A pinned requirements file plus a config file only *register* a gate; the
     gate is EXECUTED because an ordered ``run:`` step invokes it before the
-    expensive suites (policy section 15). This predicate checks exactly that
-    mechanically decidable property: real invocation steps exist, the toolchain
-    is provisioned, and both static invocations precede the first suite step.
+    expensive suites (policy section 15). This predicate checks the mechanically
+    decidable part of that: real invocation steps exist, and they precede the
+    first suite step.
 
     It does NOT prove the runner executed anything -- only the run log can.
     """
@@ -337,31 +380,26 @@ def static_gate_ci_wiring(ci_text: str) -> list[str]:
                 return index
         return -1
 
-    found = {
-        "provision (requirements-dev.txt)": first(
-            lambda c: "requirements-dev.txt" in c),
-        "compileall gate": first(lambda c: "compileall" in c),
-        "ruff gate": first(lambda c: "ruff check" in c),
-        "test/validation suites": first(
-            lambda c: "unittest" in c or "validate_governance.py" in c
-            or "validate_public_release.py" in c),
-    }
-    absent = [name for name, index in found.items() if index < 0]
-    if absent:
-        return [f"{name}: no run: step invokes it" for name in absent]
+    gate_index: dict[str, int] = {}
+    for label, predicate in CI_GATE_INVOCATIONS:
+        gate_index[label] = first(predicate)
+    suite_index = first(
+        lambda c: "unittest" in c or "validate_governance.py" in c
+        or "validate_public_release.py" in c)
 
-    problems: list[str] = []
-    gate_order = (found["provision (requirements-dev.txt)"],
-                  found["compileall gate"], found["ruff gate"])
-    for index in gate_order:
-        if index > found["test/validation suites"]:
-            problems.append(
-                "static gate order: step index "
-                f"{index} runs after the first suite step "
-                f"{found['test/validation suites']}; section 15 requires the "
-                "static gates first")
-            break
-    return problems
+    absent = [label for label, index in gate_index.items() if index < 0]
+    if absent:
+        return [f"{label}: no run: step invokes it" for label in absent]
+    if suite_index < 0:
+        return ["no run: step executes the test/validation suites"]
+
+    for label, index in gate_index.items():
+        if index > suite_index:
+            return [
+                f"static gate order: {label} runs as step {index}, after the "
+                f"first suite step {suite_index}; section 15 requires the "
+                "static gates first"]
+    return []
 
 
 # MEMORY pointer budget. The VALUE and UNIT are owned by

@@ -107,6 +107,22 @@ LANGUAGE_SPECIFIC_TOOLS = (
 )
 
 
+def language_tool_hits(text):
+    """Tool names from LANGUAGE_SPECIFIC_TOOLS mentioned as standalone names.
+
+    Boundary rule (both directions documented, because a guard whose blind spot
+    is undocumented is a trap): a FOLLOWING word character is rejected, and a
+    following `.`/`-` is rejected only when it joins a filename or a compound
+    name (`ruff.toml`, `ruff-extras`). A sentence-final mention ("... mandate
+    ruff.") therefore still fires, which is the point of the guard.
+    """
+    pattern = "|".join(
+        rf"(?<![\w.-]){re.escape(tool)}(?!\w)(?![-.]\w)"
+        for tool in LANGUAGE_SPECIFIC_TOOLS)
+    return sorted({match.group(0).lower()
+                   for match in re.finditer(pattern, text, re.I)})
+
+
 class StaticGateFrameworkWiringTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -195,12 +211,27 @@ class StaticGateFrameworkWiringTests(unittest.TestCase):
         If a language's tool ever became a universal hard invariant it would
         land here, and this test is where that is caught.
         """
-        text = (ROOT / RULES).read_text(encoding="utf-8")
-        hits = [tool for tool in LANGUAGE_SPECIFIC_TOOLS
-                if re.search(rf"(?<![\w.-]){re.escape(tool)}(?![\w.-])", text, re.I)]
+        hits = language_tool_hits((ROOT / RULES).read_text(encoding="utf-8"))
         self.assertEqual(
             [], hits,
             f"{RULES} must carry no language-specific tooling policy; found {hits}")
+
+    def test_the_b_layer_guard_actually_fires(self):
+        """Non-vacuity: the guard must catch a tool promoted into the B layer."""
+        for injected in ("RULES must require ruff on every change",
+                         "all JS commits must pass eslint",
+                         "every Python change must run mypy"):
+            with self.subTest(injected=injected):
+                self.assertTrue(language_tool_hits(injected),
+                                f"guard did not fire on: {injected}")
+
+    def test_the_b_layer_guard_boundary_is_as_documented(self):
+        """A filename or compound name is not a policy mention; prose still is."""
+        self.assertEqual(
+            [], language_tool_hits("refer to ruff.toml and tsconfig.json"))
+        self.assertEqual([], language_tool_hits("a dependency on ruff-extras"))
+        self.assertIn("ruff", language_tool_hits("never mandate ruff."))
+        self.assertIn("tsc", language_tool_hits("run tsc --noEmit here"))
 
     def test_profiles_are_recommendation_only(self):
         text = (ROOT / PROFILES).read_text(encoding="utf-8")
@@ -286,6 +317,31 @@ class StaticGateFrameworkWiringTests(unittest.TestCase):
             "  - run: python3 -m unittest discover -s scripts/tests\n")
         self.assertTrue(governance.static_gate_ci_wiring(text),
                         "commented-out gate steps must not satisfy the check")
+
+    def test_gate_name_as_a_string_argument_does_not_open_the_gate(self):
+        """A reviewer counterexample: `echo "ruff check"` is not an invocation."""
+        text = (
+            "  - run: python3 -m pip install -r requirements-dev.txt\n"
+            "  - run: python3 -m compileall -q scripts adapters\n"
+            '  - run: echo "ruff check"\n'
+            "  - run: python3 -m unittest discover -s scripts/tests\n")
+        problems = governance.static_gate_ci_wiring(text)
+        self.assertTrue(any("ruff gate" in p for p in problems), problems)
+
+    def test_multi_line_run_block_scalar_is_recognised(self):
+        """A YAML block-scalar step is a legitimate refactor, not a missing gate.
+
+        Without block-scalar handling a correct multi-line `run: |` step would be
+        reported as an absent gate -- a false positive introduced by tightening
+        the predicate.
+        """
+        text = (
+            "  - run: python3 -m pip install -r requirements-dev.txt\n"
+            "  - run: |\n"
+            "      python3 -m compileall -q scripts adapters\n"
+            "      python3 -m ruff check .\n"
+            "  - run: python3 -m unittest discover -s scripts/tests\n")
+        self.assertEqual([], governance.static_gate_ci_wiring(text))
 
     def test_static_gate_must_precede_the_suites(self):
         """Policy section 15: the gates run before the expensive suites."""
