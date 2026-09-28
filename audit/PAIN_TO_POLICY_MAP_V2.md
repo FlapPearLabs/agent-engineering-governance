@@ -211,6 +211,26 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
                      做成样式迁移）。
 ```
 
+## P21 机械可判缺陷反复消耗独立评审预算 / 缺"缺陷类→门"晋升判定（2026-09-29 增补）
+
+- FAILURE_CLASS：(a) 同一**确定性的低层缺陷类**在多轮评审中被反复重新发现，每轮都花费独立评审预算；(b) 已知"这类问题工具能查"，但**没有把该缺陷类下沉到机器门**的判定点，于是修复停留在"本票改掉了"而不复发预防；(c) 反向风险——为减少评审负载而无节制地新增规则，导致**规则指数扩散与误报本身成为新缺陷类**。
+- REAL INCIDENT / REPEATED FAILURE：
+  - **GOV（一手、可复现）**：P20 采纳的同一次 dogfood 中，本仓 `scripts/` 与 `adapters/zcode/tests/` 存在 **5 处 F841**（未使用的局部赋值）。这类缺陷**完全机械可判**（ruff `F` 规则一次命中 5 处），却在没有静态门时需要人工/评审逐个发现；P20 落地后 `ruff check .` 一次即全部检出。**这是"同一缺陷类 → 单次机械检出"的仓内一手证据。**
+  - **GOV（治理侧，可复现）**：本次变更前，本仓的 `references/review-and-repair-saturation.md` 已有 `DEFECT_CLASS` 元数据（L32 附近）与 L1"不重复报告 L0 已可确定性检出的问题"，但**无**"这个缺陷类能否下沉到哪一层"的判定模型，也**无**"重复出现是否构成缺门证据"的联动规则；`references/static-analysis-and-code-intelligence.md` 旧 §4 D12 仅覆盖"**重复出现**的真实缺陷类 + 现有工具无法廉价检出"才建议新增工具——**单次**高价值可机械检出的缺陷类不在其表述内，晋升判定缺位。
+  - **GOV（本票内的复发实例，一手可复现）**：P20 落地时 `ruff check .` 一次性检出并修掉了 5 处 **F841**（未使用局部赋值）。撰写本票的新测试文件时，同一**缺陷类**（未使用导入，规则 **F401**）**再次**被 `ruff check .` 命中（`test_p1_t18_defect_promotion_fast_full.py` 首个 `re` import），移除后转绿。这是"**同一确定性缺陷类在已有机械门的情况下仍会复发**"的直接证据：门存在不等于门会拦住**新引入**的同类缺陷，而人工/评审仍是最后一道发现者——支持"机械可判缺陷必须由门持续拦截"的动机，也说明 `LOCAL_FAST_GATE` 必须在写码回路内跑。
+  - **OWNER-BRIEFED（owner 在本次任务书中提供；本仓未独立核验）**：任务书列举"评审轮次反复发现机械可分类问题"的通用模式。按 RULES R3，此行标记为 **owner 报告而非已核实事实**。
+- SOURCE_EVIDENCE：本仓 `ruff check . --select F841` 实测命中 5 处（与 P20 BASELINE 记录的 `E9,F = 5` 一致）；`references/review-and-repair-saturation.md` §1 L1 纪律与 §4 finding 元数据（`DEFECT_CLASS` 已存在，无 `MACHINE_DETECTABLE` 轴）；`references/static-analysis-and-code-intelligence.md` 旧 §4 D12 原文；`references/git-ci-integration.md` 旧 §3 无 FAST/FULL 分类。
+- ROOT_CAUSE：static-first 框架解决了"**门内**的缺陷如何执行与记账"（P20），但**没有**回答"门外的缺陷发现**是否**应被提升进门"——晋升判定缺位，导致机械可判缺陷停留在"人工发现 + 一次性修复"循环。
+- WHAT_WENT_WRONG：(a) 机械可判缺陷类反复占用独立评审预算；(b) 修复后无复发预防，同类问题在下一票重新出现；(c) 缺少晋升判定也意味着**无法区分**"该下沉"与"不该下沉"，后者若处理不当会退化为规则扩散。
+- POLICY_INTENDED：`references/static-analysis-and-code-intelligence.md` §21 `DEFECT_TO_GATE_PROMOTION`——按**缺陷类**（非单行）评估晋升价值（真实/高置信 + 判定确定 + 误报风险低 + 执行与维护代价低 + 语义稳定 + 无隐藏产品语义判断），沿 §21.2 层级选**最便宜可靠**层；**处置取值集合的唯一声明点 = 框架 §21.3**（本表为证据记录，不重述值域——重述即双 owner，CE-28）；`references/review-and-repair-saturation.md` §4.1 定义 reviewer **建议性**元数据（不扩权）、§6.5 定义"重复低层发现 = 缺门证据"但**一次出现 ≠ 自动晋升**；票级落点 = `references/ticket-lane.md` §9.4。
+- CURRENT_BEST_ABSTRACTION：晋升是 **value-gated 判定**，不是自动规则扩散。防扩散的三个既有约束被显式复用：`BUG KNOWLEDGE → REGRESSION TEST` 保留（框架 §19，行为知识不得被 lint 替换）、`一次出现 ≠ 自动治理缺陷`、本票内下沉六条件（框架 §21.3）。`LOWEST ≠ WEAKEST`：选层标准是"可靠检出"，语义/产品判断**不得**为省评审而塞进静态检查（框架 §3）。
+- R8 四问：(1) 防哪次真实失效 → 上述 (a)(b)，其中"5 处 F841 一次检出"为本仓一手证据；(2) 机器能否更便宜地做 → 能，晋升后的门就是机器门；(3) 每个风险级都需要吗 → 否，晋升判定按 `PROMOTION_VALUE` 分级，LOW/琐碎 finding **不**要求产出收据；(4) 能否降级为 reference/默认 → **是**，整套为 D 层默认 + 仓可显式 OVERRIDE，不升 B 层（`RULES.md` 未改动）。
+- SHOULD_BE_GLOBAL = **DEFAULT_ONLY**（晋升判定与 FAST/FULL 分类均为 D 层默认；**不**新增 B 层不变量——"任何仓必须装某个 linter"或"必须做缺陷分类"都属过度普适）。
+- CAN_BE_MACHINE_ENFORCED：**部分**。文档接线、receipt 字段存在性、值域委托（不重复声明）可机械校验（`scripts/validate_governance.py` + `scripts/tests/test_p1_t18_*.py`）；"`PROMOTION_VALUE` 判定"与"某缺陷类是否可靠可机械检出"本质是判断型，需 agent 判断 + 评审确认。
+- NEEDS_AGENT_JUDGMENT = YES（判定缺陷类可靠性、误报风险、晋升价值）。NEEDS_HUMAN_JUDGMENT = 争议时 YES（`KEEP_AS_HUMAN_DECISION` / 晋升需改架构时）。
+- 与既有痛点的关系：P20 的**直接续篇**（P20 = 门内执行与记账；P21 = 门外缺陷是否应进门）。P14（贵评审滥用）邻域但不同：P14 是"评审预算分配"，P21 是"把可机械判的部分移出评审域"。本项**不**新建权威文件，canonical owner 全部挂在既有 references（避免双 owner，CE-28 语义）。
+- MACHINE_ENFORCED = PARTIAL。
+
 ## 汇总判定表
 
 | PAIN | SHOULD_BE_GLOBAL | 机器可 enforce | agent 判断 | 人判断 |
@@ -235,23 +255,3 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P18 全局压倒仓 | **YES**(分层机制) | 部分 | NO | 冲突 YES |
 | P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |
-
-## P21 机械可判缺陷反复消耗独立评审预算 / 缺"缺陷类→门"晋升判定（2026-09-29 增补）
-
-- FAILURE_CLASS：(a) 同一**确定性的低层缺陷类**在多轮评审中被反复重新发现，每轮都花费独立评审预算；(b) 已知"这类问题工具能查"，但**没有把该缺陷类下沉到机器门**的判定点，于是修复停留在"本票改掉了"而不复发预防；(c) 反向风险——为减少评审负载而无节制地新增规则，导致**规则指数扩散与误报本身成为新缺陷类**。
-- REAL INCIDENT / REPEATED FAILURE：
-  - **GOV（一手、可复现）**：P20 采纳的同一次 dogfood 中，本仓 `scripts/` 与 `adapters/zcode/tests/` 存在 **5 处 F841**（未使用的局部赋值）。这类缺陷**完全机械可判**（ruff `F` 规则一次命中 5 处），却在没有静态门时需要人工/评审逐个发现；P20 落地后 `ruff check .` 一次即全部检出。**这是"同一缺陷类 → 单次机械检出"的仓内一手证据。**
-  - **GOV（治理侧，可复现）**：本次变更前，本仓的 `references/review-and-repair-saturation.md` 已有 `DEFECT_CLASS` 元数据（L32 附近）与 L1"不重复报告 L0 已可确定性检出的问题"，但**无**"这个缺陷类能否下沉到哪一层"的判定模型，也**无**"重复出现是否构成缺门证据"的联动规则；`references/static-analysis-and-code-intelligence.md` 旧 §4 D12 仅覆盖"**重复出现**的真实缺陷类 + 现有工具无法廉价检出"才建议新增工具——**单次**高价值可机械检出的缺陷类不在其表述内，晋升判定缺位。
-  - **GOV（本票内的复发实例，一手可复现）**：P20 落地时 `ruff check .` 一次性检出并修掉了 5 处 **F841**（未使用局部赋值）。撰写本票的新测试文件时，同一**缺陷类**（未使用导入，规则 **F401**）**再次**被 `ruff check .` 命中（`test_p1_t18_defect_promotion_fast_full.py` 首个 `re` import），移除后转绿。这是"**同一确定性缺陷类在已有机械门的情况下仍会复发**"的直接证据：门存在不等于门会拦住**新引入**的同类缺陷，而人工/评审仍是最后一道发现者——支持"机械可判缺陷必须由门持续拦截"的动机，也说明 `LOCAL_FAST_GATE` 必须在写码回路内跑。
-  - **OWNER-BRIEFED（owner 在本次任务书中提供；本仓未独立核验）**：任务书列举"评审轮次反复发现机械可分类问题"的通用模式。按 RULES R3，此行标记为 **owner 报告而非已核实事实**。
-- SOURCE_EVIDENCE：本仓 `ruff check . --select F841` 实测命中 5 处（与 P20 BASELINE 记录的 `E9,F = 5` 一致）；`references/review-and-repair-saturation.md` §1 L1 纪律与 §4 finding 元数据（`DEFECT_CLASS` 已存在，无 `MACHINE_DETECTABLE` 轴）；`references/static-analysis-and-code-intelligence.md` 旧 §4 D12 原文；`references/git-ci-integration.md` 旧 §3 无 FAST/FULL 分类。
-- ROOT_CAUSE：static-first 框架解决了"**门内**的缺陷如何执行与记账"（P20），但**没有**回答"门外的缺陷发现**是否**应被提升进门"——晋升判定缺位，导致机械可判缺陷停留在"人工发现 + 一次性修复"循环。
-- WHAT_WENT_WRONG：(a) 机械可判缺陷类反复占用独立评审预算；(b) 修复后无复发预防，同类问题在下一票重新出现；(c) 缺少晋升判定也意味着**无法区分**"该下沉"与"不该下沉"，后者若处理不当会退化为规则扩散。
-- POLICY_INTENDED：`references/static-analysis-and-code-intelligence.md` §21 `DEFECT_TO_GATE_PROMOTION`——按**缺陷类**（非单行）评估晋升价值（真实/高置信 + 判定确定 + 误报风险低 + 执行与维护代价低 + 语义稳定 + 无隐藏产品语义判断），沿 §21.2 层级选**最便宜可靠**层，处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_TEST / KEEP_AS_REVIEWER_RESPONSIBILITY / KEEP_AS_HUMAN_DECISION`；`references/review-and-repair-saturation.md` §4.1 定义 reviewer **建议性**元数据（不扩权）、§6.5 定义"重复低层发现 = 缺门证据"但**一次出现 ≠ 自动晋升**；票级落点 = `references/ticket-lane.md` §9.4。
-- CURRENT_BEST_ABSTRACTION：晋升是 **value-gated 判定**，不是自动规则扩散。防扩散的三个既有约束被显式复用：`BUG KNOWLEDGE → REGRESSION TEST` 保留（框架 §19，行为知识不得被 lint 替换）、`一次出现 ≠ 自动治理缺陷`、本票内下沉六条件（框架 §21.3）。`LOWEST ≠ WEAKEST`：选层标准是"可靠检出"，语义/产品判断**不得**为省评审而塞进静态检查（框架 §3）。
-- R8 四问：(1) 防哪次真实失效 → 上述 (a)(b)，其中"5 处 F841 一次检出"为本仓一手证据；(2) 机器能否更便宜地做 → 能，晋升后的门就是机器门；(3) 每个风险级都需要吗 → 否，晋升判定按 `PROMOTION_VALUE` 分级，LOW/琐碎 finding **不**要求产出收据；(4) 能否降级为 reference/默认 → **是**，整套为 D 层默认 + 仓可显式 OVERRIDE，不升 B 层（`RULES.md` 未改动）。
-- SHOULD_BE_GLOBAL = **DEFAULT_ONLY**（晋升判定与 FAST/FULL 分类均为 D 层默认；**不**新增 B 层不变量——"任何仓必须装某个 linter"或"必须做缺陷分类"都属过度普适）。
-- CAN_BE_MACHINE_ENFORCED：**部分**。文档接线、receipt 字段存在性、值域委托（不重复声明）可机械校验（`scripts/validate_governance.py` + `scripts/tests/test_p1_t18_*.py`）；"`PROMOTION_VALUE` 判定"与"某缺陷类是否可靠可机械检出"本质是判断型，需 agent 判断 + 评审确认。
-- NEEDS_AGENT_JUDGMENT = YES（判定缺陷类可靠性、误报风险、晋升价值）。NEEDS_HUMAN_JUDGMENT = 争议时 YES（`KEEP_AS_HUMAN_DECISION` / 晋升需改架构时）。
-- 与既有痛点的关系：P20 的**直接续篇**（P20 = 门内执行与记账；P21 = 门外缺陷是否应进门）。P14（贵评审滥用）邻域但不同：P14 是"评审预算分配"，P21 是"把可机械判的部分移出评审域"。本项**不**新建权威文件，canonical owner 全部挂在既有 references（避免双 owner，CE-28 语义）。
-- MACHINE_ENFORCED = PARTIAL。
