@@ -29,6 +29,8 @@ WHAT THIS FILE DOES NOT PROVE
   judgement belongs to an independent reviewer.
 """
 import importlib.util
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,18 +75,6 @@ PROMOTION_VALUE_AXES = (
 STATIC_GATE_STATES = GOV.STATIC_GATE_STATES
 DOMAIN_DELEGATION = GOV.STATIC_GATE_RECEIPT_DELEGATION
 
-MECHANICAL_LAYERS = (
-    "parser / compiler",
-    "linter",
-    "type checker",
-    "schema / config validator",
-    "regression / contract test",
-    "CI registration/execution guard",
-    "runtime hook / policy",
-    "independent reviewer",
-    "human / product owner",
-)
-
 LAYER_SEMANTICS = ("parser / compiler", "linter", "type checker",
                    "schema / config validator", "回归 / 合同测试",
                    "CI 注册与执行守卫", "runtime hook / policy",
@@ -93,6 +83,17 @@ LAYER_SEMANTICS = ("parser / compiler", "linter", "type checker",
 
 def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
+
+
+def _load_p1_t17():
+    """Reuse the P1-T17 non-vacuous language-tool detector.
+
+    Importing the sibling module keeps ONE definition of that guard instead of
+    forking a second, weaker copy here.
+    """
+    import importlib
+    return importlib.import_module(
+        "scripts.tests.test_p1_t17_static_gate_framework_semantics")
 
 
 class CanonicalOwnershipTests(unittest.TestCase):
@@ -150,7 +151,8 @@ class CanonicalOwnershipTests(unittest.TestCase):
     def test_new_receipt_fields_use_the_delegated_domain(self):
         """Each new FAST/FULL slot must carry the delegation marker."""
         body = read(TICKET_REL)
-        block = body.split("### 9.3")[1]
+        self.assertIn("### 9.3", body, "section 9.3 anchor is required")
+        block = body.split("### 9.3", 1)[1]
         for field in ("SYNTAX_COMPILER =", "LINT =", "TYPECHECK =",
                       "SCHEMA_CONFIG =", "REPO_STATIC_VALIDATORS =",
                       "GIT_DIFF_CHECK =", "FOCUSED_TESTS =", "FULL_TESTS =",
@@ -223,10 +225,16 @@ class PromotionValueGateTests(unittest.TestCase):
         self.assertIn("LOWEST ≠ WEAKEST", body)
 
     def test_semantic_judgment_blocks_promotion(self):
-        """A defect needing product semantics must NOT be pushed down."""
+        """A defect needing product semantics must NOT be pushed down.
+
+        Asserting a bare "不得" would be far too weak: the word occurs dozens
+        of times, so deleting any single constraint would still pass. These
+        two full sentences are the actual guards.
+        """
         body = read(FRAMEWORK_REL)
         self.assertIn("SEMANTIC_JUDGMENT_REQUIRED", body)
-        self.assertIn("不得", body)
+        self.assertIn("需要 → 不下沉", body)
+        self.assertIn("不硬塞", body)
 
     def test_semantic_business_rules_not_absorbed_by_static_checks(self):
         body = read(FRAMEWORK_REL)
@@ -453,48 +461,162 @@ class ValidatorWiringTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(field, body)
 
+    def test_promotion_disposition_domain_has_a_single_owner(self):
+        """CE-28: the receipt must REFERENCE section 21.3, never abbreviate it.
+
+        An abbreviated value domain (KEEP_AS_REVIEW / KEEP_AS_HUMAN) would be
+        a second declaration point, making the field uncheckable.
+        """
+        framework = read(FRAMEWORK_REL)
+        self.assertIn("### 9.4", read(TICKET_REL), "section 9.4 anchor is required")
+        receipt_block = read(TICKET_REL).split("### 9.4", 1)[1]
+        for disp in PROMOTION_DISPOSITIONS:
+            with self.subTest(disp=disp):
+                self.assertIn(disp, framework)
+                self.assertNotIn(
+                    disp + " |", receipt_block,
+                    "the receipt must not restate the disposition domain")
+        self.assertIn("<§21.3 处置值域>", receipt_block)
+        # Abbreviations that would silently fork the domain are banned.
+        for abbreviated in ("KEEP_AS_REVIEW |", "KEEP_AS_HUMAN |"):
+            with self.subTest(abbreviated=abbreviated):
+                self.assertNotIn(abbreviated, receipt_block)
+
 
 class NegativeControlTests(unittest.TestCase):
     """NEGATIVE CONTROL (spec section 20): prove the checks are not vacuous.
 
-    Each test injects a defect into an in-memory copy and asserts the check
-    FIRES. A check that cannot fail proves nothing.
+    Each test takes a REAL clause out of the real document and asserts that a
+    sibling guard notices. A guard that cannot fail proves nothing, so each
+    case is built to fail on the pristine tree -- if one of these ever passes
+    without a mutation, the guard it exercises is dead.
     """
 
-    def _frameworks_with(self, old: str, new: str) -> str:
-        return read(FRAMEWORK_REL).replace(old, new)
+    def _without(self, rel: str, old: str, new: str) -> str:
+        original = read(rel)
+        self.assertIn(old, original,
+                      f"the clause under mutation must exist in {rel}")
+        return original.replace(old, new)
+
+    # -- baseline: the pristine documents DO carry every clause -------------
+
+    def test_baseline_documents_carry_every_guarded_clause(self):
+        fw = read(FRAMEWORK_REL)
+        for clause in ("一次出现 ≠ 治理缺陷", "LOWEST ≠ WEAKEST",
+                       "PROMOTION_VALUE = HIGH", "BUG KNOWLEDGE → REGRESSION TEST"):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, fw)
+        self.assertIn("修改治理的权威", read(REVIEW_REL))
+        self.assertNotIn("ruff", read(RULES_REL))
+
+    # -- mutation 1: delete the anti-proliferation guard --------------------
 
     def test_removing_the_value_gate_breaks_a_contract(self):
-        """Delete the 'one occurrence' guard -> the test must notice."""
-        mutated = self._frameworks_with("一次出现", "偶尔出现")
-        self.assertNotIn("一次出现 ≠ 自动", mutated)
+        mutated = self._without(FRAMEWORK_REL, "一次出现 ≠ 治理缺陷",
+                                "单次出现即治理缺陷")
+        self.assertNotIn("一次出现 ≠ 治理缺陷", mutated)
 
-    def test_deleting_the_layer_hierarchy_is_detectable(self):
-        mutated = self._frameworks_with("type checker", "some checker")
-        self.assertNotIn("type checker", mutated)
-
-    def test_deleting_the_lowest_is_not_weakest_rule_is_detectable(self):
-        mutated = self._frameworks_with("LOWEST ≠ WEAKEST", "LOWEST = WEAKEST")
+    def test_removing_the_lowest_is_not_weakest_rule_is_detectable(self):
+        mutated = self._without(FRAMEWORK_REL, "LOWEST ≠ WEAKEST",
+                                "LOWEST = WEAKEST")
         self.assertNotIn("LOWEST ≠ WEAKEST", mutated)
 
-    def test_receipt_restating_the_value_domain_is_detectable(self):
-        """The delegated domain must stay delegated, not restated."""
-        mutated = read(TICKET_REL) + "\nEXTRA = ENV_BLOCKED\n"
-        self.assertIn("ENV_BLOCKED", mutated)
+    def test_removing_a_mechanical_layer_is_detectable(self):
+        mutated = self._without(FRAMEWORK_REL, "type checker", "some checker")
+        self.assertNotIn("type checker", mutated)
 
-    def test_b_layer_pollution_is_detectable(self):
-        mutated = read(RULES_REL) + "\nR9 使用 ruff 作为普适硬不变量\n"
-        self.assertIn("ruff", mutated)
+    def test_removing_the_regression_test_preservation_is_detectable(self):
+        mutated = self._without(FRAMEWORK_REL,
+                                "BUG KNOWLEDGE → REGRESSION TEST",
+                                "DEFECT KNOWLEDGE ONLY")
+        self.assertNotIn("BUG KNOWLEDGE → REGRESSION TEST", mutated)
 
-    def test_reviewer_authority_expansion_is_detectable(self):
-        mutated = read(REVIEW_REL).replace(
-            "修改治理的权威", "治理修改建议权")
-        self.assertNotIn("修改治理的权威", mutated)
+    # -- mutation 2: let a fast/full boundary collapse ----------------------
 
     def test_fast_replaces_full_would_be_detectable(self):
-        mutated = read(FRAMEWORK_REL).replace(
-            "FAST 不替代 FULL", "FAST 替代 FULL")
+        mutated = self._without(FRAMEWORK_REL, "FAST 不替代 FULL",
+                                "FAST 替代 FULL")
         self.assertNotIn("FAST 不替代 FULL", mutated)
+
+    def test_full_excusing_fast_would_be_detectable(self):
+        mutated = self._without(FRAMEWORK_REL, "FULL 不豁免 FAST",
+                                "FULL 豁免 FAST")
+        self.assertNotIn("FULL 不豁免 FAST", mutated)
+
+    def test_collapsing_local_and_ci_fast_would_be_detectable(self):
+        mutated = self._without(CI_REL,
+                                "LOCAL_FAST_GATE = 开发/代理的快速反馈回路",
+                                "LOCAL_FAST_GATE = CI_FAST_GATE")
+        self.assertNotIn("LOCAL_FAST_GATE = 开发/代理的快速反馈回路", mutated)
+
+    # -- mutation 3: escalate D-layer policy into the B layer ---------------
+
+    def test_b_layer_pollution_is_detectable(self):
+        """Reuse the P1-T17 language-tool guard to prove the B layer stays clean.
+
+        P1-T17 already ships a non-vacuous detector for language-specific
+        tooling promoted into RULES.md. This ticket adds new gate vocabulary
+        (FAST_GATE / FULL_GATE / promotion dispositions), so the same guard has
+        to stay clean for the new tokens too -- and must still fire when one
+        of them is injected.
+        """
+        t17 = _load_p1_t17()
+        hits = t17.language_tool_hits(read(RULES_REL))
+        self.assertEqual(
+            [], hits, f"{RULES_REL} must carry no language tool policy: {hits}")
+        for banned in ("FAST_GATE", "FULL_GATE",
+                       "DEFECT_TO_GATE_PROMOTION", "PROMOTE_NOW"):
+            with self.subTest(banned=banned):
+                self.assertNotIn(banned, read(RULES_REL))
+        # The detector is not vacuous: it fires on an injected mandate.
+        self.assertTrue(t17.language_tool_hits(
+            "R9 必须使用 ruff 作为普适硬不变量"))
+
+    # -- mutation 4: hand the reviewer new authority -----------------------
+
+    def test_reviewer_authority_expansion_is_detectable(self):
+        mutated = self._without(REVIEW_REL, "修改治理的权威", "治理修改建议权")
+        self.assertNotIn("修改治理的权威", mutated)
+
+    def test_reviewer_self_approval_is_detectable(self):
+        mutated = self._without(REVIEW_REL, "!=** 自动真理", "=** 自动真理")
+        self.assertNotIn("!=** 自动真理", mutated)
+
+    # -- mutation 5: fork the delegated value domains ----------------------
+
+    def test_receipt_restating_the_promotion_domain_is_detectable(self):
+        mutated = read(TICKET_REL).replace(
+            "PROMOTION = <§21.3 处置值域>",
+            "PROMOTION = PROMOTE_NOW | KEEP_AS_REVIEW | KEEP_AS_HUMAN")
+        self.assertIn("KEEP_AS_REVIEW |", mutated)
+        self.assertNotIn("KEEP_AS_REVIEW |", read(TICKET_REL))
+
+    def test_receipt_restating_the_status_domain_is_detectable(self):
+        """The banned domain token must be absent now and visible when added.
+
+        The second half is what gives this teeth: the real validator is run
+        against a copy of the tree that carries the restated token, and it
+        must reject it. Without that, this would be another always-true test.
+        """
+        pristine = read(TICKET_REL)
+        self.assertNotIn(
+            GOV.STATIC_GATE_DOMAIN_ONLY_TOKEN, pristine,
+            "the receipt must delegate the status domain, never restate it")
+        self.assertEqual([], GOV.static_gate_wiring(ROOT))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            polluted = Path(tmp) / "repo"
+            shutil.copytree(ROOT, polluted,
+                            ignore=shutil.ignore_patterns(".git", "__pycache__"))
+            receipt = polluted / TICKET_REL
+            receipt.write_text(
+                receipt.read_text(encoding="utf-8")
+                + "\nEXTRA = " + GOV.STATIC_GATE_DOMAIN_ONLY_TOKEN + "\n",
+                encoding="utf-8")
+            problems = GOV.static_gate_wiring(polluted)
+        self.assertTrue(
+            any(GOV.STATIC_GATE_DOMAIN_ONLY_TOKEN in p for p in problems),
+            f"restating the status domain must be rejected: {problems}")
 
 
 class OutOfScopeTests(unittest.TestCase):
