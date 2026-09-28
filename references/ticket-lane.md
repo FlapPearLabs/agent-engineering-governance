@@ -177,7 +177,7 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 - 不为此制造低价值测试：无合同意义的实现细节；已被 formatter/linter 机械强制的行为；低价值合成态（REPAIR_VALUE 已裁定的 long-tail）。
 - 测试应编码**有意义的行为知识**（回归、边界、fail-closed、producer/consumer 合同、持久化、身份/provenance、已知反例）。
 
-**缺陷类机械化（与 §4.1 并列的第二条去向）**：当 `CAN_THIS_FAILURE_BE_CAPTURED_AS_A_STABLE_TEST?` 为 **NO**（机械可判、非行为知识）时，按 `references/static-analysis-and-code-intelligence.md` §21 评估**缺陷类**能否下沉到更低可靠机械层，处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_REVIEWER_RESPONSIBILITY / KEEP_AS_HUMAN_DECISION`。回归测试**不得**被"能覆盖某个实现形状的 lint 规则"替换（框架 §19 保留）。
+**缺陷类机械化（与 §4.1 并列的第二条去向）**：当 `CAN_THIS_FAILURE_BE_CAPTURED_AS_A_STABLE_TEST?` 为 **NO**（机械可判、非行为知识）时，按 `references/static-analysis-and-code-intelligence.md` §21 评估**缺陷类**能否下沉到更低可靠机械层；**处置取值集合 = §21.3**（本节不重述、不缩写——重述即双 owner，同 §9 值域纪律）。回归测试**不得**被"能覆盖某个实现形状的 lint 规则"替换（框架 §19 保留）。
 
 ## 5. 实现与自审
 

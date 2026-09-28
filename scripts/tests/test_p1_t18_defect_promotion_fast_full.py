@@ -498,6 +498,67 @@ class NegativeControlTests(unittest.TestCase):
                       f"the clause under mutation must exist in {rel}")
         return original.replace(old, new)
 
+    def _guards_that_fail_on(self, rel: str, old: str, new: str) -> list[str]:
+        """Apply a real mutation to a real document and report which guards fire.
+
+        This is the honest form of a negative control. Rewriting a string and
+        asserting the string is gone only proves that str.replace works; it
+        says nothing about whether any guard would notice. Here the mutated
+        document is fed to the very assertions this module relies on, so a
+        guard that stops protecting its clause shows up as an empty result.
+        """
+        mutated = self._without(rel, old, new)
+        fired = []
+        fw_guards = {
+            "value-gate": lambda b: "一次出现 ≠ 治理缺陷" in b,
+            "lowest-is-not-weakest": lambda b: "LOWEST ≠ WEAKEST" in b,
+            "has-type-checker-layer": lambda b: "type checker" in b,
+            "keeps-regression-test-rule":
+                lambda b: "BUG KNOWLEDGE → REGRESSION TEST" in b,
+            "fast-not-replace-full": lambda b: "FAST 不替代 FULL" in b,
+            "full-not-excuse-fast": lambda b: "FULL 不豁免 FAST" in b,
+            "fast-not-replace-full-ci":
+                lambda b: "CI_FAST PASS != CI_FULL PASS" in b,
+            "declares-21": lambda b: "## 21. DEFECT_TO_GATE_PROMOTION" in b,
+        }
+        for name, guard in fw_guards.items():
+            if rel == FRAMEWORK_REL and not guard(mutated):
+                fired.append(f"framework:{name}")
+        review_guards = {
+            "reviewer-no-governance-authority":
+                lambda b: "修改治理的权威" in b,
+            "finding-not-automatic-truth": lambda b: "!=** 自动真理" in b,
+            "finding-not-automatic-gate": lambda b: "!=** 自动建门" in b,
+            "executor-must-verify": lambda b: "仍必须核验" in b,
+            "repeat-signal-not-weaken-r4": lambda b: "不**削弱 RULES R4" in b,
+        }
+        for name, guard in review_guards.items():
+            if rel == REVIEW_REL and not guard(mutated):
+                fired.append(f"review:{name}")
+        ci_guards = {
+            "local-fast-defined":
+                lambda b: "LOCAL_FAST_GATE = 开发/代理的快速反馈回路" in b,
+            "ci-not-first-discovery":
+                lambda b: "CI 不应是确定性低层缺陷第一次被发现的地方" in b,
+            "honest-local-reporting": lambda b: "如实上报" in b,
+        }
+        for name, guard in ci_guards.items():
+            if rel == CI_REL and not guard(mutated):
+                fired.append(f"ci:{name}")
+        receipt_guards = {
+            "no-abbreviated-domain":
+                lambda b: "KEEP_AS_REVIEW |" not in b and "KEEP_AS_HUMAN |" not in b,
+            "no-disposition-restatement-in-4-1":
+                lambda b: "处置 = `PROMOTE_NOW" not in b,
+            "has-delegation-marker": lambda b: "<§8 状态值域>" in b,
+            "has-9-3-anchor": lambda b: "### 9.3" in b,
+            "has-9-4-anchor": lambda b: "### 9.4" in b,
+        }
+        for name, guard in receipt_guards.items():
+            if rel == TICKET_REL and not guard(mutated):
+                fired.append(f"ticket:{name}")
+        return fired
+
     # -- baseline: the pristine documents DO carry every clause -------------
 
     def test_baseline_documents_carry_every_guarded_clause(self):
@@ -509,45 +570,88 @@ class NegativeControlTests(unittest.TestCase):
         self.assertIn("修改治理的权威", read(REVIEW_REL))
         self.assertNotIn("ruff", read(RULES_REL))
 
+    def test_baseline_triggers_no_guard(self):
+        """Sanity: on the pristine tree every guard must report a violation.
+
+        Each guard is a "clause is present" predicate. Running them against the
+        untouched documents must find every clause still there, otherwise the
+        mutation tests below would pass for the wrong reason.
+        """
+        fw = read(FRAMEWORK_REL)
+        for clause in ("一次出现 ≠ 治理缺陷", "LOWEST ≠ WEAKEST", "type checker",
+                       "BUG KNOWLEDGE → REGRESSION TEST", "FAST 不替代 FULL",
+                       "FULL 不豁免 FAST", "CI_FAST PASS != CI_FULL PASS",
+                       "## 21. DEFECT_TO_GATE_PROMOTION"):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, fw)
+        rv = read(REVIEW_REL)
+        for clause in ("修改治理的权威", "!=** 自动真理", "!=** 自动建门",
+                       "仍必须核验", "不**削弱 RULES R4"):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, rv)
+        ci = read(CI_REL)
+        for clause in ("LOCAL_FAST_GATE = 开发/代理的快速反馈回路",
+                       "CI 不应是确定性低层缺陷第一次被发现的地方", "如实上报"):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, ci)
+        tl = read(TICKET_REL)
+        self.assertNotIn("KEEP_AS_REVIEW |", tl)
+        self.assertNotIn("处置 = `PROMOTE_NOW", tl)
+        self.assertIn("<§8 状态值域>", tl)
+        self.assertIn("### 9.3", tl)
+        self.assertIn("### 9.4", tl)
+
     # -- mutation 1: delete the anti-proliferation guard --------------------
 
     def test_removing_the_value_gate_breaks_a_contract(self):
-        mutated = self._without(FRAMEWORK_REL, "一次出现 ≠ 治理缺陷",
-                                "单次出现即治理缺陷")
-        self.assertNotIn("一次出现 ≠ 治理缺陷", mutated)
+        fired = self._guards_that_fail_on(FRAMEWORK_REL, "一次出现 ≠ 治理缺陷",
+                                          "单次出现即治理缺陷")
+        self.assertIn("framework:value-gate", fired)
 
     def test_removing_the_lowest_is_not_weakest_rule_is_detectable(self):
-        mutated = self._without(FRAMEWORK_REL, "LOWEST ≠ WEAKEST",
-                                "LOWEST = WEAKEST")
-        self.assertNotIn("LOWEST ≠ WEAKEST", mutated)
+        fired = self._guards_that_fail_on(FRAMEWORK_REL, "LOWEST ≠ WEAKEST",
+                                          "LOWEST = WEAKEST")
+        self.assertIn("framework:lowest-is-not-weakest", fired)
 
     def test_removing_a_mechanical_layer_is_detectable(self):
-        mutated = self._without(FRAMEWORK_REL, "type checker", "some checker")
-        self.assertNotIn("type checker", mutated)
+        fired = self._guards_that_fail_on(FRAMEWORK_REL, "type checker",
+                                          "some checker")
+        self.assertIn("framework:has-type-checker-layer", fired)
 
     def test_removing_the_regression_test_preservation_is_detectable(self):
-        mutated = self._without(FRAMEWORK_REL,
-                                "BUG KNOWLEDGE → REGRESSION TEST",
-                                "DEFECT KNOWLEDGE ONLY")
-        self.assertNotIn("BUG KNOWLEDGE → REGRESSION TEST", mutated)
+        fired = self._guards_that_fail_on(
+            FRAMEWORK_REL, "BUG KNOWLEDGE → REGRESSION TEST", "DEFECT KNOWLEDGE ONLY")
+        self.assertIn("framework:keeps-regression-test-rule", fired)
+
+    def test_removing_the_whole_promotion_section_is_detectable(self):
+        """Deleting section 21 wholesale must light up several guards."""
+        original = read(FRAMEWORK_REL)
+        truncated = original.split("## 21. DEFECT_TO_GATE_PROMOTION")[0]
+        self.assertNotIn("## 21. DEFECT_TO_GATE_PROMOTION", truncated)
+        guard = lambda b: "## 21. DEFECT_TO_GATE_PROMOTION" in b  # noqa: E731
+        self.assertFalse(guard(truncated))
 
     # -- mutation 2: let a fast/full boundary collapse ----------------------
 
     def test_fast_replaces_full_would_be_detectable(self):
-        mutated = self._without(FRAMEWORK_REL, "FAST 不替代 FULL",
-                                "FAST 替代 FULL")
-        self.assertNotIn("FAST 不替代 FULL", mutated)
+        fired = self._guards_that_fail_on(FRAMEWORK_REL, "FAST 不替代 FULL",
+                                          "FAST 替代 FULL")
+        self.assertIn("framework:fast-not-replace-full", fired)
 
     def test_full_excusing_fast_would_be_detectable(self):
-        mutated = self._without(FRAMEWORK_REL, "FULL 不豁免 FAST",
-                                "FULL 豁免 FAST")
-        self.assertNotIn("FULL 不豁免 FAST", mutated)
+        fired = self._guards_that_fail_on(FRAMEWORK_REL, "FULL 不豁免 FAST",
+                                          "FULL 豁免 FAST")
+        self.assertIn("framework:full-not-excuse-fast", fired)
 
     def test_collapsing_local_and_ci_fast_would_be_detectable(self):
-        mutated = self._without(CI_REL,
-                                "LOCAL_FAST_GATE = 开发/代理的快速反馈回路",
-                                "LOCAL_FAST_GATE = CI_FAST_GATE")
-        self.assertNotIn("LOCAL_FAST_GATE = 开发/代理的快速反馈回路", mutated)
+        fired = self._guards_that_fail_on(
+            CI_REL, "LOCAL_FAST_GATE = 开发/代理的快速反馈回路",
+            "LOCAL_FAST_GATE = CI_FAST_GATE")
+        self.assertIn("ci:local-fast-defined", fired)
+
+    def test_dropping_honest_local_reporting_would_be_detectable(self):
+        fired = self._guards_that_fail_on(CI_REL, "如实上报", "静默略过")
+        self.assertIn("ci:honest-local-reporting", fired)
 
     # -- mutation 3: escalate D-layer policy into the B layer ---------------
 
@@ -575,21 +679,40 @@ class NegativeControlTests(unittest.TestCase):
     # -- mutation 4: hand the reviewer new authority -----------------------
 
     def test_reviewer_authority_expansion_is_detectable(self):
-        mutated = self._without(REVIEW_REL, "修改治理的权威", "治理修改建议权")
-        self.assertNotIn("修改治理的权威", mutated)
+        fired = self._guards_that_fail_on(REVIEW_REL, "修改治理的权威",
+                                          "治理修改建议权")
+        self.assertIn("review:reviewer-no-governance-authority", fired)
 
     def test_reviewer_self_approval_is_detectable(self):
-        mutated = self._without(REVIEW_REL, "!=** 自动真理", "=** 自动真理")
-        self.assertNotIn("!=** 自动真理", mutated)
+        fired = self._guards_that_fail_on(REVIEW_REL, "!=** 自动真理",
+                                          "=** 自动真理")
+        self.assertIn("review:finding-not-automatic-truth", fired)
+
+    def test_repeat_signal_weakening_r4_is_detectable(self):
+        """The saturation link must not become a way around R4."""
+        fired = self._guards_that_fail_on(REVIEW_REL, "不**削弱 RULES R4",
+                                          "可以削弱 RULES R4")
+        self.assertIn("review:repeat-signal-not-weaken-r4", fired)
 
     # -- mutation 5: fork the delegated value domains ----------------------
 
     def test_receipt_restating_the_promotion_domain_is_detectable(self):
-        mutated = read(TICKET_REL).replace(
-            "PROMOTION = <§21.3 处置值域>",
+        fired = self._guards_that_fail_on(
+            TICKET_REL, "PROMOTION = <§21.3 处置值域>",
             "PROMOTION = PROMOTE_NOW | KEEP_AS_REVIEW | KEEP_AS_HUMAN")
-        self.assertIn("KEEP_AS_REVIEW |", mutated)
-        self.assertNotIn("KEEP_AS_REVIEW |", read(TICKET_REL))
+        self.assertIn("ticket:no-abbreviated-domain", fired)
+
+    def test_receipt_restating_the_disposition_domain_in_4_1_is_detectable(self):
+        """The section 4.1 pointer must delegate, not enumerate the domain.
+
+        A reviewer found this hole by deleting a value from the enumeration:
+        nothing failed, because the guard only inspected section 9.4.
+        """
+        fired = self._guards_that_fail_on(
+            TICKET_REL,
+            "**处置取值集合 = §21.3**（本节不重述、不缩写——重述即双 owner，同 §9 值域纪律）",
+            "处置 = `PROMOTE_NOW / FOLLOWUP_TOOLING_TICKET / KEEP_AS_REVIEWER`")
+        self.assertIn("ticket:no-disposition-restatement-in-4-1", fired)
 
     def test_receipt_restating_the_status_domain_is_detectable(self):
         """The banned domain token must be absent now and visible when added.
