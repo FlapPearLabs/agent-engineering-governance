@@ -1405,7 +1405,17 @@ class DogfoodTests(unittest.TestCase):
         the source rather than trusting the sentence.
         """
         body = read(PAIN_REL)
-        row = body.split("## P21 ", 1)[1].split("## 汇总判定表", 1)[0]
+        # The P21 section ends where the next one begins, NOT at the roll-up
+        # heading. Ending it at the roll-up meant every pain record added
+        # after P21 was silently counted as part of P21, so a second
+        # enforcement claim anywhere below P21 would have failed this guard
+        # for the wrong reason -- and the only way out was to give P22 a
+        # private field name, which is a second copy of the same concept
+        # under another spelling. Slicing at the section boundary is what
+        # makes the count mean what it says.
+        after_p21 = body.split("## P21 ", 1)[1]
+        row = re.split(r"^## P\d\d ", after_p21, maxsplit=1,
+                       flags=re.M)[0].split("## 汇总判定表", 1)[0]
         claims = [line for line in row.splitlines()
                   if "CAN_BE_MACHINE_ENFORCED" in line]
         self.assertEqual(1, len(claims),
@@ -1429,7 +1439,7 @@ class DogfoodTests(unittest.TestCase):
         self.assertTrue(hasattr(GOV, "static_gate_wiring"))
 
     def test_every_pain_row_survives_in_the_roll_up_table(self):
-        """P01..P21 all need a row in the summary table.
+        """Every documented pain point needs a row in the summary table.
 
         The roll-up table is how a reader sees the whole ledger at once, so a
         pain point documented in full but missing from the table is invisible
@@ -1438,19 +1448,39 @@ class DogfoodTests(unittest.TestCase):
 
         The check is on the TABLE, not on the headings: a section can be
         deleted outright and the heading count would still look plausible.
+
+        The set of required rows is DERIVED from the sections that exist
+        rather than hardcoded. The previous version looped over a literal
+        range and then asserted that the next label was absent -- which
+        looked like a completeness check but was actually a freeze-frame: the
+        moment P22 was documented, the guard silently stopped requiring a row
+        for it AND forbade one, so adding the correct row would have failed
+        the suite. That inverts the rule it claims to enforce, and it is the
+        same shape of defect this ticket exists to correct elsewhere: a
+        finding that is true, and a guard that is satisfied, while the thing
+        both are supposed to protect goes unrecorded.
+
+        Deriving the set is also what makes the intent honest. The table's
+        purpose is to be complete, so a new section must be rolled up; the
+        only thing worth forbidding is a row with no section behind it.
         """
         body = read(PAIN_REL)
         table = body.split("## 汇总判定表", 1)[1]
-        for number in range(1, 22):
-            label = f"P{number:02d}"
+        documented = set(re.findall(r"^## (P\d\d) ", body, re.M))
+        self.assertTrue(documented, "no pain sections found at all")
+        for label in sorted(documented):
             with self.subTest(pain=label):
-                self.assertIn(f"## {label} ", body,
-                              f"{label} must have its own section")
                 self.assertIn(
                     f"| {label} ", table,
                     f"{label} must have a row in the roll-up table")
-        self.assertNotIn("| P22 ", table,
-                         "the table must not claim rows that do not exist")
+        # The inverse direction is what the freeze-frame version got wrong:
+        # a row with no section behind it is the thing worth rejecting.
+        rolled_up = set(re.findall(r"^\| (P\d\d) ", table, re.M))
+        for label in sorted(rolled_up - documented):
+            with self.subTest(orphan=label):
+                self.fail(
+                    f"the roll-up table claims {label} but no such section is "
+                    "documented")
 
     def test_no_ci_churn_was_needed(self):
         """Current pipeline order already satisfies static-before-expensive."""
