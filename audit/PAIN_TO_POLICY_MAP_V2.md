@@ -238,18 +238,18 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 - FAILURE_CLASS：(a) reviewer 报告一条**真实、可复现、机制可检测**的 finding，该真实性被**隐式**当作修复授权，于是修；(b) 修复产生新 SHA，exact-SHA 评审使先前 PASS 失效；(c) fresh reviewer 在新 SHA 上又报出**同类非阻塞**弱化，(b)(c) 循环；(d) 该循环持续发生在**核心合同已满足**之后——required quorum 早已 APPROVED / 0 P0 / 0 P1。
 - REAL INCIDENT / REPEATED FAILURE（本仓一手）：
   - **commit 数**：P1-T18 一票共 **12 个 commit**（`3918a93` 基线后 `4935283`/`e4ecd61`/`4832b6f`/`f7fc998`/`c705821`/`a0c30e1` 等）。
-  - **PASS 早已达成仍继续施工**：`c705821` 上 CONTRACT 与 CONSISTENCY 双 quorum 均 `APPROVED / OPEN_P0=0 / OPEN_P1=0`；其后仍追加了 `a0c30e1`（仅加一条负控测试）。
+  - **PASS 早已达成仍继续施工**：到 `c705821` 为止本票已取得 `OPEN_P0=0 / OPEN_P1=0`（CONTRACT 结论记于 `a0c30e1` 的 commit message，CONSISTENCY 结论记于 `c705821` 记其父 `f7fc998` 的 message）——两票结论取自**不同 SHA**，但都早于 `a0c30e1`；其后仍追加了 `a0c30e1`（仅加一条负控测试）。
   - **元加固递归产生元加固**：r5 的负控被证明"钉住自己的副本而非被测守卫"，修其负控又需新 SHA → 新评审；r7 的 block scoping 强度只由**手工**变异建立 → r8 将其编码为套件事实。每个修复都在**加固治理装置本身**。
   - **收敛指令最终以人工方式下达**，而非由既有规则自动导出——这正是本项缺口的直接证据：仓内**有** saturation 判据（§3），但**无**"通过之后默认停止"的规则。
 - ROOT_CAUSE：`FINDING_IS_TRUE` 与 `REPAIR_NOW` 之间缺一条显式否定式；`NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET = 2`（§3）规定了**数值**却未规定**计数作用域**，因而可被"新 SHA / fresh review / 新 reviewer / 模型回退"反复重置；§3 的 saturation 判据是**可判据**而非**默认态**，故不自动生效。
 - WHAT_WAS_TRUE_BUT_NOT_AUTHORIZING：多数被修的 finding 确为真实且可机械检测——**真实性从未被质疑，缺的是从真实性到授权的那一步**。这使 `SEVERITY != REPAIR_AUTHORITY`（P11 已有的原则）不足以止损：finding 多数只带 P2/P3 意见，但"可机械检测"这一性质被当成了升级理由。
 - POLICY_INTENDED：四条唯一声明点全部落在既有 canonical owner `references/review-and-repair-saturation.md`——**§2.1** `FINDING_IS_TRUE != REPAIR_NOW`（真 finding ≠ 修复授权；可机械检测性与 severity 标签均非授权来源）、**§3.1** 预算票作用域与单调（`NEW_SHA != NEW_REPAIR_BUDGET`，唯一合法重置途径 = 开新票）、**§4.2** POST-PASS 收敛切断（quorum PASS + 无高价值 blocker ⇒ `REPAIR_SATURATION_REACHED = YES` 为默认态，P2/P3 单独不得重开施工）、**§6.6** `META_GOVERNANCE_RECURSION_CUTOFF`（加固治理装置本身不递归授权；`MECHANIZATION_VALUE > MECHANIZATION_COST + MAINTENANCE_COST`）。与 §21 的交互 = 饱和后新机械化机会默认 `FOLLOWUP_TOOLING_TICKET`（框架 §21.3 尾段最小指针，**未**重写 §21）。
-- R8 四问：(1) 防哪次真实失效 → 上述 12 commits / PASS 后仍施工 / 元加固递归；(2) 机器能否更便宜地做 → **不能且不应**——为证明散文规则而新增通用解析器、变异框架、Markdown 分类器或 guard-of-guard 本身即 §6.6 不等式所禁止，故 ENFORCEMENT_MECHANIZABLE = **NO**；(3) 每个风险级都需要吗 → 否，按 `REPAIR_VALUE` 分级，LOW 票可 L0-only 闭合；(4) 能否降级为 reference/默认 → **是**，全为 D 层默认 + 仓可显式 OVERRIDE，不升 B 层。
+- R8 四问：(1) 防哪次真实失效 → 上述 12 commits / PASS 后仍施工 / 元加固递归；(2) 机器能否更便宜地做 → **不能且不应**——为证明散文规则而新增通用解析器、变异框架、Markdown 分类器或 guard-of-guard 本身即 §6.6 不等式所禁止，故 CAN_BE_MACHINE_ENFORCED = **NO**；(3) 每个风险级都需要吗 → 否，按 `REPAIR_VALUE` 分级，LOW 票可 L0-only 闭合；(4) 能否降级为 reference/默认 → **是**，全为 D 层默认 + 仓可显式 OVERRIDE，不升 B 层。
 - SHOULD_BE_GLOBAL = **YES（原则）/ DEFAULT（数值）**。不可让步的是"**已知高价值 blocker 永不因预算耗尽而豁免**"；预算数值 2 仍为可覆盖默认值（P11 `LATER_BROKE` 的教训未被推翻）。
-- ENFORCEMENT_MECHANIZABLE = **NO**（**有意**）。四条规则全部为**授权/计数/默认态**语义，判定者是**当前票权威与独立评审**，不是模式匹配器。为其新增检测器会构成 §6.6 明令禁止的递归机械化——**这是本项选择"文档 + 独立评审"作为执行层的理由，而非证据不足**。
+- CAN_BE_MACHINE_ENFORCED = **NO**（**有意**）。四条规则全部为**授权/计数/默认态**语义，判定者是**当前票权威与独立评审**，不是模式匹配器。为其新增检测器会构成 §6.6 明令禁止的递归机械化——**这是本项选择"文档 + 独立评审"作为执行层的理由，而非证据不足**。
 - NEEDS_AGENT_JUDGMENT = YES（判定某 finding 是否构成高价值 blocker、是否满足 §6.6 经济不等式）。NEEDS_HUMAN_JUDGMENT = 预算上调与 CONVERGENCE_ARBITER 裁决时 YES。
 - 与既有痛点的关系：P11 的**续篇且其缺口已被实测填平**——P11 记录了"severity 标签自动授权修复"并给出 `SEVERITY != REPAIR_AUTHORITY`，但**未**覆盖"finding 真实性本身充当授权"与"新 SHA 重置预算"两条路径。P21 邻域但方向相反：P21 把可机械判的部分**移出**评审域（建门），P22 防止**为建门而无限加固**（§6.6 明写该分工）。本项**不**新建权威文件、不新增 Spec、不新增检测器。
-- MACHINE_ENFORCED = NO（有意；见 ENFORCEMENT_MECHANIZABLE）。
+- MACHINE_ENFORCED = NO（有意；见 CAN_BE_MACHINE_ENFORCED）。
 
 ## 汇总判定表
 
@@ -276,3 +276,4 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P19 分解入口上下文丢失 | YES(原则)/DEFAULT(recipe) | 部分 | 部分 | 冲突 YES |
 | P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |
+| P22 真 finding 被当作修复授权 | YES(原则)/DEFAULT(数值) | NO | YES | Arbiter YES |
