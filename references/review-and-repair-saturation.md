@@ -125,7 +125,6 @@ extra defensive hardening
 - 收敛后的剩余风险**有意**留给独立评审承担：把 `REPAIR_SATURATION_REACHED = YES` 当作"本票高价值修复区已耗尽"（§3），**不**当作"再无弱化空间"。
 - 本节**不**削弱 RULES R4 独立评审 gate：saturation 之后 reviewer 仍可报告新事实；变的是**处置默认值**，不是**报告权利**。
 
-
 ### 4.1 缺陷的机械可检测性元数据（**建议性证据**）
 
 reviewer finding **MAY** 附带以下**建议性**元数据，帮助 executor 判断该缺陷类能否下沉到机器门：
@@ -149,6 +148,48 @@ PROMOTION_VALUE = # 见框架 §21.1（reviewer 建议值，不自动生效）
 - finding **!=** 自动真理：executor / orchestrator **仍必须核验**该 finding（§6.1「观测是证据，不是权威」：观测永不自我授权）。
 - finding **!=** 自动建门：晋升判定与处置见 `references/static-analysis-and-code-intelligence.md` §21（value-gated，非自动规则扩散）。
 - 语义/合同判断类 finding 的 `MACHINE_DETECTABLE` 通常为 `NO`，应明确标出以免被误下沉（框架 §3/§19）。
+
+### 4.3 `SATURATION != REVIEW_GATE_BYPASS`（饱和不得替代评审门）
+
+> 本节是**集成资格**的唯一声明点。§3 管修复授权，§3.1 管预算计数，§4.2 管通过之后默认做什么；本节管**这三者与评审门的优先关系**——它存在的唯一理由是防止前两者被误当成评审门的替代品。
+
+三个机制各管一件事，互不越权：
+
+```text
+REPAIR_BUDGET           管自动修复授权（还能不能自己修）
+CONVERGENCE_ARBITER     管剩余 findings 的处置（怎么归类）
+REQUIRED_REVIEW_QUORUM  管集成资格（能不能进 main）
+```
+
+因此：
+
+```text
+SATURATION_REACHED  !=  REQUIRED_REVIEW_QUORUM_PASS
+```
+
+- **CONVERGENCE_ARBITER 不得把阻断性结论改写成通过。** `CHANGES_REQUESTED` / `REQUEST_CHANGES` / `REJECT` / `FAIL` **不**得被仲裁、预算耗尽、严重性意见或"剩余工作边际价值低"改写为 `PASS` / `APPROVED`。仲裁决定 finding 的**去向**，不决定评审的**结论**。
+- **饱和不满足任何未满足的 required review gate。** 当仓政策要求 quorum（AGENTS §8 治理变更默认：合同向 + 一致性向对同一 exact HEAD 双 PASS）时，`SATURATION_REACHED` **不**构成该 gate 的替代证据。§4.2 自身的前置条件即 `REQUIRED_REVIEW_QUORUM = PASS | APPROVED`；该条件未满足时 §4.2 的收敛切断**不启动**（§4.2 不是绕过它的入口）。
+- **预算耗尽与集成资格是两个独立字段，可同时成立。** required reviewer 仍返回阻断结论时：
+
+```text
+AUTO_REPAIR_AUTHORITY  = EXHAUSTED        # 有效：不再自动修复
+INTEGRATION_AUTHORITY  = NOT_SATISFIED    # 同时成立：不得集成
+```
+
+  耗尽的是**修复权**，未满足的是**集成权**；§3 首条"高价值 blocker 不豁免"仍照常适用，优先级低于本节。
+
+合法下一步**仅限既有权威机制**（不得静默重解释阻断结论）：
+
+```text
+owner 显式授权的新纠正票（可含显式预算 OVERRIDE，见 §3）
+ARCHITECTURE_REOPEN / CONTRACT_REOPEN（确有必要时）
+ROUTE_TO_OTHER_OWNER（根因属他模块权威）
+其它既有已授权解决路径
+```
+
+- **不得以"评审者购物"绕过本节。** 反复更换 fresh reviewer 直到某人给出 PASS 属对本条的规避。仅当仓既有 reviewer 路由 / 可用性规则（§3 模型 fallback、AGENTS §6 reviewer 优先级）允许时，更换 replacement reviewer 才合法；**预算耗尽本身不构成更换理由**，有效的 `CHANGES_REQUESTED` 不得因预算耗尽而被抹平。
+- 本节**不**削弱 §4.2：quorum 满足后，P2/P3 单独仍不重开施工。变的是**集成资格的判定源**，不是**通过后的收敛默认值**。
+- 本节**不**新增检测器：它是**授权/资格**语义，判定者是当前票权威与独立评审（与 §2.1、§6.6 同向，见 `audit/PAIN_TO_POLICY_MAP_V2.md` P22 增补）。本节**不**为自身声明第二条集成资格规则——AGENTS §8 仍是治理变更评审要求的 owner。
 
 ## 5. Reporting（novelty-first 模板）
 

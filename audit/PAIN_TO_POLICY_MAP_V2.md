@@ -251,6 +251,24 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 - 与既有痛点的关系：P11 的**续篇且其缺口已被实测填平**——P11 记录了"severity 标签自动授权修复"并给出 `SEVERITY != REPAIR_AUTHORITY`，但**未**覆盖"finding 真实性本身充当授权"与"新 SHA 重置预算"两条路径。P21 邻域但方向相反：P21 把可机械判的部分**移出**评审域（建门），P22 防止**为建门而无限加固**（§6.6 明写该分工）。本项**不**新建权威文件、不新增 Spec、不新增检测器。
 - MACHINE_ENFORCED = NO（有意；见 CAN_BE_MACHINE_ENFORCED）。
 
+### P22 增补（2026-09-29 同票第二次纠正）：饱和被当作评审门的替代证据
+
+> 本增补不新建记录：与上同属"权威从相邻概念被推出"这一失败族，且证据同源于本仓 `main` 一手 git 史与评审 receipt。
+
+- FAILURE_CLASS：required 一致性评审对 exact SHA 返回 `CHANGES_REQUESTED`（阻断性）；修复预算耗尽；CONVERGENCE_ARBITER 把该 finding 判为**非高价值**并返回 `SATURATION_REACHED`；候选**随即被集成**，而仓政策（AGENTS §8）此时仍要求合同向 + 一致性向对同一 exact HEAD 双 PASS。
+- REAL INCIDENT / REPEATED FAILURE（本仓一手，可复现）：
+  - exact SHA `97ec802` 的评审状态为 `CONTRACT = APPROVED` / `CONSISTENCY = CHANGES_REQUESTED`（1 条 P1 覆盖率回退，见下）。
+  - 预算 2/2 已耗尽（§3.1）→ 依 §3 触发 CONVERGENCE_ARBITER → 返回 `SATURATION_REACHED`、`HIGH_VALUE_CLASS = NO`、该 P1 → `DISPOSITION = BACKLOG`。
+  - 随后执行 ff-only 集成并推送，`97ec802` 成为 `main`。**集成时 required quorum 的一个角色仍为阻断结论。**
+  - 该 P1 的真实性经 CONSISTENCY reviewer 的**消融证明**：删除 `audit/PAIN_TO_POLICY_MAP_V2.md` 整个 P12 章节及其汇总行后，套件仍 `Ran 550 tests … OK`。本纠正票已独立复现同一消融（同样 550 OK），确认回退为真、非误报。
+- ROOT_CAUSE：§4.2 的 POST-PASS 收敛切断其前置条件写的是 `REQUIRED_REVIEW_QUORUM = PASS | APPROVED`，但仓内**无**任何条款规定该条件未满足时的后果；`SATURATION_REACHED` 与 `REQUIRED_REVIEW_QUORUM_PASS` 之间**缺一条显式否定式**。于是"处置剩余 findings 的机制"被读成"判定评审结论的机制"，仲裁结论被当成了通过证据。P22 上半部分解决的是"真 finding → 修复授权"，本增补解决的是"饱和/仲裁 → 集成授权"——**同一形状的权威越界，发生在相邻的另一个门口**。
+- WHAT_WAS_TRUE_BUT_NOT_AUTHORIZING：仲裁对该 finding 的**价值分类是正确的**（它确实不是 §2 高价值类），`SATURATION_REACHED` 作为**修复区耗尽**的陈述也是真的；错的只是把它**外推**为集成资格已满足。真实性与正确分类同样不构成越权依据（同 P22 上半部分的道理，此处是它的第二个应用面）。
+- POLICY_INTENDED：唯一新增声明点 = `references/review-and-repair-saturation.md` **§4.3** `SATURATION != REVIEW_GATE_BYPASS`——三机制分权（`REPAIR_BUDGET` 管修复授权 / `CONVERGENCE_ARBITER` 管 findings 处置 / `REQUIRED_REVIEW_QUORUM` 管集成资格）；`SATURATION_REACHED != REQUIRED_REVIEW_QUORUM_PASS`；仲裁**不得**把 `CHANGES_REQUESTED / REQUEST_CHANGES / REJECT / FAIL` 改写为 `PASS / APPROVED`；`AUTO_REPAIR_AUTHORITY = EXHAUSTED` 与 `INTEGRATION_AUTHORITY = NOT_SATISFIED` 是**两个独立字段、可同时成立**；合法下一步仅限既有权威机制；**禁止评审者购物**。AGENTS §6 仅加指针并把声明点数由四条改为五条，§8 加一句 `SATURATION != REVIEW_GATE_BYPASS` 短原则；**RULES.md 不变**。
+- 同票一并修复的**已知回退**（唯一另一项授权变更）：上一轮把痛点台账守卫从硬编码 `range(1,22)` 改为按 `^## (P\d\d) ` 章节派生时，丢掉了"章节标题必须存在"的断言，而其 docstring 仍声称"删掉整节也会被抓到"。修复取**派生结构**下的最小稳定表达：章节编号**连续性**（`P01..Pnn` 无缺口）+ 汇总行与已发现章节**双向对应**。**不**恢复任何硬编码上界，**不**新增检测器/变异框架/解析器。
+- R8 四问：(1) 防哪次真实失效 → 上述 `97ec802` 集成事件与经消融证明的 P12 章节删除逃逸；(2) 机器能否更便宜地做 → 规则**部分**：§4.3 是授权/资格语义，判定者为票权威与独立评审，同 §2.1/§6.6 不新增检测器；但**该票自身的覆盖率回退**是纯结构事实，已由既有守卫的派生连续性检查覆盖；(3) 每个风险级都需要吗 → 否，治理文本按 §8 走双 quorum，产品代码票不适用；(4) 能否降级为 reference/默认 → **是**，D 层默认 + 仓可加严，不升 B 层。
+- SHOULD_BE_GLOBAL = **YES（原则）**（"saturation/仲裁不得替代未满足的评审门"不可被仓政策默认放宽；仓**可以**定义更严协议，不能更松）。CAN_BE_MACHINE_ENFORCED = **NO**（有意，同上）。
+- MACHINE_ENFORCED = NO（有意）。同票修复的台账守卫回退另由既有守卫覆盖，不改变本行。
+
 ## 汇总判定表
 
 | PAIN | SHOULD_BE_GLOBAL | 机器可 enforce | agent 判断 | 人判断 |

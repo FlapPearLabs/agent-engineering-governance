@@ -114,7 +114,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 
 - 分级：L0 机器核验（SHA、diff 语义范围、测试、回归、ancestry、secret/路径扫描）；L1 独立评审（fresh context、独立 grounding、≥2 个非复制新反例）；L2 外部/最强评审（按 §3 ESCALATION 清单触发）。
 - 评审顺序：权威 → 票 → repo 图 → 合同 → 反例 → diff → 测试 → CI；主问题："这个 exact SHA 是否在真实仓库中实现了合同？"
-- 修复收敛：`SEVERITY != REPAIR_AUTHORITY`；REPAIR_VALUE gate；`NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET = 2`（**默认值**，owner/仓政策可覆盖）；耗尽 → CONVERGENCE_ARBITER 五选一；`NO_KNOWN_HIGH_VALUE_BLOCKER` + 低边际价值 → SATURATION；**高价值 blocker 永不豁免**。四条唯一声明点：`FINDING_IS_TRUE != REPAIR_NOW` = 饱和文件 §2.1；预算票作用域与单调（`NEW_SHA != NEW_REPAIR_BUDGET`）= §3.1；POST-PASS 收敛切断 = §4.2；元治理递归切断 = §6.6。
+- 修复收敛：`SEVERITY != REPAIR_AUTHORITY`；REPAIR_VALUE gate；`NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET = 2`（**默认值**，owner/仓政策可覆盖）；耗尽 → CONVERGENCE_ARBITER 五选一；`NO_KNOWN_HIGH_VALUE_BLOCKER` + 低边际价值 → SATURATION；**高价值 blocker 永不豁免**。五条唯一声明点：`FINDING_IS_TRUE != REPAIR_NOW` = 饱和文件 §2.1；预算票作用域与单调（`NEW_SHA != NEW_REPAIR_BUDGET`）= §3.1；POST-PASS 收敛切断 = §4.2；**`SATURATION != REVIEW_GATE_BYPASS`（饱和/仲裁不得替代评审门；`AUTO_REPAIR_AUTHORITY` 与 `INTEGRATION_AUTHORITY` 独立）= §4.3**；元治理递归切断 = §6.6。
 - CI：`LOCAL_TESTS != REAL_PR_CI`；状态不可坍缩（NOT_TRIGGERED/UNKNOWN/KNOWN_BASELINE_FAILURE 永不 = PASS）；real CI 为默认，**仓政策可定义等价证据形态**（显式 OVERRIDE），诚实性底线（R3）不可豁免。CI 内部按 `CI_FAST` / `CI_FULL` 执行类别组织（**不**要求两个 job），详见 `references/git-ci-integration.md` §3.3/§3.4。
 - 详见 `references/review-and-repair-saturation.md` 与 `references/git-ci-integration.md`。
 
@@ -133,7 +133,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 
 ## 8. 治理变更（默认协议）
 
-修改本文件、RULES.md 或 canonical reference：默认双独立评审（合同向 + 一致性向）对同一 exact HEAD PASS；仓库/owner 可定义更严协议。禁止实现票顺手改治理。
+修改本文件、RULES.md 或 canonical reference：默认双独立评审（合同向 + 一致性向）对同一 exact HEAD PASS；仓库/owner 可定义更严协议。禁止实现票顺手改治理。该门**不可**由 `REPAIR_SATURATION_REACHED` 或 CONVERGENCE_ARBITER 结论替代——`SATURATION != REVIEW_GATE_BYPASS`，唯一详情见饱和文件 §4.3。
 
 ## 9. 报告（novelty-first）
 
