@@ -1447,7 +1447,9 @@ class DogfoodTests(unittest.TestCase):
         for precisely this reason.
 
         The check is on the TABLE, not on the headings: a section can be
-        deleted outright and the heading count would still look plausible.
+        deleted outright and the heading count would still look plausible --
+        which is why the derived set below is anchored against the numbering
+        rather than trusted on its own.
 
         The set of required rows is DERIVED from the sections that exist
         rather than hardcoded. The previous version looped over a literal
@@ -1463,6 +1465,18 @@ class DogfoodTests(unittest.TestCase):
         Deriving the set is also what makes the intent honest. The table's
         purpose is to be complete, so a new section must be rolled up; the
         only thing worth forbidding is a row with no section behind it.
+
+        Deriving is necessary but NOT sufficient, and the gap between those
+        two words was a real coverage regression here. A purely derived set
+        is closed under deletion: drop a whole section and its roll-up row
+        together and both directions still balance. Deleting P12 that way
+        was shown by ablation to leave the suite green, while this docstring
+        still claimed the opposite. So the derived set is anchored against a
+        SECOND derived fact -- the section numbering is contiguous -- which
+        is what makes a vanished heading observable without freezing the
+        upper bound. The anchor is a property of the ledger's own numbering
+        scheme, not a copy of its current length, so recording a new pain
+        point raises the floor of the range without touching this check.
         """
         body = read(PAIN_REL)
         table = body.split("## 汇总判定表", 1)[1]
@@ -1481,6 +1495,21 @@ class DogfoodTests(unittest.TestCase):
                 self.fail(
                     f"the roll-up table claims {label} but no such section is "
                     "documented")
+        # The anchor. A derived set alone cannot observe its own deletion, so
+        # the numbering the ledger already uses is checked for contiguity: a
+        # gap means a section was removed rather than never written. max()
+        # is taken over what is present, so this is NOT the hardcoded
+        # P01..Pnn freeze-frame the earlier versions used -- it fails on a
+        # REMOVED section and stays silent as the ledger grows.
+        numbers = sorted(int(label[1:]) for label in documented)
+        expected = list(range(1, max(numbers) + 1))
+        self.assertEqual(
+            expected, numbers,
+            "pain section numbering must be contiguous from P01; a gap means "
+            "a whole section was deleted (missing: "
+            f"{sorted(set(expected) - set(numbers))}). Removing a section "
+            "together with its roll-up row leaves the derived set balanced, so "
+            "the correspondence checks above cannot see it on their own.")
 
     def test_no_ci_churn_was_needed(self):
         """Current pipeline order already satisfies static-before-expensive."""
@@ -2172,6 +2201,80 @@ class NegativeControlTests(unittest.TestCase):
         self.assertTrue(
             any(GOV.STATIC_GATE_DOMAIN_ONLY_TOKEN in p for p in problems),
             f"restating the status domain must be rejected: {problems}")
+
+    def test_deleting_a_whole_pain_section_is_detectable(self):
+        """The roll-up guard must fail when a section AND its row vanish.
+
+        This is the negative control for the contiguity anchor, and it exists
+        because the anchor was missing. The derived-set version of this guard
+        was satisfied by a ledger with P12's section and P12's roll-up row
+        both deleted: nothing about a self-derived set can notice its own
+        removal, so both correspondence directions still balanced. An
+        independent reviewer proved it by ablation and the docstring still
+        claimed the opposite.
+
+        So the mutation is applied to a real copy of the real ledger and the
+        REAL assertion is evaluated against it -- both halves. Asserting that
+        a regex no longer matches would only prove that re.sub works; what
+        has to be shown is that the guard the suite depends on goes red.
+
+        The mutation keeps the deletion honest, which is the whole difficulty:
+        it removes the section body, the heading, and the roll-up row
+        together, so the derived set stays balanced and only the numbering
+        anchor can see it.
+        """
+        original = read(PAIN_REL)
+
+        # -- the pristine ledger must satisfy the guard -----------------------
+        documented = set(re.findall(r"^## (P\d\d) ", original, re.M))
+        numbers = sorted(int(label[1:]) for label in documented)
+        self.assertEqual(
+            list(range(1, max(numbers) + 1)), numbers,
+            "pristine pain numbering must be contiguous before the ablation "
+            "means anything")
+
+        # -- the mutation, applied to a real copy ----------------------------
+        victim = sorted(numbers)[len(numbers) // 2]
+        victim_label = f"P{victim:02d}"
+        with tempfile.TemporaryDirectory() as tmp:
+            polluted = Path(tmp) / "repo"
+            shutil.copytree(ROOT, polluted,
+                            ignore=shutil.ignore_patterns(".git", "__pycache__"))
+            ledger = polluted / PAIN_REL
+            mutated = ledger.read_text(encoding="utf-8")
+            # Section body + heading, up to the next P-section or the roll-up.
+            mutated, n_sections = re.subn(
+                rf"^## {victim_label} .*?(?=^## P\d\d |^## 汇总判定表)",
+                "", mutated, flags=re.M | re.S)
+            self.assertEqual(1, n_sections,
+                             f"{victim_label} section must be found once")
+            # And its roll-up row, so the derived set stays balanced.
+            mutated, n_rows = re.subn(rf"^\| {victim_label} .*?\n", "", mutated,
+                                      flags=re.M)
+            self.assertEqual(1, n_rows,
+                             f"{victim_label} roll-up row must be removed too")
+            self.assertNotIn(f"## {victim_label} ", mutated)
+            ledger.write_text(mutated, encoding="utf-8")
+
+            # The derived set is now balanced -- that is the point.
+            ablated = ledger.read_text(encoding="utf-8")
+            ablated_doc = set(re.findall(r"^## (P\d\d) ", ablated, re.M))
+            ablated_table = ablated.split("## 汇总判定表", 1)[1]
+            ablated_rows = set(re.findall(r"^\| (P\d\d) ", ablated_table, re.M))
+            self.assertEqual(ablated_doc, ablated_rows,
+                             "the derived set must stay balanced, otherwise "
+                             "this control would be proving something else")
+            self.assertNotIn(victim_label, ablated_doc)
+
+            # And the guard under test must reject it.
+            ablated_numbers = sorted(int(l[1:]) for l in ablated_doc)
+            with self.assertRaises(AssertionError):
+                self.assertEqual(
+                    list(range(1, max(ablated_numbers) + 1)), ablated_numbers)
+
+        # -- the ledger itself is untouched by the control --------------------
+        self.assertEqual(original, read(PAIN_REL),
+                         "the negative control must not mutate the real tree")
 
 
 class OutOfScopeTests(unittest.TestCase):
