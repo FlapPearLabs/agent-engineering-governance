@@ -433,6 +433,32 @@ def _restates_disposition_domain(text: str) -> bool:
     return _restates_named_domain(text, "disposition")
 
 
+def _pain_numbering_gaps(body: str) -> list[int]:
+    """Numbers missing from the pain ledger's section sequence.
+
+    One implementation, deliberately shared. The guard and its negative
+    control used to inline this expression twice, which is the defect this
+    suite already corrected once elsewhere (a negative control that pins its
+    own copy of the parsing rather than the guard it protects). Reverting
+    the guard to a no-op left the control green, which is exactly what a
+    control that re-derives the rule instead of exercising it will always
+    do.
+
+    The range is bounded by what the ledger actually contains, so this never
+    asserts an upper bound the ledger has not reached. Its limit is equally
+    real and is stated by the caller: a gap means a section was removed from
+    the middle, and a truncation at the tail is invisible here because max()
+    moves with the deletion. Closing that second hole needs an independent
+    anchor on the ledger's high-water mark; it is NOT solved by this
+    function and pretending otherwise is how the docstring came to lie.
+    """
+    numbers = sorted(int(label[1:]) for label in
+                     set(re.findall(r"^## (P\d\d) ", body, re.M)))
+    if not numbers:
+        return []
+    return sorted(set(range(1, max(numbers) + 1)) - set(numbers))
+
+
 def _restates_status_domain(text: str) -> bool:
     """The seven-value non-collapse STATIC GATE status domain (framework 8).
 
@@ -1472,11 +1498,29 @@ class DogfoodTests(unittest.TestCase):
         together and both directions still balance. Deleting P12 that way
         was shown by ablation to leave the suite green, while this docstring
         still claimed the opposite. So the derived set is anchored against a
-        SECOND derived fact -- the section numbering is contiguous -- which
-        is what makes a vanished heading observable without freezing the
-        upper bound. The anchor is a property of the ledger's own numbering
-        scheme, not a copy of its current length, so recording a new pain
-        point raises the floor of the range without touching this check.
+        SECOND derived fact -- the section numbering is contiguous.
+
+        WHAT THIS ANCHOR DOES NOT COVER, stated plainly because the previous
+        version of this docstring got it wrong in the other direction. The
+        range is bounded by max(), so it sees a section removed from the
+        MIDDLE and stays silent in two cases:
+
+          - tail truncation: delete the LAST section and its row, max()
+            moves down with the deletion and the remaining prefix is still
+            contiguous;
+          - consistent renumbering: delete a middle section and close the
+            gap by renumbering everything after it.
+
+        Both are the same limit rather than two bugs: no check that reads
+        only the current document can distinguish "this section was never
+        written" from "this section was removed along with every trace of
+        it". Closing that needs an anchor OUTSIDE the document -- git history
+        or an owner-bumped constant -- and this ticket rules both out (a
+        bumped constant is the freeze-frame this guard was written to
+        remove, and CI checks out at depth 1 so there is no history to read).
+        The boundary is pinned by
+        test_deleting_a_pain_section_is_detectable rather than left implicit,
+        so it cannot rot back into an overstated claim.
         """
         body = read(PAIN_REL)
         table = body.split("## 汇总判定表", 1)[1]
@@ -1495,21 +1539,16 @@ class DogfoodTests(unittest.TestCase):
                 self.fail(
                     f"the roll-up table claims {label} but no such section is "
                     "documented")
-        # The anchor. A derived set alone cannot observe its own deletion, so
-        # the numbering the ledger already uses is checked for contiguity: a
-        # gap means a section was removed rather than never written. max()
-        # is taken over what is present, so this is NOT the hardcoded
-        # P01..Pnn freeze-frame the earlier versions used -- it fails on a
-        # REMOVED section and stays silent as the ledger grows.
-        numbers = sorted(int(label[1:]) for label in documented)
-        expected = list(range(1, max(numbers) + 1))
+        # The anchor, for gaps in the middle. See the docstring for the two
+        # cases it deliberately does not cover.
+        gaps = _pain_numbering_gaps(body)
         self.assertEqual(
-            expected, numbers,
+            [], gaps,
             "pain section numbering must be contiguous from P01; a gap means "
-            "a whole section was deleted (missing: "
-            f"{sorted(set(expected) - set(numbers))}). Removing a section "
-            "together with its roll-up row leaves the derived set balanced, so "
-            "the correspondence checks above cannot see it on their own.")
+            f"a whole section was deleted from the middle (missing: {gaps}). "
+            "Removing a section together with its roll-up row leaves the "
+            "derived set balanced, so the correspondence checks above cannot "
+            "see it on their own.")
 
     def test_no_ci_churn_was_needed(self):
         """Current pipeline order already satisfies static-before-expensive."""
@@ -2202,7 +2241,7 @@ class NegativeControlTests(unittest.TestCase):
             any(GOV.STATIC_GATE_DOMAIN_ONLY_TOKEN in p for p in problems),
             f"restating the status domain must be rejected: {problems}")
 
-    def test_deleting_a_whole_pain_section_is_detectable(self):
+    def test_deleting_a_pain_section_is_detectable(self):
         """The roll-up guard must fail when a section AND its row vanish.
 
         This is the negative control for the contiguity anchor, and it exists
@@ -2213,29 +2252,34 @@ class NegativeControlTests(unittest.TestCase):
         independent reviewer proved it by ablation and the docstring still
         claimed the opposite.
 
-        So the mutation is applied to a real copy of the real ledger and the
-        REAL assertion is evaluated against it -- both halves. Asserting that
-        a regex no longer matches would only prove that re.sub works; what
-        has to be shown is that the guard the suite depends on goes red.
-
         The mutation keeps the deletion honest, which is the whole difficulty:
         it removes the section body, the heading, and the roll-up row
         together, so the derived set stays balanced and only the numbering
-        anchor can see it.
+        anchor can see it. The middle section is the victim for the reason
+        given in the guard's docstring -- the tail is deliberately outside
+        this anchor's coverage, and pretending otherwise is what produced the
+        overstated claim in the first place.
+
+        WHAT MAKES THIS A CONTROL RATHER THAN A RESTATEMENT: it calls
+        _pain_numbering_gaps, the same function the guard calls. The first
+        version of this test inlined the comparison a second time, which
+        left it green even when the guard's own anchor was reverted to a
+        no-op -- the same "pins its own copy" defect this suite already had
+        to correct once. Sharing the function is what makes reverting the
+        guard turn this control red too.
         """
         original = read(PAIN_REL)
 
         # -- the pristine ledger must satisfy the guard -----------------------
-        documented = set(re.findall(r"^## (P\d\d) ", original, re.M))
-        numbers = sorted(int(label[1:]) for label in documented)
         self.assertEqual(
-            list(range(1, max(numbers) + 1)), numbers,
+            [], _pain_numbering_gaps(original),
             "pristine pain numbering must be contiguous before the ablation "
             "means anything")
 
         # -- the mutation, applied to a real copy ----------------------------
-        victim = sorted(numbers)[len(numbers) // 2]
-        victim_label = f"P{victim:02d}"
+        numbers = sorted(int(label[1:]) for label in
+                         re.findall(r"^## (P\d\d) ", original, re.M))
+        victim = f"P{numbers[len(numbers) // 2]:02d}"
         with tempfile.TemporaryDirectory() as tmp:
             polluted = Path(tmp) / "repo"
             shutil.copytree(ROOT, polluted,
@@ -2244,16 +2288,16 @@ class NegativeControlTests(unittest.TestCase):
             mutated = ledger.read_text(encoding="utf-8")
             # Section body + heading, up to the next P-section or the roll-up.
             mutated, n_sections = re.subn(
-                rf"^## {victim_label} .*?(?=^## P\d\d |^## 汇总判定表)",
+                rf"^## {victim} .*?(?=^## P\d\d |^## 汇总判定表)",
                 "", mutated, flags=re.M | re.S)
             self.assertEqual(1, n_sections,
-                             f"{victim_label} section must be found once")
+                             f"{victim} section must be found once")
             # And its roll-up row, so the derived set stays balanced.
-            mutated, n_rows = re.subn(rf"^\| {victim_label} .*?\n", "", mutated,
+            mutated, n_rows = re.subn(rf"^\| {victim} .*?\n", "", mutated,
                                       flags=re.M)
             self.assertEqual(1, n_rows,
-                             f"{victim_label} roll-up row must be removed too")
-            self.assertNotIn(f"## {victim_label} ", mutated)
+                             f"{victim} roll-up row must be removed too")
+            self.assertNotIn(f"## {victim} ", mutated)
             ledger.write_text(mutated, encoding="utf-8")
 
             # The derived set is now balanced -- that is the point.
@@ -2264,13 +2308,14 @@ class NegativeControlTests(unittest.TestCase):
             self.assertEqual(ablated_doc, ablated_rows,
                              "the derived set must stay balanced, otherwise "
                              "this control would be proving something else")
-            self.assertNotIn(victim_label, ablated_doc)
+            self.assertNotIn(victim, ablated_doc)
 
-            # And the guard under test must reject it.
-            ablated_numbers = sorted(int(l[1:]) for l in ablated_doc)
-            with self.assertRaises(AssertionError):
-                self.assertEqual(
-                    list(range(1, max(ablated_numbers) + 1)), ablated_numbers)
+            # And the guard's own function must report the gap.
+            gaps = _pain_numbering_gaps(ablated)
+            self.assertTrue(
+                gaps, "removing a middle section must leave a numbering gap")
+            self.assertIn(int(victim[1:]), gaps,
+                          "the gap must name the section that was removed")
 
         # -- the ledger itself is untouched by the control --------------------
         self.assertEqual(original, read(PAIN_REL),

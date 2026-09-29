@@ -133,7 +133,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 
 ## 8. 治理变更（默认协议）
 
-修改本文件、RULES.md 或 canonical reference：默认双独立评审（合同向 + 一致性向）对同一 exact HEAD PASS；仓库/owner 可定义更严协议。禁止实现票顺手改治理。该门**不可**由 `REPAIR_SATURATION_REACHED` 或 CONVERGENCE_ARBITER 结论替代——`SATURATION != REVIEW_GATE_BYPASS`，唯一详情见饱和文件 §4.3。
+修改本文件、RULES.md 或 canonical reference：默认双独立评审（合同向 + 一致性向）对同一 exact HEAD PASS；仓库/owner 可定义更严协议。禁止实现票顺手改治理。该门**不可**由 `REPAIR_SATURATION_REACHED` 或 CONVERGENCE_ARBITER 结论替代——此为**指针**，非第二声明点；`SATURATION != REVIEW_GATE_BYPASS` 的唯一详情见饱和文件 §4.3。
 
 ## 9. 报告（novelty-first）
 

@@ -253,14 +253,13 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 
 ### P22 增补（2026-09-29 同票第二次纠正）：饱和被当作评审门的替代证据
 
-> 本增补不新建记录：与上同属"权威从相邻概念被推出"这一失败族，且证据同源于本仓 `main` 一手 git 史与评审 receipt。
+> 本增补不新建记录：与上同属"权威从相邻概念被推出"这一失败族。证据分两类，下文**逐条标注**——`GIT_VERIFIABLE` = 可在本仓 git 史中核实；`SESSION_RECEIPT` = 票务会话内的一手 receipt，**不落盘在仓内**，故第三方无法从本仓复核。
 
 - FAILURE_CLASS：required 一致性评审对 exact SHA 返回 `CHANGES_REQUESTED`（阻断性）；修复预算耗尽；CONVERGENCE_ARBITER 把该 finding 判为**非高价值**并返回 `SATURATION_REACHED`；候选**随即被集成**，而仓政策（AGENTS §8）此时仍要求合同向 + 一致性向对同一 exact HEAD 双 PASS。
-- REAL INCIDENT / REPEATED FAILURE（本仓一手，可复现）：
-  - exact SHA `97ec802` 的评审状态为 `CONTRACT = APPROVED` / `CONSISTENCY = CHANGES_REQUESTED`（1 条 P1 覆盖率回退，见下）。
-  - 预算 2/2 已耗尽（§3.1）→ 依 §3 触发 CONVERGENCE_ARBITER → 返回 `SATURATION_REACHED`、`HIGH_VALUE_CLASS = NO`、该 P1 → `DISPOSITION = BACKLOG`。
-  - 随后执行 ff-only 集成并推送，`97ec802` 成为 `main`。**集成时 required quorum 的一个角色仍为阻断结论。**
-  - 该 P1 的真实性经 CONSISTENCY reviewer 的**消融证明**：删除 `audit/PAIN_TO_POLICY_MAP_V2.md` 整个 P12 章节及其汇总行后，套件仍 `Ran 550 tests … OK`。本纠正票已独立复现同一消融（同样 550 OK），确认回退为真、非误报。
+- REAL INCIDENT / REPEATED FAILURE：
+  - `GIT_VERIFIABLE`：`97ec802` 存在、是 `origin/main` 的祖先、其 commit message 自述 `Repair round 2 of 2`（故预算 2/2 已耗尽）。
+  - `SESSION_RECEIPT`（**不在本仓 git 史中**，第三方不可从本仓复核）：针对 `97ec802` 的 `CONTRACT = APPROVED` / `CONSISTENCY = CHANGES_REQUESTED`（1 条 P1 覆盖率回退）；随后 CONVERGENCE_ARBITER 的 `SATURATION_REACHED` / `HIGH_VALUE_CLASS = NO` / `DISPOSITION = BACKLOG` 处置；以及"该候选仍被集成"这一动作本身。本仓 `git log` 全文**不含** `CHANGES_REQUESTED` / `SATURATION_REACHED` 字样，仓内亦无 receipt 文件——按 RULES R3（证据诚实）与本文件方法论，此处不得把会话 receipt 冒充为仓内可核实的 git 证据。
+  - `GIT_VERIFIABLE`（本票独立复现）：该 P1 的真实性可由消融证明——删除 `audit/PAIN_TO_POLICY_MAP_V2.md` 整个 P12 章节及其汇总行后，套件仍全绿（删中间节 P12：550 tests OK）。本纠正票已独立复现同一消融，确认回退为真、非误报。
 - ROOT_CAUSE：§4.2 的 POST-PASS 收敛切断其前置条件写的是 `REQUIRED_REVIEW_QUORUM = PASS | APPROVED`，但仓内**无**任何条款规定该条件未满足时的后果；`SATURATION_REACHED` 与 `REQUIRED_REVIEW_QUORUM_PASS` 之间**缺一条显式否定式**。于是"处置剩余 findings 的机制"被读成"判定评审结论的机制"，仲裁结论被当成了通过证据。P22 上半部分解决的是"真 finding → 修复授权"，本增补解决的是"饱和/仲裁 → 集成授权"——**同一形状的权威越界，发生在相邻的另一个门口**。
 - WHAT_WAS_TRUE_BUT_NOT_AUTHORIZING：仲裁对该 finding 的**价值分类是正确的**（它确实不是 §2 高价值类），`SATURATION_REACHED` 作为**修复区耗尽**的陈述也是真的；错的只是把它**外推**为集成资格已满足。真实性与正确分类同样不构成越权依据（同 P22 上半部分的道理，此处是它的第二个应用面）。
 - POLICY_INTENDED：唯一新增声明点 = `references/review-and-repair-saturation.md` **§4.3** `SATURATION != REVIEW_GATE_BYPASS`——三机制分权（`REPAIR_BUDGET` 管修复授权 / `CONVERGENCE_ARBITER` 管 findings 处置 / `REQUIRED_REVIEW_QUORUM` 管集成资格）；`SATURATION_REACHED != REQUIRED_REVIEW_QUORUM_PASS`；仲裁**不得**把 `CHANGES_REQUESTED / REQUEST_CHANGES / REJECT / FAIL` 改写为 `PASS / APPROVED`；`AUTO_REPAIR_AUTHORITY = EXHAUSTED` 与 `INTEGRATION_AUTHORITY = NOT_SATISFIED` 是**两个独立字段、可同时成立**；合法下一步仅限既有权威机制；**禁止评审者购物**。AGENTS §6 仅加指针并把声明点数由四条改为五条，§8 加一句 `SATURATION != REVIEW_GATE_BYPASS` 短原则；**RULES.md 不变**。
@@ -294,4 +293,4 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P19 分解入口上下文丢失 | YES(原则)/DEFAULT(recipe) | 部分 | 部分 | 冲突 YES |
 | P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |
-| P22 真 finding 被当作修复授权 | YES(原则)/DEFAULT(数值) | NO | YES | Arbiter YES |
+| P22 真 finding 被当作修复授权 / 饱和被当作评审门替代 | YES(原则)/DEFAULT(数值) | NO | YES | Arbiter YES |
