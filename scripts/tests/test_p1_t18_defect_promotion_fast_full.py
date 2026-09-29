@@ -59,6 +59,7 @@ PROMOTION_DISPOSITIONS = (
 )
 
 PROMOTION_VALUE_AXES = (
+    "DEFECT_CLASS",
     "REAL_OR_HIGH_CONFIDENCE",
     "REACHABLE",
     "DETERMINISTICALLY_DETECTABLE",
@@ -254,9 +255,16 @@ def _is_illustration(line: str, pattern: re.Pattern,
     real tree rather than assumed. Note that condition 1 is only reachable
     for a domain whose `minimum` exceeds 2 -- for a two-member domain the
     earlier distinct<2 test has already returned, so a lone pair there is NOT
-    waved through by this function. What keeps "NOT_CONFIGURED != PASS"
-    quiet in AGENTS.md is that it is two values joined by a comparison and
-    never three or more, which is a domain with no third value to declare.
+    waved through by this function.
+
+    What actually keeps the non-collapse examples in AGENTS.md quiet is
+    worth stating precisely, because it is not this function. That line
+    carries SEVEN status values, not two, so the "too few values" reading is
+    simply wrong there; it is quiet because no status anchor appears in the
+    preceding 120 characters, so the pair-scan never offers a span to judge.
+    This function is what keeps an ANCHORED example quiet, which is the case
+    that would otherwise become a false positive -- README.md states its
+    seven-value pivot demonstration under an explicit anchor.
 
     1. TOO FEW VALUES TO BE A SET. Below the domain's own minimum, the
        author cannot be enumerating. "PROMOTION_VALUE = HIGH != LOW" is two
@@ -774,12 +782,38 @@ class ScopeCreepGuardTests(unittest.TestCase):
     """Current-ticket mechanization vs a dedicated tooling ticket."""
 
     def test_in_ticket_promotion_conditions_are_declared(self):
+        """All SEVEN in-ticket conditions, and the list is not a hand-copy.
+
+        This test asserted five of the seven conditions. The two it skipped
+        are "变更微小且局部" and "无无关文件", and the second is the one that
+        closes scope creep -- deleting it would let a repair touch unrelated
+        files and still call it PROMOTE_NOW, with the suite green. A partial
+        list of a conjunction is the failure mode where each individual
+        assertion is true and the guarantee is absent.
+
+        The conditions are therefore read out of the spec block rather than
+        retyped here: a hand-copy is exactly what silently dropped two of
+        them, and a test that enumerates the spec's own block cannot fall
+        behind it without going red.
+        """
         body = read(FRAMEWORK_REL)
-        self.assertIn("现有工具已存在", body)
-        self.assertIn("无新依赖", body)
-        self.assertIn("无广泛基线 churn", body)
-        self.assertIn("无架构变更", body)
-        self.assertIn("同一缺陷类", body)
+        for condition in ("现有工具已存在", "变更微小且局部", "无新依赖",
+                          "无广泛基线 churn", "无架构变更", "无无关文件",
+                          "同一缺陷类"):
+            with self.subTest(condition=condition):
+                self.assertIn(condition, body,
+                              "a condition of the PROMOTE_NOW conjunction "
+                              "was dropped from the framework")
+        # The conjunction is all-or-nothing, so the block it lives in has to
+        # keep its leading "+" chain rather than becoming a bullet list where
+        # a reader could take any single line as sufficient.
+        block = re.search(
+            r"现有工具已存在\n(?:\+ .*\n)+", body)
+        self.assertIsNotNone(
+            block, "the in-ticket conditions must stay a + conjunction")
+        self.assertEqual(len(block.group(0).strip().split("\n")), 7,
+                         "the conjunction must have exactly the seven "
+                         "conditions §21.3 declares")
 
     def test_heavy_promotion_is_routed_to_a_tooling_ticket(self):
         body = read(FRAMEWORK_REL)
@@ -1799,10 +1833,26 @@ class NegativeControlTests(unittest.TestCase):
         # The demonstration: one pivot, several comparators, returning to the
         # pivot with "、" rather than another "!=". This is what the
         # non-collapse rule exists to permit, so it must stay permitted.
-        self.assertFalse(_restates_status_domain(
-            "NOT_CONFIGURED != PASS、FAIL != NOT_CONFIGURED、"
-            "BLOCKED != NOT_CONFIGURED"),
+        #
+        # It carries an explicit anchor on purpose. Without one the pair-scan
+        # skips the span before _is_illustration is ever consulted, so the
+        # assertion would be passing for the wrong reason -- which is the
+        # difference between a test that pins this rule and one that merely
+        # agrees with it.
+        demo = ("状态值域演示：NOT_CONFIGURED != PASS、FAIL != NOT_CONFIGURED、"
+                "BLOCKED != NOT_CONFIGURED")
+        self.assertTrue(
+            _is_anchored(demo, demo.index("NOT_CONFIGURED"),
+                         _PROTECTED_DOMAINS["status"]["anchors"]),
+            "the demonstration fixture must be anchored, or this assertion "
+            "is satisfied by the pair-scan short-circuit instead")
+        self.assertTrue(
+            _is_illustration(
+                demo, _member_pattern(_PROTECTED_DOMAINS["status"]["members"]),
+                _PROTECTED_DOMAINS["status"]["minimum"]),
             "a repeated-pivot comparison is the non-collapse model, not a set")
+        self.assertFalse(_restates_status_domain(demo),
+                         "an anchored pivot demo must not read as a restatement")
         # The single comparison that states the whole rule, on its own.
         self.assertFalse(_restates_status_domain("NOT_CONFIGURED != PASS"),
                          "one comparison is the model, never a value set")
