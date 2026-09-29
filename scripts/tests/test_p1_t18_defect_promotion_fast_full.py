@@ -245,27 +245,32 @@ def _is_comparison_chain(line: str, matches: list) -> bool:
     return all(_COMPARISON_RE.match(line[left.end():right.start()])
                for left, right in zip(matches, matches[1:]))
 
-
+  
 def _is_illustration(line: str, pattern: re.Pattern,
                      minimum: int) -> bool:
     """True for the non-collapse DEMONSTRATION ("X != Y、Z != Y、W != Y").
 
     Three conditions, each earning its place by being measured against the
-    real tree rather than assumed:
+    real tree rather than assumed. Note that condition 1 is only reachable
+    for a domain whose `minimum` exceeds 2 -- for a two-member domain the
+    earlier distinct<2 test has already returned, so a lone pair there is NOT
+    waved through by this function. What keeps "NOT_CONFIGURED != PASS"
+    quiet in AGENTS.md is that it is two values joined by a comparison and
+    never three or more, which is a domain with no third value to declare.
 
-    1. A LONE PAIR IS THE MODEL. "NOT_CONFIGURED != PASS" is the whole point
-       of the non-collapse rule, so two distinct members can never be a set
-       however they are punctuated -- and with only two members there is no
-       chain to distinguish anyway.
+    1. TOO FEW VALUES TO BE A SET. Below the domain's own minimum, the
+       author cannot be enumerating. "PROMOTION_VALUE = HIGH != LOW" is two
+       of the four values compared, which is a judgement about two things,
+       not a fork of the axis.
     2. A CHAIN IS A DOMAIN. Once three or more members appear and every
        consecutive pair is joined by "!=", the author is enumerating, not
        demonstrating: a demonstration compares one pivot against several
        others and therefore needs a separator other than "!=" to come back
        for the next comparison. This is what closes the bypass the earlier
-       version of this function left open -- "PROMOTE_NOW != FOLLOWUP_TOOLING_
-       TICKET != KEEP_AS_TEST != KEEP_AS_HUMAN_DECISION" was reported clean
-       because the old rule only asked whether some member repeated, and a
-       chain can be made to repeat one.
+       version of this function left open -- a chain in which one member
+       repeats ("A != B != A != C") was reported clean because the old rule
+       only asked whether some member repeated, and a chain can be made to
+       repeat one.
     3. OTHERWISE, A REPEATED MEMBER MEANS DEMONSTRATION. Three or more
        members that are NOT chained, with some value recurring, is the
        "X != Y、Z != Y" shape.
@@ -1758,6 +1763,126 @@ class NegativeControlTests(unittest.TestCase):
         # bullet rule would be indistinguishable from guessing.
         self.assertFalse(_restates_disposition_domain(
             base + "\n- PROMOTE_NOW 仅在本票内所有条件同时满足时成立\n"
+            "- KEEP_AS_HUMAN_DECISION 需要产品裁决\n"),
+            "a prose bullet mentioning two values is not a declaration")
+
+    def test_a_comparison_chain_is_a_domain_but_a_pivot_demo_is_not(self):
+        """The "!=" rule turns on chain-vs-repeated-pivot, not on "!=" itself.
+
+        Treating "!=" as one more separator let four members of the status
+        domain hide behind a row of comparison signs. The fix is not "reject
+        !=" but a distinction the non-collapse rule actually turns on: a
+        demonstration compares ONE pivot against several others, so it has to
+        come back to the pivot with a different separator, and it therefore
+        repeats a member. An enumeration needs no such return trip.
+
+        Both halves are asserted, because each one alone is a rule that could
+        be satisfied by the other: if every chain were called a demo, the
+        first assertion would pass and the guard would be dead; if every
+        repeat were called a chain, the second would.
+        """
+        for label, text in (
+                # Distinct members, every pair joined by "!=" -> enumeration.
+                ("4-distinct chain",
+                 "状态值域 = NOT_CONFIGURED != PASS != FAIL != BLOCKED"),
+                ("3-distinct chain",
+                 "状态值域 = NOT_CONFIGURED != PASS != FAIL"),
+                # A chain CAN be made to repeat a member, and that was the
+                # exact bypass: it satisfies the old "some member repeats"
+                # rule while being just as much an enumeration.
+                ("repeating chain",
+                 "状态值域 = NOT_CONFIGURED != PASS != NOT_CONFIGURED != FAIL")):
+            with self.subTest(shape=label):
+                self.assertTrue(
+                    _restates_status_domain(text),
+                    "a != chain is a declaration, not a demonstration")
+        # The demonstration: one pivot, several comparators, returning to the
+        # pivot with "、" rather than another "!=". This is what the
+        # non-collapse rule exists to permit, so it must stay permitted.
+        self.assertFalse(_restates_status_domain(
+            "NOT_CONFIGURED != PASS、FAIL != NOT_CONFIGURED、"
+            "BLOCKED != NOT_CONFIGURED"),
+            "a repeated-pivot comparison is the non-collapse model, not a set")
+        # The single comparison that states the whole rule, on its own.
+        self.assertFalse(_restates_status_domain("NOT_CONFIGURED != PASS"),
+                         "one comparison is the model, never a value set")
+
+    def test_a_pair_below_the_domain_minimum_is_not_a_declaration(self):
+        """PROMOTION_VALUE needs three values before it is being forked.
+
+        HIGH/MEDIUM/LOW/NOT_APPLICABLE is a four-value axis, so naming two of
+        them side by side cannot enumerate it. The disposition and status
+        domains have a minimum of two, which is why this rule is stated per
+        domain rather than as "a pair is never a set" -- the earlier wording
+        of that claim was true for one domain and false for the other two,
+        and the docstring now says so.
+        """
+        self.assertEqual(_PROTECTED_DOMAINS["promotion_value"]["minimum"], 3)
+        self.assertFalse(_restates_promotion_value_domain(
+            "PROMOTION_VALUE = HIGH != LOW"),
+            "two of four values compared is a judgement, not a fork of the axis")
+        for text in ("PROMOTION_VALUE = HIGH / MEDIUM / LOW",
+                     "PROMOTION_VALUE = HIGH, LOW, NOT_APPLICABLE"):
+            with self.subTest(text=text[:30]):
+                self.assertTrue(_restates_promotion_value_domain(text),
+                                "three of four values IS the axis")
+
+    def test_an_external_excuse_needs_a_whole_word(self):
+        """"ZH" is an external-reference marker; "zhe" is a Chinese word.
+
+        The qualifier exists so that a pointer into an EXTERNAL document is
+        not reported as a dangling one. Written as a bare substring it also
+        matched any word containing those two letters -- "zhe", "gongzhi" --
+        so an unrelated line of prose silently excused a pointer that goes
+        nowhere. Nothing on the pristine tree distinguishes the two versions,
+        which is exactly why this needs its own assertion rather than being
+        left to a future reviewer to notice.
+        """
+        for label, text, excused in (
+                ("the marker itself", "见 ZH AGENTS §18.3", True),
+                ("a word containing zh", "见治理 zhe 文档 §99.9", False),
+                ("another word containing zh", "见 gongzhi 规则 §99.9", False),
+                ("no excuse at all", "见 §99.9", False)):
+            with self.subTest(text=text):
+                self.assertEqual(bool(_EXTERNAL_REF_RE.search(text)), excused,
+                                 f"{label} must {'not' if excused else ''} "
+                                 "count as an external-reference excuse")
+
+    def test_a_bare_bullet_run_is_caught_with_no_introducing_phrase(self):
+        """Shape 4 must be load-bearing, not incidentally covered.
+
+        The mutation table above appends its bare bullets to TICKET_REL,
+        whose 9.4 tail carries "PROMOTION =", so the ANCHORED pair-scan
+        fires first and shape 4 never runs. That is the same coincidence the
+        third review rejected, and repeating it in the fix for it would make
+        the round-4 headline claim untestable: reverting shape 4 back to
+        requiring an anchor leaves the whole suite green.
+
+        So this case is anchored nowhere on purpose. The filler prose is
+        there to push every anchor outside _MAX_LEAD, and the assertion is
+        also made directly on the bare string, so neither a wider lead window
+        nor a longer document can quietly restore the coincidence.
+        """
+        bullets = "\n- PROMOTE_NOW\n- KEEP_AS_HUMAN_DECISION\n"
+        anchorless = "本节讨论评审流程，与取值无关。\n" * 20 + bullets
+        # No introducing phrase anywhere in range: the bullets are the
+        # declaration, and that is the shape this rule exists to catch.
+        self.assertFalse(
+            _is_anchored(anchorless, anchorless.index("PROMOTE_NOW"),
+                         _PROTECTED_DOMAINS["disposition"]["anchors"]),
+            "the fixture must not accidentally supply an anchor, or this "
+            "test proves nothing about the anchor-free path")
+        self.assertTrue(
+            _restates_disposition_domain(anchorless),
+            "a bare bullet run with no introducing phrase is a declaration")
+        self.assertTrue(
+            _restates_disposition_domain(bullets.strip()),
+            "the shape must be recognised even with no surrounding document")
+        # And the widened rule still has not become a guess: a bullet that
+        # carries prose is a mention, whatever is or is not above it.
+        self.assertFalse(_restates_disposition_domain(
+            "本节讨论评审流程，与取值无关。\n" * 20
+            + "\n- PROMOTE_NOW 仅在本票内所有条件同时满足时成立\n"
             "- KEEP_AS_HUMAN_DECISION 需要产品裁决\n"),
             "a prose bullet mentioning two values is not a declaration")
 
