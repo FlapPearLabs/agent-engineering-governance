@@ -791,27 +791,37 @@ class ScopeCreepGuardTests(unittest.TestCase):
         list of a conjunction is the failure mode where each individual
         assertion is true and the guarantee is absent.
 
-        The conditions are therefore read out of the spec block rather than
-        retyped here: a hand-copy is exactly what silently dropped two of
-        them, and a test that enumerates the spec's own block cannot fall
-        behind it without going red.
+        The conjunction is located in the framework, and each condition is
+        asserted to be a LINE OF THAT BLOCK rather than a phrase somewhere in
+        the document. Document-wide membership is not enough: a condition can
+        be swapped out of the conjunction while its old wording survives as
+        an unrelated prose mention, and the guarantee silently evaporates.
+        The block is also required to keep its leading "+" chain, since a
+        bullet list is where "any one of these is fine" creeps back in.
+
+        What is and is not derived: the block's location, its shape and its
+        size come from the framework, but the seven identities are still
+        named here. That is a deliberate limit rather than an oversight --
+        deriving the identities would make the test agree with whatever the
+        framework says, which is not what a guard is for. The check that
+        matters is the second one: a named condition has to be a line of the
+        conjunction, so the framework cannot quietly replace it.
         """
         body = read(FRAMEWORK_REL)
-        for condition in ("现有工具已存在", "变更微小且局部", "无新依赖",
-                          "无广泛基线 churn", "无架构变更", "无无关文件",
-                          "同一缺陷类"):
-            with self.subTest(condition=condition):
-                self.assertIn(condition, body,
-                              "a condition of the PROMOTE_NOW conjunction "
-                              "was dropped from the framework")
-        # The conjunction is all-or-nothing, so the block it lives in has to
-        # keep its leading "+" chain rather than becoming a bullet list where
-        # a reader could take any single line as sufficient.
-        block = re.search(
-            r"现有工具已存在\n(?:\+ .*\n)+", body)
+        block = re.search(r"现有工具已存在\n(?:\+ .*\n)+", body)
         self.assertIsNotNone(
             block, "the in-ticket conditions must stay a + conjunction")
-        self.assertEqual(len(block.group(0).strip().split("\n")), 7,
+        conditions = {line.lstrip("+ ").strip()
+                      for line in block.group(0).strip().split("\n")}
+        for condition in ("现有工具已存在", "变更微小且局部", "无新依赖",
+                          "无广泛基线 churn", "无架构变更", "无无关文件",
+                          "与本票修复属同一缺陷类"):
+            with self.subTest(condition=condition):
+                self.assertIn(
+                    condition, conditions,
+                    "a condition of the PROMOTE_NOW conjunction is missing "
+                    "from the conjunction itself")
+        self.assertEqual(len(conditions), 7,
                          "the conjunction must have exactly the seven "
                          "conditions §21.3 declares")
 
