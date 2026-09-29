@@ -1518,9 +1518,17 @@ class DogfoodTests(unittest.TestCase):
         or an owner-bumped constant -- and this ticket rules both out (a
         bumped constant is the freeze-frame this guard was written to
         remove, and CI checks out at depth 1 so there is no history to read).
-        The boundary is pinned by
-        test_deleting_a_pain_section_is_detectable rather than left implicit,
-        so it cannot rot back into an overstated claim.
+
+        THIS PARAGRAPH IS ITSELF UNGUARDED, and saying so is the point. An
+        earlier version claimed the boundary was "pinned by
+        test_deleting_a_pain_section_is_detectable ... so it cannot rot back
+        into an overstated claim". Deleting this whole paragraph left the
+        suite at 551 OK, because no test asserts that a docstring states its
+        own limits -- and building one is the guard-of-guard this ticket
+        forbids. So the honesty here rests on review, not on a gate, exactly
+        as this module's header says marker presence is not semantic
+        validation. Treat any future widening of these claims as a finding
+        against this docstring, not as something the suite would catch.
         """
         body = read(PAIN_REL)
         table = body.split("## 汇总判定表", 1)[1]
@@ -2263,20 +2271,32 @@ class NegativeControlTests(unittest.TestCase):
         WHAT MAKES THIS A CONTROL RATHER THAN A RESTATEMENT: it calls
         _pain_numbering_gaps, the same function the guard calls. The first
         version of this test inlined the comparison a second time, which
-        left it green even when the guard's own anchor was reverted to a
-        no-op -- the same "pins its own copy" defect this suite already had
-        to correct once. Sharing the function is what makes reverting the
-        guard turn this control red too.
+        left it green even when the anchor was reverted to a no-op -- the
+        same "pins its own copy" defect this suite already had to correct
+        once.
+
+        AND WHAT IT STILL DOES NOT PROTECT, measured rather than assumed.
+        Sharing the function makes NEUTERING THE FUNCTION turn this control
+        red. It does NOT make these two changes turn it red, both verified
+        by ablation on a scratch copy:
+
+          - the guard stops calling the helper (gaps hardcoded to []);
+          - the guard asserts against a literal instead of calling it.
+
+        In both cases this control stays green, because it exercises the
+        helper rather than the guard's use of it. An earlier version of this
+        docstring claimed sharing makes "reverting the guard turn this
+        control red too"; that was false and was corrected here rather than
+        papered over with another guard. Deciding what the guard asserts is
+        exactly the kind of guard-of-guard this ticket rules out, so the
+        limit is stated instead of mechanised.
         """
         original = read(PAIN_REL)
 
-        # -- the pristine ledger must satisfy the guard -----------------------
-        self.assertEqual(
-            [], _pain_numbering_gaps(original),
-            "pristine pain numbering must be contiguous before the ablation "
-            "means anything")
-
         # -- the mutation, applied to a real copy ----------------------------
+        # No pristine-side assertion here on purpose: the guard already
+        # asserts the same thing about the same input, so repeating it made
+        # this control look stronger without testing anything extra.
         numbers = sorted(int(label[1:]) for label in
                          re.findall(r"^## (P\d\d) ", original, re.M))
         victim = f"P{numbers[len(numbers) // 2]:02d}"

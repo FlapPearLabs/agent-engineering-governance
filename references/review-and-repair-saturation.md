@@ -152,7 +152,7 @@ PROMOTION_VALUE = # 见框架 §21.1（reviewer 建议值，不自动生效）
 ### 4.3 `SATURATION != REVIEW_GATE_BYPASS`（饱和不得替代评审门）
 
 > 本节是 **`SATURATION != REVIEW_GATE_BYPASS` 这一否定式的唯一声明点**。§3 管修复授权，§3.1 管预算计数，§4.2 管通过之后默认做什么；本节管**这三者与评审门的优先关系**——它存在的唯一理由是防止前两者被误当成评审门的替代品。
-> 正向的评审要求本身（治理变更须双独立评审对同一 exact HEAD PASS）其 owner 是 **AGENTS §8**，本节**不**复述、只声明它不可被本文件其它条款旁路。
+> 正向的评审要求本身其 owner 是 **AGENTS §8**；本节只**指向**它、不复述其内容，以免 AGENTS §8 改措辞时本节静默漂移成第二份声明。
 
 三个机制各管一件事，互不越权：
 
@@ -166,10 +166,12 @@ REQUIRED_REVIEW_QUORUM  管集成资格（能不能进 main）
 
 ```text
 SATURATION_REACHED  !=  REQUIRED_REVIEW_QUORUM_PASS
+                       # 右项 = §4.2 前置条件 "REQUIRED_REVIEW_QUORUM = PASS | APPROVED"
+                       # 为真；即 required quorum 未给出通过结论
 ```
 
 - **CONVERGENCE_ARBITER 不得把阻断性结论改写成通过。** `CHANGES_REQUESTED` / `REQUEST_CHANGES` / `REJECT` / `FAIL` **不**得被仲裁、预算耗尽、严重性意见或"剩余工作边际价值低"改写为 `PASS` / `APPROVED`。仲裁决定 finding 的**去向**，不决定评审的**结论**。
-- **饱和不满足任何未满足的 required review gate。** 当仓政策要求 quorum（AGENTS §8 治理变更默认：合同向 + 一致性向对同一 exact HEAD 双 PASS）时，`SATURATION_REACHED` **不**构成该 gate 的替代证据。§4.2 自身的前置条件即 `REQUIRED_REVIEW_QUORUM = PASS | APPROVED`；该条件未满足时 §4.2 的收敛切断**不启动**（§4.2 不是绕过它的入口）。
+- **饱和不满足任何未满足的 required review gate。** 当仓政策要求 quorum（**见 AGENTS §8**）时，`SATURATION_REACHED` **不**构成该 gate 的替代证据。§4.2 自身的前置条件即 `REQUIRED_REVIEW_QUORUM = PASS | APPROVED`；该条件未满足时 §4.2 的收敛切断**不启动**（§4.2 不是绕过它的入口）。
 - **预算耗尽与集成资格是两个独立字段，可同时成立。** required reviewer 仍返回阻断结论时：
 
 ```text
@@ -177,7 +179,7 @@ AUTO_REPAIR_AUTHORITY  = EXHAUSTED        # 有效：不再自动修复
 INTEGRATION_AUTHORITY  = NOT_SATISFIED    # 同时成立：不得集成
 ```
 
-  耗尽的是**修复权**，未满足的是**集成权**。二者与 §3 首条"已知高价值 blocker 不豁免"**各自独立、互不覆盖**：§3 首条仍是本文件唯一标为"不可覆盖"的部分，本节**不**改变、不降级、不让位于它——预算耗尽与仲裁都**不是**高价值 blocker 的豁免路径。
+  耗尽的是**修复权**，未满足的是**集成权**。二者与 §3 首条"已知高价值 blocker 不豁免"**各自独立、互不覆盖**：§3 首条是本节**不可降级、不可覆盖**的条款，本节**不**改变它、不让位于它——预算耗尽与仲裁都**不是**高价值 blocker 的豁免路径。
 
 合法下一步**仅限既有权威机制**（不得静默重解释阻断结论）：
 
