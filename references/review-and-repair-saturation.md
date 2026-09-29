@@ -36,6 +36,26 @@
 
 **高价值类（默认 REPAIR_NOW，severity 标签仅次要）**：身份/provenance 错配；validity 升级；fail-open；安全/隐私/凭据泄漏；现实持久化/恢复损坏；陈旧产物复用；错误完成语义；显式仓库合同违反；控制器/权威所有权违反；可达的原始失效破坏 fail-closed 边界。
 
+### 2.1 `FINDING_IS_TRUE != REPAIR_NOW`（真 finding 不等于修复授权）
+
+> 本节是**修复授权来源**的唯一声明点。§2 字段表定义单条 finding 的价值；本节定义"是否由它产生修复权"。
+
+一条 finding 可以**同时**满足下列全部条件而仍然**不获得**修复授权：
+
+```text
+FINDING_IS_TRUE          = YES     # 真实、可复现、机制可检测、reviewer 报告正确
+DISPOSITION              = BACKLOG | INFORMATIONAL | ROUTE_TO_OWNER
+REPAIR_NOW               = NO
+```
+
+推论（均为本节的一部分，不需另找依据）：
+
+- **修复授权来自 `REPAIR_VALUE` + 当前票权威，不来自 finding 的真实性。** 真实只是进入判定的**前提**，不是判定**结果**。
+- **可机械检测性不是修复理由。** §2 的 `EVIDENCE_STRENGTH = MECHANICALLY_PROVEN` 描述证据强度，**不**抬高 `DISPOSITION`；"能机械化"回答的是"能否自动发现"，不是"是否应当现在修"。
+- **severity 标签（P0–P3）是意见，不是授权。** `SEVERITY_OPINION = P0` 与 `DISPOSITION = BACKLOG` 可以同时为真且不矛盾——P0 意见 + 非高价值类 = 记录并延后。
+- 已知高价值 blocker（§2 高价值类）**不可**用本节延后；本节只约束**非**高价值 finding。
+
+
 ## 3. Budget 与 Convergence Arbiter
 
 - `NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET = 2` 是**默认值**（D 层）：owner/仓政策可按风险与证据质量调高/调低并记录 OVERRIDE；**不可覆盖**的部分 = "已知高价值 blocker 永不因预算耗尽而被豁免"。
@@ -45,12 +65,66 @@
 - Saturation ≠ 无 bug：只表示本票高价值修复区已耗尽。
 - 评审探索预算：fresh/third-party 各 2–4 个高价值独立对抗探针；`NEW_COUNTEREXAMPLES = NONE` 合法；禁止机械枚举组合凑数。
 
+### 3.1 预算的票作用域与单调性（`NEW_SHA != NEW_REPAIR_BUDGET`）
+
+> 本节是**预算计数语义**的唯一声明点。§3 的数值是默认值；本节规定它**如何被消耗**。
+
+`NORMAL_REVIEWER_DRIVEN_REPAIR_BUDGET` 是**原始票 / 已授权任务上的累计预算**，不是"每个 SHA 一个"或"每轮评审一个"。
+
+```text
+NEW_SHA                 != NEW_REPAIR_BUDGET   # append-only commit 只换证据绑定，不重置换计数器
+FRESH_REVIEW            != NEW_REPAIR_BUDGET
+NEW_REVIEWER            != NEW_REPAIR_BUDGET   # 换 reviewer 不产生新预算
+REVIEWER_DISAGREEMENT   != AUTOMATIC_BUDGET_RESET
+MODEL_FALLBACK          != NEW_REPAIR_BUDGET   # 换模型重试不是新一轮修复
+```
+
+- append-only repair 的**唯一**作用是把修复绑定到可核验的证据 SHA；它**不**重置计数。
+- 预算**只能**由 owner / 仓政策在既有治理语义下**显式**上调（记录 OVERRIDE，见 §3 默认值条款），**不能**由修复动作、评审轮次、reviewer 更替或模型回退自行产生。
+- 已知高价值 blocker 不受预算耗尽豁免（§3 首条）；**高价值**判定走 §2 / §2.1，不因预算耗尽而改变。
+- **票边界定义预算边界**：预算随票关闭而消失；开启新票 = 新的累计预算（这是唯一合法的重置途径，且由开票行为而非 SHA 变化构成）。
+
+
 ## 4. PASS 语义与 findings 处置
 
 - 合法成功态：`PASS / PASS_WITH_NONBLOCKING_FINDINGS / SATURATION_REACHED_WITH_BACKLOG`。`ZERO_FINDINGS` 不是完成定义。
 - 终局问题："这个 exact 候选是否对现实可达状态正确实现其拥有的合同、并在真实信任边界安全失败、无已知高价值 blocker？"
 - 每条未修复 finding 必带：FINDING / SEVERITY_OPINION(P0–P3) / DEFECT_CLASS / REACHABILITY / REPAIR_VALUE / DISPOSITION(REPAIRED|BACKLOG|ROUTE_TO_OWNER|INFORMATIONAL|OUT_OF_SCOPE) / WHY_NOT_REPAIRED / OWNER。
 - WHO_OWNS_THE_FIX：根因属他模块/他票权威 → ROUTE_TO_OWNER，不造第二弱策略凑零 findings。
+
+### 4.2 POST-PASS 收敛切断（`REPAIR_SATURATION_REACHED` 的默认态）
+
+> 本节是**通过之后是否继续施工**的唯一声明点。§3.1 管预算怎么花，本节管通过之后默认做什么。
+
+当**当前 exact 候选**同时满足：
+
+```text
+REQUIRED_REVIEW_QUORUM         = PASS | APPROVED
+NO_KNOWN_HIGH_VALUE_BLOCKER    = YES
+```
+
+默认状态即：
+
+```text
+REPAIR_SATURATION_REACHED = YES
+DISPOSITION_DEFAULT        = BACKLOG | INFORMATIONAL
+```
+
+以下**单独**出现时**不得**自行重开施工：
+
+```text
+P2 / P3 opinion
+additional mutation coverage
+guard robustness / test robustness
+documentation polish
+alternative prose encoding
+extra defensive hardening
+```
+
+- 重开**仅**允许于：fresh 证据依 §2 / §2.1 建立了**高价值 blocker**。**severity 标签本身不构成授权**（§2.1）。
+- 收敛后的剩余风险**有意**留给独立评审承担：把 `REPAIR_SATURATION_REACHED = YES` 当作"本票高价值修复区已耗尽"（§3），**不**当作"再无弱化空间"。
+- 本节**不**削弱 RULES R4 独立评审 gate：saturation 之后 reviewer 仍可报告新事实；变的是**处置默认值**，不是**报告权利**。
+
 
 ### 4.1 缺陷的机械可检测性元数据（**建议性证据**）
 
@@ -178,6 +252,37 @@ reviewers 反复花独立评审预算重新发现同一确定性的低层缺陷�
 - 门一旦建立并生效，reviewer **不**应再把独立评审预算反复花在该机器可判缺陷类上（`DO_NOT_SPEND_REASONING_ON_MACHINE_PROVABLE_FACTS`）——按 §1 的 L1 纪律，不重复报告 L0 已可确定性检出的问题。
 - 该联动**不**削弱 RULES R4 独立评审 gate，也不使静态门绿灯升级为语义/合同结论（框架 §19）。
 - `REPAIR_SATURATION_REACHED = YES` 判据（§3）**不**因存在机械可判缺陷而自动成立：饱和是**修复预算**判据，晋升是**门建设**判据，两者独立。
+
+### 6.6 `META_GOVERNANCE_RECURSION_CUTOFF`（加固治理机制本身不递归授权）
+
+> 本节是**元治理施工**的唯一声明点。§6.5 管"缺门"的证据方向；本节管"为补门而加固门"的**递归**边界。
+
+当一次修复主要加固的是**治理装置自身**——
+
+```text
+a governance guard / validator / mutation test / negative-control test
+a test-of-test / a detector for governance prose
+```
+
+——该修复**不得**仅因"被加固的机制又暴露了另一处非阻塞弱化"而**递归授权**另一次修复。
+
+```text
+ONCE (核心受管辖合同已满足 AND 无高价值 blocker 残留)
+  → 记录残余弱化
+  → 停止机械化
+  → 剩余语义风险留给独立评审承担
+```
+
+经济判据（与 §2 的 REPAIR_VALUE 经济学同向）：
+
+```text
+MECHANIZATION_VALUE  >  MECHANIZATION_COST + MAINTENANCE_COST
+```
+
+- 机械化**自身**仍受 `MINIMUM_NECESSARY_COMPLEXITY` 约束：为证明一条散文规则而新增通用解析器 / 变异框架 / Markdown 分类器 / guard-of-guard，属于**不**满足该不等式。
+- 本节**不**禁止报告，只禁止**递归施工**；新事实照常可被报告并按 §4.2 归入 `BACKLOG` / `INFORMATIONAL`。
+- 本节与 §6.5 的分工：§6.5 说"缺门"应走晋升；本节说"已建的门不必被加固到无穷"。两者不冲突——**门该不该建**与**门是否已足够**是不同问题。
+
 
 ## 7. 审计可见性 recipe（按需；`REQ-W4-02a` / `AC-13` / `AC-38`）
 

@@ -537,3 +537,5 @@ KEEP_AS_HUMAN_DECISION         需产品/架构裁决 → 人类
 ```
 
 任一不满足 → **先修当前缺陷**，记录 `MECHANIZATION_FOLLOWUP_CANDIDATE`，采纳放到**专门工具票**。§12/§13 的既有规则继续适用：遗留仓缺工具 → `FOLLOWUP_TOOLING_TICKET`，**不得**在无关功能票里顺手装整套工具链。
+
+**本节不覆盖修复饱和纪律。** `DEFECT_TO_GATE_PROMOTION` 判定的是"这个缺陷类能否下沉到机器门"，**不**判定"现在是否应当再开一轮修复"——后者唯一声明点 = `references/review-and-repair-saturation.md` §4.2 / §6.6。因此：候选达到 required quorum PASS 且 `NO_KNOWN_HIGH_VALUE_BLOCKER = YES` 之后新发现的机械化机会，**默认** → `FOLLOWUP_TOOLING_TICKET`，而**非**在已通过的票内 `PROMOTE_NOW`；唯一例外是它本身为关闭一个高价值 blocker 所必需。
