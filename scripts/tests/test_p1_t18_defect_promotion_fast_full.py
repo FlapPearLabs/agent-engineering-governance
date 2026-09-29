@@ -808,11 +808,7 @@ class ScopeCreepGuardTests(unittest.TestCase):
         conjunction, so the framework cannot quietly replace it.
         """
         body = read(FRAMEWORK_REL)
-        block = re.search(r"现有工具已存在\n(?:\+ .*\n)+", body)
-        self.assertIsNotNone(
-            block, "the in-ticket conditions must stay a + conjunction")
-        conditions = {line.lstrip("+ ").strip()
-                      for line in block.group(0).strip().split("\n")}
+        conditions = self._conjunction_conditions(body)
         for condition in ("现有工具已存在", "变更微小且局部", "无新依赖",
                           "无广泛基线 churn", "无架构变更", "无无关文件",
                           "与本票修复属同一缺陷类"):
@@ -824,6 +820,57 @@ class ScopeCreepGuardTests(unittest.TestCase):
         self.assertEqual(len(conditions), 7,
                          "the conjunction must have exactly the seven "
                          "conditions §21.3 declares")
+
+    def _conjunction_conditions(self, body: str) -> set[str]:
+        """The conditions of the in-ticket conjunction, as the block declares.
+
+        The real test goes through this too, so a control built on it cannot
+        drift away from the thing it is controlling. An earlier version of
+        this control re-parsed the block inline, which meant it kept
+        detecting the swap even after the real test had been weakened back
+        to a document-wide search -- it was pinning its own copy instead of
+        the guard.
+        """
+        block = re.search(r"现有工具已存在\n(?:\+ .*\n)+", body)
+        if block is None:
+            self.fail("the in-ticket conditions are not a + conjunction")
+        return {line.lstrip("+ ").strip()
+                for line in block.group(0).strip().split("\n")}
+
+    def test_swapping_a_condition_out_of_the_conjunction_is_detected(self):
+        """NEGATIVE CONTROL for the block-scoped condition check.
+
+        The check above is only stronger than a document-wide assertIn
+        because the conditions are matched INSIDE the conjunction block. That
+        difference was established by hand -- replace "+ 无无关文件" with
+        "+ 无临时文件" and park the old wording in unrelated prose -- and a
+        fact established by hand is not a property of the suite. Reverting
+        the block scoping to a plain document search would leave every test
+        green, which is the silent weakening this file exists to rule out.
+
+        The mutated document is run through the same helper the real test
+        uses, so restoring document-wide search makes this control red.
+        """
+        pristine = read(FRAMEWORK_REL)
+        self.assertIn("无无关文件", self._conjunction_conditions(pristine))
+
+        # Swap one condition for a plausible-sounding impostor and keep the
+        # original wording alive elsewhere in the document, which is exactly
+        # how a quiet substitution would survive a document-wide search.
+        mutated = pristine.replace("+ 无无关文件", "+ 无临时文件", 1)
+        mutated = mutated.replace(
+            "## 21. DEFECT_TO_GATE_PROMOTION",
+            "无无关文件 是本节讨论的一个相关概念。\n\n"
+            "## 21. DEFECT_TO_GATE_PROMOTION", 1)
+        self.assertIn("+ 无临时文件", mutated,
+                      "the mutation must actually apply, or this control "
+                      "proves nothing")
+        self.assertIn("无无关文件", mutated,
+                      "the old wording must survive elsewhere, or this is "
+                      "just a deletion test")
+        self.assertNotIn("无无关文件", self._conjunction_conditions(mutated),
+                         "a swapped condition must not still satisfy the "
+                         "conjunction")
 
     def test_heavy_promotion_is_routed_to_a_tooling_ticket(self):
         body = read(FRAMEWORK_REL)
