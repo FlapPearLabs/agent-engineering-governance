@@ -226,7 +226,7 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 - CURRENT_BEST_ABSTRACTION：晋升是 **value-gated 判定**，不是自动规则扩散。防扩散的三个既有约束被显式复用：`BUG KNOWLEDGE → REGRESSION TEST` 保留（框架 §19，行为知识不得被 lint 替换）、`一次出现 ≠ 自动治理缺陷`、本票内下沉六条件（框架 §21.3）。`LOWEST ≠ WEAKEST`：选层标准是"可靠检出"，语义/产品判断**不得**为省评审而塞进静态检查（框架 §3）。
 - R8 四问：(1) 防哪次真实失效 → 上述 (a)(b)，其中"5 处 F841 一次检出"为本仓一手证据；(2) 机器能否更便宜地做 → 能，晋升后的门就是机器门；(3) 每个风险级都需要吗 → 否，晋升判定按 `PROMOTION_VALUE` 分级，LOW/琐碎 finding **不**要求产出收据；(4) 能否降级为 reference/默认 → **是**，整套为 D 层默认 + 仓可显式 OVERRIDE，不升 B 层（`RULES.md` 未改动）。
 - SHOULD_BE_GLOBAL = **DEFAULT_ONLY**（晋升判定与 FAST/FULL 分类均为 D 层默认；**不**新增 B 层不变量——"任何仓必须装某个 linter"或"必须做缺陷分类"都属过度普适）。
-- CAN_BE_MACHINE_ENFORCED：**部分**。文档接线、receipt 字段存在性、值域委托（不重复声明）可机械校验（`scripts/validate_governance.py` + `scripts/tests/test_p1_t18_*.py`）；"`PROMOTION_VALUE` 判定"与"某缺陷类是否可靠可机械检出"本质是判断型，需 agent 判断 + 评审确认。
+- CAN_BE_MACHINE_ENFORCED：**部分**。可机械校验的是：值域**委托**（收据不得重述状态值域——`scripts/validate_governance.py` 的 `static_gate_wiring` 检查委托标记计数与被禁 token）、处置与 PROMOTION_VALUE 值域的**单一 owner**（本票 `scripts/tests/test_p1_t18_*.py` 的结构化检测器，遍历全仓除 owner 外的每个 md）、以及票级字段与章节指针的**存在性与可解析性**（同文件测试）。**不由机器判定**的是："`PROMOTION_VALUE` 判定"与"某缺陷类是否可靠可机械检出"——本质是判断型，需 agent 判断 + 评审确认。
 - NEEDS_AGENT_JUDGMENT = YES（判定缺陷类可靠性、误报风险、晋升价值）。NEEDS_HUMAN_JUDGMENT = 争议时 YES（`KEEP_AS_HUMAN_DECISION` / 晋升需改架构时）。
 - 与既有痛点的关系：P20 的**直接续篇**（P20 = 门内执行与记账；P21 = 门外缺陷是否应进门）。P14（贵评审滥用）邻域但不同：P14 是"评审预算分配"，P21 是"把可机械判的部分移出评审域"。本项**不**新建权威文件，canonical owner 全部挂在既有 references（避免双 owner，CE-28 语义）。
 - MACHINE_ENFORCED = PARTIAL。
