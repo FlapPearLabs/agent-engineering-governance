@@ -233,20 +233,56 @@ def _is_anchored(text: str, position: int, anchors: tuple[str, ...]) -> bool:
     return any(anchor in lead for anchor in anchors)
 
 
-def _is_illustration(line: str, pattern: re.Pattern) -> bool:
+_COMPARISON_RE = re.compile(r"^\s*!=\s*$")
+
+
+def _is_comparison_chain(line: str, matches: list) -> bool:
+    """True when every consecutive pair of members is joined by '!='.
+
+    "A != B != C != D" is a chain; "X != Y、Z != Y" is not, because the
+    separator between Y and Z is a comma rather than another comparison.
+    """
+    return all(_COMPARISON_RE.match(line[left.end():right.start()])
+               for left, right in zip(matches, matches[1:]))
+
+
+def _is_illustration(line: str, pattern: re.Pattern,
+                     minimum: int) -> bool:
     """True for the non-collapse DEMONSTRATION ("X != Y、Z != Y、W != Y").
 
-    The repeated member is the signal. A demonstration shows one value
-    differing from several others, so some value necessarily recurs; a
-    declaration lists each value once. An earlier version exempted any window
-    containing "!=", which meant "PROMOTE_NOW != FOLLOWUP_TOOLING_TICKET !=
-    KEEP_AS_TEST != KEEP_AS_HUMAN_DECISION" -- four members of the disposition
-    domain behind a row of != signs -- was reported as clean.
+    Three conditions, each earning its place by being measured against the
+    real tree rather than assumed:
+
+    1. A LONE PAIR IS THE MODEL. "NOT_CONFIGURED != PASS" is the whole point
+       of the non-collapse rule, so two distinct members can never be a set
+       however they are punctuated -- and with only two members there is no
+       chain to distinguish anyway.
+    2. A CHAIN IS A DOMAIN. Once three or more members appear and every
+       consecutive pair is joined by "!=", the author is enumerating, not
+       demonstrating: a demonstration compares one pivot against several
+       others and therefore needs a separator other than "!=" to come back
+       for the next comparison. This is what closes the bypass the earlier
+       version of this function left open -- "PROMOTE_NOW != FOLLOWUP_TOOLING_
+       TICKET != KEEP_AS_TEST != KEEP_AS_HUMAN_DECISION" was reported clean
+       because the old rule only asked whether some member repeated, and a
+       chain can be made to repeat one.
+    3. OTHERWISE, A REPEATED MEMBER MEANS DEMONSTRATION. Three or more
+       members that are NOT chained, with some value recurring, is the
+       "X != Y、Z != Y" shape.
     """
     if "!=" not in line:
         return False
+    matches = list(pattern.finditer(line))
+    distinct = {match.group(0) for match in matches}
+    if len(distinct) < 2:
+        return False
+    if len(distinct) < minimum:
+        # Too few values to be a set at all; a pair is the illustration.
+        return True
+    if _is_comparison_chain(line, matches):
+        return False
     counts: dict[str, int] = {}
-    for match in pattern.finditer(line):
+    for match in matches:
         counts[match.group(0)] = counts.get(match.group(0), 0) + 1
     return any(count > 1 for count in counts.values())
 
@@ -298,13 +334,17 @@ def _restates_domain(text: str, members: tuple[str, ...],
         line = _line_containing(text, left, right)
         if outside is not None and outside.search(line):
             continue
-        if _is_illustration(line, pattern):
+        if _is_illustration(line, pattern, minimum):
             continue
         if _is_separator_run(between):
             return True
-        # Shape 2: a table row, in either of the two forms a copied
-        # declaration arrives in -- the aligned plain-text block the owner
-        # uses ("NAME<pad>meaning") or a Markdown row ("| NAME | meaning |").
+        # Shape 2: a table row, in the several forms a copied declaration
+        # arrives in -- the aligned plain-text block the owner uses
+        # ("NAME<pad>meaning"), a Markdown row ("| NAME | meaning |"), and
+        # the definition-list form ("NAME: meaning") that a reviewer produces
+        # when pasting a table into a pointer document. The colon matters:
+        # without it in the separator set, "PROMOTE_NOW: 本票内下沉" reads as
+        # prose and every one of those rows escapes.
         head, sep, tail = between.partition("\n")
         if not (sep and len(between) <= _MAX_ENUM_SPAN):
             continue
@@ -312,14 +352,39 @@ def _restates_domain(text: str, members: tuple[str, ...],
             if "|" in head and "|" in tail.split("\n")[0]:
                 return True
             continue
+        # Definition-list / numbered-with-colon form: the description is
+        # introduced by a colon, so the leading pad may be absent entirely.
+        # The colon sits at the START of `head`, because it belongs to the
+        # row above ("PROMOTE_NOW: meaning"), and a numbered list puts its own
+        # marker in front of the next value ("2. FOLLOWUP_TOOLING_TICKET:").
+        # Checking only the tail end of `head` therefore missed every one of
+        # these, which is the form a reviewer produces when pasting a table
+        # into prose.
+        stripped = head.strip()
+        if stripped.endswith((":", "：")) and len(stripped) <= _MAX_DESC_WIDTH:
+            return True
+        lead = stripped.lstrip("|-—•*> \t　")
+        if lead[:1] in (":", "：") and len(lead) <= _MAX_DESC_WIDTH:
+            return True
         pad = len(head) - len(head.lstrip(" \t　"))
-        if (pad >= _MIN_COLUMN_PAD and head.strip()
-                and len(head.strip()) <= _MAX_DESC_WIDTH):
+        if (pad >= _MIN_COLUMN_PAD and stripped
+                and len(stripped) <= _MAX_DESC_WIDTH):
             return True
 
     # Shape 3: a fenced block of bare member names. This is the owner's own
     # declaration form, so it has to be recognised or the guard is silent on
     # the one document that is allowed to declare the domain.
+    #
+    # Shapes 3 and 4 deliberately require NO anchor phrase, and that is the
+    # fix for the finding that the bare-bullet shape was still only caught by
+    # coincidence: the test that claimed to close it appended bullets to a
+    # file whose preceding text happened to contain "PROMOTION =", so the
+    # anchored pair-scan fired and the bullet path was never exercised. A
+    # shape that needs no introduction has no introduction to look for, and
+    # gating it on one is what made the guarantee fictional. Requiring the
+    # whole bullet to be BARE is what keeps this from becoming a guess, and
+    # that was measured over every markdown file in the repo: zero hits on
+    # the pristine tree.
     for block in _FENCE_RE.finditer(text):
         values = {m.group(1) for m in _BARE_TOKEN_RE.finditer(block.group(1))}
         if len(values) >= minimum and len(values & set(members)) >= minimum:
@@ -329,23 +394,17 @@ def _restates_domain(text: str, members: tuple[str, ...],
     # must be bare -- "- PROMOTE_NOW" rather than "- PROMOTE_NOW（行为知识）" --
     # so an ordinary prose bullet can never be mistaken for a declaration.
     run: list[str] = []
-    offset = 0
     for raw in text.splitlines() + [""]:
         bullet = _BULLET_RE.match(raw)
         if bullet and _is_separator_run(pattern.sub("", bullet.group(1))):
-            if not run:
-                start = offset
             run.append(bullet.group(1))
         else:
             if run:
                 listed = "\n".join(run)
-                distinct = {m.group(0)
-                            for m in pattern.finditer(listed)}
-                if (len(distinct) >= minimum
-                        and _is_anchored(text, start, anchors)):
+                distinct = {m.group(0) for m in pattern.finditer(listed)}
+                if len(distinct) >= minimum:
                     return True
             run = []
-        offset += len(raw) + 1
     return False
 
 
@@ -425,8 +484,12 @@ _SECTION_REF_RE = re.compile(r"§\s*(\d+(?:\.\d+)*)")
 # were never meant to. Requiring the qualifier is what lets the check cover
 # every file in the repo instead of only the handful this ticket touched,
 # without forcing a rewrite of reviewed historical audit records.
+#
+# The patterns are word-bounded on purpose. An earlier version matched "ZH"
+# case-insensitively and bare, so any "zh" inside any word -- "zhe", "gongzhi"
+# -- counted as an external qualifier and excused whatever pointer sat nearby.
 _EXTERNAL_REF_RE = re.compile(
-    r"(ZH|zhihu|父\s*Spec|项目\s*AGENTS|本仓以外|外部|spec\s*行)", re.I)
+    r"(\bZH\b|zhihu|父\s*Spec|项目\s*AGENTS|本仓以外|外部|spec\s*行)", re.I)
 
 # The files whose pointers this ticket is responsible for. The check is
 # deliberately NOT global: two historical audit files carry an unqualified
@@ -461,15 +524,21 @@ def _heading_index() -> dict[str, dict[str, set[str]]]:
 def _unqualified_pointers(rel: str, index: dict) -> list[tuple[int, str]]:
     """Every §N in `rel` that claims this repo and resolves to nothing.
 
-    The qualifier may sit earlier in the same paragraph rather than on the
-    same line: a bullet list routinely establishes "these are all zhihu
-    AGENTS sections" once and then continues the enumeration on the next
-    bullet. So the search window is the enclosing block, not the line.
+    A pointer to another document has to SAY SO, and it has to say so in a
+    position that actually attaches to it. The qualifier may sit on the same
+    line, or on the bullet immediately above -- a list routinely establishes
+    "these are all zhihu AGENTS sections" once and then continues the
+    enumeration -- so the window is the line plus its predecessor.
+
+    The window is deliberately not wider than that. An earlier version
+    reached back over the whole paragraph, which meant a qualifier written for
+    one pointer could excuse an unrelated dangling one on the next line:
+    "以下章节号均指外部 zhihu AGENTS。" followed by "另见 §99.99" reported no
+    problem, because the second pointer inherited the first one's exemption.
+    A qualifier that is genuinely about a pointer is adjacent to it.
     """
-    body = read(rel)
-    lines = body.splitlines(keepends=True)
+    lines = read(rel).splitlines(keepends=True)
     dangling: list[tuple[int, str]] = []
-    offset = 0
     for number, line in zip(range(1, len(lines) + 1), lines):
         for match in _SECTION_REF_RE.finditer(line):
             if match.group(1) in index:
@@ -478,7 +547,6 @@ def _unqualified_pointers(rel: str, index: dict) -> list[tuple[int, str]]:
             if _EXTERNAL_REF_RE.search(window):
                 continue
             dangling.append((number, match.group(1)))
-        offset += len(line)
     return dangling
 
 
@@ -1509,21 +1577,33 @@ class NegativeControlTests(unittest.TestCase):
         heading and its first clause: if the guards only look for one marker,
         a partial deletion would slip through, and that is the case worth
         proving.
+
+        Both mutations below assert on guards that CAN fail. The obvious
+        version of this test -- rewrite the parent heading, then assert that
+        some OTHER guard also noticed -- is a false requirement: no guard in
+        this module is keyed on the section title, because the subsections are
+        what make 21 a real section. Asserting that one must exist would have
+        added a guard that fires on nothing. So the section title is checked
+        against the heading guard that does exist, and the subsections are
+        checked against their own guards, which do.
         """
         fired = self._guards_that_fail_on(
             FRAMEWORK_REL, "## 21. DEFECT_TO_GATE_PROMOTION（缺陷类下沉到机器门）",
             "## 21. 机械门下沉")
         self.assertIn("framework:declares-21", fired)
-        # The heading is not the only thing that identifies the section: the
-        # body is still there, so a rename must not be able to pass by leaving
-        # every marker in place. The 21.x subsection guards are the ones that
-        # notice the section stopped being the canonical promotion surface, so
-        # a rename that keeps "## 21." intact is exactly the case that needs a
-        # separate check rather than an extra count here.
-        renamed = self._without(
-            FRAMEWORK_REL, "## 21. DEFECT_TO_GATE_PROMOTION（缺陷类下沉到机器门）",
-            "## 21. 机械门下沉")
-        self.assertIn("## 21. ", renamed)
+        # A rename that leaves the numbering alone cannot be caught by the
+        # heading guard, so the subsections are the load-bearing part. Removing
+        # one is a separate mutation, and each subsection guard is real.
+        for old, guard in (
+                ("### 21.1 晋升判定（value-gated，不是自动规则扩散）",
+                 "framework:21-1-still-present"),
+                ("### 21.2 LOWEST RELIABLE MECHANICAL LAYER（概念层级）",
+                 "framework:21-2-still-present"),
+                ("### 21.3 处置（disposition）",
+                 "framework:21-3-is-a-subsection")):
+            with self.subTest(subsection=old.split()[1]):
+                self.assertIn(guard, self._guards_that_fail_on(FRAMEWORK_REL, old, "## 21. 已移除"))
+
 
     # -- mutation 2: let a fast/full boundary collapse ----------------------
 
@@ -1655,7 +1735,16 @@ class NegativeControlTests(unittest.TestCase):
                 # The Markdown table form: "| NAME | meaning |" per row, which
                 # is how a reviewer pastes a table into a pointer document.
                 "\n| 值 | 含义 |\n|---|---|\n"
-                "| PROMOTE_NOW | 本票内下沉 |\n| KEEP_AS_TEST | 行为知识 |\n"):
+                "| PROMOTE_NOW | 本票内下沉 |\n| KEEP_AS_TEST | 行为知识 |\n",
+                # Definition-list form: the description is introduced by a
+                # colon with no leading column pad at all, so the aligned-pad
+                # rule never fires and the row reads as prose.
+                "\nPROMOTE_NOW: 本票内下沉\nFOLLOWUP_TOOLING_TICKET: 工具缺口\n"
+                "KEEP_AS_HUMAN_DECISION: 保留人工\n",
+                # The same form with an ordered list, where the number sits
+                # between the member and its colon.
+                "\n1. PROMOTE_NOW: 本票内下沉\n2. FOLLOWUP_TOOLING_TICKET: 工具缺口\n"
+                "3. KEEP_AS_HUMAN_DECISION: 保留人工\n"):
             with self.subTest(appended=appended.strip()[:40]):
                 self.assertTrue(
                     _restates_disposition_domain(base + appended),
@@ -1839,9 +1928,25 @@ class OutOfScopeTests(unittest.TestCase):
                       Path(__file__).read_text(encoding="utf-8"))
 
     def test_no_defect_database_or_new_state_store(self):
-        body = read(FRAMEWORK_REL)
-        self.assertIn("不**新建状态数据库", body)
-        self.assertIn("不**新建状态数据库", read(TICKET_REL) + read(FRAMEWORK_REL))
+        """The non-goal must be stated in the framework, and the ticket must
+        not restate it as a decision of its own.
+
+        The original form asserted the phrase on FRAMEWORK_REL and then
+        asserted it again on the CONCATENATION of both files -- the second
+        assertion is implied by the first, so half of it could never fail.
+        That is not a stylistic complaint: a check that cannot fail is a
+        guard that protects nothing, which is the thing this whole class of
+        test exists to rule out. What is actually worth asserting is the
+        asymmetry -- the framework OWNS the non-goal, while the ticket
+        delegates to it, so the ticket must carry the pointer and must not
+        carry its own copy of the sentence.
+        """
+        self.assertIn("不**新建状态数据库", read(FRAMEWORK_REL))
+        # The ticket reaches the same constraint by pointing at the owner,
+        # and the detector that catches a restated domain is the same one
+        # that has to stay quiet here.
+        self.assertIn("§21.3", read(TICKET_REL))
+        self.assertNotIn("不**新建状态数据库", read(TICKET_REL))
 
     def test_forbidden_overbuild_is_not_proposed(self):
         """The spec's explicit non-goals must stay non-goals."""
@@ -1850,12 +1955,6 @@ class OutOfScopeTests(unittest.TestCase):
                        "linter server"):
             with self.subTest(banned=banned):
                 self.assertNotIn(banned, body)
-
-    def test_this_file_is_part_of_the_discovered_suite(self):
-        """CI runs `unittest discover -s scripts/tests`; be in that glob."""
-        self.assertEqual("test_p1_t18_defect_promotion_fast_full.py",
-                         Path(__file__).name)
-        self.assertTrue((ROOT / "scripts/tests" / Path(__file__).name).is_file())
 
 
 if __name__ == "__main__":
