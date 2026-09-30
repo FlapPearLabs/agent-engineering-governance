@@ -2294,20 +2294,19 @@ class NegativeControlTests(unittest.TestCase):
         original = read(PAIN_REL)
 
         # -- the mutation, applied to a real copy ----------------------------
-        # This assertion is NOT redundant with the guard's, and an earlier
-        # version of this file removed it on exactly that claim. It is kept
-        # because the negative control should be red on the same defect the
-        # guard is red on -- a control that only fires on its own mutation
-        # path lets a real-tree regression show up as a single failure and
-        # reads as narrower coverage than it has.
+        # An earlier version of this file removed this assertion on the claim
+        # that it duplicated the guard. As detection coverage that claim was
+        # right and the deletion cost nothing: the guard reads the same real
+        # tree and asserts the same property, so removing it leaves the
+        # real-tree ablation caught either way -- measured, the ablation just
+        # degrades from failures=2 to failures=1 with the guard surviving.
         #
-        # What restoring it does NOT do, stated because an earlier version of
-        # this comment claimed the opposite: it does not add coverage of
-        # "the real ledger was ablated". The guard already reads the real
-        # tree and asserts the same thing, so that scenario is caught either
-        # way -- measured, with the assertion removed the ablation degrades to
-        # failures=1 and the surviving failure IS the guard. Restoring moves
-        # the count from 1 to 2 and nothing else.
+        # So it is restored, but NOT for any additional detection. It is kept
+        # so the control goes red on the same defect the guard does, instead
+        # of only on its own mutation path -- a control that fires elsewhere
+        # makes one real-tree regression read as a single failure and
+        # understates how broadly the suite is checking this property.
+        # Restoring it moves the count from 1 to 2 and adds no new scenario.
         self.assertEqual(
             [], _pain_numbering_gaps(original),
             "pristine pain numbering must be contiguous on the real tree")
