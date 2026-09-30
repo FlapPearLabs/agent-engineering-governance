@@ -2295,15 +2295,19 @@ class NegativeControlTests(unittest.TestCase):
 
         # -- the mutation, applied to a real copy ----------------------------
         # This assertion is NOT redundant with the guard's, and an earlier
-        # version of this file removed it on exactly that claim. The two read
-        # the same document but they are not the same check: this one reads
-        # the REAL tree (`original`), while every assertion below runs against
-        # a mutated COPY inside a temp directory. Deleting a section from the
-        # real ledger is the dangerous case, and it is the one this assertion
-        # is the only thing covering -- measured, not assumed: with it
-        # removed, ablating P12 on this SHA takes the suite from
-        # FAILED (failures=2) to FAILED (failures=1), the surviving failure
-        # being the guard alone.
+        # version of this file removed it on exactly that claim. It is kept
+        # because the negative control should be red on the same defect the
+        # guard is red on -- a control that only fires on its own mutation
+        # path lets a real-tree regression show up as a single failure and
+        # reads as narrower coverage than it has.
+        #
+        # What restoring it does NOT do, stated because an earlier version of
+        # this comment claimed the opposite: it does not add coverage of
+        # "the real ledger was ablated". The guard already reads the real
+        # tree and asserts the same thing, so that scenario is caught either
+        # way -- measured, with the assertion removed the ablation degrades to
+        # failures=1 and the surviving failure IS the guard. Restoring moves
+        # the count from 1 to 2 and nothing else.
         self.assertEqual(
             [], _pain_numbering_gaps(original),
             "pristine pain numbering must be contiguous on the real tree")
