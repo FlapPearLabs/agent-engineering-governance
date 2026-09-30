@@ -2294,9 +2294,19 @@ class NegativeControlTests(unittest.TestCase):
         original = read(PAIN_REL)
 
         # -- the mutation, applied to a real copy ----------------------------
-        # No pristine-side assertion here on purpose: the guard already
-        # asserts the same thing about the same input, so repeating it made
-        # this control look stronger without testing anything extra.
+        # This assertion is NOT redundant with the guard's, and an earlier
+        # version of this file removed it on exactly that claim. The two read
+        # the same document but they are not the same check: this one reads
+        # the REAL tree (`original`), while every assertion below runs against
+        # a mutated COPY inside a temp directory. Deleting a section from the
+        # real ledger is the dangerous case, and it is the one this assertion
+        # is the only thing covering -- measured, not assumed: with it
+        # removed, ablating P12 on this SHA takes the suite from
+        # FAILED (failures=2) to FAILED (failures=1), the surviving failure
+        # being the guard alone.
+        self.assertEqual(
+            [], _pain_numbering_gaps(original),
+            "pristine pain numbering must be contiguous on the real tree")
         numbers = sorted(int(label[1:]) for label in
                          re.findall(r"^## (P\d\d) ", original, re.M))
         victim = f"P{numbers[len(numbers) // 2]:02d}"

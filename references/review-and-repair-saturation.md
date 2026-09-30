@@ -166,8 +166,9 @@ REQUIRED_REVIEW_QUORUM  管集成资格（能不能进 main）
 
 ```text
 SATURATION_REACHED  !=  REQUIRED_REVIEW_QUORUM_PASS
-                       # 右项 = §4.2 前置条件 "REQUIRED_REVIEW_QUORUM = PASS | APPROVED"
-                       # 为真；即 required quorum 未给出通过结论
+                       # 右项为真 = §4.2 前置条件 REQUIRED_REVIEW_QUORUM = PASS | APPROVED
+                       # 已成立 = required quorum 已给出通过结论
+                       # 故本行读作：饱和状态本身不等于"评审门已通过"
 ```
 
 - **CONVERGENCE_ARBITER 不得把阻断性结论改写成通过。** `CHANGES_REQUESTED` / `REQUEST_CHANGES` / `REJECT` / `FAIL` **不**得被仲裁、预算耗尽、严重性意见或"剩余工作边际价值低"改写为 `PASS` / `APPROVED`。仲裁决定 finding 的**去向**，不决定评审的**结论**。
