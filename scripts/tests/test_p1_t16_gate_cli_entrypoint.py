@@ -190,13 +190,46 @@ def require_consumer_rule(testcase: unittest.TestCase):
     return rule
 
 
+def _candidate_surface_paths(root: Path) -> list[Path]:
+    """Repo-relative paths of the public candidate surface.
+
+    Mirrors ``validate_public_release.py``'s ``git_ls_files_cached_others_exclude_standard``
+    enum: tracked files plus untracked-but-not-ignored files. gitignored and
+    explicitly local-only files (e.g. ``deployment/deployment-profile.local.md``)
+    are excluded by the same ``--exclude-standard`` machinery a publish uses, so
+    a git-less copy of this set is still a faithful candidate surface.
+    """
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--cached", "--others",
+         "--exclude-standard"],
+        capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    return [Path(p) for p in out if p]
+
+
 def scratch_tree() -> Path:
-    """A pristine full copy of this repository, without ``.git``."""
+    """A pristine copy of the public candidate surface, without ``.git``.
+
+    Built from git's candidate-surface enumeration rather than a whole-tree
+    copytree, so gitignored / local-only files are never dragged into the
+    git-less scratch copy. The validators therefore run against exactly the
+    file set a publish would emit -- no more, no less.
+    """
     if "pristine" not in _SCRATCH:
         root = Path(tempfile.mkdtemp(prefix="p1t16-pristine-"))
-        shutil.copytree(ROOT, root / "tree",
-                        ignore=shutil.ignore_patterns(".git"), symlinks=True)
-        _SCRATCH["pristine"] = root / "tree"
+        tree = root / "tree"
+        tree.mkdir()
+        for rel in _candidate_surface_paths(ROOT):
+            src = ROOT / rel
+            dst = tree / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_symlink():
+                dst.symlink_to(src.readlink())
+            elif src.is_dir():
+                dst.mkdir(parents=True, exist_ok=True)
+            else:
+                shutil.copy2(src, dst)
+        _SCRATCH["pristine"] = tree
     return _SCRATCH["pristine"]
 
 
@@ -461,6 +494,57 @@ class RealCommandEntrypointTests(unittest.TestCase):
         self.assertGreater(
             int(match.group(1)), int(match.group(2)),
             "the probe did not actually push the scored body over its budget")
+
+    def test_gitignored_local_profile_stays_out_of_candidate_surface(self):
+        """A gitignored local-only profile stays out of the scratch surface.
+
+        RULES R2 puts the real machine archive outside the public candidate
+        surface by construction. This pins that: the git-less copy the
+        validators run against must not carry the file, and validation must
+        still pass. The surface was narrowed to the published set, not to
+        whatever happens to be on disk.
+        """
+        local_rel = "deployment/deployment-profile.local.md"
+        self.assertTrue((ROOT / local_rel).exists(),
+                        "precondition: the gitignored local profile exists")
+        ignored = subprocess.run(
+            ["git", "-C", str(ROOT), "check-ignore", "-q", local_rel],
+            check=False).returncode
+        self.assertEqual(0, ignored,
+                         f"precondition: {local_rel} must be gitignored")
+        self.assertFalse(
+            (scratch_tree() / local_rel).exists(),
+            "a gitignored local-only profile must not enter the "
+            "public-validation candidate surface")
+        completed = pristine_json_run()
+        report = structured(completed)
+        self.assertIsNotNone(report, f"stdout={completed.stdout[:400]!r}")
+        self.assertEqual(0, completed.returncode,
+                         f"stderr={completed.stderr[:400]}")
+        self.assertEqual(ACCEPTED, report["verdict"])
+
+    def test_unignored_violation_on_candidate_surface_still_fails(self):
+        """The surface is not under-scanned: a TIER-A leak in an UNIGNORED
+        file must still fail the validator run.
+
+        The counterpart to the test above. Narrowing the scratch copy to the
+        candidate surface is only legitimate if the validator still rejects
+        content that genuinely belongs there; otherwise the fix would be
+        hiding violations rather than excluding local-only files.
+        """
+        fresh = Path(tempfile.mkdtemp(prefix="p1t16-surface-scope-")) / "tree"
+        shutil.copytree(scratch_tree(), fresh, symlinks=True)
+        self.addCleanup(shutil.rmtree, fresh.parent, True)
+        # Assembled at runtime so this test file's own source does not carry a
+        # literal that the TIER-A detector would (correctly) reject at rest.
+        leak = "/" + "Users" + "/" + "songshiyao" + "/must-fail"
+        (fresh / "INJECTED_PUBLIC_VIOLATION.md").write_text(
+            f"concrete login dir: {leak}\n", encoding="utf-8")
+        completed = run_cli(validator_in(fresh))
+        self.assertNotEqual(
+            0, completed.returncode,
+            "an unignored TIER-A violation inside the candidate surface "
+            "must still FAIL -- the surface must not be under-scanned")
 
 
 class EvidenceCliContractTests(unittest.TestCase):
