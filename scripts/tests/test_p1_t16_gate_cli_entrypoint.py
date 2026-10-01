@@ -211,6 +211,26 @@ def _candidate_surface_paths(root: Path) -> list[Path]:
     return [Path(p) for p in out if p]
 
 
+def _copy_candidate_surface(dest: Path) -> Path:
+    """Copy the public candidate surface of ``ROOT`` into ``dest``.
+
+    Enumerated fresh from git on every call, so a caller that has just
+    established some gitignored/local-only state on disk actually observes
+    that state being excluded, rather than reusing an earlier enumeration.
+    """
+    for rel in _candidate_surface_paths(ROOT):
+        src = ROOT / rel
+        dst = dest / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_symlink():
+            dst.symlink_to(src.readlink())
+        elif src.is_dir():
+            dst.mkdir(parents=True, exist_ok=True)
+        else:
+            shutil.copy2(src, dst)
+    return dest
+
+
 def scratch_tree() -> Path:
     """A pristine copy of the public candidate surface, without ``.git``.
 
@@ -223,16 +243,7 @@ def scratch_tree() -> Path:
         root = Path(tempfile.mkdtemp(prefix="p1t16-pristine-"))
         tree = root / "tree"
         tree.mkdir()
-        for rel in _candidate_surface_paths(ROOT):
-            src = ROOT / rel
-            dst = tree / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            if src.is_symlink():
-                dst.symlink_to(src.readlink())
-            elif src.is_dir():
-                dst.mkdir(parents=True, exist_ok=True)
-            else:
-                shutil.copy2(src, dst)
+        _copy_candidate_surface(tree)
         _SCRATCH["pristine"] = tree
     return _SCRATCH["pristine"]
 
@@ -509,18 +520,34 @@ class RealCommandEntrypointTests(unittest.TestCase):
         whatever happens to be on disk.
         """
         local_rel = "deployment/deployment-profile.local.md"
-        self.assertTrue((ROOT / local_rel).exists(),
-                        "precondition: the gitignored local profile exists")
+        # The precondition is materialised here, not assumed from the host.
+        # A developer's machine may carry a real machine-recovery profile and
+        # a clean CI checkout will not, so asserting the file already exists
+        # made this test's outcome depend on which tree ran it. Establish the
+        # state under test, and remove only what this test created.
+        local_path = ROOT / local_rel
+        created_here = not local_path.exists()
+        if created_here:
+            local_path.write_text(
+                "# local-only fixture\n", encoding="utf-8")
+            self.addCleanup(local_path.unlink)
         ignored = subprocess.run(
             ["git", "-C", str(ROOT), "check-ignore", "-q", local_rel],
             check=False).returncode
         self.assertEqual(0, ignored,
                          f"precondition: {local_rel} must be gitignored")
+        # Enumerate after the local-only state exists, and off the pristine
+        # memo, so the assertion is about THIS exclusion and not about a tree
+        # some earlier test happened to memoise.
+        excluded = Path(tempfile.mkdtemp(prefix="p1t16-surface-excl-")) / "tree"
+        self.addCleanup(shutil.rmtree, excluded.parent, True)
+        excluded.mkdir()
+        _copy_candidate_surface(excluded)
         self.assertFalse(
-            (scratch_tree() / local_rel).exists(),
+            (excluded / local_rel).exists(),
             "a gitignored local-only profile must not enter the "
             "public-validation candidate surface")
-        completed = pristine_json_run()
+        completed = run_cli(validator_in(excluded), "--json")
         report = structured(completed)
         self.assertIsNotNone(report, f"stdout={completed.stdout[:400]!r}")
         self.assertEqual(0, completed.returncode,
