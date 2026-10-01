@@ -19,8 +19,12 @@ silent-noop / real command entrypoint. Both the accepting and the refusing
 outcome are checked against what the consumer actually does, not only against
 what the validator printed.
 
-Scratch trees are full copies of this repository without ``.git``, so the
-validator resolves its own ``ROOT`` inside the copy and no pristine file of
+Scratch trees hold this repository's public candidate surface -- tracked
+files plus untracked-but-not-ignored files, enumerated the way a publish
+enumerates it -- copied without ``.git``. Gitignored and explicitly
+local-only files (e.g. the machine-recovery profile) are therefore not part
+of a scratch tree, so the validator resolves its own ``ROOT`` inside the
+copy, scans exactly the set a publish would emit, and no pristine file of
 this worktree is mutated.
 
 Boundary: the guard deny-mapping synthetic tests belong to another ticket and
@@ -535,9 +539,11 @@ class RealCommandEntrypointTests(unittest.TestCase):
         fresh = Path(tempfile.mkdtemp(prefix="p1t16-surface-scope-")) / "tree"
         shutil.copytree(scratch_tree(), fresh, symlinks=True)
         self.addCleanup(shutil.rmtree, fresh.parent, True)
-        # Assembled at runtime so this test file's own source does not carry a
-        # literal that the TIER-A detector would (correctly) reject at rest.
-        leak = "/" + "Users" + "/" + "songshiyao" + "/must-fail"
+        # A synthetic login, matching validate_public_release.py's own
+        # _syn_unix_home() convention, and assembled at runtime so this file's
+        # source carries neither a real host identity (RULES R2 forbids it in
+        # the repo) nor a contiguous literal the TIER-A scan would reject.
+        leak = "/" + "Users" + "/" + "synthlogin" + "/must-fail"
         (fresh / "INJECTED_PUBLIC_VIOLATION.md").write_text(
             f"concrete login dir: {leak}\n", encoding="utf-8")
         completed = run_cli(validator_in(fresh))
