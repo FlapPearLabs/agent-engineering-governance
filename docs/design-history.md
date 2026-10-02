@@ -44,6 +44,8 @@
 
 **取舍与后续。** 持久化会增加成本，因此引入“fresh Agent 缺了它是否会做出实质更差决策”的价值判断，只在有意义转换点写。新仓 bootstrap 与旧仓 lazy adoption 分开，离线不能宣称远端已同步。
 
+**目标仓与证据源。** R01 的 L11 提议在恢复入口区分任务目标仓和证据来源仓：本次目标是治理仓，知乎用于取证。已有项目身份与 restore 是复用基础，该建议的采纳不能仅由身份字段存在推出。原回顾对“曾审错仓”的片段相互矛盾、primary locator 缺失，具体事故仍未证实；它不属于公开署名或本机身份泄露的问题。
+
 **当前落点。** [project-state-persistence](../references/project-state-persistence.md)、[project-continuity-contract](../references/project-continuity-contract.md)、[engineering-memory](../references/engineering-memory.md)；直接提交证据包括 [4b5d9ac](https://github.com/FlapPearLabs/agent-engineering-governance/commit/4b5d9ac)。
 
 ## H03 — Seam 先于票，真实生产形状检验组合
@@ -132,13 +134,17 @@
 
 ## H11 — 证据接口很薄，机器不自批语义
 
-**触发与判断。** 评审材料散落，结构合法与来源真实、足够证明容易混淆；复用证据会过期，引用又可能被误当取回或执行授权。R01 的 L04/L09/L15 提出机制缺口，当时的 NEXT 建议不等于后来全部实现。
+**触发与判断。** 评审材料散落，结构合法与来源真实、足够证明容易混淆；复用证据会过期，引用又可能被误当取回或执行授权。R01 的 L04/L15 提出机制缺口，当时的 NEXT 建议不等于后来全部实现。
 
 **选择与理由。** 将结构、来源核验和充分性分开，并绑定 subject、candidate 与失效描述；用既有 collector / validator 消费声明，不另建 tracker、网络客户端或自动 reviewer。
 
 **后续纠偏与代价。** 接口 pattern 的求值语义必须与声明一致，不能用方便的近似引擎接受不同集合；取回边界先判决，再做允许的操作。机器报告不会授予语义 scope 接受或 reviewer verdict，独立消费者仍需自行判断。
 
+**实际可见性另行证明。** 8/28 用户要求固定 SHA 外审读取原始权威与实验。[C02] R01 L09 回顾了 primary 正文不可见、结论为 MORE_EVIDENCE_REQUIRED 的外审：文件列表或摘要不能证明 reviewer 看到了正文。“上下文足以作本次决策审计”与“完整历史 transcript 可得”回答不同问题，分别判断才能保留有界结论。9/20 [975c559](https://github.com/FlapPearLabs/agent-engineering-governance/commit/975c559fa9cfcabc012dcb9fb96ffadf32594b03) 落成按需可见性 recipe，随后 [0046c36](https://github.com/FlapPearLabs/agent-engineering-governance/commit/0046c3648c4e6b2530c06cfce80df30c64d66ab6) 将缺可见性陈述的 NOT_AUDITABLE 限定为已启用 recipe 时触发，避免扩成每票义务。历史外审结果仍是 R01 的回顾，本页未重跑该实验。
+
 **当前落点。** [review-evidence](../references/review-evidence.md)、[schema](../schemas/review-evidence.schema.json)、[review_evidence.py](../scripts/review_evidence.py)、[git-ci-integration](../references/git-ci-integration.md)。这些具体提交把部分回顾建议落成机制，不能因此称完整 review harness 或所有生产消费者已实现。
+
+可见性 recipe 的独立 owner 为 [review-and-repair-saturation §7](../references/review-and-repair-saturation.md)；其范围与机器证据接口分开，本页不复制字段或新建强制门。
 
 ## H12 — 保全、回读和真实关闭比一句 done 更重要
 
@@ -184,7 +190,7 @@
 
 **可核对材料。** 9/29 研究分支的 REVIEW_HANDOFF 记录 R29–R33 的反复审查、被拒结论和 R34 未评审修改；固定到该研究快照，不把当时的 NO_PRODUCTION_IMPLEMENTATION 描述当作项目后续状态。[W01]
 
-**教训与代价。** 删除人类审批需求、追加“撤回”措辞或把矛盾移到下游文档，都不能代替真实设计修正。其自检因负控失败而停用，更说明 verifier 的绿灯需要可证伪的含义。架构报告是执行者陈述，不是独立安全验收。
+**教训与代价。** 删除人类审批需求、追加“撤回”措辞或把矛盾移到下游文档，都不能代替真实设计修正。verify.py 的 criterion-reference 子检查因负控失败而停用，其他词法自检仍在运行；这说明 verifier 的绿灯需要可证伪的含义。架构报告是执行者陈述，不是独立安全验收。
 
 **后续直接证据。** 原生门修复提交记录两个组合缺陷：前一个失败 suite 的退出码被后一个成功命令掩盖；PASS marker 在实际断言前输出。修复为独立退出码、断言后输出以及聚合规则的针对性负控。[W02]
 
@@ -231,9 +237,9 @@
 | L06 冻结候选与增量重审 | H04、H11 | exact candidate 与失效 |
 | L07 拆票一致性 | H10 | PRE 与 POST |
 | L08 ADR 与 Seam 解释权 | H01、H03 | 项目设计 owner 保留 |
-| L09 审计可见性 | H11 | 真实 source 与充分性 |
+| L09 审计可见性 | H11 | primary 实际可见性、两个完整度问题与按需边界 |
 | L10 破坏性事务 | H12 | 保全，不泛化 stash 根因 |
-| L11 项目身份 | H08、H15 | 公开身份与本机身份区分 |
+| L11 项目身份 | H02 | 目标仓与证据源角色；错仓事故与建议采纳均不冒充已证实 |
 | L12 远端持久与真实加载 | H02、H14 | Git 中存在不等于注入 |
 | L13 CI 与先代码后模型归因 | H05、H13 | D4 的被测实现损坏 |
 | L14 单写者与回读 | H04、H12 | 共享基础设施也属于写面 |

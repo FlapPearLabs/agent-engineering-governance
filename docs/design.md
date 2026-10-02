@@ -76,6 +76,8 @@ MEDIUM 基线的阅读顺序是：授权和 exact base、隔离 lane、读取权
 
 本仓的 collector / validator 不是完整的 review harness、自动 reviewer 或第二个 tracker。接口正确不自动证明所有生产消费者都已接入。
 
+审计还要知道 reviewer 实际看到了哪些证据，以及缺口如何限制结论。这由 [按需可见性 recipe](../references/review-and-repair-saturation.md) §7 负责；本次决策上下文是否充分与完整历史是否可得分别判断，启用边界和字段留在其 owner，普通票不因此新增义务。
+
 ## 收敛：修复权与集成资格独立
 
 早期按 severity 自动修复，导致同一任务不断追加低收益加固。现有机制先判断修复价值与票授权，再消费累计预算；换 SHA 或 reviewer 不自动产生新预算。
