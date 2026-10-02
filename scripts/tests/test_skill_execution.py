@@ -1,9 +1,11 @@
 """Counterexamples for task-bound Skill records, not catalog installation counts."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -74,6 +76,87 @@ class SkillExecutionTests(unittest.TestCase):
         result = self.check()
         self.assertFalse(result["recordValid"], result)
         self.assertIn(code, [x["reason"] for x in result["findings"]], result)
+
+    def cli_args(self, receipt):
+        args = [str(receipt)]
+        for flag, key in (("repo", "repo"), ("base-sha", "baseSha"),
+                          ("candidate-sha", "candidateSha"), ("task", "task"),
+                          ("phase", "phase"), ("role", "role")):
+            args.extend(["--" + flag, self.subject[key]])
+        return args + ["--evidence-root", str(self.root), "--required-skill", "implement"]
+
+    def test_receipt_swap_does_not_open_substituted_input(self):
+        receipt = self.root / "receipt.json"
+        receipt.write_text("{}")
+        outside_temp = tempfile.TemporaryDirectory()
+        self.addCleanup(outside_temp.cleanup)
+        outside = Path(outside_temp.name) / "substitute.json"
+        outside.write_text(json.dumps(self.pack))
+        info = outside.stat()
+        outside_id = (info.st_dev, info.st_ino)
+        actual_open, actual_path_open, actual_read = os.open, Path.open, os.read
+        swapped = False
+        outside_reads = []
+
+        def swap():
+            nonlocal swapped
+            if not swapped:
+                receipt.unlink()
+                receipt.symlink_to(outside)
+                swapped = True
+
+        def fd_open(path, flags, *args, **kwargs):
+            if str(path) == receipt.name:
+                swap()
+            return actual_open(path, flags, *args, **kwargs)
+
+        def path_open(path, *args, **kwargs):
+            if path == receipt:
+                swap()
+            stream = actual_path_open(path, *args, **kwargs)
+            info = os.fstat(stream.fileno())
+            if (info.st_dev, info.st_ino) == outside_id:
+                outside_reads.append(True)
+            return stream
+
+        def read(fd, size):
+            info = os.fstat(fd)
+            if (info.st_dev, info.st_ino) == outside_id:
+                outside_reads.append(True)
+            return actual_read(fd, size)
+
+        output = io.StringIO()
+        with mock.patch.object(os, "open", fd_open), mock.patch.object(Path, "open", path_open), \
+                mock.patch.object(os, "read", read), contextlib.redirect_stdout(output):
+            code = self.module.main(self.cli_args(receipt))
+        self.assertTrue(swapped, "must reach the actual receipt acquisition boundary")
+        self.assertFalse(outside_reads, "substituted test-owned input must not be opened/read")
+        self.assertEqual(code, 1)
+        self.assertFalse(json.loads(output.getvalue())["recordValid"])
+
+    def test_cli_missing_retrieval_primitive_is_explicit_failure(self):
+        self.pack["skills"] = []
+        self.pack["artifacts"] = []
+        receipt = self.root / "receipt.json"
+        receipt.write_text(json.dumps(self.pack))
+        args = self.cli_args(receipt)
+        args[-2:] = ["--no-required-skills-reason", "LOW documentation; no Skill triggered"]
+        output = io.StringIO()
+        with mock.patch.object(self.module, "SAFE_RETRIEVAL_AVAILABLE", False), \
+                contextlib.redirect_stdout(output):
+            code = self.module.main(args)
+        result = json.loads(output.getvalue())
+        self.assertEqual(code, 1)
+        self.assertFalse(result["recordValid"])
+        self.assertIn("SAFE_RETRIEVAL_UNAVAILABLE", [x["reason"] for x in result["findings"]])
+
+    def test_unknown_property_names_do_not_enter_failure_output(self):
+        marker = "SYNTHETIC_UNTRUSTED_KEY_SENTINEL"
+        self.pack["skills"][0][marker] = "test-owned value"
+        result = self.check()
+        self.assertFalse(result["recordValid"])
+        self.assertIn("ADDITIONAL_PROPERTY_FORBIDDEN", [x["reason"] for x in result["findings"]])
+        self.assertNotIn(marker, json.dumps(result))
 
     def test_applied_record_is_not_semantic_or_host_pass(self):
         result = self.check()
