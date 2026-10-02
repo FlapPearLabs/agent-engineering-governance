@@ -16,6 +16,7 @@
 - 独立性语义：fresh context + 独立 grounding（查询独立，非重建库）+ 独立反例。
 - 评审顺序：权威 → 票 → repo 图 → 合同 → 反例 → diff → 测试 → CI；不从 worker 解释出发。主问题永远是："这个 exact SHA 是否在真实仓库中实现了合同？"
 - `SELF_REVIEW != INDEPENDENT_REVIEW` 仅在独立评审 gate 存在时适用（RULES R4 条件式）。
+- 新增或修改测试的评审执行 [ticket-lane.md §4.2 的 reviewer checklist](ticket-lane.md#42-test-engineering-contract)；该契约与清单的唯一语义声明点在所链接章节。
 
 ## 2. REPAIR_VALUE gate
 

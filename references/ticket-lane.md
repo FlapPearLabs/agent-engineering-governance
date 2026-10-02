@@ -179,6 +179,59 @@ worker 或 reviewer 发现**真实可达缺陷**时，先问：`CAN_THIS_FAILURE
 
 **缺陷类机械化（与 §4.1 并列的第二条去向）**：当 `CAN_THIS_FAILURE_BE_CAPTURED_AS_A_STABLE_TEST?` 为 **NO**（机械可判、非行为知识）时，按 `references/static-analysis-and-code-intelligence.md` §21 评估**缺陷类**能否下沉到更低可靠机械层；**处置取值集合 = §21.3**（本节不重述、不缩写——重述即双 owner，同 §9 值域纪律）。回归测试**不得**被"能覆盖某个实现形状的 lint 规则"替换（框架 §19 保留）。
 
+### 4.2 Test Engineering Contract
+
+本节是测试工程契约与 reviewer checklist 的**唯一语义声明点**，约束 §4/§4.1 产生的测试质量：`TEST FAILURE KNOWLEDGE → REGRESSION TEST → HERMETIC TEST`。
+
+**Fixture ownership + environment ownership**
+
+- 测试拥有所需 files / directories / configs / temporary repositories / fake identities / generated fixtures：自行创建、管理并清理；使用仓内 tracked fixture 时明确声明输入。
+- 不得依赖开发者 local files、碰巧存在的 ignored/untracked files、真实 credentials、真实 usernames/hostname、host-specific secrets，或开发者已有的 HOME/XDG、SSH 配置。测试主动在隔离目录创建并控制 ignored/untracked 场景是合法 fixture。
+- **Environment ownership**：测试必须控制或显式声明会影响被测行为或断言的 ambient environment 边界，包括相关 environment variables、工作目录、HOME/XDG configuration、git configuration、PATH/toolchain、credential resolution、identity sources，以及相关 OS/locale/timezone。
+- **只要求相关环境因素有归属**，不要求每个测试隔离所有可能环境。可控制的因素由测试设置/隔离/替换并恢复或清理；平台/工具链等运行条件可由仓库配置或 CI provisioning 显式声明并限定验证范围。声明不得把开发者私有状态变成合法前提。
+- **Minimal environment 不等于 empty environment**：只供应必需输入，并隔离与测试无关的宿主状态。
+
+**Category-specific clean checkout verification**
+
+变化影响以下行为时，必须至少一次执行 **fresh checkout + minimal environment** 验证：
+
+- Git state（含 index/worktree、分支、提交与 history）；
+- tracked/untracked/ignored file discovery 与 filesystem discovery；
+- release/publication behavior；
+- environment/config resolution；
+- credential behavior。
+
+其它类别不普遍强制 clean checkout，由 reviewer 按相关环境依赖与风险决定。
+
+验证使用 **exact candidate SHA** 的 fresh checkout，不复制开发者工作目录产物；控制相关环境输入，记录 command、SHA、environment boundary 与 result。**Clean checkout PASS 只证明该环境下执行的检查通过，不证明所有可能环境依赖都不存在。**
+
+**Regression preserves the historical failure mode**
+
+回归测试保留「什么条件触发 bug / 发生什么失败 / 现在必须满足什么合同」，不能只证明当前实现成功。在适用且可复现时，用同一测试与受控前置条件证明：
+
+```text
+Before fix: historical failure mode → RED
+After fix:  contract satisfied      → GREEN
+```
+
+旧版本不能直接运行时，可在隔离副本中移除或绕过**相关修复机制**作为 negative control；它必须重现同一历史失败模式，不能用无关 mutation 引起的失败替代。对照不适用时说明具体原因与证据范围。
+
+RED 必须由目标历史失败模式的断言触发。**导入错误、损坏的 fixture、harness 失败或无关失败，都不是回归覆盖证据。** 不得以空 fixture、缺失必需前提、仅验证 setup 的断言，或宿主已满足条件制造 GREEN；缺失必需前提应明确失败或报告验证受阻。
+
+**Examples**
+
+- 文件发现回归：测试在临时仓库创建配置与忽略规则，覆盖文件存在/不存在的场景；移除相关过滤修复后，由目标发现结果断言触发 RED，恢复修复后 GREEN。
+- 身份回归：测试提供 fake identities 并控制身份/凭据解析来源，验证合法 synthetic fixture 与非法输入的行为；不读取开发者真实身份来决定预期结果，相关修复被移除时由目标合同断言触发 RED。
+
+**Reviewer checklist（只在此声明）**
+
+- □ fixture preconditions owned by test
+- □ relevant ambient environment boundaries controlled or declared
+- □ no undeclared developer-host dependency
+- □ no local identity leakage
+- □ mandatory clean-checkout categories identified and verified
+- □ historical failure mode preserved; before-fix RED / after-fix GREEN or justified negative control demonstrated when applicable
+
 ## 5. 实现与自审
 
 - `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify-code` 只在 GREEN 之后且不得改行为/合同（名称以本机 `SKILL.md` frontmatter `name` 为准，见 `references/skills-and-model-routing.md` §1）。
