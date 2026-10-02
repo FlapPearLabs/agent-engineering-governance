@@ -216,6 +216,56 @@ class SkillExecutionTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertFalse(result["recordValid"], result)
 
+    def test_root_replacement_cannot_expand_consumer_authorized_boundary(self):
+        outside_temp = tempfile.TemporaryDirectory()
+        self.addCleanup(outside_temp.cleanup)
+        outside = Path(outside_temp.name)
+        outside_ids = set()
+        for artifact in self.pack["artifacts"]:
+            p = outside / artifact["location"]
+            p.write_bytes((self.root / artifact["location"]).read_bytes())
+            info = p.stat()
+            outside_ids.add((info.st_dev, info.st_ino))
+        parked = self.root.with_name(self.root.name + "-parked")
+        original_resolve, actual_open, actual_read = Path.resolve, os.open, os.read
+        swapped = False
+        outside_reads = []
+
+        def swap():
+            nonlocal swapped
+            if not swapped:
+                self.root.rename(parked)
+                self.root.symlink_to(outside, target_is_directory=True)
+                swapped = True
+
+        def resolve(path, *args, **kwargs):
+            if path == self.root:
+                swap()
+            return original_resolve(path, *args, **kwargs)
+
+        def fd_open(path, flags, *args, **kwargs):
+            if str(path) == self.root.name:
+                swap()
+            return actual_open(path, flags, *args, **kwargs)
+
+        def read(fd, size):
+            info = os.fstat(fd)
+            if (info.st_dev, info.st_ino) in outside_ids:
+                outside_reads.append(True)
+            return actual_read(fd, size)
+
+        try:
+            with mock.patch.object(Path, "resolve", resolve), mock.patch.object(os, "open", fd_open), \
+                    mock.patch.object(os, "read", read):
+                result = self.check()
+        finally:
+            if swapped:
+                self.root.unlink()
+                parked.rename(self.root)
+        self.assertTrue(swapped, "must exercise root acquisition boundary")
+        self.assertFalse(outside_reads, "must not read test-owned files beyond the authorized root")
+        self.assertFalse(result["recordValid"], result)
+
     def test_failure_envelope_does_not_echo_producer_values(self):
         value = "UNTRUSTED_PRIVATE_VALUE"
         self.pack["skills"][0]["kind"] = value

@@ -7,6 +7,7 @@ No sourceRef, report text or trace is an execution/network authority. Stdlib onl
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -131,7 +132,9 @@ def validate_receipt(receipt, *, expected_subject, required_skills, evidence_roo
 
     content = {}
     declared = set()
-    root = Path(evidence_root).resolve()
+    # The consumer supplied a boundary, not permission to adopt a link target.
+    # Lexical absolute conversion does not dereference any path component.
+    root = Path(os.path.abspath(evidence_root))
     for index, artifact in enumerate(receipt["artifacts"]):
         location = artifact["location"]
         at = f"$.artifacts[{index}]"
@@ -144,18 +147,17 @@ def validate_receipt(receipt, *, expected_subject, required_skills, evidence_roo
                 or location.startswith("/") or any(p in ("", ".", "..") for p in parts)):
             fail("ARTIFACT_PATH_FORBIDDEN", at)
             continue
-        path = root / location
         try:
-            resolved = path.resolve()
-            if root not in resolved.parents or any(
-                    (root.joinpath(*parts[:i])).is_symlink() for i in range(1, len(parts) + 1)):
-                fail("ARTIFACT_PATH_FORBIDDEN", at)
-                continue
             data = safe_artifact_read(root, parts)
         except SafeRetrievalUnavailable:
             fail("SAFE_RETRIEVAL_UNAVAILABLE", at)
             continue
-        except (OSError, ValueError, RuntimeError):
+        except OSError as exc:
+            reason = "ARTIFACT_PATH_FORBIDDEN" if exc.errno in (errno.ELOOP, errno.ENOTDIR) \
+                else "ARTIFACT_UNREADABLE"
+            fail(reason, at)
+            continue
+        except (ValueError, RuntimeError):
             fail("ARTIFACT_UNREADABLE", at)
             continue
         if not data.strip():
