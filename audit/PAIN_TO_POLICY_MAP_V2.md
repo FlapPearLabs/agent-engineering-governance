@@ -278,6 +278,7 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 - R8 四问：防哪次真实失效 → 防上述**已核对的规范/检查覆盖缺口**，不虚构生产事故；机器能否更便宜做 → 绑定、必需项、引用、digest、报告一致性可机械检查，语义真实性仍由消费者判断；每个风险级都需要吗 → 按触发选择，LOW 不强制 implement，全空必需集合须说明理由；能否降级为 reference/默认 → **是，D 层默认**，可由 C 层显式覆盖，不新增 B 层不变量。
 - SHOULD_BE_GLOBAL = **DEFAULT_ONLY**；MECHANICAL_ENFORCEMENT = **票级 CLI 记录与附件核验 + CI 合成反例测试**，**不是各 runtime live hook**。
 - COST / BOUNDARY：新增少量票级记录与使用后短报；机器不认证执行者自报、语义应用或用户收讫；专业选择/fallback 充分性与 Parent 转报仍为流程消费义务。
+- 同票对抗实测：首发布候选 `abad56b51ef8cad899fca2aaee3ae39c3f2ffc26` 的独立合成反例证明检查/打开竞态可实际读根外，带空白模板与未填写空集合理由亦可通过。append-only 局部修复改为目录句柄/no-follow/已打开对象的普通文件与有界读取检查，并统一完成文本判断；安全原语不可用时明确人工消费 fallback、不得报机械通过。此为新增消费者的真实缺陷证据，不回写成历史项目事故，也不另造 gate。
 
 ## 汇总判定表
 

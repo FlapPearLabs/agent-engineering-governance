@@ -71,7 +71,8 @@ python3 scripts/skill_execution.py <RECEIPT_JSON> \
 重复 `--required-skill` 传入消费者根据 §1.1 独立核对的**本阶段**必需集合（含用户明确要求项）；不能从生产者收据反向生成集合以掩盖遗漏。没有必需项时改用 `--no-required-skills-reason <REASON>`。未发生阶段不进入集合。专业 Skill 选择是否完整、fallback 是否允许与足够，仍由适用的 reviewer / Parent 判断；显式 C-over-D 覆盖按 R1 留证。
 
 - 校验器验证结构、subject、必需集合覆盖、全文读取/执行/报告引用、摘要与关联一致、证据文件及 digest；缺汇报、错候选、假引用、`UNVERIFIED` 均使 `recordValid=false`。适用流程须修复无效记录后推进。
-- 只读消费者显式提供的证据根内、有界的普通文件；不读目录/越界路径，不联网、不执行任何证据内容。退出 0 表示记录及附件核验通过；1 表示失败，均输出 JSON（参数错误按 argparse）。
+- 只读消费者显式提供的证据根内、有界的普通文件；用目录句柄逐层打开且拒绝符号链接，防止“检查后替换路径”读到根外；不联网、不执行证据。退出 0 表示记录及附件核验通过；1 表示失败，均输出 JSON（参数错误按 argparse），不回显原始字段内容。
+- 平台缺 descriptor-relative / no-follow 安全读取原语时返回 `SAFE_RETRIEVAL_UNAVAILABLE`，不得降到有竞态的路径读取。本机机械检查如实记环境阻塞；允许 Parent / 适用独立 reviewer 按相同字段、绑定、必需集合与原始来源人工核验并记录接受及限制。此为明确方法 fallback，不声称机器通过、不豁免独立门，也不注入某个宿主的 shell 要求。
 - **记录有效不等于 Skill 语义执行已证实。** 一个哈希正确的自报日志不能证明全文实际送达、规则被遵守或汇报真正送达用户。消费者核对原始 runtime 事件与产物；适用独立门时 reviewer 检查真实性/充分性及 Parent 的转报。输出始终保留 `semanticApplicationVerified=false`、`hostEnforcementVerified=false`，不自行裁决 PASS。
 - 本仓 CI 执行合成反例测试；本工具不是各 runtime 的自动 hook。现有 adapters 未接入 Skill 使用阻断，不得声称 live enforcement；Agent/Parent 的流程纪律与评审消费承担接线。
 

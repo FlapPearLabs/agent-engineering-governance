@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import stat
 import sys
 from pathlib import Path
@@ -19,6 +20,49 @@ from scripts.review_evidence import PLACEHOLDER, schema_violations
 
 SCHEMA = Path(__file__).resolve().parents[1] / "schemas/skill-execution.schema.json"
 MAX_BYTES = 1024 * 1024
+SAFE_RETRIEVAL_AVAILABLE = (os.open in os.supports_dir_fd
+                           and all(hasattr(os, flag) for flag in
+                                   ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")))
+
+
+class SafeRetrievalUnavailable(RuntimeError):
+    """The host cannot provide descriptor-relative, no-follow retrieval."""
+
+
+def safe_artifact_read(root: Path, parts: list[str]) -> bytes:
+    """Anchor directory handles; path swaps cannot redirect a read outside root."""
+    if not SAFE_RETRIEVAL_AVAILABLE:
+        raise SafeRetrievalUnavailable()
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    current = os.open(root.anchor, directory_flags)
+    try:
+        # Anchor the caller's root too: swapping one of its parents into a
+        # symlink must not redirect root acquisition between precheck and open.
+        for part in list(root.parts[1:]) + parts[:-1]:
+            child = os.open(part, directory_flags, dir_fd=current)
+            os.close(current)
+            current = child
+        leaf = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                       dir_fd=current)
+        try:
+            info = os.fstat(leaf)
+            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES:
+                raise ValueError("not a bounded regular file")
+            chunks = []
+            size = 0
+            while size <= MAX_BYTES:
+                chunk = os.read(leaf, min(65536, MAX_BYTES + 1 - size))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+            if size > MAX_BYTES:
+                raise ValueError("size cap exceeded")
+            return b"".join(chunks)
+        finally:
+            os.close(leaf)
+    finally:
+        os.close(current)
 
 
 def bounded_read(path: Path) -> bytes:
@@ -34,13 +78,15 @@ def bounded_read(path: Path) -> bytes:
 
 
 def envelope(findings):
-    return {"recordValid": not findings, "findings": findings,
+    # Never echo raw producer values (including malformed shape values).
+    clean = [{"reason": item["reason"], "path": item["path"]} for item in findings]
+    return {"recordValid": not clean, "findings": clean,
             "semanticApplicationVerified": False, "hostEnforcementVerified": False}
 
 
 def unfinished_text(value):
     if isinstance(value, str):
-        return not value.strip() or PLACEHOLDER.fullmatch(value) is not None
+        return not value.strip() or PLACEHOLDER.fullmatch(value.strip()) is not None
     if isinstance(value, dict):
         return any(unfinished_text(item) for item in value.values())
     if isinstance(value, list):
@@ -69,11 +115,12 @@ def validate_receipt(receipt, *, expected_subject, required_skills, evidence_roo
     expected_shape = schema_violations(expected_subject, schema["properties"]["subject"])
     if expected_shape or receipt["subject"] != expected_subject:
         fail("SUBJECT_MISMATCH", "$.subject")
-    if not required_skills and not (isinstance(no_required_reason, str) and no_required_reason.strip()):
+    if not required_skills and (not isinstance(no_required_reason, str)
+                               or unfinished_text(no_required_reason)):
         fail("REQUIREMENT_INPUT_REQUIRED", "consumer.required_skills")
     if required_skills and no_required_reason is not None:
         fail("REQUIREMENT_INPUT_CONFLICT", "consumer.required_skills")
-    if any(not isinstance(name, str) or not name.strip() for name in required_skills):
+    if any(not isinstance(name, str) or unfinished_text(name) for name in required_skills):
         fail("REQUIREMENT_INPUT_INVALID", "consumer.required_skills")
     names = [row["name"] for row in receipt["skills"]]
     if len(names) != len(set(names)):
@@ -104,7 +151,10 @@ def validate_receipt(receipt, *, expected_subject, required_skills, evidence_roo
                     (root.joinpath(*parts[:i])).is_symlink() for i in range(1, len(parts) + 1)):
                 fail("ARTIFACT_PATH_FORBIDDEN", at)
                 continue
-            data = bounded_read(path)
+            data = safe_artifact_read(root, parts)
+        except SafeRetrievalUnavailable:
+            fail("SAFE_RETRIEVAL_UNAVAILABLE", at)
+            continue
         except (OSError, ValueError, RuntimeError):
             fail("ARTIFACT_UNREADABLE", at)
             continue

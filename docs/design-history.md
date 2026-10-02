@@ -202,6 +202,8 @@
 
 **选择与代价。** 保留固定工作流 owner，把专业 Skill 作为补充方法；完整读取、实际执行/fallback、使用后短报形成票级证据。增加薄记录校验，沿用原证据 artifact 槽，不改旧 schema 或宿主 hook。代价是少量记录与汇报；同阶段连续步骤可合并，全文日志不进入用户正文，LOW 不因目录齐全而跑全链。
 
+**同票对抗修正。** [PR #37](https://github.com/FlapPearLabs/agent-engineering-governance/pull/37)首候选的 fresh reviewer 用合成数据实测出“检查后替换 symlink → 实际读根外”及“空白包裹模板 → 有效记录”。修复绑定目录/文件句柄并在读取前检查普通文件与大小，文本先去外层空白再判断模板。安全读取原语缺失时明确人工核验 fallback，保留机械未通过的事实；这项平台代价优于悄悄回退到有竞态的读取。
+
 **证据边界与落点。** 这是用户要求与仓内材料审计，不是恢复到的知乎/WebCodex 已复现事故，亦不宣称已完成各 runtime live enforcement。机械校验不证明语义应用或消息送达；原始事件与产物仍需消费者判断。规范落点 = [Skill 路由 §1.1–§1.4](../references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)；审计记录 = [P23](../audit/PAIN_TO_POLICY_MAP_V2.md#p23-skill-停留在盘点实际施工与使用后汇报缺接线2026-10-02-增补)。
 
 ## 覆盖映射：避免选择性复盘
