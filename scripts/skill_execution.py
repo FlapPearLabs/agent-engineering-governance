@@ -67,20 +67,16 @@ def safe_artifact_read(root: Path, parts: list[str]) -> bytes:
 
 
 def bounded_read(path: Path) -> bytes:
-    """Reject non-regular/oversize sources before opening; bound growing files too."""
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES:
-        raise ValueError("not a bounded regular file")
-    with path.open("rb") as stream:
-        data = stream.read(MAX_BYTES + 1)
-    if len(data) > MAX_BYTES:
-        raise ValueError("size cap exceeded")
-    return data
+    """Apply the same no-follow opened-object checks to explicit input paths."""
+    absolute = Path(os.path.abspath(path))
+    return safe_artifact_read(absolute.parent, [absolute.name])
 
 
 def envelope(findings):
-    # Never echo raw producer values (including malformed shape values).
-    clean = [{"reason": item["reason"], "path": item["path"]} for item in findings]
+    # Unknown property names are producer data too, not trusted schema paths.
+    clean = [{"reason": item["reason"],
+              "path": "$" if item["reason"] == "ADDITIONAL_PROPERTY_FORBIDDEN" else item["path"]}
+             for item in findings]
     return {"recordValid": not clean, "findings": clean,
             "semanticApplicationVerified": False, "hostEnforcementVerified": False}
 
@@ -106,6 +102,9 @@ def validate_receipt(receipt, *, expected_subject, required_skills, evidence_roo
     try:
         schema = json.loads(bounded_read(SCHEMA))
         shape = schema_violations(receipt, schema)
+    except SafeRetrievalUnavailable:
+        fail("SAFE_RETRIEVAL_UNAVAILABLE", "$schema")
+        return envelope(findings)
     except (OSError, ValueError, TypeError, RecursionError):
         fail("SCHEMA_UNAVAILABLE", "$schema")
         return envelope(findings)
@@ -234,6 +233,8 @@ def main(argv=None):
                                   required_skills=args.required_skill or [],
                                   evidence_root=args.evidence_root,
                                   no_required_reason=args.no_required_skills_reason)
+    except SafeRetrievalUnavailable:
+        result = envelope([{"reason": "SAFE_RETRIEVAL_UNAVAILABLE", "path": "$"}])
     except (OSError, ValueError, TypeError, RecursionError, RuntimeError):
         result = envelope([{"reason": "RECEIPT_UNREADABLE", "path": "$"}])
     print(json.dumps(result, ensure_ascii=False))
