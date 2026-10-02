@@ -5,11 +5,13 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts/skill_execution.py"
@@ -137,6 +139,89 @@ class SkillExecutionTests(unittest.TestCase):
         self.pack["selectionBasis"] = "Authorized phase and repository configuration"
         self.report(result="   ")
         self.rejected("UNFINISHED_REPORT_TEXT")
+
+    def test_padded_placeholders_and_no_required_reason_are_rejected(self):
+        self.pack["selectionBasis"] = "  ${SELECTION_BASIS} \n"
+        self.rejected("UNFINISHED_RECORD_TEXT")
+        self.pack["selectionBasis"] = "Authorized phase and configuration"
+        self.report(result="  ${RESULT} \n")
+        self.rejected("UNFINISHED_REPORT_TEXT")
+        self.report()
+        result = self.check(required_skills=[], no_required_reason="  ${REASON} \n")
+        self.assertFalse(result["recordValid"], result)
+
+    def test_leaf_swap_before_open_cannot_read_outside_evidence_root(self):
+        outside = self.root.parent / (self.root.name + "-race")
+        target = self.root / "execution.json"
+        outside.write_bytes(target.read_bytes())
+        self.addCleanup(outside.unlink)
+        original_open, original_path_open = os.open, Path.open
+        swapped = False
+
+        def swap():
+            nonlocal swapped
+            if not swapped:
+                target.unlink()
+                target.symlink_to(outside)
+                swapped = True
+
+        def fd_open(path, flags, *args, **kwargs):
+            if str(path) in (str(target), "execution.json"):
+                swap()
+            return original_open(path, flags, *args, **kwargs)
+
+        def path_open(path, *args, **kwargs):
+            if path == target:
+                swap()
+            return original_path_open(path, *args, **kwargs)
+
+        with mock.patch.object(os, "open", fd_open), mock.patch.object(Path, "open", path_open):
+            result = self.check()
+        self.assertTrue(swapped, "counterexample must reach the actual open boundary")
+        self.assertFalse(result["recordValid"], result)
+
+    def test_missing_safe_host_primitive_fails_closed(self):
+        with mock.patch.object(self.module, "SAFE_RETRIEVAL_AVAILABLE", False):
+            result = self.check()
+        self.assertFalse(result["recordValid"], result)
+        self.assertIn("SAFE_RETRIEVAL_UNAVAILABLE", [x["reason"] for x in result["findings"]])
+
+    def test_directory_swap_before_open_cannot_redirect_retrieval(self):
+        outside_temp = tempfile.TemporaryDirectory()
+        self.addCleanup(outside_temp.cleanup)
+        outside = Path(outside_temp.name)
+        nested = self.root / "nested"
+        nested.mkdir()
+        original = self.root / "execution.json"
+        data = original.read_bytes()
+        (nested / "execution.json").write_bytes(data)
+        (outside / "execution.json").write_bytes(data)
+        entry = next(a for a in self.pack["artifacts"] if a["location"] == "execution.json")
+        entry["location"] = "nested/execution.json"
+        self.pack["skills"][0]["executionEvidenceRefs"] = [entry["location"]]
+        self.report(evidenceRefs=["read.json", entry["location"]])
+        actual_open = os.open
+        swapped = False
+
+        def race(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if str(path) == "nested" and not swapped:
+                nested.rename(self.root / "previous")
+                nested.symlink_to(outside, target_is_directory=True)
+                swapped = True
+            return actual_open(path, flags, *args, **kwargs)
+
+        with mock.patch.object(os, "open", race):
+            result = self.check()
+        self.assertTrue(swapped)
+        self.assertFalse(result["recordValid"], result)
+
+    def test_failure_envelope_does_not_echo_producer_values(self):
+        value = "UNTRUSTED_PRIVATE_VALUE"
+        self.pack["skills"][0]["kind"] = value
+        result = self.check()
+        self.assertFalse(result["recordValid"], result)
+        self.assertNotIn(value, json.dumps(result))
 
     def test_specialized_skill_is_covered_without_altering_catalog(self):
         self.pack["skills"][0].update(name="python-validation", kind="DOMAIN",
