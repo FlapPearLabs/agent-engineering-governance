@@ -101,6 +101,15 @@ R8 最小复杂性护栏：新增强制 gate 前必须回答"防哪次真实失�
 先证据后信心；自审不替代独立评审（gate 存在时）；严格度随风险缩放；
 最小必要复杂性；授权已覆盖的路径自动推进、只在真实权威不确定时停机问人。
 
+【Skill 接入 · 执行前选择，使用后汇报】
+首次执行及阶段/技术栈变化时读 references/skills-and-model-routing.md §1.1–§1.4：
+阶段/风险 → 主线 Skill 触发判断 → 从仓权威/配置与 registry 匹配专业 Skill
+→ 读完整 SKILL.md → 按原文执行或如实 fallback → 使用后向用户/编排者短报。
+报告包含名称、目的、实际动作、结果/产物、证据与限制；安装或只读过不等于完成应用。
+Worker 向 Parent 回报，Parent 在推进前归集转报用户。
+评审/交接前核验绑定本票候选的 Skill 收据与必需集合；记录有效不自证语义执行。
+Skill 是方法，不授权扩 scope、安装、委派或外部动作；缺失按获取指南 fallback。
+
 【单票生命周期 · Ticket Lane（MEDIUM 基线）】
 进入分解前按 execution-stage §6 执行 PRE_TICKET_CONVERGENCE_GATE，
 起草票集后执行 POST_TICKET_COMPOSITION_GATE 与独立票集一致性评审；
@@ -282,6 +291,17 @@ DAG-ready 是候选集，编组还要判断内聚、共享 owner、基础设施�
 
 Owner 授权，parent 编排，worker 实现，reviewer 独立裁决，integrator 核验与串行集成。责任与禁止角色吸收见 [AGENTS](AGENTS.md#1-角色模型)；可读说明见 [design](docs/design.md#角色写代码裁决与集成分开)。
 
+### 6.5 Skill 如何嵌入施工
+
+| 位置 | Agent 的动作 | 证据与输出 |
+|---|---|---|
+| 开工 / 阶段或技术栈变化 | 按阶段与风险选主线 Skill，按仓配置与 registry 匹配专业 Skill | 选择依据、适用/排除/缺失理由 |
+| 执行前 | 读取完整 SKILL.md 和任务所需引用，遵守权威链 | 原文版本与实际加载事件 |
+| 执行后 | 应用或 fallback；**必须向用户/编排者汇报** | 名称、目的、动作、结果、证据和限制 |
+| 评审 / 交接前 | 校验票级记录；独立判断真实性、充分性及 Parent 转报 | exact subject、校验输出、适用评审结论 |
+
+工作流与专业 Skill 如何互补、报告节奏及校验命令的唯一详情见 [Skill 路由](references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)。[收据模板](templates/skill-execution.json)可机读；[校验器](scripts/skill_execution.py)检查实际记录及附件，不将安装数、结构通过或自报日志升级成真实使用/宿主强制证明。
+
 ## 7. 配置指南
 
 ### 7.1 环境能力矩阵
@@ -290,7 +310,7 @@ Owner 授权，parent 编排，worker 实现，reviewer 独立裁决，integrato
 
 ### 7.2 Skills（主线 13 项）
 
-来源、触发条件和 fallback 见 [skills/README](skills/README.md)，角色与风险路由见 [skills-and-model-routing](references/skills-and-model-routing.md)。本仓不 vendor 第三方 skill 源码。
+来源、触发条件和 fallback 见 [skills/README](skills/README.md)，角色与风险路由见 [skills-and-model-routing](references/skills-and-model-routing.md)。本仓不 vendor 第三方 skill 源码。专业 Skill 按任务匹配，不加入固定 13 项；使用后必须汇报，流程入口见 [§6.5](#65-skill-如何嵌入施工)。
 
 ### 7.3 MCP（canonical 三项）
 

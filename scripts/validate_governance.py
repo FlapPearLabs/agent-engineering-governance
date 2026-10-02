@@ -752,6 +752,19 @@ def main(argv=None) -> int:
     check("skills-statuses-valid", n_req == 9 and n_opt == 4 and missing_ok,
           f"required={n_req} optional={n_opt} missing_principle={missing_ok}")
 
+    # Interface wiring only; real task receipts are consumed by skill_execution.py.
+    skill_owner = "references/skills-and-model-routing.md"
+    skill_surfaces = ("AGENTS.md", "README.md", "deployment/PORTABLE_SETUP.md",
+                      "references/ticket-lane.md", "skills/README.md")
+    skill_wiring = all(skill_owner in (ROOT / name).read_text(encoding="utf-8")
+                       for name in skill_surfaces)
+    skill_contract = all((ROOT / name).is_file() for name in (
+        "schemas/skill-execution.schema.json", "templates/skill-execution.json",
+        "templates/skill-report.json", "scripts/skill_execution.py",
+        "scripts/tests/test_skill_execution.py"))
+    check("skill-execution-interface-wired", skill_wiring and skill_contract,
+          f"pointers={skill_wiring} interface={skill_contract}; not actual task-use proof")
+
     # 17. V1.1: no raw MEMORY archive committed under deployment/
     raw_hits: list[str] = []
     dep = ROOT / "deployment"

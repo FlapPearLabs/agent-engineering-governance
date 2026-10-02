@@ -11,7 +11,8 @@
 - **VERIFY（统一）**：定位 `SKILL.md`（基准环境 `~/.workbuddy/skills/<name>/SKILL.md` 或当 runtime 的 skill registry 等价物）并读 frontmatter 确认 `name`。
 - **原始机实况（2026-09-05 探针）**：13 项全部 INSTALLED（含 4 个 ZCode dogfood 降级项，安装于 2026-06/07）。
 - **获取方法（按 canonical 来源）**：mattpocock/skills 系 → 从该仓 `skills/<category>/<name>/` 复制安装，或平台 skill 市场检索同名；openai/codex 系 → Codex CLI 运行时内置 sample；hermes-agent 系 → Hermes optional-skills 安装路径。
-- 使用声明必须可核验（被实际调用/读取），否则报 `UNVERIFIED`。
+- 使用声明必须可核验（被实际调用/读取），否则报 `UNVERIFIED`。frontmatter 检查只验证定位；实际使用前读完整 SKILL.md，执行后必须汇报。阶段路由、专业 Skill 匹配、票级证据及校验的唯一详情见 `references/skills-and-model-routing.md` §1.1–§1.4。
+- 主线 13 项是工作流获取清单；专业 Skill 由目标仓技术栈/平台/领域与当前 registry 匹配，补充方法而不另建主线权威。未安装不强迫用户复制或 Agent 擅自安装，按适用 fallback 记录实际结果。
 
 ## 主线清单（11 SOURCE_VERIFIED + 2 SOURCE_PROBABLE；9 REQUIRED-at-trigger + 4 OPTIONAL）
 

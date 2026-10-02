@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "subject": {
+    "repo": "${REPO}",
+    "baseSha": "${BASE_SHA}",
+    "candidateSha": "${CANDIDATE_SHA}",
+    "task": "${TASK}",
+    "phase": "${PHASE}",
+    "role": "WORKER"
+  },
+  "selectionBasis": "${PHASE_RISK_AUTHORITY_AND_STACK_EVIDENCE}",
+  "domainAssessment": "${DOMAIN_SKILL_MATCHES_OR_EXCLUSIONS}",
+  "skills": [
+    {
+      "name": "${SKILL_NAME}",
+      "kind": "WORKFLOW",
+      "reason": "${TRIGGER_AND_SELECTION_REASON}",
+      "status": "UNVERIFIED",
+      "sourceRef": "${REGISTRY_VERSION_OR_PUBLIC_SOURCE}",
+      "readEvidenceRef": "${FULL_READ_TRACE_REF}",
+      "executionEvidenceRefs": [
+        "${EXECUTION_TRACE_OR_RESULT_REF}"
+      ],
+      "reportRef": "${POST_USE_REPORT_REF}",
+      "fallbackReason": null
+    }
+  ],
+  "artifacts": [
+    {
+      "location": "${EVIDENCE_RELATIVE_PATH}",
+      "contentDigest": "${SHA256_DIGEST}"
+    }
+  ]
+}

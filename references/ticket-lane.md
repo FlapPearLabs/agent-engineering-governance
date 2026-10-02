@@ -234,6 +234,8 @@ RED 必须由目标历史失败模式的断言触发。**导入错误、损坏�
 
 ## 5. 实现与自审
 
+- 首次执行/阶段转换前按 `references/skills-and-model-routing.md` §1.1 选择工作流与专业 Skill；按 §1.2 使用后必须汇报。进入自审/独立评审/交接前消费 §1.3–§1.4 的本阶段 Skill 收据与校验结果，并独立核对必需集合、原始事件和产物；记录校验不能代替语义/独立评审。
+
 - `/implement` 是 MEDIUM/HIGH 实质实现的默认强制工程入口（LOW 不强制）；`/tdd` 在正确性行为存在时强制（不可测需客观理由）；`/simplify-code` 只在 GREEN 之后且不得改行为/合同（名称以本机 `SKILL.md` frontmatter `name` 为准，见 `references/skills-and-model-routing.md` §1）。
 - skill 使用声明需可核验证据（被实际调用/读取），否则报 `UNVERIFIED`。
 - 自审（/code-review 等）只是 worker 证据；**当独立评审 gate 存在时**（AGENTS §3 风险矩阵）不满足该 gate（RULES R4）。

@@ -24,6 +24,12 @@
 
 获授权的任务按 AGENTS 执行；提示词不会自行创建产品 scope、部署授权或下一个 milestone。
 
+## 按阶段使用与汇报 Skill
+
+安装盘点之后，按 [路由规范 §1.1–§1.4](../references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)进入本票执行：选择触发的工作流 Skill，并从仓权威/工具配置与 registry 匹配专业 Skill；读完整原文，应用或 fallback。**使用后向用户/编排者汇报**实际动作、结果、证据与限制，Parent 归集 worker 后转报用户。
+
+在评审/交接前，用 [模板](../templates/skill-execution.json)组织既有 trace 与报告摘录，按路由规范的命令校验 subject、必需集合和附件。收据放在票级证据/CI artifact，不提交自引用 SHA；无效记录须补齐。机械验证不能证明日志真实或规则遵守，适用 reviewer 继续检查原始事件与产物。
+
 ## 恢复既有项目
 
 项目的 .agent/project-state.json 是恢复索引，不能代替它指向的规范、Issue、PR 和评审证据。缺失时按项目连续性合同的 lazy adoption 路径补齐，不重写项目历史。

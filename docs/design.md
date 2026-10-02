@@ -62,6 +62,12 @@ MEDIUM 基线的阅读顺序是：授权和 exact base、隔离 lane、读取权
 
 静态工具不能裁决产品语义；回归测试承载的行为知识也不能被一个近似 lint 规则取代。缺陷类是否值得下沉、选择哪层以及是否需要独立工具票，由既有静态框架的晋升判定负责，本页不重声明其取值集合。
 
+## Skill：把方法选择接到真实执行与汇报
+
+阶段/风险决定工作流入口，仓权威、技术栈、平台与领域决定专业方法。两类 Skill 互补；目录的 13 个名称不是全部任务的封闭工具集合。完整原文及实际事件连接方法与施工，使用后汇报把结果、fallback 与限制交回用户/Parent。
+
+[路由规范](../references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)拥有流程和票级收据语义，[schema](../schemas/skill-execution.schema.json)拥有机器字段。校验器只检查绑定、覆盖与附件；独立消费仍判断是否真正读取、应用和送达报告。收据进入现有证据包 artifact 槽，保持旧接口与 runtime hooks 兼容。这是 [H17](design-history.md#h17--从技能盘点到施工证据与使用后汇报)记录的本次审计补充，不冒充早期事故结论。
+
 ## Grounding：独立查询不等于重复重建
 
 默认使用 canonical base 图与 candidate diff；需要候选精确图时使用 lane 图；CodeGraph 不可用则走明确的手工路径。所用证据范围必须如实报告，不能把 base 图称为 candidate-exact 覆盖。

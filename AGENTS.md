@@ -9,6 +9,7 @@
 
 - 适用于 FlapPearLabs 软件工程项目的 agent 协作（WorkBuddy / Hermes / Codex / 其他 runtime），作为**默认**；与 A/B/C 层冲突时按 AUTHORITY_MAP_V2 冲突算法处理。
 - `SKILL_IS_EXECUTION_METHOD` / `SKILL_IS_NOT_AUTHORITY`；`DAG_IS_EXECUTION_MODEL` / `DAG_IS_NOT_ARCHITECTURE_AUTHORITY`。
+- **Skill 接入流程**：首次执行与阶段转换时按阶段/风险及技术栈/领域选择适用 Skill，读完整原文，应用或如实 fallback，使用后必须汇报并留票级证据。唯一详情与机械核验 = `references/skills-and-model-routing.md` §1.1–§1.4；安装清单不证明使用，工具不授予扩权。
 
 # ENGINEERING DOCTRINE
 
@@ -75,7 +76,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 ## 3. TICKET LANE（风险分级生命周期）
 
 生命周期（MEDIUM 基线）：
-`AUTHORIZED TICKET → exact base SHA → isolated branch/worktree → 读权威 → 自然缝识别 → CodeGraph grounding → Relevant Surface Manifest → Contract Extraction → counterexample 设计 → TDD RED → /implement → applicable static / mechanical gates（STATIC_GATE_RECEIPT）→ GREEN → 回归 → fresh independent review（L1）→（有价值才）repair → PR → real CI（或仓政策等价证据形态）→（触发时）post-CI/adversarial → merge gate → 串行集成 → remote verify → tracker`
+`AUTHORIZED TICKET → exact base SHA → isolated branch/worktree → 读权威 → Skill 路由（含专业匹配）→ 自然缝识别 → CodeGraph grounding → Relevant Surface Manifest → Contract Extraction → counterexample 设计 → TDD RED → /implement → applicable static / mechanical gates（STATIC_GATE_RECEIPT）→ GREEN → 回归 → fresh independent review（L1）→（有价值才）repair → PR → real CI（或仓政策等价证据形态）→（触发时）post-CI/adversarial → merge gate → 串行集成 → remote verify → tracker`
 
 静态/机械门的位置固定在 `IMPLEMENT` 之后、`DYNAMIC GREEN` 之前：机器可证的缺陷类先清场（阶段顺序与 GREENFIELD/LEGACY 差异见 `references/static-analysis-and-code-intelligence.md` §12/§15；FAST/FULL 类别见 §10.1；收据字段见 `references/ticket-lane.md` §9/§9.3）。
 
@@ -137,7 +138,7 @@ HIGH-VALUE UNCERTAINTY（架构/安全/分歧/里程碑）?
 
 ## 9. 报告（novelty-first）
 
-先 NEW_CODEGRAPH_FINDINGS / NEW_CONTRACT_FINDINGS / NEW_COUNTEREXAMPLES / NEW_DEFECT_CLASSES / ASSUMPTIONS_INVALIDATED / NEW_CROSS_MODULE_RISKS / SURPRISES，再 delta；`NONE` 合法；禁止编造。`PR_CI_COMPRESSION_ALLOWED = PASS_ONLY`。模板见 `references/review-and-repair-saturation.md` §5。
+先 NEW_CODEGRAPH_FINDINGS / NEW_CONTRACT_FINDINGS / NEW_COUNTEREXAMPLES / NEW_DEFECT_CLASSES / ASSUMPTIONS_INVALIDATED / NEW_CROSS_MODULE_RISKS / SURPRISES，再 delta；`NONE` 合法；禁止编造。`PR_CI_COMPRESSION_ALLOWED = PASS_ONLY`。模板见 `references/review-and-repair-saturation.md` §5。Skill 使用后汇报与 Parent 转报义务见 `references/skills-and-model-routing.md` §1.2；票级收据与校验见同文件 §1.3–§1.4。
 
 ## 10. BOOTSTRAP（如何被新会话看到）
 

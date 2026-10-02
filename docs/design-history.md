@@ -196,6 +196,14 @@
 
 **归属与边界。** 这是对既有证据真实性、门入口自测和测试工程的补充验证案例。尚未核到用户明确将这些 WebCodex 事故晋升到本治理仓的记录；也不把 ExecutionBroker、Seatbelt 或其审批设计写成全局治理要求。
 
+## H17 — 从技能盘点到施工证据与使用后汇报
+
+**起因。** 2026-10-02 本次文档审计中，用户追问“有没有要求用对应的 skill，把 skill 嵌入流程”，随后明确要求补齐三处缺口并要求 Agent 使用 Skill 后汇报。检查基线 [7738cb1](https://github.com/FlapPearLabs/agent-engineering-governance/commit/7738cb1107ee6b629b75b2a61ccec1c503fbd454)发现：阶段路由虽存在但入口与生命周期接线不充分；专业 Skill 的一般匹配义务缺位；校验器仅查清单、不能核对本票执行记录。
+
+**选择与代价。** 保留固定工作流 owner，把专业 Skill 作为补充方法；完整读取、实际执行/fallback、使用后短报形成票级证据。增加薄记录校验，沿用原证据 artifact 槽，不改旧 schema 或宿主 hook。代价是少量记录与汇报；同阶段连续步骤可合并，全文日志不进入用户正文，LOW 不因目录齐全而跑全链。
+
+**证据边界与落点。** 这是用户要求与仓内材料审计，不是恢复到的知乎/WebCodex 已复现事故，亦不宣称已完成各 runtime live enforcement。机械校验不证明语义应用或消息送达；原始事件与产物仍需消费者判断。规范落点 = [Skill 路由 §1.1–§1.4](../references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)；审计记录 = [P23](../audit/PAIN_TO_POLICY_MAP_V2.md#p23-skill-停留在盘点实际施工与使用后汇报缺接线2026-10-02-增补)。
+
 ## 覆盖映射：避免选择性复盘
 
 下表只将已有痛点导向本页解释，不重声明其 SHOULD_BE_GLOBAL 判定或规范取值。原始痛点、证据强弱及执行面仍在 [PAIN_TO_POLICY_MAP_V2](../audit/PAIN_TO_POLICY_MAP_V2.md)。
@@ -224,6 +232,7 @@
 | P20 机器可证缺陷逃逸 | H13 | 静态框架 |
 | P21 缺陷类晋升缺位 | H13 | 静态框架；ticket-lane |
 | P22 finding 扩权、预算重置、饱和越过评审 | H07 | review-and-repair-saturation |
+| P23 Skill 盘点与本票执行脱节 | H17 | 本次审计补充；不冒充历史事故 |
 
 9/16 回顾的 17 项经验也逐项定位，防止“已覆盖”被误读为“当时全部实现”。原始 L 编号来自 R01，落地情况以本页基线的实际规范为准。
 
@@ -263,6 +272,7 @@
 | G01 | [WORKFLOW_EVOLUTION_MAP](../audit/WORKFLOW_EVOLUTION_MAP.md) | 早期世代与反噬的历史重建；其中 CURRENT TARGET / TO-BE 是成文时状态 |
 | G02 | [PAIN_TO_POLICY_MAP_V2](../audit/PAIN_TO_POLICY_MAP_V2.md) | P01–P22 的原证据强弱、政策取舍和纠偏 |
 | G03 | [AUTHORITY_MAP_V2](../audit/AUTHORITY_MAP_V2.md)、[AUDIT_QUALITY_REVIEW](../audit/AUDIT_QUALITY_REVIEW.md) | 首轮审计自身的权威与证据纠偏 |
+| C04 | 本次会话 2026-10-02 的用户要求与基线 7738cb1 仓内审计 | Skill 接入、三处缺口及使用后汇报；不是历史生产事故证明 |
 | G04 | [AS_IS_WORKBUDDY_V3](../audit/AS_IS_WORKBUDDY_V3.md)、[WorkBuddy adapter](../adapters/workbuddy/README.md) | 限定 profile 的注入与 hook 观测，保留未覆盖 |
 
 **置信度使用。** 固定提交内容与已恢复的用户要求具有高置信度；只有工程记忆、后续摘要或执行者自报的事故原因保持中等或更低置信度，不写成独立复现。历史测试数量与底层 stash 根因缺证时不补造。

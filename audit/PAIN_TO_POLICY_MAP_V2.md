@@ -269,6 +269,16 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 - SHOULD_BE_GLOBAL = **YES（原则）**（"saturation/仲裁不得替代未满足的评审门"不可被仓政策默认放宽；仓**可以**定义更严协议，不能更松）。CAN_BE_MACHINE_ENFORCED = **NO**（有意，同上）。
 - MACHINE_ENFORCED = NO（有意）。同票修复的台账守卫回退另由既有守卫覆盖，不改变本行。
 
+## P23 Skill 停留在盘点，实际施工与使用后汇报缺接线（2026-10-02 增补）
+
+- SOURCE_EVIDENCE：用户在本次文档审计中明确要求“补充你指出的 3 个缺口，同时要求遵守该标准的 agent 在使用 skill 后汇报”；基线 `7738cb1107ee6b629b75b2a61ccec1c503fbd454` 的 README、AGENTS、skills-and-model-routing 与 validate_governance 可直接核对。证据类型 = **USER_REQUEST + REPOSITORY_AUDIT**；不是知乎/WebCodex 历史事故复现。
+- OBSERVED_GAP：已有阶段路由与可核验使用要求，但复制入口/生命周期接线不充分；缺技术栈/平台/领域的专业 Skill 一般匹配义务；机械检查只查获取清单，不消费本票执行证据及使用后报告。
+- ROOT_CAUSE：可用性盘点、选择、方法执行与对用户交付没有完整连接；不能把清单通过外推成实际使用完成。
+- POLICY_INTENDED / CURRENT_BEST_ABSTRACTION：唯一详情 = `references/skills-and-model-routing.md` §1.1–§1.4；专业方法补充工作流，全文读取 → 执行/fallback → 短报 → 票级附件核验。旧 review evidence artifact 槽可直接承载，不建第二 tracker。
+- R8 四问：防哪次真实失效 → 防上述**已核对的规范/检查覆盖缺口**，不虚构生产事故；机器能否更便宜做 → 绑定、必需项、引用、digest、报告一致性可机械检查，语义真实性仍由消费者判断；每个风险级都需要吗 → 按触发选择，LOW 不强制 implement，全空必需集合须说明理由；能否降级为 reference/默认 → **是，D 层默认**，可由 C 层显式覆盖，不新增 B 层不变量。
+- SHOULD_BE_GLOBAL = **DEFAULT_ONLY**；MECHANICAL_ENFORCEMENT = **票级 CLI 记录与附件核验 + CI 合成反例测试**，**不是各 runtime live hook**。
+- COST / BOUNDARY：新增少量票级记录与使用后短报；机器不认证执行者自报、语义应用或用户收讫；专业选择/fallback 充分性与 Parent 转报仍为流程消费义务。
+
 ## 汇总判定表
 
 | PAIN | SHOULD_BE_GLOBAL | 机器可 enforce | agent 判断 | 人判断 |
@@ -295,3 +305,4 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P20 机器可证缺陷逃逸 | DEFAULT_ONLY | 部分 | YES | NO |
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |
 | P22 真 finding 被当作修复授权 / 新 SHA 重置修复预算 / 饱和被当作评审门替代 | YES(原则)/DEFAULT(数值) | NO | YES | Arbiter YES |
+| P23 Skill 盘点与本票执行/汇报脱节 | DEFAULT_ONLY | 部分（票级 CLI；无 live hook） | YES | NO |

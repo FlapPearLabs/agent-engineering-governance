@@ -1,0 +1,9 @@
+{
+  "skill": "${SKILL_NAME}",
+  "status": "UNVERIFIED",
+  "summary": "${SELECTION_PURPOSE_AND_ACTUAL_ACTION}",
+  "result": "${RESULT_OR_ARTIFACT}",
+  "evidenceRefs": ["${READ_OR_EXECUTION_EVIDENCE_REF}"],
+  "limitations": "${FALLBACK_DEVIATION_OR_UNVERIFIED_LIMITS}",
+  "audience": "PARENT"
+}

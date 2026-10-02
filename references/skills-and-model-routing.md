@@ -26,6 +26,55 @@
 - skill 不得僭越权威：实现困难不是调用规划/Spec 技能重设计的理由（发现冲突 → STOP/ESCALATE）。
 - skill 使用声明需可核验（被实际调用/读取），否则报 `UNVERIFIED`。
 
+### 1.1 开工、阶段转换与专业 Skill 选择
+
+遵守本基线的 Agent，在首次执行及阶段/技术栈/任务变化时，先完成 **阶段 → 触发条件 → Skill 选择 → 原文读取 → 执行或 fallback → 使用后汇报**。安装盘点不等于本票路由，也不等于使用证据。
+
+1. 从票授权、风险与当前阶段选择上表的工作流 Skill；REQUIRED-at-trigger 的语义与缺失处理由 `skills/README.md` 拥有。LOW 不强制 `/implement`；不为凑齐清单调用所有 Skill。
+2. 从目标仓权威、manifest、构建/工具配置、变更面与实际平台识别语言、框架、平台及领域；检查当前 runtime registry 中相匹配的**专业 Skill**。用户明确要求的 Skill 必须纳入选择。适用且可用时使用；没有匹配项、不可用或不适用时记录依据与替代方法，不凭文件后缀或名称猜适用性，不为遵守本标准擅自安装工具。
+3. 专业 Skill 补充技术方法，不替换本表工作流槽位，不进入固定 13 项获取清单。重叠项选最小充分集合并说明理由；本表“未列出的同职责 skill”限制的是工作流替代，不能据此排除适用的专业 Skill。
+4. 定位并读**完整 SKILL.md**；其引用的材料按任务所需读取。frontmatter 健康检查只证明定位成功。调用 Skill 的机制已实际加载全文时保留该事件，不重复读同一未变化版本。内容或任务变化时重新判断；不得把上一票的读取自动算本票应用。
+5. 按原文执行，遵守 A/B/C/D 权威；Skill 的要求不能自动授权扩 scope、委派、联网、部署或发消息。方法与产品权威冲突时按 R1 处理；缺失按已定义 fallback 执行，报告 `SKILL_UNAVAILABLE`，无法证明实际使用则 `UNVERIFIED`。
+
+### 1.2 使用后必须汇报
+
+每次有意义的 Skill 应用完成或 fallback 完成后，在进入依赖其结果的下一阶段前，**必须向用户/编排者短报**：Skill 名称、选择目的、实际动作、结果/产物、可核验引用与限制（含 fallback 原因、偏离原文与未核验项）。读过但未应用只能说“已读取”；不能说“已使用完成”。同一阶段同一 Skill 的连续步骤可合并一次，独立应用或切换阶段须新增报告。
+
+Worker / Reviewer / Integrator 向 Parent 汇报；Parent 归集后在推进前向用户报告实际应用及结果，可合并同阶段多位 worker 的报告但保留各自出处。报告是必要交付，不授予自批、集成或产品裁决权；正文保持短，详细证据用链接，不倾倒全文 Skill 或私有日志。
+
+### 1.3 票级记录与消费边界
+
+**SKILL_EXECUTION_RECEIPT_V1** 是本节拥有的票级证据附件；不是新 tracker、全局状态机或宿主 hook。开始时记录选择依据；每次 §1.2 汇报后更新记录；进入自审/独立评审/交接前绑定 exact subject 并运行 §1.4 校验器。同一票各阶段分开记录，最终包覆盖实际发生的阶段；尚未发生的应用不得预报完成。票无所需 Skill 时给出明确理由，不伪造应用记录。
+
+机器字段及局部取值唯一声明见 `../schemas/skill-execution.schema.json`，起草用 `../templates/skill-execution.json` 和 `../templates/skill-report.json`；模板占位符不是执行证据，完成记录拒绝空白和未替换占位符。
+
+| 记录面 | 含义 |
+|---|---|
+| subject | repo、base/candidate SHA、task、phase、role；校验目标由消费者另外提供 |
+| selectionBasis / domainAssessment | 风险/阶段选择依据；从仓与 registry 获得的专业 Skill 匹配、排除或缺失理由 |
+| skills | 每项理由、工作流/专业类别、状态、原文来源、全文读取证据、执行证据、使用后报告引用、fallback 原因 |
+| artifacts | 脱敏证据位置与 sha256；可引用原有 trace、检查结果、产物和汇报摘录，不重造日志系统 |
+
+应用记录必须同时有全文读取事件与实际执行/产物引用。fallback 必须有原因、替代执行证据及明确的 fallback 报告；它不证明原 Skill 已调用。未核验项不能满足完成条件。报告证据是 JSON 摘录，字段由 schema 的 report 定义：名称、状态、目的摘要、结果、证据引用、限制、接收方；消费者核验名称/状态/接收方和关联证据。
+
+真实收据含候选 SHA，放在现有票证据、CI artifact 或本地证据目录，**不把包含自身 commit SHA 的收据提交进该 commit**。公开时按 R2 脱敏；`sourceRef` 用 registry 版本/公开来源标识，不写宿主路径。现有 review evidence 的 `artifacts[]` 可引用收据和校验输出，无需改旧 schema。
+
+### 1.4 机械核验与独立判断
+
+```bash
+python3 scripts/skill_execution.py <RECEIPT_JSON> \
+  --repo <REPO> --base-sha <BASE_SHA> --candidate-sha <CANDIDATE_SHA> \
+  --task <TASK> --phase <PHASE> --role <ROLE> --evidence-root <EVIDENCE_ROOT> \
+  --required-skill <TRIGGERED_SKILL>
+```
+
+重复 `--required-skill` 传入消费者根据 §1.1 独立核对的**本阶段**必需集合（含用户明确要求项）；不能从生产者收据反向生成集合以掩盖遗漏。没有必需项时改用 `--no-required-skills-reason <REASON>`。未发生阶段不进入集合。专业 Skill 选择是否完整、fallback 是否允许与足够，仍由适用的 reviewer / Parent 判断；显式 C-over-D 覆盖按 R1 留证。
+
+- 校验器验证结构、subject、必需集合覆盖、全文读取/执行/报告引用、摘要与关联一致、证据文件及 digest；缺汇报、错候选、假引用、`UNVERIFIED` 均使 `recordValid=false`。适用流程须修复无效记录后推进。
+- 只读消费者显式提供的证据根内、有界的普通文件；不读目录/越界路径，不联网、不执行任何证据内容。退出 0 表示记录及附件核验通过；1 表示失败，均输出 JSON（参数错误按 argparse）。
+- **记录有效不等于 Skill 语义执行已证实。** 一个哈希正确的自报日志不能证明全文实际送达、规则被遵守或汇报真正送达用户。消费者核对原始 runtime 事件与产物；适用独立门时 reviewer 检查真实性/充分性及 Parent 的转报。输出始终保留 `semanticApplicationVerified=false`、`hostEnforcementVerified=false`，不自行裁决 PASS。
+- 本仓 CI 执行合成反例测试；本工具不是各 runtime 的自动 hook。现有 adapters 未接入 Skill 使用阻断，不得声称 live enforcement；Agent/Parent 的流程纪律与评审消费承担接线。
+
 ## 2. 模型路由（RISK FIRST, MODEL SECOND；D 层默认）
 
 按平台实际**档位**映射，不硬编码不可核验的具体型号：

@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/FlapPearLabs/agent-engineering-governance/schemas/skill-execution.schema.json",
+  "title": "SKILL_EXECUTION_RECEIPT_V1",
+  "description": "Single semantic owner: references/skills-and-model-routing.md section 1. Record validity is not semantic execution or host enforcement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "subject",
+    "selectionBasis",
+    "domainAssessment",
+    "skills",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "baseSha",
+        "candidateSha",
+        "task",
+        "phase",
+        "role"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "candidateSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "PARENT",
+            "WORKER",
+            "REVIEWER",
+            "INTEGRATOR"
+          ]
+        }
+      }
+    },
+    "selectionBasis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domainAssessment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "reason",
+          "status",
+          "sourceRef",
+          "readEvidenceRef",
+          "executionEvidenceRefs",
+          "reportRef",
+          "fallbackReason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WORKFLOW",
+              "DOMAIN"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "APPLIED",
+              "FALLBACK",
+              "UNVERIFIED"
+            ]
+          },
+          "sourceRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "readEvidenceRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executionEvidenceRefs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "reportRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fallbackReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "location",
+          "contentDigest"
+        ],
+        "properties": {
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill",
+        "status",
+        "summary",
+        "result",
+        "evidenceRefs",
+        "limitations",
+        "audience"
+      ],
+      "properties": {
+        "skill": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience": {
+          "type": "string",
+          "enum": [
+            "USER",
+            "PARENT"
+          ]
+        }
+      }
+    }
+  }
+}
