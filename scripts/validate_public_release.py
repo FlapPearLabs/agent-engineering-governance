@@ -188,6 +188,106 @@ TIER_B_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
      re.compile(r"(?i)\bhttps?_proxy\s*[=:]\s*(?:https?://|[\w.\-]+:\d+)\S*")),
 ]
 
+# --------------------------------------------------------------------------
+# Fixture hygiene (TIER A, test/fixture code only).
+#
+# A committed fixture that needs a "must fail" identity must never spell a real
+# developer's login. Writing one contiguously is already caught by the
+# UNIX/WIN_USER_HOME rules above; the form that actually shipped was the same
+# path assembled from fragments:
+#
+#     leak = "/" + "Users" + "/" + "<real login>" + "/must-fail"
+#
+# No contiguous literal exists there, so TIER A stayed silent. Folding the
+# fragments back together recovers the path -- but a folded path is
+# indistinguishable from a legitimate synthetic fixture, because
+# `.../fixture-user` has exactly the same shape as `.../<real login>`.
+#
+# So the discriminator is NOT the shape of the folded string. It is whether the
+# assembled identity is THIS machine's real identity. That answer comes from
+# the host, is compared in memory, and never reaches any output: the excerpt is
+# sanitized and the baseline is never printed. The rule therefore has no
+# username list to maintain, and a synthetic fixture passes on every machine.
+# --------------------------------------------------------------------------
+
+# Only test and fixture code. Production paths are already covered by the
+# contiguous TIER A rules, and widening this would drag the validator's own
+# synthetic self-tests into judgement.
+FIXTURE_PATH_RE = re.compile(
+    r"(?:^|/)(?:scripts/tests|adapters/[^/]+/tests)(?:/|$)")
+
+# A string literal small enough to be a fragment rather than prose. Escape
+# sequences are captured whole: a Windows fragment carries backslashes, and
+# truncating at the first one would drop the very segment being looked for.
+_LITERAL_FRAGMENT = re.compile(r'"((?:[^"\\\n]|\\.){0,40})"')
+
+
+def host_identity_tokens() -> set[str]:
+    """This host's real login names, lowercased. Never logged, never printed.
+
+    Several signals are unioned because no single one is dependable: inside a
+    sandbox `getpass.getuser()` can answer for the wrong user, while `$HOME`
+    and `$USER` usually do not. An empty result means "cannot tell", and the
+    caller then reports nothing rather than guessing.
+    """
+    tokens: set[str] = set()
+
+    def add(value: str | None) -> None:
+        if value and value.strip():
+            tokens.add(value.strip().lower())
+
+    home = os.environ.get("HOME") or ""
+    if home:
+        add(os.path.basename(home.rstrip("/")))
+    add(os.environ.get("USER"))
+    add(os.environ.get("LOGNAME"))
+    try:
+        import getpass
+
+        add(getpass.getuser())
+    except Exception:
+        pass
+    # A synthetic token is never a host fact; keeping it would make the rule
+    # reject the very fixtures it is meant to permit.
+    tokens.discard("root")
+    tokens.discard("")
+    return {t for t in tokens if t and len(t) >= 3}
+
+
+def _redact_login(line: str, login: str) -> str:
+    """Sanitize a source line whose login exists only after concatenation.
+
+    `sanitize` rewrites contiguous `/Users/<name>` paths, which is exactly the
+    form this rule exists to catch is missing. Reporting the offending line
+    verbatim would therefore reprint the very identity that was just matched,
+    so the assembled segment is replaced before the excerpt is stored.
+    """
+    return sanitize(line).replace(login, "<LOCAL_OS_USERNAME>")
+
+
+def folded_user_home(line: str) -> str | None:
+    """Rebuild a user-home path from concatenated string fragments.
+
+    Returns the assembled path when the fragments concatenate into a
+    `/Users/<name>`, `/home/<name>` or `C:\\Users\\<name>` form, else None.
+    Folding is what makes the fragmented form observable at all; deciding
+    whether the identity is real is the caller's job, because shape alone
+    cannot tell.
+    """
+    literals = _LITERAL_FRAGMENT.findall(line)
+    if len(literals) < 3:
+        return None
+    if "+" not in line:
+        return None
+    # Fragments are source text, so their escapes are still undecoded; decode
+    # before matching, otherwise a Windows separator never becomes a separator.
+    folded = "".join(literals).replace("\\\\", "\\")
+    probe = strip_placeholders(folded)
+    unix = re.search(r"/(?:Users|home)/([A-Za-z0-9._\-]+)", probe)
+    win = re.search(r"(?i)[A-Za-z]:[\\/]+Users[\\/]+([A-Za-z0-9._\-]+)", probe)
+    return unix.group(1) if unix else (win.group(1) if win else None)
+
+
 # Generic / portable forms that are allowed documentation, never a host fact.
 PLACEHOLDER_SPANS = [
     re.compile(r"<[A-Z][A-Z0-9_]{2,}>"),
@@ -347,6 +447,10 @@ def scan_text(path: str, text: str) -> list[Violation]:
     # F3: private visibility is not a blanket exemption. Tier B is skipped ONLY
     # for a designated deployment profile, and only when not in public mode.
     tier_b_exempt = (not public_mode()) and is_designated(path, text)
+    # Fixture hygiene is TIER A: visibility mode cannot excuse a real identity.
+    # The host baseline is read once per scan, only for test/fixture paths.
+    fixture_scope = bool(FIXTURE_PATH_RE.search(path))
+    host_tokens = host_identity_tokens() if fixture_scope else set()
     for lineno, raw in enumerate(text.splitlines(), 1):
         # TIER A is unconditional: no placeholder, marker or visibility mode can
         # excuse a credential or a concrete local login directory.
@@ -358,6 +462,17 @@ def scan_text(path: str, text: str) -> list[Violation]:
                     sev = "LOCAL_IDENTITY"
                     excerpt = sanitize(raw.strip())[:160]
                 out.append(Violation(sev, rule, path, lineno, excerpt))
+        if host_tokens:
+            folded_login = folded_user_home(raw)
+            if folded_login is not None:
+                # The assembled login is compared in memory only. A synthetic
+                # fixture names some other identity and passes on every host;
+                # only a path resolving to THIS machine's real login is refused.
+                if folded_login.lower() in host_tokens:
+                    out.append(Violation(
+                        "LOCAL_IDENTITY", "FRAGMENTED_LOCAL_IDENTITY", path,
+                        lineno,
+                        _redact_login(raw, folded_login)[:160]))
         if tier_b_exempt:
             continue
         probe = strip_placeholders(raw)
