@@ -24,12 +24,13 @@ mkdir "$DEMO_DIR"
 cp -R "$GOVERNANCE_DIR/examples/adoption-demo/." "$DEMO_DIR/"
 git -C "$DEMO_DIR" init -b main
 git init --bare "$DEMO_REMOTE"
-git -C "$DEMO_DIR" remote add origin "$DEMO_REMOTE"
+git -C "$DEMO_DIR" config --local "url.$DEMO_REMOTE.insteadOf" ssh://exercise.invalid/adoption-demo.git
+git -C "$DEMO_DIR" remote add origin ssh://exercise.invalid/adoption-demo.git
 ```
 
 由测试协调者设置仅供本次演练的合成 Git 作者，提交起点并 push main。不要读取真实凭据，也不要使用 FlapPearLabs 冒充外部项目身份。若目录已存在则换新目录，演练不清理或覆盖既有工程。
 
-记录治理完整 SHA、目标仓 base SHA 和指针到 AGENTS/SPEC。演练 remote 是本地 bare 仓；这能测真实 Git push/fetch，不证明 GitHub API、PR 或 Actions 可用。AGENTS 已限定本演练的 C-over-D CI 覆盖，不能复制成其他项目的无条件豁免。
+记录治理完整 SHA、目标仓 base SHA 和指针到 AGENTS/SPEC。索引记录合成的 `ssh://exercise.invalid/adoption-demo.git`；本仓 Git 的 local URL rewrite 实际将它送到 bare 目录，真实路径不提交。演练能测真实 Git push/fetch，不证明 SSH 服务、GitHub API、PR 或 Actions 可用。AGENTS 已限定本演练的 C-over-D CI 覆盖，不能复制成其他项目的无条件豁免。
 
 ## 2. 开工与能力不足处理
 
