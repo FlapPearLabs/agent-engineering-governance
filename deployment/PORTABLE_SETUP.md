@@ -4,6 +4,8 @@
 
 > 你只需要本仓 + 目标工程仓。不依赖任何先前对话。按顺序执行；每步失败按该步的降级路径如实报告，不伪造。
 
+采用见 [指南](../docs/adoption.md)。
+
 1. **clone / open 本治理仓**（FlapPearLabs/agent-engineering-governance）。
 2. **读 README.md** —— 仓库目的、版本状态、权威模型速览。
 3. **读 RULES.md** —— B 层普适不变量（8 条，含验证钩子）。
@@ -58,7 +60,7 @@ GitHub/仓内证据足够时不要求用户复述历史；授权已明确则自�
 | type checker / compiler | REPOSITORY_PROVIDED | 仓构建配置 | 跑仓配置的命令 | 无 | 该仓 gate YES |
 | test runner | REPOSITORY_PROVIDED | 仓 package/test 配置 | 跑仓测试命令 | 无——测试 gate 不可豁免 | **YES**（适用 gate） |
 | canonical Skills | INSTALLED / PARTIAL / MISSING | 平台 skill registry / `~/.workbuddy/skills/` | 定位各 `SKILL.md` | skills/README.md 各行 FALLBACK | NO（如实标注 SKILL_UNAVAILABLE） |
-| canonical MCP（codegraph/context7/gh_grep） | READY / PARTIAL | mcp/README.md INSTALL 方法 | 各一次健康查询 | 降级如实报告（context7/gh_grep 非阻断；codegraph 见上） | codegraph HIGH 票 YES |
+| canonical MCP（codegraph/context7/gh_grep） | READY / PARTIAL | mcp/README.md INSTALL 方法 | 各一次健康查询 | 降级如实报告（context7/gh_grep 非阻断；codegraph 见上） | 非普适硬 gate；阻断见 grounding §4 |
 | CI access | AVAILABLE / ABSENT | GitHub Actions（governance-ci；仓级 CI） | `gh run list` | 仓政策等价证据形态（OVERRIDE 记录） | MEDIUM+ remote YES |
 
 语言示例：TypeScript 仓 → tsserver/tsc/eslint（若仓配置）；Python 仓 → pyright/mypy/ruff/pytest（仅当仓配置实际使用）。**绝不注入无关工具链。**
@@ -89,6 +91,7 @@ READY_FOR_ENGINEERING = YES / NO (+ reason)
 ```
 
 `SKILLS`/`MISSING_SKILLS` 只盘点可用性；票级执行与汇报记录见 Skill 路由，不塞进开工回执。
+
 
 ## 边界
 

@@ -29,5 +29,5 @@
 ## 偏好
 - 中文交流；结构化交付（PHASE/STEP、blocker/non-blocking、显式 VERDICT）。
 - 执行前显式授权；USER_DECISION_REQUIRED 即 STOP；freshness check 先行。
-- 禁 amend/squash/rebase 已评审历史；AUTHOR_NAME=FlapPearLabs、AUTHOR_EMAIL_CLASS=GITHUB_NOREPLY。
+- 已评审历史不静默改写；署名按目标仓政策（本治理仓见 deployment/organization-policy.md）。
 ```

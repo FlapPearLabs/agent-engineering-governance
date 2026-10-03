@@ -6,6 +6,7 @@
 
 | 你的任务 | 从哪里开始 | 应获得的结果 |
 |---|---|---|
+| 把框架引入自己的项目 | [最小采用指南](adoption.md)；需要具体产物时读 [贯穿案例](adoption-walkthrough.md) | 固定来源、保留本地政策、初始化/恢复、完成任务与接手验证 |
 | 第一次让 Agent 使用治理 | [README 的完整复制提示词](../README.md#3-复制即用发给-agent-的引导提示词)，再读 [PORTABLE_SETUP](../deployment/PORTABLE_SETUP.md) | 已读取治理与目标仓权威；能力缺口、覆盖记录和开工回执可核验 |
 | 接手已有项目或切换 runtime | [项目状态恢复](../references/project-state-persistence.md#5-state_restore--每个-fresh-agent-进入既有项目时) | 根据远端、规范与票据证据重建当前合法 frontier |
 | 新仓采用或旧仓补齐连续性 | [项目连续性合同](../references/project-continuity-contract.md) | 固定状态索引指向已有权威，初始化方式与仓库阶段相符 |
@@ -44,6 +45,8 @@
 ## 在目标仓采用
 
 采用治理不要求复制一整套全局规范到每个项目。目标仓保留本地 RULES、Approved Specs、架构决策、CI/merge 政策与明确的项目 delta，再通过指针引用治理。
+
+外部团队保留自己的公开身份与署名；本仓采纳的 [组织策略](../deployment/organization-policy.md)和公开身份扫描器不自动成为外部项目的署名门。实质复制本仓内容时遵守 [MIT](../LICENSE)通知要求。
 
 - 新项目与已有项目的初始化不同，按 [连续性合同](../references/project-continuity-contract.md) 选择现有路径。
 - 项目状态文件使用 [已有 schema](../schemas/project-state.schema.json) 和 [已有模板](../templates/)，字段验证由 [validate_project_state.py](../scripts/validate_project_state.py) 负责。

@@ -16,7 +16,7 @@
 
 - **第一层（任何文件、任何位置，绝对禁止）**：Cookie/Secret/Token/API key/登录凭证/SSH 私钥、以及**本机登录名/系统用户身份等 local OS identity**（如宿主登录用户名）绝不进入 repo、log、聊天、产物、长期记忆、报告。凭据探测输出只允许布尔/错误类型。
   - 术语澄清：本层禁的是 **local OS/personal identity**；**repository/account identity**（git 署名如 `FlapPearLabs`、GitHub 账号名、`@users.noreply` 邮箱等公开仓身份）不属于本层禁令，按署名约定正常使用（B2 修复）。
-  - **公开身份单一性（F4 修复）**：PUBLIC 仓库对外暴露的身份必须是**单一 intentional 公开身份** `PUBLIC_PROJECT_IDENTITY = FlapPearLabs`。该约束**同时适用于文件内容与提交元数据**（HEAD 的 author/committer 的 name 与 email）——`author.name = FlapPearLabs` 配上指向**其他账号 handle** 的 `@users.noreply` 邮箱**不满足**本条。canonical noreply 形态 `(<uid>+)?FlapPearLabs@users.noreply.github.com` 允许。此为公开身份策略的单点约束，不构成通用身份管理框架。
+  - **公开仓身份与本机私有身份分开**：公开署名须符合目标仓明确采纳的身份政策；具体组织名、署名和邮箱约束属于仓库政策（C 层），不由本治理框架替外部团队指定。身份政策不能豁免前述凭据或本机私有信息底线。原 F4 的 FlapPearLabs 单一公开身份策略完整保留在 [组织策略](deployment/organization-policy.md)，本治理仓继续适用；它不自动绑定采用框架的其他组织。
 - **第二层（宿主机事实，按仓库可见性分区管理）**：宿主路径、端口、二进制位置、运行时版本等 machine-specific 事实——在**一般治理产物**（AGENTS/RULES/references/audit/skills/mcp 等共享语义文件）中禁止；其余按可见性判定：
   - **PUBLIC 仓库（本仓即 PUBLIC）**：`MACHINE-SPECIFIC ALLOWED` 例外**不存在**。公开产物只允许占位符形态（`<PATH_TO_GH>`、`<LOCAL_PROXY_URL>`、`${HOME}`）；真实机器档案必须 local-only（Git 之外或被 `.gitignore` 忽略，如 `deployment/deployment-profile.local.md`）。理由：被 designated 标记的文件同样世界可读，标记不能创造豁免。
   - **PRIVATE 仓库**：豁免是**两条件合取的窄豁免**（F3 修复）——路径位于 `deployment/` 下 **AND** 文件头带 `MACHINE-SPECIFIC ALLOWED` 标记，二者缺一不可，才构成 designated deployment profile 并保留第二层语义（用途 = 机器恢复与环境复现）。PRIVATE 可见性本身**不**产生豁免：PRIVATE 仓中的一般治理/审计/README 文件（含 `deployment/` 下未带标记的文件）仍按一般产物对待，第二层命中即违规。第一层在任何可见性、任何路径下均无豁免。

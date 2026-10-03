@@ -7,7 +7,7 @@
 
 ## 0. 适用范围与铁律
 
-- 适用于 FlapPearLabs 软件工程项目的 agent 协作（WorkBuddy / Hermes / Codex / 其他 runtime），作为**默认**；与 A/B/C 层冲突时按 AUTHORITY_MAP_V2 冲突算法处理。
+- 适用于采纳本基线的软件工程项目的 agent 协作（WorkBuddy / Hermes / Codex / 其他 runtime），作为**默认**；与 A/B/C 层冲突时按 AUTHORITY_MAP_V2 冲突算法处理。本仓采纳的 [FlapPearLabs 组织策略](deployment/organization-policy.md)只约束其声明的适用仓，外部采用入口见 [adoption](docs/adoption.md)。
 - `SKILL_IS_EXECUTION_METHOD` / `SKILL_IS_NOT_AUTHORITY`；`DAG_IS_EXECUTION_MODEL` / `DAG_IS_NOT_ARCHITECTURE_AUTHORITY`。
 - **Skill 接入流程**：首次执行与阶段转换时按阶段/风险及技术栈/领域选择适用 Skill，读完整原文，应用或如实 fallback，使用后必须汇报并留票级证据。唯一详情与机械核验 = `references/skills-and-model-routing.md` §1.1–§1.4；安装清单不证明使用，工具不授予扩权。
 

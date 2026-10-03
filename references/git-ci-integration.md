@@ -7,7 +7,7 @@
 - 一票 = 一分支 = 一隔离 worktree（**默认**；微小机械修复/共享迁移等场景仓政策可定义例外）。
 - 分支基于最新 remote master；默认禁止 master 直接施工；scope-clean commits。
 - Conventional Commits（`feat/fix/docs/test/refactor/chore`）；凭据、临时产物、runtime memory 不提交。
-- 署名约定：AUTHOR_NAME=`FlapPearLabs`、AUTHOR_EMAIL_CLASS=`GITHUB_NOREPLY`（执行点 = 仓 repo-local git config）。
+- 署名按目标仓的公开身份政策执行，仅使用该仓批准的公开身份。本治理仓及明确采纳 [FlapPearLabs 组织策略](../deployment/organization-policy.md)的仓使用该策略的署名约定；其他仓不自动使用 FlapPearLabs。应用时只影响获授权的目标仓，不修改全局 Git 配置或其他 worktree 的共享设置。
 
 ## 2. Merge 方法（C 层决定，D 层默认）
 
