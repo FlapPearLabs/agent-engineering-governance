@@ -309,3 +309,12 @@ ADOPTION_COST      = 低。采纳 `E9,F`（correctness-only），修复 5 处 F8
 | P21 机械可判缺陷反复消耗评审预算 | DEFAULT_ONLY | 部分 | YES | NO |
 | P22 真 finding 被当作修复授权 / 新 SHA 重置修复预算 / 饱和被当作评审门替代 | YES(原则)/DEFAULT(数值) | NO | YES | Arbiter YES |
 | P23 Skill 盘点与本票执行/汇报脱节 | DEFAULT_ONLY | 部分（票级 CLI；无 live hook） | YES | NO |
+| P24 公开采用入口与组织策略边界 | DEFAULT_ONLY / 组织政策为 C 层 | 文档链接与本仓既有扫描部分可检；体验需演练 | YES | MIT 授权由 owner 明确选择 |
+
+## P24 公开采用入口与组织策略边界（2026-10-03）
+
+- TRIGGER / EVIDENCE：用户要求评价并补齐外部采用的四处缺口，随后明确指定 MIT。基线 8c0075c 的 PORTABLE_SETUP MCP 阻断列与 grounding §4 不一致；RULES R2 / README 将 FlapPearLabs 名称传给外部团队；README §13 保留所有权利；采用缺少贯穿任务及 fresh 恢复演练。这是本次材料审计，不编成历史生产事故。
+- CHOICE：阻断表回到现有 grounding owner；凭据保护通用、组织署名单独限定在 deployment/organization-policy.md 的 C 层范围；MIT 正文与第三方许可边界；增加 docs/adoption.md、教学 fixture、walkthrough 与实际验证记录。
+- TRADEOFF：固定版本需显式升级核对，手工 fallback 与演练仍需真实事件证据；不新增安装器、配置 schema、宿主 gate 或完整编排器，不声称跨项目效率收益。
+- R8 四问：防上述错误停机/外部身份误用/复用不清/未测采用；机器可检查链接和既有本仓策略，但不能证明理解或真实使用；不是每票新义务；采用说明与组织政策保持原有分层，不新增 B 层 gate。
+- SHOULD_BE_GLOBAL：采用导航 DEFAULT；组织名 NO；凭据与证据底线沿用现有 B 层。CAN_BE_MACHINE_ENFORCED = PARTIAL；体验和语义需独立判断。实际结果与限制见 docs/adoption-validation.md。

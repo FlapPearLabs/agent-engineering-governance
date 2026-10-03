@@ -210,6 +210,14 @@
 
 **证据边界与落点。** 这是用户要求与仓内材料审计，不是恢复到的知乎/WebCodex 已复现事故，亦不宣称已完成各 runtime live enforcement。机械校验不证明语义应用或消息送达；原始事件与产物仍需消费者判断。规范落点 = [Skill 路由 §1.1–§1.4](../references/skills-and-model-routing.md#11-开工阶段转换与专业-skill-选择)；审计记录 = [P23](../audit/PAIN_TO_POLICY_MAP_V2.md#p23-skill-停留在盘点实际施工与使用后汇报缺接线2026-10-02-增补)。
 
+## H18 — 从内部治理入口到可理解、可采用的公开框架
+
+**起因。** 2026-10-03 用户要求评价首次进入仓库能否理解流程、价值、真实来源与配置采用，并授权补齐四处缺口。对基线 [8c0075c](https://github.com/FlapPearLabs/agent-engineering-governance/commit/8c0075c5db0e06eec67d303955d13e214ba22782)的阅读发现：CodeGraph 阻断表与降级规范不一致；组织署名被写成外部团队也须遵守的底线；未附复用许可；缺少贯穿任务与 fresh Agent 恢复的采用演练。用户随后明确选择 MIT。[C05]
+
+**选择与代价。** 将普通流程与价值放到入口、增加最小采用指南与隔离教学 fixture；CodeGraph 表回到现有 grounding owner，不另造门；凭据保护继续通用，原 F4 组织署名完整保留在限定范围的 C 层策略，本仓固定扫描器与 CI 不改。代码、文档及模板采用标准 MIT，第三方外链仍遵循各自许可。
+
+**边界。** 新演练受 H03 的真实事故启发，但代码是合成 fixture，不冒充知乎原实现。执行、远端与 fresh context 的实际覆盖以 [采用验证](adoption-validation.md)记录为准，不由新增文档、绿色 CI 或 MIT 许可推定全部宿主自动强制或效率收益。固定版本增加一次升级核对成本，换取可复现入口。[P24](../audit/PAIN_TO_POLICY_MAP_V2.md#p24-公开采用入口与组织策略边界2026-10-03)
+
 ## 覆盖映射：避免选择性复盘
 
 下表只将已有痛点导向本页解释，不重声明其 SHOULD_BE_GLOBAL 判定或规范取值。原始痛点、证据强弱及执行面仍在 [PAIN_TO_POLICY_MAP_V2](../audit/PAIN_TO_POLICY_MAP_V2.md)。
@@ -279,6 +287,7 @@
 | G02 | [PAIN_TO_POLICY_MAP_V2](../audit/PAIN_TO_POLICY_MAP_V2.md) | P01–P22 的原证据强弱、政策取舍和纠偏 |
 | G03 | [AUTHORITY_MAP_V2](../audit/AUTHORITY_MAP_V2.md)、[AUDIT_QUALITY_REVIEW](../audit/AUDIT_QUALITY_REVIEW.md) | 首轮审计自身的权威与证据纠偏 |
 | C04 | 本次会话 2026-10-02 的用户要求与基线 7738cb1 仓内审计 | Skill 接入、三处缺口及使用后汇报；不是历史生产事故证明 |
+| C05 | 本次会话 2026-10-03 的用户采用评价、四处补齐授权及明确 MIT 选择；基线 8c0075c | 公开采用与组织范围纠偏；演练结果另读实际记录，不是历史事故 |
 | G04 | [AS_IS_WORKBUDDY_V3](../audit/AS_IS_WORKBUDDY_V3.md)、[WorkBuddy adapter](../adapters/workbuddy/README.md) | 限定 profile 的注入与 hook 观测，保留未覆盖 |
 
 **置信度使用。** 固定提交内容与已恢复的用户要求具有高置信度；只有工程记忆、后续摘要或执行者自报的事故原因保持中等或更低置信度，不写成独立复现。历史测试数量与底层 stash 根因缺证时不补造。

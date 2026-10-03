@@ -5,9 +5,13 @@
 
 **让 Agent 在明确权威、合同和证据下施工，并让项目状态长于一次会话。**
 
-FlapPearLabs 的全局工程治理默认，适用于 WorkBuddy、Codex、Hermes、OpenCode、ZCode 等 runtime。项目政策、工具能力与平台约束按权威层调和，不能由一份提示词替代。
+从 FlapPearLabs 的真实工程施工中抽取的治理框架，适用于 WorkBuddy、Codex、Hermes、OpenCode、ZCode 等 runtime。项目政策、工具能力与平台约束按权威层调和；外部团队保留自己的组织身份与仓库政策。
 
-**开始使用：** [新 Agent](#2-快速开始) · [复制完整提示词](#3-复制即用发给-agent-的引导提示词) · [恢复既有项目](docs/getting-started.md#恢复既有项目)
+**流程：** 读权威并恢复状态 → 确认合同与风险 → 选择 Skill 或 fallback → 实现、验证与使用后汇报 → 适用独立评审和 CI → 集成、核验远端、写回状态。
+
+**价值：** 用真实生产形状防止自洽假测试；用当前候选的独立证据防止假关闭；用风险与预算约束流程成本；用持久化让下一位 Agent 接手。这些机制有事故出处，尚无跨项目的效率量化结论。
+
+**开始使用：** [把框架带进你的项目](docs/adoption.md) · [跑完一张票的案例](docs/adoption-walkthrough.md) · [复制完整提示词](#3-复制即用发给-agent-的引导提示词) · [恢复既有项目](docs/getting-started.md#恢复既有项目)
 
 **理解设计：** [如何运作](docs/design.md) · [为什么这样设计](docs/design-history.md) · [当前验证范围](#10-当前状态与路线)
 
@@ -44,6 +48,8 @@ FlapPearLabs 的全局工程治理默认，适用于 WorkBuddy、Codex、Hermes�
 
 ## 2. 快速开始
 
+先选一条路径：**新采用**读 [最小采用指南](docs/adoption.md)，固定治理来源，在目标仓已有权威中加入指针，验证能力并取得开工回执；**已有项目**按下述 STATE_RESTORE；**想理解实际产物**看 [贯穿案例](docs/adoption-walkthrough.md)与[实际演练范围](docs/adoption-validation.md)。普通采用不要求安装全局 MEMORY 或 hook。
+
 ### 2.1 新 Agent 开工（17 步摘要）
 
 打开本仓与目标工程仓，按 [PORTABLE_SETUP](deployment/PORTABLE_SETUP.md) 读取 README、RULES、AGENTS、目标仓权威与相关 references，验证实际能力并输出其既有 bootstrap receipt。完整步骤、能力矩阵与降级路径由该文件拥有；无需先阅读完整决策历史。
@@ -66,8 +72,10 @@ FlapPearLabs 的全局工程治理默认，适用于 WorkBuddy、Codex、Hermes�
 把下面整个代码块复制给任何 agent（ChatGPT / Codex / WorkBuddy / Claude …）作为第一条消息，agent 即可按本仓流程与开发方法工作。无法访问 GitHub 时读取可信本地副本；摘要不能代替所需合同，缺失的权威与证据按现有 STOP / 离线路径处理。
 
 ```text
-你是 FlapPearLabs 的工程 Agent。本提示词使你以治理基线开工。
+你是目标项目的工程 Agent。本提示词使你以治理基线开工。
 治理仓：https://github.com/FlapPearLabs/agent-engineering-governance（分支 main）。
+目标仓记录了治理 SHA/tag 时读取该版本；新采用记录所选已接受版本，不静默跟随升级。
+组织身份与署名按目标仓权威；deployment/organization-policy.md 的 FlapPearLabs 策略不自动绑定外部项目。
 
 【第 0 步 · 加载治理】
 若你可访问 GitHub：读取该仓，按序 README.md → RULES.md → AGENTS.md → 目标仓根
@@ -160,7 +168,8 @@ SATURATION != REVIEW_GATE_BYPASS：仲裁改变修复权限，不替代 required
 【Git / CI 默认】
 一票一分支一隔离 worktree；基于最新 remote master；禁止 master 直接施工。
 Conventional Commits（feat/fix/docs/test/refactor/chore）；scope-clean。
-署名：AUTHOR_NAME=FlapPearLabs、AUTHOR_EMAIL_CLASS=GITHUB_NOREPLY（repo-local git config）。
+署名：使用目标仓批准的公开身份；本治理仓的具体约束见 deployment/organization-policy.md。
+只影响获授权的仓，不改全局 Git 配置或其他 worktree 的共享设置。
 默认 ff-only 集成、master 串行（仓政策可定义 squash/merge commit 等合法形态并记录 OVERRIDE，
 但已评审候选不得被静默改写）。每次集成前：fresh fetch → 核验 origin tip == REVIEWED_HEAD
 → master drift 检查 → merge → push → remote verify → 关 tracker。
@@ -345,7 +354,9 @@ codegraph、context7、gh_grep 的获取与健康验证见 [mcp/README](mcp/READ
 
 ## 9. 在新项目采用本基线
 
-保留项目本地权威与明确 delta，引用治理；按项目连续性合同为新仓 bootstrap 或旧仓 lazy adoption，验证实际能力并取得开工回执。采用、恢复和 live 部署的边界见 [使用指南](docs/getting-started.md#在目标仓采用)。
+按 [采用指南](docs/adoption.md)固定来源与版本、在已有权威中加指针、声明组织政策与必要覆盖、初始化/恢复索引、执行一票并测试 fresh Agent 接手。模板、命令与宿主部署边界均有原接口指针；不要求复制全部规范或改作者为 FlapPearLabs。
+
+[贯穿案例](docs/adoption-walkthrough.md)提供可复制的隔离 fixture；[演练记录](docs/adoption-validation.md)说明实际测了什么与未测什么。
 
 ## 10. 当前状态与路线
 
@@ -389,4 +400,4 @@ PUBLIC_RELEASE=1 python3 scripts/validate_public_release.py --commit-metadata
 
 ## 13. License
 
-本仓未附开源许可证：内容默认保留所有权利（all rights reserved），公开目的为参考、协作与 dogfood。引用请注明出处（FlapPearLabs / agent-engineering-governance）。如需更宽松的授权条款，请开 Issue 联系 product owner。
+本仓代码、文档、模板及演练材料使用 [MIT License](LICENSE)：允许使用、修改、复制、分发及商业使用，复制实质内容时保留版权与许可通知。外链项目与第三方 Skills 遵守各自许可；本仓许可不代表这些来源的重新授权。MIT 标准文本来源见 [OSI](https://opensource.org/license/mit)。
