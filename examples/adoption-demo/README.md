@@ -2,7 +2,7 @@
 
 这是教学 fixture，**故意保留同步替身与真实异步 client 的错配**。不是生产组件，也不冒充知乎历史原始实现。演练借鉴的真实事故见 docs/design-history.md H03 / 知乎 PR #87。
 
-将本目录复制到一个新目录并初始化独立 Git 仓后，按 [贯穿案例](../../docs/adoption-walkthrough.md)执行。不要在治理仓中提交 fixture 的练习修复。
+将本目录复制到一个新目录并初始化独立 Git 仓后，按 [贯穿案例](https://github.com/FlapPearLabs/agent-engineering-governance/blob/main/docs/adoption-walkthrough.md)执行。该链接是在线导航；已固定治理版本时，从该版本读取 `docs/adoption-walkthrough.md`，离线用开工时提供的治理副本。不要在治理仓中提交 fixture 的练习修复。复制时同时保留治理仓的 LICENSE。
 
 ```bash
 python3 -m unittest discover -s tests -v
