@@ -22,6 +22,7 @@
 ```bash
 mkdir "$DEMO_DIR"
 cp -R "$GOVERNANCE_DIR/examples/adoption-demo/." "$DEMO_DIR/"
+cp "$GOVERNANCE_DIR/LICENSE" "$DEMO_DIR/LICENSE"
 git -C "$DEMO_DIR" init -b main
 git init --bare "$DEMO_REMOTE"
 git -C "$DEMO_DIR" config --local "url.$DEMO_REMOTE.insteadOf" ssh://exercise.invalid/adoption-demo.git
