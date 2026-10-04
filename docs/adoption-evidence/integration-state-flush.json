@@ -1,0 +1,32 @@
+{
+  "verifiedAt": "2026-10-03T13:45:26.385150+00:00",
+  "subjectReportSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "acceptedCodeSubjectSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "result": "PASS",
+  "milestoneFrontier": "MILESTONE_COMPLETE",
+  "canonicalExecutionControlPlane": "docs/task.md",
+  "stateIndex": ".agent/project-state.json",
+  "durableReviewPacket": "docs/evidence/review-fe9a33c",
+  "durableIntegrationEvidence": "docs/evidence/integration",
+  "recoveryEntry": "docs/evidence/integration/recovery.md",
+  "indexSnapshotSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "indexSnapshotMeaning": "historical accepted-code remote verification before later admin report; current remote/report tip recovered from live Git refs",
+  "actualRemoteMainSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "actualTargetMainSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "workerLaneFrozenAt": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "repairRound": "1/2 cumulative",
+  "findingDispositions": {
+    "F1": "REPAIRED artifact sanitation; no history rewrite or new gate",
+    "F2": "INFORMATIONAL established linter gap; no repair/tool installation"
+  },
+  "knowledgePlacement": "frozen SPEC owns contract; app/tests retain accepted code/regressions; tracker owns terminal frontier; index points/snapshots; sealed packet owns exact review/Skill/check evidence; integration docs own native equivalent-CI limits, actual accepted-code remote proof, LOW admin source/scope checks and recovery procedure",
+  "originalWorkerReceiptPackagingLimit": "Original execution receipt consumed by sealed independent review but not fully repackaged; original reports/RED/GREEN and current Worker repair/Reviewer exact receipts retained. No fresh direct original-receipt validation claimed.",
+  "originalHistoricalSealCoverageLimit": "all receipt-bound history evidence retained, full old seal helper coverage explicitly not claimed",
+  "sourceIdentity": "tested local20f input remains unchanged; public3e92751 tree equivalence provenance only",
+  "actualCIState": "NOT_TRIGGERED",
+  "fixtureEquivalentEvidenceAccepted": true,
+  "staticGatesComplete": "NO",
+  "codegraphMode": "MODE C manual, no live runtime enforcement; no production changes in administrative report delta",
+  "nextLegalAction": "Parent separately routes fresh recovery verification using only supplied governance+target/remote; STOP at DEMO-1, no next product ticket",
+  "permissionBoundaries": "only fixture target/bare and separate evidence lane written; no governance/global config/MEMORY/hooks/credentials access or changes by Integrator"
+}

@@ -1,0 +1,100 @@
+"""Independent DEMO-1 probes. Inputs and synchronization are test-owned."""
+import asyncio
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).parent / "candidate"))
+import app
+
+
+class IndependentAsyncSeamTests(unittest.IsolatedAsyncioTestCase):
+    async def test_suspended_transport_blocks_entrypoint_and_fetch_is_once(self):
+        started = asyncio.Event()
+        release = asyncio.Event()
+        counts = {"fetch": 0, "transport": 0}
+        real_fetch = app.FeedClient.fetch
+
+        async def observe_real_fetch(client):
+            counts["fetch"] += 1
+            return await real_fetch(client)
+
+        async def transport():
+            counts["transport"] += 1
+            started.set()
+            await release.wait()
+            return [1, 2, 3]
+
+        with patch.object(app.FeedClient, "fetch", observe_real_fetch):
+            task = asyncio.create_task(app.run(transport))
+            try:
+                await asyncio.wait_for(started.wait(), 1)
+                await asyncio.sleep(0)
+                self.assertFalse(task.done(), "entrypoint returned before transport completed")
+                self.assertEqual(counts, {"fetch": 1, "transport": 1})
+                release.set()
+                self.assertEqual(await asyncio.wait_for(task, 1), 3)
+                self.assertEqual(counts, {"fetch": 1, "transport": 1})
+            finally:
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+    async def test_original_transport_cancellation_propagates_without_retry(self):
+        original = asyncio.CancelledError("test-owned cancellation")
+        calls = []
+
+        async def transport():
+            calls.append("transport")
+            await asyncio.sleep(0)
+            raise original
+
+        try:
+            await app.run(transport)
+        except asyncio.CancelledError as caught:
+            self.assertIs(caught, original, "cancellation was replaced or wrapped")
+        else:
+            self.fail("cancellation became successful completion")
+        self.assertEqual(calls, ["transport"], "transport cancellation triggered a retry")
+
+    async def test_overlapping_runs_and_repeat_do_not_reuse_or_mix_results(self):
+        started = [asyncio.Event(), asyncio.Event()]
+        release = [asyncio.Event(), asyncio.Event()]
+        calls = [0, 0]
+
+        def make_transport(index, length):
+            async def transport():
+                calls[index] += 1
+                started[index].set()
+                await release[index].wait()
+                return list(range(length))
+            return transport
+
+        tasks = [asyncio.create_task(app.run(make_transport(0, 1))),
+                 asyncio.create_task(app.run(make_transport(1, 4)))]
+        try:
+            await asyncio.wait_for(asyncio.gather(*(event.wait() for event in started)), 1)
+            release[1].set()
+            self.assertEqual(await asyncio.wait_for(tasks[1], 1), 4)
+            self.assertFalse(tasks[0].done(), "one transport completed another run")
+            release[0].set()
+            self.assertEqual(await asyncio.wait_for(tasks[0], 1), 1)
+            self.assertEqual(calls, [1, 1])
+            repeated_calls = []
+
+            async def repeated_transport():
+                repeated_calls.append("transport")
+                return [0] * 7
+
+            self.assertEqual(await app.run(repeated_transport), 7)
+            self.assertEqual(repeated_calls, ["transport"])
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

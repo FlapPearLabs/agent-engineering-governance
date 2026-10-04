@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-10-04T02:13:27.744795+00:00",
+  "liveRefs": [
+    "ref: refs/heads/main\tHEAD",
+    "4bc73940859efbe033fa579a6cda1eb2a6d63a24\tHEAD",
+    "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372\trefs/heads/demo-1-async-contract",
+    "4bc73940859efbe033fa579a6cda1eb2a6d63a24\trefs/heads/main"
+  ],
+  "bareHead": "refs/heads/main",
+  "ordinaryCloneHeadBeforeFetch": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "ordinaryCloneBranch": "main",
+  "ordinaryCloneHasStateIndex": true,
+  "ordinaryCloneNoBranchArgument": true,
+  "ordinaryCloneNoSubsequentCheckout": true,
+  "fetchedOriginMain": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "headAfterFetch": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "refsStable": true,
+  "parent": "7c44db432cf2f82282357085295f400d396d02bc",
+  "frozenWorker": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "defaultRecovery": "PASS",
+  "writes": "Own audit directory and new ordinary clone only; no target/remote changes"
+}

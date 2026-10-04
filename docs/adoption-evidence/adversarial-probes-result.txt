@@ -1,0 +1,8 @@
+test_original_transport_cancellation_propagates_without_retry (__main__.IndependentAsyncSeamTests.test_original_transport_cancellation_propagates_without_retry) ... ok
+test_overlapping_runs_and_repeat_do_not_reuse_or_mix_results (__main__.IndependentAsyncSeamTests.test_overlapping_runs_and_repeat_do_not_reuse_or_mix_results) ... ok
+test_suspended_transport_blocks_entrypoint_and_fetch_is_once (__main__.IndependentAsyncSeamTests.test_suspended_transport_blocks_entrypoint_and_fetch_is_once) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.005s
+
+OK

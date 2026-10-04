@@ -1,0 +1,12 @@
+[
+  {
+    "id": "P3",
+    "result": "PASS",
+    "assertions": "Original cancellation identity preserved after suspension; transport invoked once"
+  },
+  {
+    "id": "P4",
+    "result": "PASS",
+    "assertions": "Overlapping real FeedClient calls remain distinct; no shared cache/retry or premature count"
+  }
+]

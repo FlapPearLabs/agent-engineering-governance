@@ -1,0 +1,86 @@
+INDEPENDENT_REVIEW_CHECK_SUBJECT = fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372
+BASE_SHA = 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb
+NATURE = sanitized rendering of actual independent review commands and outputs, not a standalone receipt
+ENVIRONMENT = local isolated stdlib asyncio/unittest fixture; no target PR/Actions; all host paths are placeholders
+
+CHECK = syntax
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B -m compileall -q app.py tests
+EXIT_CODE = 0
+
+
+CHECK = state-schema
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B <EXERCISE>/worker/governance-input/scripts/validate_project_state.py .
+EXIT_CODE = 0
+PASS  project-state-exists
+PASS  project-state-valid-json
+PASS  contract-version-supported
+PASS  top-level-fields-known
+PASS  project-identity
+PASS  remote-format
+PASS  default-branch
+PASS  canonical-documents-pointers
+PASS  execution-control-plane
+PASS  recovery-snapshot-required-keys
+PASS  recovery-snapshot-keys-known
+PASS  recovery-snapshot
+PASS  codegraph-policy
+PASS  no-secret-like-fields
+PASS  no-local-absolute-paths
+PASS  no-runtime-only-fields
+
+16/16 checks passed
+
+CHECK = diff-check
+COMMAND = git diff --check 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372
+EXIT_CODE = 0
+
+
+CHECK = append-only
+COMMAND = git merge-base --is-ancestor 11062995ea3607f680b6168651d7f2f2b6688354 fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372
+EXIT_CODE = 0
+
+
+CHECK = unchanged-code-authority
+COMMAND = git diff --exit-code 11062995ea3607f680b6168651d7f2f2b6688354 fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372 -- app.py tests SPEC.md AGENTS.md README.md
+EXIT_CODE = 0
+
+
+CHECK = native-tests
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B -m unittest discover -s tests -v
+EXIT_CODE = 0
+test_empty_result_returns_zero (test_app.AsyncContractTests.test_empty_result_returns_zero) ... ok
+test_real_entrypoint_awaits_transport_once (test_app.AsyncContractTests.test_real_entrypoint_awaits_transport_once) ... ok
+test_transport_original_exception_propagates_once (test_app.AsyncContractTests.test_transport_original_exception_propagates_once) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+OK
+
+CHECK = real-entrypoint
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B app.py
+EXIT_CODE = 0
+2
+
+CHECK = independent-probes
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B <EXERCISE>/reviewer/repair-1/adversarial_tests.py
+EXIT_CODE = 0
+test_original_transport_cancellation_propagates_without_retry (__main__.IndependentAsyncSeamTests.test_original_transport_cancellation_propagates_without_retry) ... ok
+test_overlapping_runs_and_repeat_do_not_reuse_or_mix_results (__main__.IndependentAsyncSeamTests.test_overlapping_runs_and_repeat_do_not_reuse_or_mix_results) ... ok
+test_suspended_transport_blocks_entrypoint_and_fetch_is_once (__main__.IndependentAsyncSeamTests.test_suspended_transport_blocks_entrypoint_and_fetch_is_once) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.005s
+
+OK
+
+CHECK = worker-skill-validation
+COMMAND = <PYTHON_RUNTIME>/bin/python3 -B <EXERCISE>/worker/governance-input/scripts/skill_execution.py <EXERCISE>/worker/repair-1/skill-execution.json --repo ssh://exercise.invalid/adoption-demo.git --base-sha 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb --candidate-sha fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372 --task DEMO-1 --phase WORKER_REPAIR_1 --role WORKER --evidence-root <EXERCISE>/worker/repair-1 --required-skill code-review --required-skill handoff
+EXIT_CODE = 0
+{"recordValid": true, "findings": [], "semanticApplicationVerified": false, "hostEnforcementVerified": false}
+
+CHECK = clean-exact-copy
+COMMAND = git status --porcelain
+EXIT_CODE = 0
+
+

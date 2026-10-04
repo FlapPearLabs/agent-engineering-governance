@@ -1,0 +1,32 @@
+{
+  "observedBefore": "2026-10-04T01:16:05.254014+00:00",
+  "observedAfter": "2026-10-04T01:16:05.260064+00:00",
+  "operator": "/root/adoption_metadata_integrator",
+  "command": "git --git-dir=<AUTHORIZED_BARE> symbolic-ref HEAD refs/heads/main",
+  "headBefore": "refs/heads/master",
+  "headAfter": "refs/heads/main",
+  "allRefsBefore": [
+    "refs/heads/demo-1-async-contract fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "refs/heads/main 7c44db432cf2f82282357085295f400d396d02bc"
+  ],
+  "allRefsAfter": [
+    "refs/heads/demo-1-async-contract fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "refs/heads/main 7c44db432cf2f82282357085295f400d396d02bc"
+  ],
+  "branchRefsBefore": [
+    "refs/heads/demo-1-async-contract fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "refs/heads/main 7c44db432cf2f82282357085295f400d396d02bc"
+  ],
+  "branchRefsAfter": [
+    "refs/heads/demo-1-async-contract fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "refs/heads/main 7c44db432cf2f82282357085295f400d396d02bc"
+  ],
+  "reachableObjectInventoryBeforeSha256": "4b6ca0802a8d3506b68d828f29321944f6177334d2c0a14de66bf0d6614ee3e1",
+  "reachableObjectInventoryAfterSha256": "4b6ca0802a8d3506b68d828f29321944f6177334d2c0a14de66bf0d6614ee3e1",
+  "reachableObjectInventoryCount": 128,
+  "allRefsUnchanged": true,
+  "branchRefsUnchanged": true,
+  "reachableHistoryUnchanged": true,
+  "repairRound": "2/2 cumulative on original DEMO-1",
+  "scope": "Only isolated nonproduction bare HEAD metadata; no branch ref or history mutation"
+}

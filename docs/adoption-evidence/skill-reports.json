@@ -1,0 +1,439 @@
+{
+  "nature": "Sanitized excerpts of actual post-use reports to Parent; not a standalone exact receipt or proof of message delivery",
+  "reports": [
+    {
+      "originalArtifact": "worker/diagnosing-bugs-report.json",
+      "report": {
+        "skill": "diagnosing-bugs",
+        "status": "FALLBACK",
+        "summary": "Investigate green synchronous double versus failed real async entrypoint using structured hypothesis and execution.",
+        "result": "Confirmed count_records uses len on an unawaited FeedClient.fetch coroutine; baseline suite exit 0, app exit 1.",
+        "evidenceRefs": [
+          "baseline-tests.txt",
+          "baseline-app.txt",
+          "registry-assessment.txt"
+        ],
+        "limitations": "Canonical SKILL.md unavailable and not invoked; fallback only, no network or live hook claim.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/tdd-report.json",
+      "report": {
+        "skill": "tdd",
+        "status": "FALLBACK",
+        "summary": "Implement frozen async contract using production-shaped historical counterexamples before code.",
+        "result": "Before fix: three assertion failures on real run/FeedClient coroutine path. After fix: three tests pass for count/once, empty=0 and same exception propagation.",
+        "evidenceRefs": [
+          "red-tests.txt",
+          "static-checks.txt",
+          "green-tests.txt",
+          "green-app.txt"
+        ],
+        "limitations": "Canonical SKILL.md unavailable and not invoked. Manual fallback; current execution evidence only, independent exact-SHA acceptance and fixture equivalent-CI acceptance pending.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/implement-report.json",
+      "report": {
+        "skill": "implement",
+        "status": "FALLBACK",
+        "summary": "Execute authorized MEDIUM ticket-lane fallback without reopening architecture.",
+        "result": "Minimal app change awaits client.fetch once and counts records; no retries, cache, pagination, network or Spec changes.",
+        "evidenceRefs": [
+          "static-checks.txt",
+          "green-tests.txt",
+          "green-app.txt"
+        ],
+        "limitations": "Canonical SKILL.md unavailable and not invoked. Manual fallback; current execution evidence only, independent exact-SHA acceptance and fixture equivalent-CI acceptance pending.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Worker Standards and Risk self-review against frozen async seam, actual entrypoint and authorized semantic scope.",
+        "result": "At implementation SHA acc7ae375a38d9c965e2cc8fa5ed629b8e61e8fd, diff/ancestry/state schema/public candidate surface checks pass; Worker found no known high-value contract defect. Independent L1 remains NOT_RUN.",
+        "evidenceRefs": [
+          "self-review.txt",
+          "current-surface-scan.json",
+          "implementation-skill-validation.json"
+        ],
+        "limitations": "Canonical SKILL.md unavailable and not invoked. Self-review is Worker evidence only and does not satisfy R4/L1. Scanner covers current index/worktree candidate surface only, not history; static lint gap and absent GitHub CI remain explicit.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/handoff-final-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Finalize minimal audit handoff after stable push/fetch and exact candidate binding.",
+        "result": "Final candidate/remote feature 11062995ea3607f680b6168651d7f2f2b6688354; main remains 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb. Durable task/index/report evidence prepared; receipt outside subject commit, Parent must retain it for review consumption.",
+        "evidenceRefs": [
+          "handoff.txt",
+          "final-checks.txt",
+          "remote-verification.json"
+        ],
+        "limitations": "Canonical SKILL.md unavailable and not invoked; Worker evidence only. Independent L1, equivalent-CI acceptance and milestone escalation are pending. Static lint gap remains. No live hooks, actual upstream Skills, GitHub CI or universal portability claim.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/repair-1/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Worker Standards/Risk self-review of Parent-bounded artifact repair 1/2 and coordinated original MIT packaging delta.",
+        "result": "Exact candidate fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372 corrects three traceback roots while preserving failure evidence, adds byte-identical pinned MIT LICENSE, passes state/diff/ancestry/source-equality/scope checks and keeps main unchanged. Independent delta acceptance pending.",
+        "evidenceRefs": [
+          "repair-checks.json",
+          "sanitation-and-license-proof.json",
+          "sealed-review-reference.json",
+          "pre-self-review-skill-validation.json"
+        ],
+        "limitations": "Canonical SKILL.md unavailable, not invoked. Worker self-review is not independent approval; current pattern scan does not prove full R2 semantics or historical cleanliness. No source/test/Spec/scanner/gate changes; cumulative budget remains 1/2.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "worker/repair-1/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Finalize exact repair 1/2 audit packet after stable local bare branch push/fetch/reread for same Reviewer delta decision.",
+        "result": "New candidate and remote feature fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372, main 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb. Minimal sanitation/LICENSE delta, preserved old seal/evidence, actual code-review report, scope/check/remote evidence and exact receipt ready for Parent.",
+        "evidenceRefs": [
+          "handoff.txt",
+          "repair-checks.json",
+          "remote-verification.json",
+          "code-review-report.json",
+          "pre-handoff-skill-validation.json"
+        ],
+        "limitations": "Canonical SKILL.md unavailable, not invoked. Parent/same Reviewer must accept new exact delta; old CHANGES_REQUESTED not erased. Local bare evidence is not SSH/upstream/GitHub CI; no live hooks, original upstream Skills, full-history clean or universal portability claim.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "reviewer/repair-1/portable/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Independent bounded exact repair delta review with preservation/license/scope proofs, verified evidence reuse, fresh native tests and prior independent probe reruns.",
+        "result": "PASS_WITH_NONBLOCKING_FINDINGS on fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372; F1 repaired, F2 informational; local CI alternative accepted for Reviewer portion, milestone candidate assessment passed, integration pending.",
+        "evidenceRefs": [
+          "verdict-fe9a33c.md",
+          "checks.json",
+          "sanitation-license-proof.json",
+          "reuse-scope.json",
+          "r2-current-surface.json",
+          "worker-skill-validation.txt",
+          "independent-probes.txt",
+          "remote-observation.json"
+        ],
+        "limitations": "Original canonical code-review Skill unavailable and not invoked; documented manual fallback. One Unix runtime; no original Skills/live hooks/CodeGraph/model diversity/real PR CI/full historical transcript claim. Original old verdict unchanged.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "reviewer/repair-1/portable/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Seal a portable exact-SHA Reviewer packet for durable Parent/Integrator handoff, keeping historical blocking review separate and current receipt attachments verifiable without private paths.",
+        "result": "PASS_WITH_NONBLOCKING_FINDINGS on fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372; F1 repaired, F2 informational. Portable Worker and historical Reviewer receipts validate; host-root local helpers excluded and originals preserved outside publish set. Candidate unchanged; separate role transition and integration closure still pending.",
+        "evidenceRefs": [
+          "verdict-fe9a33c.md",
+          "README.md",
+          "checks.json",
+          "remote-observation.json",
+          "publication-exclusions.json",
+          "publication-scan.json",
+          "portable-receipt-validations.json",
+          "code-review-report.json"
+        ],
+        "limitations": "Original canonical handoff Skill unavailable and not invoked; manual fallback. The unchanged old seal retains an omitted helper digest entry, so full old-seal attachment coverage is not claimed. No real CI, actual SSH/upstream, host enforcement or milestone completion claim. Copy into later report commit only after authorized transition, never into its subject commit.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Standards/Risk L0 self-review of separately scoped LOW nonproduction administrative closure; current exact report checked after commit, before serialized publication.",
+        "result": "PASS for administrative L0 scope at 7c44db432cf2f82282357085295f400d396d02bc: native3/3, CLI2, syntax, state16/16, diff/ancestry,77 administrative paths, frozen-source equality,57 sealed packet attachments,3 portable receipts and106 current R2 content checks verified. Independent behavior acceptance remains exact fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372; F1 repaired,F2 informational,repair1/2. Main was then normally pushed and fresh remote/target verified.",
+        "evidenceRefs": [
+          "routing-assessment.json",
+          "merge-gate.json",
+          "accepted-code-remote.json",
+          "admin-checks.json",
+          "recovery.md",
+          "governance-provenance.json",
+          "governance-input-verification.json",
+          "final-remote-verification.json",
+          "integration-result.md"
+        ],
+        "limitations": "Original canonical code-review SKILL.md absent from advertised registry and not invoked; documented manual fallback. LOW administrative self-review is not independent L1 and does not relabel accepted-code whole-SHA verdict. One runtime; actual PR CI NOT_TRIGGERED; no installed tools, original Skills/live enforcement/model diversity/SSH/public upstream/full-history clean claim. Durable prepublication report remains unchanged in subject commit; this external final report records later exact verification.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Complete portable durable audit/recovery handoff after actual accepted-code integration and exact LOW administrative report publication, preserving immutable review subjects and phase boundaries.",
+        "result": "STATE_FLUSH PASS and MILESTONE_COMPLETE. Actual remote main/target/Integrator report tip 7c44db432cf2f82282357085295f400d396d02bc; accepted code and frozen Worker tip fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372. Tracker/index, sealed57-attachment packet, current Worker and historical Reviewer exact receipts, source/checks/fallback/CI/provenance limits and live-ref recovery procedure persist in target. External exact receipt binds this final report and is not inside its subject commit. Parent can route fresh recovery with only governance+target/remote.",
+        "evidenceRefs": [
+          "routing-assessment.json",
+          "recovery.md",
+          "governance-provenance.json",
+          "code-review-report.json",
+          "admin-checks.json",
+          "final-remote-verification.json",
+          "state-flush.json",
+          "integration-result.md"
+        ],
+        "limitations": "Original canonical handoff SKILL.md unavailable and not invoked; manual minimal packet. No real PR CI/original Skills/live hooks/SSH/public upstream/model diversity/full-history sanitation claim. Original Worker execution receipt not fully repackaged; original reports/checks retained and independently reviewed; historical old seal helper excluded explicitly. Parent message delivery/transcript is not mechanically proven by receipt booleans. No next product ticket.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "parent-f3-diagnosing-bugs-report.json",
+      "report": {
+        "skill": "diagnosing-bugs",
+        "status": "FALLBACK",
+        "result": "Hypothesis verified by symbolic ref, missing HEAD object, existing main and ls-remote; no target mutation",
+        "evidenceRefs": [
+          "parent-f3-selection.json",
+          "parent-f3-diagnosis.json"
+        ],
+        "limitations": "Original canonical SKILL.md unavailable in current advertised registry; structured hypothesis/test fallback from supplied governance; No original skill invocation or host enforcement claim",
+        "summary": "Reproduce recovery default failure and isolate metadata cause before bounded repair",
+        "audience": "USER"
+      }
+    },
+    {
+      "originalArtifact": "fresh-recovery/resume/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Independent Standards/Risk STATE_RESTORE review against actual remote, source contract, persistent state, administrative delta and exact evidence",
+        "result": "CHANGES_REQUESTED for default recovery; explicit main content recovered; native3/3 CLI2, self-authored4 probes,57 hashes/3 exact receipts verified",
+        "evidenceRefs": [
+          "findings-initial.json",
+          "checks.json",
+          "grounding.json",
+          "persistent-state.json",
+          "packet-integrity.json",
+          "receipt-validations.json",
+          "semantic-path-check.json",
+          "current-surface-scan.json",
+          "new-independent-behavior-probes.txt",
+          "visibility.json",
+          "remote-observation.json",
+          "verdict-initial.md"
+        ],
+        "limitations": "Default remote recovery FAIL; explicit main content recovery COMPLETE. No remote or target mutation by this reviewer.; Supplied governance archive bytes match 21 recorded historical sources; its recorded candidate identity is 20f2567bb04966ed224d487ecf873a8d28995604. No independent Git/archive commit identity, accepted-release or public tree-equivalence verification.; Canonical workflow SKILL.md unavailable in fresh registry; hand-executed FALLBACK only. No original invocation or host enforcement claim. No matching stdlib asyncio/Git bare recovery domain Skill.; 57 accepted packet attachments and 3 exact portable receipts revalidated directly. Original Worker implementation exact receipt and external final Integrator report receipt are not packaged; no fresh direct full validation of either.; Historical seal bytes remain intact and old CHANGES_REQUESTED preserved; omitted local helper prevents full old-seal attachment coverage. Runtime transcripts, true historical report delivery and historical reviewer independence remain NOT_SEEN beyond durable records.; One local Unix/Python runtime and local bare fixture only. Actual SSH, public upstream, GitHub PR CI, live MEMORY/hooks, CodeGraph and model diversity unproved. CI NOT_TRIGGERED; staticGatesComplete NO with known lint/format/deep-analysis gaps.; Current candidate scan and direct concrete traceback-path check do not establish full-history clean or universal identity/path safety. Old published objects were not rewritten.; Auditor replacement reason is availability interruption, not budget reset or verdict shopping. Initial snapshot records cumulative 1/2; Parent-authorized repair2 remains original-task 2/2, does not become new budget through reviewer/SHA replacement. Extra blocker needs existing arbiter authority.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "fresh-recovery/resume/diagnosing-bugs-report.json",
+      "report": {
+        "skill": "diagnosing-bugs",
+        "status": "FALLBACK",
+        "summary": "Structured hypothesis: existing main with invalid remote HEAD; ordinary clone vs explicit main isolates metadata cause",
+        "result": "Mechanically reproduced dangling advertised default; route bounded correction to owner",
+        "evidenceRefs": [
+          "remote-observation.json",
+          "default-clone.txt",
+          "default-clone-head.txt",
+          "bare-head.txt",
+          "live-refs-before.txt",
+          "findings-initial.json"
+        ],
+        "limitations": "Default remote recovery FAIL; explicit main content recovery COMPLETE. No remote or target mutation by this reviewer.; Supplied governance archive bytes match 21 recorded historical sources; its recorded candidate identity is 20f2567bb04966ed224d487ecf873a8d28995604. No independent Git/archive commit identity, accepted-release or public tree-equivalence verification.; Canonical workflow SKILL.md unavailable in fresh registry; hand-executed FALLBACK only. No original invocation or host enforcement claim. No matching stdlib asyncio/Git bare recovery domain Skill.; 57 accepted packet attachments and 3 exact portable receipts revalidated directly. Original Worker implementation exact receipt and external final Integrator report receipt are not packaged; no fresh direct full validation of either.; Historical seal bytes remain intact and old CHANGES_REQUESTED preserved; omitted local helper prevents full old-seal attachment coverage. Runtime transcripts, true historical report delivery and historical reviewer independence remain NOT_SEEN beyond durable records.; One local Unix/Python runtime and local bare fixture only. Actual SSH, public upstream, GitHub PR CI, live MEMORY/hooks, CodeGraph and model diversity unproved. CI NOT_TRIGGERED; staticGatesComplete NO with known lint/format/deep-analysis gaps.; Current candidate scan and direct concrete traceback-path check do not establish full-history clean or universal identity/path safety. Old published objects were not rewritten.; Auditor replacement reason is availability interruption, not budget reset or verdict shopping. Initial snapshot records cumulative 1/2; Parent-authorized repair2 remains original-task 2/2, does not become new budget through reviewer/SHA replacement. Extra blocker needs existing arbiter authority.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "fresh-recovery/resume/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Append-only minimal audit handoff preserving exact main, immutable initial defect seal, checks, legal frontier and boundaries",
+        "result": "Sealed initial blocker and exact evidence handed to Parent; repair2 then fresh default/main review only",
+        "evidenceRefs": [
+          "verdict-initial.md",
+          "seal-initial.json",
+          "state-restore-initial.json",
+          "findings-initial.json",
+          "checks.json",
+          "skill-execution-initial.json",
+          "skill-validation-initial.json",
+          "visibility.json",
+          "handoff-initial.json",
+          "code-review-report.json",
+          "diagnosing-bugs-report.json"
+        ],
+        "limitations": "Default remote recovery FAIL; explicit main content recovery COMPLETE. No remote or target mutation by this reviewer.; Supplied governance archive bytes match 21 recorded historical sources; its recorded candidate identity is 20f2567bb04966ed224d487ecf873a8d28995604. No independent Git/archive commit identity, accepted-release or public tree-equivalence verification.; Canonical workflow SKILL.md unavailable in fresh registry; hand-executed FALLBACK only. No original invocation or host enforcement claim. No matching stdlib asyncio/Git bare recovery domain Skill.; 57 accepted packet attachments and 3 exact portable receipts revalidated directly. Original Worker implementation exact receipt and external final Integrator report receipt are not packaged; no fresh direct full validation of either.; Historical seal bytes remain intact and old CHANGES_REQUESTED preserved; omitted local helper prevents full old-seal attachment coverage. Runtime transcripts, true historical report delivery and historical reviewer independence remain NOT_SEEN beyond durable records.; One local Unix/Python runtime and local bare fixture only. Actual SSH, public upstream, GitHub PR CI, live MEMORY/hooks, CodeGraph and model diversity unproved. CI NOT_TRIGGERED; staticGatesComplete NO with known lint/format/deep-analysis gaps.; Current candidate scan and direct concrete traceback-path check do not establish full-history clean or universal identity/path safety. Old published objects were not rewritten.; Auditor replacement reason is availability interruption, not budget reset or verdict shopping. Initial snapshot records cumulative 1/2; Parent-authorized repair2 remains original-task 2/2, does not become new budget through reviewer/SHA replacement. Extra blocker needs existing arbiter authority.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/repair-2-resume/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Actual Standards/Risk L0 self-review of authorized recovery2 metadata correction and administrative working-tree delta from old report; original canonical SKILL.md unavailable.",
+        "result": "PASS for LOW nonproduction administrative scope: exact initial seal/verdict and 49 attachments consumed; only bare symbolic HEAD fixed; refs and 128-item reachable inventory invariant; ordinary default clone automatic main/index/frozen-source equality; native3/3 CLI2 schema16/16 syntax/diff/ancestry; 57 accepted packet hashes and 3 exact receipts verified; current 110 content pattern checks and specific traceback/known-root check clear. Independent behavior PASS remains only fe9; new report whole-SHA independent acceptance is not claimed.",
+        "evidenceRefs": [
+          "routing-assessment.json",
+          "authority-reads.json",
+          "initial-seal-consumption.json",
+          "metadata-correction.json",
+          "ordinary-clone-before-admin.json",
+          "checks-prepublication/admin-checks.json",
+          "pre-self-review-validation.json"
+        ],
+        "limitations": "Hand-executed documented fallback; original code-review source absent and not invoked. L0 self-review not independent L1. Actual PR CI NOT_TRIGGERED, STATIC_GATES_COMPLETE NO, F2 INFORMATIONAL, CodeGraph/model diversity/live enforcement unavailable; one local bare fixture/runtime; no SSH/public-upstream/full-history claim. Cumulative repair2/2 exhausted; new high-value blocker routes Parent arbiter. Final administrative report identity/remote verification and independent recovery recheck are subsequent stages.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/repair-2-resume/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Actual minimal durable audit/recovery packet formed after code-review fallback and Parent relay confirmation, before administrative commit/publication.",
+        "result": "Tracker/index now carry actual default metadata repair, cumulative2/2 and pending independent exact-current-main audit; new correction/ordinary-clone/check/portable-report records and recovery procedure supplement existing accepted packet. No whole old packet recopied. Final commit identity, normal push and current default clone/STATE_FLUSH are subsequent authorized verification steps; exact final receipt remains outside its subject commit.",
+        "evidenceRefs": [
+          "recovery.md",
+          "initial-seal-consumption.json",
+          "metadata-correction.json",
+          "ordinary-clone-before-admin.json",
+          "checks-prepublication/admin-checks.json",
+          "code-review-report.json",
+          "pre-handoff-skill-validation.json"
+        ],
+        "limitations": "Original canonical handoff SKILL.md unavailable and not invoked; documented minimal-packet manual fallback. Remote publication and independent final recovery verdict not yet claimed. One local bare fixture/runtime; actual CI NOT_TRIGGERED/staticGatesComplete NO; no original Skills/live enforcement/model diversity/SSH/public-upstream/full-history claim. Initial audit49 attachments remain external; original historical packaging limits persist. New high-value blocker requires Parent arbiter; no new product stage.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/repair-2-resume/code-review-final-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Completed final supplement to the actual prepublication Standards/Risk manual fallback, now bound to exact administrative report 4bc73940859efbe033fa579a6cda1eb2a6d63a24; earlier reports remain immutable.",
+        "result": "PASS only for authorized LOW Integrator L0 metadata/admin scope. Exact final checks cover 13 administrative paths, frozen app/tests/SPEC/AGENTS/README/LICENSE equal accepted fe9, native 3/3, CLI result 2, schema 16/16, syntax/diff/ancestry, 57 accepted packet hashes and 3 exact portable receipts; 117 current content scans and bounded path checks clear. Metadata-only repair preserved all branch refs and 128 reachable inventory entries before the separately authorized append; normal main publication and default ordinary clone were verified. Final source/scope/old-record invariance independently rechecked read-only. Original independent behavior PASS remains exact fe9, not this new whole SHA.",
+        "evidenceRefs": [
+          "admin-checks.json",
+          "authority-reads.json",
+          "checks-prepublication/admin-checks.json",
+          "code-review-report.json",
+          "exact-commit.json",
+          "final-record-invariance.json",
+          "final-remote-verification.json",
+          "initial-seal-consumption.json",
+          "integration-result.md",
+          "metadata-correction.json",
+          "ordinary-clone-before-admin.json",
+          "pre-self-review-validation.json",
+          "prepublication-skill-execution.json",
+          "prepublication-skill-validation.json",
+          "publication-gate.json",
+          "routing-assessment.json",
+          "state-flush.json"
+        ],
+        "limitations": "Canonical code-review SKILL.md unavailable and not invoked; documented hand-executed FALLBACK only. This is L0 self-review, not independent final recovery acceptance. Actual CI NOT_TRIGGERED; staticGatesComplete NO; F2 informational. One local bare fixture/runtime; no live enforcement, CodeGraph/model diversity, SSH/public upstream or full-history clean claim. Original stage reports/snapshots unchanged. Cumulative repair 2/2 exhausted; new high-value blocker routes Parent arbiter.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "integrator/repair-2-resume/handoff-final-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Completed final external supplement to the minimal handoff that was reported before publication; exact main identity, real publication/default clone and STATE_FLUSH now attached without altering the durable subject.",
+        "result": "The authorized administrative record is durable on exact main 4bc73940859efbe033fa579a6cda1eb2a6d63a24, direct parent 7c44db432cf2f82282357085295f400d396d02bc. Normal serialized push and fresh fetch/ls-remote plus ordinary automatic main clone completed, no branch option or later checkout. Tracker/index/new repair2 records hold actual repair 2/2 and pending independent audit; exact external reports/receipt remain outside their subject commit. STATE_FLUSH confirms no unpushed or important unpublished context within delegated boundary. Original target stays old7c44 clean, Worker/feature stays fe9 clean, prior seals/49 initial attachments remain unchanged. The first unsealed final receipt attempt is retained with its two missing report-evidence findings; the final external reports now cover all actual declared execution refs. No old packet is recopied and no duplicate closure commit is made.",
+        "evidenceRefs": [
+          "admin-checks.json",
+          "checks-prepublication/admin-checks.json",
+          "code-review-report.json",
+          "exact-commit.json",
+          "final-record-invariance.json",
+          "final-remote-verification.json",
+          "handoff-report.json",
+          "initial-seal-consumption.json",
+          "integration-result.md",
+          "metadata-correction.json",
+          "ordinary-clone-before-admin.json",
+          "pre-handoff-skill-validation.json",
+          "prepublication-skill-execution.json",
+          "prepublication-skill-validation.json",
+          "publication-gate.json",
+          "recovery.md",
+          "state-flush.json"
+        ],
+        "limitations": "Canonical handoff SKILL.md unavailable and not invoked; documented minimal-packet FALLBACK only. Parent owns independent final recovery disposition; no independent whole-new-SHA PASS. Initial 49-attachment audit remains external; historical packet/omitted-helper coverage limits remain. Actual CI NOT_TRIGGERED/staticGatesComplete NO, one runtime/local bare fixture, no SSH/public upstream/live Skills/hooks/model diversity/full-history claim. Budget stays cumulative 2/2 exhausted; stop at DEMO-1 behavior milestone.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "fresh-recovery/resume/repair-review/code-review-report.json",
+      "report": {
+        "skill": "code-review",
+        "status": "FALLBACK",
+        "summary": "Independent Standards/Risk review of actual current default recovery and13-path authorized administrative delta; original source unavailable",
+        "result": "PASS_WITH_NONBLOCKING_FINDINGS on exact4bc within scope; RECOVERY-F1 independently resolved, initial CHANGES_REQUESTED retained, no new high-value blocker",
+        "evidenceRefs": [
+          "verdict.md",
+          "findings.json",
+          "state-restore.json",
+          "checks.json",
+          "integrity.json",
+          "independent-controls.json",
+          "remote-observation.json",
+          "receipt-validations.json",
+          "current-surface-scan.json",
+          "semantic-path-check.json",
+          "visibility.json",
+          "grounding.json"
+        ],
+        "limitations": "Bounded independent current-default recovery and13-path administrative delta verdict. Original behavior acceptance remains exact fe9; no old whole-SHA PASS relabeled.; One local Unix/Python runtime and authorized bare fixture. Auditor cloned physical authorized bare directly with globals/system Git disabled; no actual SSH/public upstream/GitHub PR CI/cross-platform proof. Original target stays clean at historical7c44; live remote/current auditor clone are4bc.; Original workflow SKILL.md unavailable in fresh executor156/cloud0 registry. code-review/handoff documented manual FALLBACK only; no matching domain Skill or original invocation/live enforcement proof. CodeGraph/model diversity/live MEMORY/hooks unavailable or unproved.; Actual CI NOT_TRIGGERED; explicit original fixture local-evidence override applies. STATIC_GATES_COMPLETE NO; lint/format/deep-analysis NOT_CONFIGURED, typecheck NOT_APPLICABLE. Known F2 gap and frozen README navigation remain informational.; Original Worker implementation and historical/final external Integrator exact execution receipts are outside allowed durable target inputs; no fresh direct full receipt validation claimed. Three packaged exact portable receipts are directly revalidated; recordValid never proves semantics, historical delivery or enforcement.; Accepted packet57 attachments, complete packet bytes and initial49+handoff5 seal manifests verified unchanged. Historical omitted helper still bounds full older-seal attachment coverage; full historical transcript NOT_SEEN. Initial CHANGES_REQUESTED seal retained, never relabeled.; Metadata before/after128-item invariant is Integrator durable observation, not a replay of historical mutation. This auditor independently verifies current bareHEAD/defaultclone, exact current ancestry and frozen refs/content; does not certify unavailable historical tool events.; Current117 candidate-content pattern scan and specific current known-root/absolute traceback checks do not prove full-history clean or universal identity/path sanitation. Existing published objects preserved.; Supplied governance bytes unchanged from initial full normative reads; recorded20f256 candidate provenance remains bounded, no independent accepted-release/public tree-equivalence certification. Cumulative original-task repair2/2 remains exhausted; extra high-value blocker would require existing Parent arbiter authority. No next product ticket.",
+        "audience": "PARENT"
+      }
+    },
+    {
+      "originalArtifact": "fresh-recovery/resume/repair-review/handoff-report.json",
+      "report": {
+        "skill": "handoff",
+        "status": "FALLBACK",
+        "summary": "Actual append-only exact audit handoff after completed independent code-review report to Parent",
+        "result": "Current4bc recovery acceptance, preserved initial failure, terminal2/2 frontier, exact checks/receipt and limitations durably handed off; no further product stage",
+        "evidenceRefs": [
+          "handoff.json",
+          "verdict.md",
+          "findings.json",
+          "state-restore.json",
+          "checks.json",
+          "integrity.json",
+          "visibility.json",
+          "code-review-report.json",
+          "skill-execution-review.json",
+          "skill-validation-review.json",
+          "remote-observation.json",
+          "independent-controls.json"
+        ],
+        "limitations": "Bounded independent current-default recovery and13-path administrative delta verdict. Original behavior acceptance remains exact fe9; no old whole-SHA PASS relabeled.; One local Unix/Python runtime and authorized bare fixture. Auditor cloned physical authorized bare directly with globals/system Git disabled; no actual SSH/public upstream/GitHub PR CI/cross-platform proof. Original target stays clean at historical7c44; live remote/current auditor clone are4bc.; Original workflow SKILL.md unavailable in fresh executor156/cloud0 registry. code-review/handoff documented manual FALLBACK only; no matching domain Skill or original invocation/live enforcement proof. CodeGraph/model diversity/live MEMORY/hooks unavailable or unproved.; Actual CI NOT_TRIGGERED; explicit original fixture local-evidence override applies. STATIC_GATES_COMPLETE NO; lint/format/deep-analysis NOT_CONFIGURED, typecheck NOT_APPLICABLE. Known F2 gap and frozen README navigation remain informational.; Original Worker implementation and historical/final external Integrator exact execution receipts are outside allowed durable target inputs; no fresh direct full receipt validation claimed. Three packaged exact portable receipts are directly revalidated; recordValid never proves semantics, historical delivery or enforcement.; Accepted packet57 attachments, complete packet bytes and initial49+handoff5 seal manifests verified unchanged. Historical omitted helper still bounds full older-seal attachment coverage; full historical transcript NOT_SEEN. Initial CHANGES_REQUESTED seal retained, never relabeled.; Metadata before/after128-item invariant is Integrator durable observation, not a replay of historical mutation. This auditor independently verifies current bareHEAD/defaultclone, exact current ancestry and frozen refs/content; does not certify unavailable historical tool events.; Current117 candidate-content pattern scan and specific current known-root/absolute traceback checks do not prove full-history clean or universal identity/path sanitation. Existing published objects preserved.; Supplied governance bytes unchanged from initial full normative reads; recorded20f256 candidate provenance remains bounded, no independent accepted-release/public tree-equivalence certification. Cumulative original-task repair2/2 remains exhausted; extra high-value blocker would require existing Parent arbiter authority. No next product ticket.",
+        "audience": "PARENT"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-03T13:42:48.725990+00:00",
+  "logicalRemote": "ssh://exercise.invalid/adoption-demo.git",
+  "actualRemote": "authorized local bare fixture via repo-local rewrite; no actual SSH or public upstream proof",
+  "acceptedCodeSubjectSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "previousMainSha": "0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb",
+  "administrativeReportSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "administrativeParentSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "remoteRefs": {
+    "refs/heads/demo-1-async-contract": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "refs/heads/main": "7c44db432cf2f82282357085295f400d396d02bc"
+  },
+  "targetMainSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "integratorHeadSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "workerHeadSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "bareMainSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "cleanTarget": true,
+  "cleanIntegrator": true,
+  "workerCleanFrozen": true,
+  "pushMethod": "serialized normal ff-only main pushes: unchanged accepted code first, LOW administrative report second; no force/amend/rebase",
+  "exactIndependentBehaviorVerdictSubject": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "administrativeReviewBasis": "separately scoped LOW nonproduction L0-only under adopted AGENTS section3; original exact-SHA review not relabeled to this report commit",
+  "actualCIState": "NOT_TRIGGERED",
+  "fixtureEquivalentEvidenceAccepted": true,
+  "milestoneFrontier": "MILESTONE_COMPLETE",
+  "nextLegalAction": "Parent routes separate fresh recovery verification; STOP at DEMO-1, no next product ticket"
+}

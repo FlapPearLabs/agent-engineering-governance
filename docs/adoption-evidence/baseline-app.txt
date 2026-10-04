@@ -1,0 +1,26 @@
+BASE_SHA = 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb
+COMMAND = python3 -B app.py
+EXIT_CODE = 1
+<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py:14: RuntimeWarning: coroutine 'FeedClient.fetch' was never awaited
+  return len(client.fetch())
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+Traceback (most recent call last):
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 26, in <module>
+    print(asyncio.run(run(sample_transport)))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+           ^^^^^^^^^^^^^^^^^^^
+TypeError: object of type 'coroutine' has no len()

@@ -24,12 +24,14 @@ mkdir "$DEMO_DIR"
 cp -R "$GOVERNANCE_DIR/examples/adoption-demo/." "$DEMO_DIR/"
 cp "$GOVERNANCE_DIR/LICENSE" "$DEMO_DIR/LICENSE"
 git -C "$DEMO_DIR" init -b main
-git init --bare "$DEMO_REMOTE"
+git init --bare -b main "$DEMO_REMOTE"
 git -C "$DEMO_DIR" config --local "url.$DEMO_REMOTE.insteadOf" ssh://exercise.invalid/adoption-demo.git
 git -C "$DEMO_DIR" remote add origin ssh://exercise.invalid/adoption-demo.git
 ```
 
 由测试协调者设置仅供本次演练的合成 Git 作者，提交起点并 push main。不要读取真实凭据，也不要使用 FlapPearLabs 冒充外部项目身份。若目录已存在则换新目录，演练不清理或覆盖既有工程。
+
+bare remote 也要显式初始化为 `main`；仅把目标仓设为 `main` 可能留下指向不存在 `master` 的默认 HEAD。push 后用 `git ls-remote --symref origin HEAD` 核验实际默认分支，不依赖本机的默认初始化配置。
 
 记录治理完整 SHA、目标仓 base SHA 和指针到 AGENTS/SPEC。索引记录合成的 `ssh://exercise.invalid/adoption-demo.git`；本仓 Git 的 local URL rewrite 实际将它送到 bare 目录，真实路径不提交。演练能测真实 Git push/fetch，不证明 SSH 服务、GitHub API、PR 或 Actions 可用。AGENTS 已限定本演练的 C-over-D CI 覆盖，不能复制成其他项目的无条件豁免。
 
@@ -72,6 +74,8 @@ git diff --check
 ```
 
 该演练没有目标仓配置的 lint/type gate，如实写 NOT_CONFIGURED；治理仓本身的 Ruff 不被自动注入目标仓。
+
+只想复现已经执行的最小修复时，可在独立复制的起点仓应用 [实际 app/test 差异](adoption-evidence/code-fix.diff)，再重跑上述命令。这是教学参考，不代替你的反例设计、Skill 汇报或评审证据。
 
 ## 5. exact candidate 的独立评审
 

@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-10-04T01:08:57.146619+00:00",
+  "auditorIdentity": "fresh replacement auditor / adoption_restore_finish",
+  "replacementReason": "Prior auditor availability interruption; no prior unsealed result treated as verdict",
+  "bareHead": "refs/heads/master",
+  "liveRefs": [
+    "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372\trefs/heads/demo-1-async-contract",
+    "7c44db432cf2f82282357085295f400d396d02bc\trefs/heads/main"
+  ],
+  "currentMain": "7c44db432cf2f82282357085295f400d396d02bc",
+  "acceptedSubject": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "defaultCloneHasResolvableHead": false,
+  "defaultCloneHasIndex": false,
+  "defaultCloneSymbolicHead": "refs/heads/master",
+  "defaultDiscoveryResult": "FAIL",
+  "explicitMainContentRecovery": "COMPLETE",
+  "refsStableAcrossAudit": true,
+  "targetAndRemoteModifiedByAuditor": false
+}

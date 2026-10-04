@@ -1,0 +1,37 @@
+{
+  "PROJECT": "adoption-demo / DEMO-1",
+  "REMOTE_DEFAULT_SHA": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "REMOTE_DEFAULT_BRANCH": "main",
+  "ACCEPTED_CODE_SUBJECT_SHA": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "TARGET": "SPEC.md",
+  "SPEC": "SPEC.md",
+  "ADR": "NONE explicitly declared",
+  "SPIKES": "NONE explicitly declared",
+  "ACTIVE_STAGE": "Terminal DEMO-1; bounded repair2 owner correction independently verified",
+  "ACTIVE_TICKETS": "NONE for new product work",
+  "ACTIVE_PRS": "NONE by local fixture authority",
+  "BLOCKERS": "NONE within current bounded audit",
+  "DECISIONS_REQUIRED": "NONE",
+  "CURRENT_LEGAL_FRONTIER": "Parent consumes exact independent recovery verdict and handoff; terminate at DEMO-1 milestone, no next product stage; extra high-value finding requires existing arbiter",
+  "STATE_RECOVERY": "COMPLETE within supplied fixture/governance/current-remote scope",
+  "AUTOMATIC_DEFAULT_RECOVERY": "PASS",
+  "READY_TO_CONTINUE": "YES for terminal authorized audit closure; NO for new product ticket",
+  "REPAIR_ROUND": "2/2 cumulative",
+  "CI_STATE": "NOT_TRIGGERED",
+  "STATIC_GATES_COMPLETE": "NO",
+  "initialSeal": {
+    "digest": "e469c1829158401c906cae41aff9d3b4dcec4eb765e926bd85276bbd156a0de1",
+    "verdict": "CHANGES_REQUESTED preserved"
+  },
+  "limits": [
+    "Bounded independent current-default recovery and13-path administrative delta verdict. Original behavior acceptance remains exact fe9; no old whole-SHA PASS relabeled.",
+    "One local Unix/Python runtime and authorized bare fixture. Auditor cloned physical authorized bare directly with globals/system Git disabled; no actual SSH/public upstream/GitHub PR CI/cross-platform proof. Original target stays clean at historical7c44; live remote/current auditor clone are4bc.",
+    "Original workflow SKILL.md unavailable in fresh executor156/cloud0 registry. code-review/handoff documented manual FALLBACK only; no matching domain Skill or original invocation/live enforcement proof. CodeGraph/model diversity/live MEMORY/hooks unavailable or unproved.",
+    "Actual CI NOT_TRIGGERED; explicit original fixture local-evidence override applies. STATIC_GATES_COMPLETE NO; lint/format/deep-analysis NOT_CONFIGURED, typecheck NOT_APPLICABLE. Known F2 gap and frozen README navigation remain informational.",
+    "Original Worker implementation and historical/final external Integrator exact execution receipts are outside allowed durable target inputs; no fresh direct full receipt validation claimed. Three packaged exact portable receipts are directly revalidated; recordValid never proves semantics, historical delivery or enforcement.",
+    "Accepted packet57 attachments, complete packet bytes and initial49+handoff5 seal manifests verified unchanged. Historical omitted helper still bounds full older-seal attachment coverage; full historical transcript NOT_SEEN. Initial CHANGES_REQUESTED seal retained, never relabeled.",
+    "Metadata before/after128-item invariant is Integrator durable observation, not a replay of historical mutation. This auditor independently verifies current bareHEAD/defaultclone, exact current ancestry and frozen refs/content; does not certify unavailable historical tool events.",
+    "Current117 candidate-content pattern scan and specific current known-root/absolute traceback checks do not prove full-history clean or universal identity/path sanitation. Existing published objects preserved.",
+    "Supplied governance bytes unchanged from initial full normative reads; recorded20f256 candidate provenance remains bounded, no independent accepted-release/public tree-equivalence certification. Cumulative original-task repair2/2 remains exhausted; extra high-value blocker would require existing Parent arbiter authority. No next product ticket."
+  ]
+}

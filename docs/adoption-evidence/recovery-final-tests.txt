@@ -1,0 +1,8 @@
+test_empty_result_returns_zero (test_app.AsyncContractTests.test_empty_result_returns_zero) ... ok
+test_real_entrypoint_awaits_transport_once (test_app.AsyncContractTests.test_real_entrypoint_awaits_transport_once) ... ok
+test_transport_original_exception_propagates_once (test_app.AsyncContractTests.test_transport_original_exception_propagates_once) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.004s
+
+OK

@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-10-04T01:28:00.291375+00:00",
+  "logicalRemote": "ssh://exercise.invalid/adoption-demo.git",
+  "actualRemoteScope": "Authorized isolated local bare fixture via per-command logical URL rewrite; no actual SSH/public upstream/PR CI proof",
+  "administrativeReportSha": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "administrativeParentSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "acceptedBehaviorSubjectSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "actualBareHead": "refs/heads/main",
+  "actualBareMainSha": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "newIntegratorCloneMainSha": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "originalSuppliedTargetSha": "7c44db432cf2f82282357085295f400d396d02bc",
+  "originalSuppliedTargetUnchanged": true,
+  "workerFrozenSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "workerFrozenClean": true,
+  "liveBranchRefs": [
+    "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372\trefs/heads/demo-1-async-contract",
+    "4bc73940859efbe033fa579a6cda1eb2a6d63a24\trefs/heads/main"
+  ],
+  "lsRemoteSymrefOriginHead": [
+    "ref: refs/heads/main\tHEAD",
+    "4bc73940859efbe033fa579a6cda1eb2a6d63a24\tHEAD"
+  ],
+  "pushMethod": "Single serialized normal main fast-forward push; no force/amend/rebase",
+  "pushCommand": "git -c url.<AUTHORIZED_BARE_URI>.insteadOf=<LOGICAL_REMOTE> push origin HEAD:refs/heads/main",
+  "pushExitCode": 0,
+  "pushOutput": "To file://<EXERCISE>/demo-remote.git\n   7c44db4..4bc7394  HEAD -> main\n",
+  "freshFetchExitCode": 0,
+  "ordinaryCurrentClone": {
+    "command": "git -c url.<AUTHORIZED_BARE_URI>.insteadOf=<LOGICAL_REMOTE> clone <LOGICAL_REMOTE> <NEW_CURRENT_CLONE>",
+    "branchOptionUsed": false,
+    "followUpCheckoutUsed": false,
+    "exitCode": 0,
+    "output": "Cloning into '<EXERCISE>/integrator/repair-2-resume/ordinary-current-clone'...\n",
+    "automaticBranch": "main",
+    "headSha": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+    "clean": true,
+    "fixedIndexAndRepairRecordPresent": true,
+    "frozenAcceptedSourceSha256": {
+      "app.py": "2655a1188fcac31a5b04556b1b72d2d22cddeed4d0b8f49270fb63b49d560c8c",
+      "tests/test_app.py": "409910b564ea5eb952d3956ace1c161aaa07703e7e360ce8dcefc48ce1838323",
+      "SPEC.md": "d8a00f64e3063bf9a22f56bcfa32695d77b12cd5d423f5c97430e7176fcc392c",
+      "AGENTS.md": "b9908bb9326030f3eef6a7e4f52d88938b71e99f981258106aac8b455d4fb7a4",
+      "README.md": "bb3d74b16f81370e845a92913bdb6795fac583a737701a106dbe9a0edb624cea",
+      "LICENSE": "f13de970a8ca93eb2a24f0bdcef7316a57c7d8eb9a98290b7201f08f1c01af81"
+    }
+  },
+  "repairRound": "2/2 cumulative",
+  "actualCIState": "NOT_TRIGGERED",
+  "staticGatesComplete": "NO",
+  "independentBehaviorVerdictSubjectSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "independentFinalRecoveryVerdict": "PENDING Parent-routed auditor; no whole-new-SHA PASS claimed"
+}

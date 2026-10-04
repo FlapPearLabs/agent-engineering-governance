@@ -1,0 +1,22 @@
+[
+  {
+    "id": "P1",
+    "actualControl": "New ordinary default clone without --branch or checkout; resolvable HEAD branchmain and fixed index before fetch, compared to sealed initial failure",
+    "result": "PASS",
+    "evidenceRefs": [
+      "ordinary-default-clone.txt",
+      "ordinary-clone-head-before-fetch.txt",
+      "ordinary-clone-branch.txt",
+      "remote-observation.json"
+    ]
+  },
+  {
+    "id": "P2",
+    "actualControl": "Accepted exact historical portable receipt supplied with new current SHA must reject SUBJECT_MISMATCH",
+    "result": "PASS for expected fail-closed",
+    "evidenceRefs": [
+      "P2-old-receipt-wrong-current-subject.txt",
+      "receipt-validations.json"
+    ]
+  }
+]

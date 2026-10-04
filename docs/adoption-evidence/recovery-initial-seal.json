@@ -1,0 +1,227 @@
+{
+  "subject": {
+    "repo": "ssh://exercise.invalid/adoption-demo.git",
+    "baseSha": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "candidateSha": "7c44db432cf2f82282357085295f400d396d02bc",
+    "task": "DEMO-1",
+    "phase": "FRESH_STATE_RESTORE_INITIAL_REVIEW",
+    "role": "REVIEWER"
+  },
+  "auditorIdentity": "/root/adoption_restore_finish",
+  "sealedAt": "2026-10-04T01:13:02.443987+00:00",
+  "verdict": "CHANGES_REQUESTED",
+  "STATE_RECOVERY": "PARTIAL",
+  "explicitMainContentRecovery": "COMPLETE",
+  "blocker": "RECOVERY-F1",
+  "integrationPerformed": false,
+  "repairBudget": "Original-task2/2 for Parent-authorized next repair; not reset by fresh audit",
+  "receiptCorrection": "Initial unsealed report omitted verdict evidence reference; invalid attempt preserved, corrected report/receipt now validated. No seal existed before this correction.",
+  "limits": [
+    "Default remote recovery FAIL; explicit main content recovery COMPLETE. No remote or target mutation by this reviewer.",
+    "Supplied governance archive bytes match 21 recorded historical sources; its recorded candidate identity is 20f2567bb04966ed224d487ecf873a8d28995604. No independent Git/archive commit identity, accepted-release or public tree-equivalence verification.",
+    "Canonical workflow SKILL.md unavailable in fresh registry; hand-executed FALLBACK only. No original invocation or host enforcement claim. No matching stdlib asyncio/Git bare recovery domain Skill.",
+    "57 accepted packet attachments and 3 exact portable receipts revalidated directly. Original Worker implementation exact receipt and external final Integrator report receipt are not packaged; no fresh direct full validation of either.",
+    "Historical seal bytes remain intact and old CHANGES_REQUESTED preserved; omitted local helper prevents full old-seal attachment coverage. Runtime transcripts, true historical report delivery and historical reviewer independence remain NOT_SEEN beyond durable records.",
+    "One local Unix/Python runtime and local bare fixture only. Actual SSH, public upstream, GitHub PR CI, live MEMORY/hooks, CodeGraph and model diversity unproved. CI NOT_TRIGGERED; staticGatesComplete NO with known lint/format/deep-analysis gaps.",
+    "Current candidate scan and direct concrete traceback-path check do not establish full-history clean or universal identity/path safety. Old published objects were not rewritten.",
+    "Auditor replacement reason is availability interruption, not budget reset or verdict shopping. Initial snapshot records cumulative 1/2; Parent-authorized repair2 remains original-task 2/2, does not become new budget through reviewer/SHA replacement. Extra blocker needs existing arbiter authority."
+  ],
+  "artifacts": [
+    {
+      "location": "P2-receipt-wrong-subject.txt",
+      "sha256": "9fb69bc52457d2ebcfb51072a3df75ac630431e5d902a6d4794a5f1db59e2092"
+    },
+    {
+      "location": "accepted-ancestry.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "admin-delta.txt",
+      "sha256": "2f42917f36f1a9e90b7d2dedef7bcdffc9667ddd0661a5ef36f0d798102e1c49"
+    },
+    {
+      "location": "authority-reads.json",
+      "sha256": "2b5aa7dc9818cfd5a3bd8fb7a10f3d7b0af29889ac1bd0ad37f77e30c5c49419"
+    },
+    {
+      "location": "bare-head.txt",
+      "sha256": "48583181859e65c7656874783518080ae7cc67c0b1a8116fef61d317f02982ad"
+    },
+    {
+      "location": "base-ancestry.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "checkout-explicit-main.txt",
+      "sha256": "2467819ea83574fe26ead96a3190faeb0cd868cd4b13f6ce7955aea8678d5811"
+    },
+    {
+      "location": "checks.json",
+      "sha256": "91c3b13ec7fb9723275d8249fc269a4c651b507e1e288bfd3a6afb163c2819cd"
+    },
+    {
+      "location": "clone-clean.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "code-review-report.json",
+      "sha256": "a8fb8a7de87c95e1b802a17188506c91386a533576c978498d4e230193b99742"
+    },
+    {
+      "location": "current-surface-scan.json",
+      "sha256": "cb37401fa35323d7b4a4bc8ad9d08931e314e166baca646374f9f07eb2ff8147"
+    },
+    {
+      "location": "default-clone-head.txt",
+      "sha256": "9b3fab22fc89a33cf7f4e9d08072e43f29c2999ed2af63b6e8417b2ce9d534b4"
+    },
+    {
+      "location": "default-clone-symbolic-head.txt",
+      "sha256": "48583181859e65c7656874783518080ae7cc67c0b1a8116fef61d317f02982ad"
+    },
+    {
+      "location": "default-clone.txt",
+      "sha256": "b077d1e575664f8c1ad8ebae346ceaaf3c8390633abd4896650a8caa1482a92e"
+    },
+    {
+      "location": "diagnosing-bugs-report.json",
+      "sha256": "f8e4d00ccdd37639de727fdcbdc4b630eebfc0559b0a59611f17dbad9e90729d"
+    },
+    {
+      "location": "diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "explicit-main-sha.txt",
+      "sha256": "e4a30b3f594bc362e651f7cce4361fcc70112d379e8a35e48c1c34f568dcf3b1"
+    },
+    {
+      "location": "fetch-current-main.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "findings-initial.json",
+      "sha256": "98319222afd90f08f666c91b85c8cccc392811d808fca6fe3414c0169257bd88"
+    },
+    {
+      "location": "git-history.txt",
+      "sha256": "d0755905125174b2b39854a4f222749b7ef0873628ff5f1691478c7c7d9607e4"
+    },
+    {
+      "location": "governance-source-integrity.json",
+      "sha256": "52786990e5964e19deabd164bd4519adf4347aa00d2f248018fcd1118b04834b"
+    },
+    {
+      "location": "grounding.json",
+      "sha256": "25d233c9a6dfd343533b8a2c63fddbaefcfec3a197ec14de51055e48a5f49f7b"
+    },
+    {
+      "location": "independent-probes.py",
+      "sha256": "5f4cafbf7d2764c7365c914783d824f6401163a9f114706dcecd2e3dbf27dbb8"
+    },
+    {
+      "location": "initial_audit.py",
+      "sha256": "e1551309eee0a105d7368d8ebd67dc3e6c3891f630922a4d2a19a389aa2c8c12"
+    },
+    {
+      "location": "live-refs-after.txt",
+      "sha256": "52bbdc3df514d908f4e6ca26568042efad7cd693a53efbc4162618cb550e08bb"
+    },
+    {
+      "location": "live-refs-before.txt",
+      "sha256": "52bbdc3df514d908f4e6ca26568042efad7cd693a53efbc4162618cb550e08bb"
+    },
+    {
+      "location": "native-tests.txt",
+      "sha256": "19d19c060ba323fcd95f775ec7250769f3e96e2764e8638ebb70257f3ea13677"
+    },
+    {
+      "location": "new-independent-behavior-probes.txt",
+      "sha256": "46302802bc12ec9a9dd43654d19a6ba0ac048d59734fee7d74ca10af2c2aca3e"
+    },
+    {
+      "location": "packet-integrity.json",
+      "sha256": "7e946812e18b6d6262cf989d83cd0132bcf19e40102b31e42eb101913ff881db"
+    },
+    {
+      "location": "persistent-state.json",
+      "sha256": "9b2938084ef9f7fda2fd29b119747590aef2e08c91e91a6915e058f1c4926089"
+    },
+    {
+      "location": "real-entrypoint.txt",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "location": "receipt-historical-reviewer.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "receipt-reviewer.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "receipt-validations.json",
+      "sha256": "fea5e59956062ff83d39f34bbefdfa014a71ba30d9f497b94e34d936d50beb6b"
+    },
+    {
+      "location": "receipt-worker-repair.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "registry-assessment.json",
+      "sha256": "feeea5063a8d1f052139e06296ce9bb90cbab43bd0c74da20fe7adc5a5fdbefd"
+    },
+    {
+      "location": "remote-observation.json",
+      "sha256": "26890c8a12071d626b1a16d38b6694f4a047749095a747001e8c83fa66500b3e"
+    },
+    {
+      "location": "seal_initial.py",
+      "sha256": "3ea5c61b8e0a4c216803402e0b6fa806b9cab4859fd5bc5648a2aaf1cc2e03da"
+    },
+    {
+      "location": "semantic-path-check.json",
+      "sha256": "124601f570adf60dbb11f1ac004c74e6e3f2dd33882d522b2d16d7a5d7ca62f7"
+    },
+    {
+      "location": "skill-execution-initial.json",
+      "sha256": "f0ac009e20d5967ac1d4aa4aebf6ac9196ee54fb226fb2516b00b9e494f6f2c3"
+    },
+    {
+      "location": "skill-validation-initial-attempt1.json",
+      "sha256": "ef91df981d7e350a9f77190d3245e8c25c85cd079884397fb5aa19439e081b0d"
+    },
+    {
+      "location": "skill-validation-initial.json",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "state-restore-initial.json",
+      "sha256": "35b616308295652fc3e80cdbde550e45975f9a00f89df877b22496ca7495ab8f"
+    },
+    {
+      "location": "state-schema.txt",
+      "sha256": "73a51981ed826954a499a4973142b582634a2b9a0159a37b683734e2b148e08e"
+    },
+    {
+      "location": "syntax.json",
+      "sha256": "7c1b3d7ad4ad1474966d285844d9581ab91f3df1a4ba68c774dd9ef013d23b69"
+    },
+    {
+      "location": "target-clean-after.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "target-clean-before.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "verdict-initial.md",
+      "sha256": "10cfc383f78c90bc472bf3fdac7bd028ccce8d8c082473a5409bd7da6ecb02c6"
+    },
+    {
+      "location": "visibility.json",
+      "sha256": "e14b8ea1deae6e8a5cf2626637faea461a97b86ee7324f3025f51092f64c15c5"
+    }
+  ]
+}

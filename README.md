@@ -2,6 +2,7 @@
 
 [![governance-ci](https://github.com/FlapPearLabs/agent-engineering-governance/actions/workflows/governance-ci.yml/badge.svg)](https://github.com/FlapPearLabs/agent-engineering-governance/actions/workflows/governance-ci.yml)
 ![version](https://img.shields.io/badge/governance-V1.1.1--canonical-blue)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **让 Agent 在明确权威、合同和证据下施工，并让项目状态长于一次会话。**
 
@@ -361,6 +362,8 @@ codegraph、context7、gh_grep 的获取与健康验证见 [mcp/README](mcp/READ
 ## 10. 当前状态与路线
 
 以下为 2026-10-02 对基线 833046a 的材料核对，不是对每个 runtime 的新 live 验收。CI badge 展示 main 的实际 workflow 状态。
+
+2026-10-03 新增的隔离采用试验另记在 [采用与恢复验证](docs/adoption-validation.md)，保留输入版本、实际结果和未覆盖范围。
 
 | 面 | 当前材料中的结论 | 证据与限制 |
 |---|---|---|

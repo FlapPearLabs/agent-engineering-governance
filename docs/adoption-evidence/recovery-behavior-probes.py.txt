@@ -1,0 +1,62 @@
+"""Fresh auditor probes authored without copying prior probe harnesses."""
+import asyncio
+import importlib.util
+import json
+from pathlib import Path
+
+clone = Path(__file__).parent / "initial-clone"
+spec = importlib.util.spec_from_file_location("current_subject_app", clone / "app.py")
+app = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(app)
+
+
+async def cancellation():
+    entered = asyncio.Event()
+    calls = []
+    original = asyncio.CancelledError("auditor-owned cancellation")
+
+    async def transport():
+        calls.append("entered")
+        entered.set()
+        await asyncio.sleep(0)
+        raise original
+
+    task = asyncio.create_task(app.run(transport))
+    await entered.wait()
+    try:
+        await task
+    except asyncio.CancelledError as caught:
+        assert caught is original
+    else:
+        raise AssertionError("transport cancellation became success")
+    assert calls == ["entered"]
+    return {"id": "P3", "result": "PASS", "assertions": "Original cancellation identity preserved after suspension; transport invoked once"}
+
+
+async def overlapping_invocations():
+    both_entered = asyncio.Event()
+    release = asyncio.Event()
+    calls = [0, 0]
+
+    async def transport(which, records):
+        calls[which] += 1
+        if calls == [1, 1]:
+            both_entered.set()
+        await release.wait()
+        return records
+
+    first = asyncio.create_task(app.run(lambda: transport(0, [1, 2, 3])))
+    second = asyncio.create_task(app.run(lambda: transport(1, [])))
+    await both_entered.wait()
+    assert not first.done() and not second.done()
+    release.set()
+    assert await asyncio.gather(first, second) == [3, 0]
+    assert calls == [1, 1]
+    return {"id": "P4", "result": "PASS", "assertions": "Overlapping real FeedClient calls remain distinct; no shared cache/retry or premature count"}
+
+
+async def main():
+    return [await asyncio.wait_for(cancellation(), 3), await asyncio.wait_for(overlapping_invocations(), 3)]
+
+
+print(json.dumps(asyncio.run(main()), indent=2))

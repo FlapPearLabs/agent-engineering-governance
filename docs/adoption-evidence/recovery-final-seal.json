@@ -1,0 +1,233 @@
+{
+  "subject": {
+    "repo": "ssh://exercise.invalid/adoption-demo.git",
+    "baseSha": "7c44db432cf2f82282357085295f400d396d02bc",
+    "candidateSha": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+    "task": "DEMO-1",
+    "phase": "REPAIR_RECOVERY_HANDOFF",
+    "role": "REVIEWER"
+  },
+  "auditorIdentity": "/root/adoption_restore_finish",
+  "sealedAt": "2026-10-04T02:18:19.039400+00:00",
+  "verdict": "PASS_WITH_NONBLOCKING_FINDINGS",
+  "verdictScope": "Current ordinary default recovery +13-path authorized LOW administrative delta; no old whole-SHA verdict inheritance",
+  "stateRecovery": "COMPLETE within supplied local fixture",
+  "initialVerdict": "CHANGES_REQUESTED on7c44 preserved",
+  "initialSealSha256": "e469c1829158401c906cae41aff9d3b4dcec4eb765e926bd85276bbd156a0de1",
+  "initialHandoffSealSha256": "2f4e36939d668ea069509f6718349766af1ec189152e52fecf9a14edd292d79a",
+  "repairBudget": "2/2 cumulative; unchanged",
+  "newHighValueBlockers": [],
+  "limits": [
+    "Bounded independent current-default recovery and13-path administrative delta verdict. Original behavior acceptance remains exact fe9; no old whole-SHA PASS relabeled.",
+    "One local Unix/Python runtime and authorized bare fixture. Auditor cloned physical authorized bare directly with globals/system Git disabled; no actual SSH/public upstream/GitHub PR CI/cross-platform proof. Original target stays clean at historical7c44; live remote/current auditor clone are4bc.",
+    "Original workflow SKILL.md unavailable in fresh executor156/cloud0 registry. code-review/handoff documented manual FALLBACK only; no matching domain Skill or original invocation/live enforcement proof. CodeGraph/model diversity/live MEMORY/hooks unavailable or unproved.",
+    "Actual CI NOT_TRIGGERED; explicit original fixture local-evidence override applies. STATIC_GATES_COMPLETE NO; lint/format/deep-analysis NOT_CONFIGURED, typecheck NOT_APPLICABLE. Known F2 gap and frozen README navigation remain informational.",
+    "Original Worker implementation and historical/final external Integrator exact execution receipts are outside allowed durable target inputs; no fresh direct full receipt validation claimed. Three packaged exact portable receipts are directly revalidated; recordValid never proves semantics, historical delivery or enforcement.",
+    "Accepted packet57 attachments, complete packet bytes and initial49+handoff5 seal manifests verified unchanged. Historical omitted helper still bounds full older-seal attachment coverage; full historical transcript NOT_SEEN. Initial CHANGES_REQUESTED seal retained, never relabeled.",
+    "Metadata before/after128-item invariant is Integrator durable observation, not a replay of historical mutation. This auditor independently verifies current bareHEAD/defaultclone, exact current ancestry and frozen refs/content; does not certify unavailable historical tool events.",
+    "Current117 candidate-content pattern scan and specific current known-root/absolute traceback checks do not prove full-history clean or universal identity/path sanitation. Existing published objects preserved.",
+    "Supplied governance bytes unchanged from initial full normative reads; recorded20f256 candidate provenance remains bounded, no independent accepted-release/public tree-equivalence certification. Cumulative original-task repair2/2 remains exhausted; extra high-value blocker would require existing Parent arbiter authority. No next product ticket."
+  ],
+  "artifacts": [
+    {
+      "location": "P2-old-receipt-wrong-current-subject.txt",
+      "sha256": "9fb69bc52457d2ebcfb51072a3df75ac630431e5d902a6d4794a5f1db59e2092"
+    },
+    {
+      "location": "accepted-ancestry.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "accepted-packet-paths.txt",
+      "sha256": "a1c30e09f5bbfbea4d8617a4f617d1218ae6f8b37409cdc461b4b2f83dd0d7ba"
+    },
+    {
+      "location": "admin-delta-full.txt",
+      "sha256": "14da55e2c1fa241b802182977dca18f6d85d8de1029423c4d78d9f81b0addd3a"
+    },
+    {
+      "location": "admin-delta-paths.txt",
+      "sha256": "ad0fb9463de67a56af71f8fcaabb86a95674c1a685fdf1fc2fa0ecbcb4e471b8"
+    },
+    {
+      "location": "audit_repair.py",
+      "sha256": "da66df7a531064057548beebbdd69268cee5b2bdce52e49d1442210c17ee9404"
+    },
+    {
+      "location": "authority-continuity.json",
+      "sha256": "f310398d51e7e73dacacf914d5289c361523b3a92aacbdbc8737028b540dcc85"
+    },
+    {
+      "location": "bare-head.txt",
+      "sha256": "599bbcd7b7f94b50d9b83318ba0dd4b8e1ba9e39d1d3ee73d1fbbd70496d0f93"
+    },
+    {
+      "location": "base-ancestry.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "checks.json",
+      "sha256": "f081b10e98003b904d7c3a5d2bd2859ac05cdb55ddb5a3df387fee05e7f457f1"
+    },
+    {
+      "location": "clone-clean.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "code-review-report.json",
+      "sha256": "383f78273afd5d77466bb09fa416f3b5f3b7b54d477e960ecb9832c3c1176bc0"
+    },
+    {
+      "location": "current-parent.txt",
+      "sha256": "e4a30b3f594bc362e651f7cce4361fcc70112d379e8a35e48c1c34f568dcf3b1"
+    },
+    {
+      "location": "current-surface-scan.json",
+      "sha256": "f2887a246aaf1f397c96d7936ba1c80d272fb7d50c864d1b999001b51674bcb4"
+    },
+    {
+      "location": "diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "durable-state.json",
+      "sha256": "3e9aff5d78fd30d6e02fdc74904736741d736767826e7575bbe20f33b6e26e86"
+    },
+    {
+      "location": "fetch-current.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "location": "fetched-main-sha.txt",
+      "sha256": "f43d4ceba3444f0bd0ee0564e5866d0a7e81fd2a4145b246d154aa597fb6de3f"
+    },
+    {
+      "location": "finalize_repair.py",
+      "sha256": "0c5e4d56d8afc0e07a47cccbf6baae1d2fcf19277943972be3904166dae5a3f7"
+    },
+    {
+      "location": "findings.json",
+      "sha256": "8b4545d2ba5e33c7b0f60521fbd778a04b83cd66af56e9d889edd665636da0f4"
+    },
+    {
+      "location": "grounding.json",
+      "sha256": "1df32cba0d605d5fd66b815e7009e00b1b5f5dfbb06dd4ad216af8325879602a"
+    },
+    {
+      "location": "handoff-report.json",
+      "sha256": "3e8df9d585ccea9b793ed6a213dfd753d7b82b5e15264d9e324dc2561b8fa7f0"
+    },
+    {
+      "location": "handoff.json",
+      "sha256": "bf4f05357b65e019aaa48825606708117f28f4e6c98f8cb8ed4da4dce8d2b45e"
+    },
+    {
+      "location": "head-after-fetch.txt",
+      "sha256": "f43d4ceba3444f0bd0ee0564e5866d0a7e81fd2a4145b246d154aa597fb6de3f"
+    },
+    {
+      "location": "independent-controls.json",
+      "sha256": "85c779b7b447fc76bf115f83fde37d4f9474c54746352af88e644527938b5fc5"
+    },
+    {
+      "location": "integrity.json",
+      "sha256": "a21a8d02e680d4b6946e1a6c1a5e864971e9af9e7627199ea0a0705a749b2acd"
+    },
+    {
+      "location": "live-refs-after.txt",
+      "sha256": "013a41adee0b452a0c9de757d24b164cf35fb0623546d12a6a0041e8a9fc0fbf"
+    },
+    {
+      "location": "live-refs-before.txt",
+      "sha256": "013a41adee0b452a0c9de757d24b164cf35fb0623546d12a6a0041e8a9fc0fbf"
+    },
+    {
+      "location": "native-tests.txt",
+      "sha256": "8f93b37336d2c23435fc53e6469959623c91b9b2982e11a39e7781d4a85abe26"
+    },
+    {
+      "location": "ordinary-clone-branch.txt",
+      "sha256": "6403203dd5a0867eb14d104ee8a73730bd72dd9ad92e78d996a6dba0a5dcfc01"
+    },
+    {
+      "location": "ordinary-clone-head-before-fetch.txt",
+      "sha256": "f43d4ceba3444f0bd0ee0564e5866d0a7e81fd2a4145b246d154aa597fb6de3f"
+    },
+    {
+      "location": "ordinary-default-clone.txt",
+      "sha256": "221f8e0f79cb62b674aa3d662547c36b4047a4297e3cc03fdfdd5fdf2fcb1816"
+    },
+    {
+      "location": "real-entrypoint.txt",
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "location": "receipt-historical-reviewer.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "receipt-reviewer.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "receipt-validations.json",
+      "sha256": "73a3dfcfca52d5237c449b300f9d28b0b90158692f0444358aadd66e61c21c42"
+    },
+    {
+      "location": "receipt-worker-repair1.txt",
+      "sha256": "8b944bf7fac22a0f1a94e27ca6ddff04b89f10ed4ab4b80fe4ad67430974df08"
+    },
+    {
+      "location": "registry-assessment.json",
+      "sha256": "d88790c5c9e9fc94758a24d8245515b8ed9ddc795c8a030027037ef686765949"
+    },
+    {
+      "location": "remote-observation.json",
+      "sha256": "1f15c01469876e31297c36c563f4b481c697c1b204103b280905cfaa354e36e4"
+    },
+    {
+      "location": "remote-terminal.json",
+      "sha256": "df89c3853a93535f27ac1e9b8d67b6254936f612ded58b2017bd7a80169fc555"
+    },
+    {
+      "location": "semantic-path-check.json",
+      "sha256": "d109eecfc0c86cdd71f828a7259f26115415e5bbf59a7343dd7fb1e21dcf92af"
+    },
+    {
+      "location": "skill-execution-handoff.json",
+      "sha256": "104f19a201b7d76801006231f757329487178d0467ae802eb74e95a5f338f13e"
+    },
+    {
+      "location": "skill-execution-review.json",
+      "sha256": "fab33ff4e488e205d4d6f73be08bb05967855a703ec8983b6d2d31a35e859589"
+    },
+    {
+      "location": "skill-validation-handoff.json",
+      "sha256": "84efc9217e99ca49f8fce5d8e21ee713672a9c00198c311d65fa82d9c5e591fd"
+    },
+    {
+      "location": "skill-validation-review.json",
+      "sha256": "84efc9217e99ca49f8fce5d8e21ee713672a9c00198c311d65fa82d9c5e591fd"
+    },
+    {
+      "location": "state-restore.json",
+      "sha256": "cc5a6f2ab612b48f60ac9605f30e0975d4d5ffc31111f3d29e5ff4c397ad5fce"
+    },
+    {
+      "location": "state-schema.txt",
+      "sha256": "73a51981ed826954a499a4973142b582634a2b9a0159a37b683734e2b148e08e"
+    },
+    {
+      "location": "syntax.json",
+      "sha256": "609a7ec80758e9f38f19dcd72f4269ce38d317d71c52f143b11fc5a001f84a5f"
+    },
+    {
+      "location": "verdict.md",
+      "sha256": "07db5cdcdf5169d1a024cfbaed7ca7ddacb19f9c01d2c6f5d36e00300b012593"
+    },
+    {
+      "location": "visibility.json",
+      "sha256": "5e47c44478cc39fd00d4684d73885f881d1132227c8a411851dbf27e85fda3ff"
+    }
+  ]
+}

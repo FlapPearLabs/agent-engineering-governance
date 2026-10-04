@@ -26,6 +26,8 @@ Agent 先确认允许做什么，再按风险选择方法、验证、独立评�
 
 获取本仓并选择一个已接受的 commit/tag，在目标仓记录 URL 与完整 SHA。记录后的升级是显式变更，不把浮动 `main` 悄悄当成同一版本。
 
+运行命令前，将 `GOVERNANCE_DIR` 设为准备保存治理副本的新目录，将 `TARGET_DIR` 设为已有目标仓根目录；两者不可混用。
+
 ```bash
 git clone https://github.com/FlapPearLabs/agent-engineering-governance.git "$GOVERNANCE_DIR"
 git -C "$GOVERNANCE_DIR" rev-parse HEAD

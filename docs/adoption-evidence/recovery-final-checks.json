@@ -1,0 +1,180 @@
+{
+  "subject": "4bc73940859efbe033fa579a6cda1eb2a6d63a24",
+  "base": "7c44db432cf2f82282357085295f400d396d02bc",
+  "checks": {
+    "live-refs-before": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "live-refs-before.txt"
+    },
+    "bare-head": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "bare-head.txt"
+    },
+    "ordinary-default-clone": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "ordinary-default-clone.txt"
+    },
+    "ordinary-clone-head-before-fetch": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "ordinary-clone-head-before-fetch.txt"
+    },
+    "ordinary-clone-branch": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "ordinary-clone-branch.txt"
+    },
+    "fetch-current": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "fetch-current.txt"
+    },
+    "fetched-main-sha": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "fetched-main-sha.txt"
+    },
+    "head-after-fetch": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "head-after-fetch.txt"
+    },
+    "current-parent": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "current-parent.txt"
+    },
+    "base-ancestry": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "base-ancestry.txt"
+    },
+    "accepted-ancestry": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "accepted-ancestry.txt"
+    },
+    "diff-check": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "diff-check.txt"
+    },
+    "admin-delta-paths": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "admin-delta-paths.txt"
+    },
+    "admin-delta-full": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "admin-delta-full.txt"
+    },
+    "accepted-packet-paths": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "accepted-packet-paths.txt"
+    },
+    "state-schema": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "state-schema.txt"
+    },
+    "native-tests": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "native-tests.txt"
+    },
+    "real-entrypoint": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "real-entrypoint.txt"
+    },
+    "receipt-reviewer": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "receipt-reviewer.txt"
+    },
+    "P2-old-receipt-wrong-current-subject": {
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "result": "PASS",
+      "artifact": "P2-old-receipt-wrong-current-subject.txt"
+    },
+    "receipt-worker-repair1": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "receipt-worker-repair1.txt"
+    },
+    "receipt-historical-reviewer": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "receipt-historical-reviewer.txt"
+    },
+    "live-refs-after": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "live-refs-after.txt"
+    },
+    "clone-clean": {
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "result": "PASS",
+      "artifact": "clone-clean.txt"
+    }
+  },
+  "adminPaths": [
+    ".agent/project-state.json",
+    "docs/evidence/repair-2/code-review-report.json",
+    "docs/evidence/repair-2/handoff-report.json",
+    "docs/evidence/repair-2/initial-seal-consumption.json",
+    "docs/evidence/repair-2/metadata-correction.json",
+    "docs/evidence/repair-2/native-tests.txt",
+    "docs/evidence/repair-2/ordinary-clone-before-admin.json",
+    "docs/evidence/repair-2/prepublication-admin-checks.json",
+    "docs/evidence/repair-2/real-entrypoint.txt",
+    "docs/evidence/repair-2/recovery.md",
+    "docs/evidence/repair-2/routing-assessment.json",
+    "docs/evidence/repair-2/state-schema.txt",
+    "docs/task.md"
+  ],
+  "adminCount": 13,
+  "scope": "13 separately authorized LOW nonproduction docs/index/evidence paths; no source/authority/schema/scanner/gate delta",
+  "nativeTests": "3/3",
+  "CLI": "2",
+  "packetAttachments": 57,
+  "initialSealsUnchanged": true,
+  "defaultRecovery": "PASS",
+  "CI": "NOT_TRIGGERED",
+  "staticGatesComplete": "NO",
+  "remainingStaticStates": {
+    "lint": "NOT_CONFIGURED",
+    "format": "NOT_CONFIGURED",
+    "deepAnalysis": "NOT_CONFIGURED",
+    "typecheck": "NOT_APPLICABLE"
+  }
+}

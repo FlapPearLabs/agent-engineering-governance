@@ -1,0 +1,41 @@
+{
+  "PROJECT": "adoption-demo / DEMO-1",
+  "GOVERNANCE_LOADED": "Supplied archive RULES/AGENTS and named normative sources; no live auto-injection claim",
+  "REPO_AUTHORITY": [
+    "AGENTS.md",
+    "SPEC.md"
+  ],
+  "OVERRIDES": [
+    "AGENTS.md explicit real-PR-CI default override: local deterministic tests + independent rerun + bare push/fetch verification only for DEMO-1"
+  ],
+  "REMOTE_DEFAULT_SHA": "UNRESOLVED; advertised HEAD master absent",
+  "DECLARED_MAIN_SHA": "7c44db432cf2f82282357085295f400d396d02bc",
+  "ACCEPTED_CODE_SUBJECT_SHA": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+  "TARGET": "SPEC.md",
+  "SPEC": "SPEC.md",
+  "ADR": "NONE explicitly declared",
+  "SPIKES": "NONE explicitly declared",
+  "ACTIVE_STAGE": "DEMO-1 terminal recovery audit",
+  "ACTIVE_TICKETS": "No new product ticket",
+  "ACTIVE_PRS": "NONE by fixture authority",
+  "BLOCKERS": [
+    "RECOVERY-F1 dangling bare HEAD/default clone"
+  ],
+  "DECISIONS_REQUIRED": "No product decision; Parent owns bounded correction authorization",
+  "CURRENT_LEGAL_FRONTIER": "Seal blocker; Parent authorizes bounded remote metadata/admin evidence repair2; same fresh auditor re-fetches actual default and exact main; no next product stage",
+  "STATE_RECOVERY": "PARTIAL",
+  "BOUNDED_CONTENT_RECOVERY": "COMPLETE from explicit current main",
+  "READY_TO_CONTINUE": "NO for automatic default recovery/product continuation; owner-authorized correction/reverification legal",
+  "CI_STATE": "NOT_TRIGGERED",
+  "STATIC_GATES_COMPLETE": "NO",
+  "limits": [
+    "Default remote recovery FAIL; explicit main content recovery COMPLETE. No remote or target mutation by this reviewer.",
+    "Supplied governance archive bytes match 21 recorded historical sources; its recorded candidate identity is 20f2567bb04966ed224d487ecf873a8d28995604. No independent Git/archive commit identity, accepted-release or public tree-equivalence verification.",
+    "Canonical workflow SKILL.md unavailable in fresh registry; hand-executed FALLBACK only. No original invocation or host enforcement claim. No matching stdlib asyncio/Git bare recovery domain Skill.",
+    "57 accepted packet attachments and 3 exact portable receipts revalidated directly. Original Worker implementation exact receipt and external final Integrator report receipt are not packaged; no fresh direct full validation of either.",
+    "Historical seal bytes remain intact and old CHANGES_REQUESTED preserved; omitted local helper prevents full old-seal attachment coverage. Runtime transcripts, true historical report delivery and historical reviewer independence remain NOT_SEEN beyond durable records.",
+    "One local Unix/Python runtime and local bare fixture only. Actual SSH, public upstream, GitHub PR CI, live MEMORY/hooks, CodeGraph and model diversity unproved. CI NOT_TRIGGERED; staticGatesComplete NO with known lint/format/deep-analysis gaps.",
+    "Current candidate scan and direct concrete traceback-path check do not establish full-history clean or universal identity/path safety. Old published objects were not rewritten.",
+    "Auditor replacement reason is availability interruption, not budget reset or verdict shopping. Initial snapshot records cumulative 1/2; Parent-authorized repair2 remains original-task 2/2, does not become new budget through reviewer/SHA replacement. Extra blocker needs existing arbiter authority."
+  ]
+}

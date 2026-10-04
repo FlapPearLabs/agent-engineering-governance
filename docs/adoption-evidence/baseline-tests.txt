@@ -1,0 +1,9 @@
+BASE_SHA = 0d6d3814c265e6ed10016f84357ac9ca6f8c8eeb
+COMMAND = python3 -B -m unittest discover -s tests -v
+EXIT_CODE = 0
+test_synchronous_double_is_green (test_app.StartingTests.test_synchronous_double_is_green) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+OK

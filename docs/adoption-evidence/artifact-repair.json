@@ -1,0 +1,29 @@
+{
+  "reviewedCandidateSha": "11062995ea3607f680b6168651d7f2f2b6688354",
+  "finding": "F1 INCOMPLETE_TRACEBACK_SANITATION",
+  "repairRound": 1,
+  "cumulativeBudget": "1/2",
+  "artifact": "docs/evidence/baseline-app.txt",
+  "changedLines": [
+    11,
+    14,
+    17
+  ],
+  "substitution": "absolute stdlib installation roots only to <PYTHON_STDLIB>/; asyncio module suffixes and all execution details retained",
+  "beforeSha256": "929535065098396e82736d18f5d2d6ff25b8f4762181e94172936901a94a3604",
+  "afterSha256": "7220a57a78da904c04e79cdc6a2d505e39bd6d8d7648b3ef148f9002df9addaa",
+  "sameLineCount": true,
+  "allNonPathTextUnchanged": true,
+  "exitCodePreserved": 1,
+  "originalWarningAndTypeErrorPreserved": true,
+  "noConcreteTracebackAbsoluteFilePathRemains": true,
+  "sourceAndTestsUntouched": true,
+  "coordinatedPackagingCompletion": {
+    "artifact": "LICENSE",
+    "authority": "Parent original user-selected MIT adoption scope completion, not another reviewer-driven repair round",
+    "sourceRef": "FlapPearLabs/agent-engineering-governance@20f2567bb04966ed224d487ecf873a8d28995604:LICENSE",
+    "byteIdenticalToPinnedSource": true,
+    "sha256": "f13de970a8ca93eb2a24f0bdcef7316a57c7d8eb9a98290b7201f08f1c01af81"
+  },
+  "limitation": "Historical committed reviewed object and external original receipts preserved. This artifact repair does not make full history R2-clean or substitute independent delta review."
+}

@@ -1,0 +1,173 @@
+PHASE = COUNTEREXAMPLE_SPECIFIC_RED
+IMPLEMENTATION_HEAD = aee1e91efa066d8e6e4b070b93175843806bdc86 (app.py unchanged from baseline)
+COMMAND = python3 -B -m unittest discover -s tests -v
+EXIT_CODE = 1
+test_empty_result_returns_zero (test_app.AsyncContractTests.test_empty_result_returns_zero) ... <EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py:14: RuntimeWarning: coroutine 'FeedClient.fetch' was never awaited
+Coroutine created at (most recent call last)
+  File "<PYTHON_STDLIB>/unittest/async_case.py", line 113, in _callMaybeAsync
+    return self._asyncioRunner.run(
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 1991, in _run_once
+    handle._run()
+  File "<PYTHON_STDLIB>/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 30, in test_empty_result_returns_zero
+    self.assertEqual(await self.run_successfully(transport), 0)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 11, in run_successfully
+    return await run(transport)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+  return len(client.fetch())
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+test_real_entrypoint_awaits_transport_once (test_app.AsyncContractTests.test_real_entrypoint_awaits_transport_once) ... <EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py:14: RuntimeWarning: coroutine 'FeedClient.fetch' was never awaited
+Coroutine created at (most recent call last)
+  File "<PYTHON_STDLIB>/unittest/async_case.py", line 113, in _callMaybeAsync
+    return self._asyncioRunner.run(
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 1991, in _run_once
+    handle._run()
+  File "<PYTHON_STDLIB>/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 23, in test_real_entrypoint_awaits_transport_once
+    self.assertEqual(await self.run_successfully(transport), 2)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 11, in run_successfully
+    return await run(transport)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+  return len(client.fetch())
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+test_transport_original_exception_propagates_once (test_app.AsyncContractTests.test_transport_original_exception_propagates_once) ... <EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py:14: RuntimeWarning: coroutine 'FeedClient.fetch' was never awaited
+Coroutine created at (most recent call last)
+  File "<PYTHON_STDLIB>/unittest/async_case.py", line 91, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+  File "<PYTHON_STDLIB>/unittest/async_case.py", line 113, in _callMaybeAsync
+    return self._asyncioRunner.run(
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 1991, in _run_once
+    handle._run()
+  File "<PYTHON_STDLIB>/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 41, in test_transport_original_exception_propagates_once
+    await run(transport)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+  return len(client.fetch())
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+
+======================================================================
+FAIL: test_empty_result_returns_zero (test_app.AsyncContractTests.test_empty_result_returns_zero)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 11, in run_successfully
+    return await run(transport)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+           ^^^^^^^^^^^^^^^^^^^
+TypeError: object of type 'coroutine' has no len()
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 30, in test_empty_result_returns_zero
+    self.assertEqual(await self.run_successfully(transport), 0)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 13, in run_successfully
+    self.fail(f"Real async producer must be awaited before counting: {error}")
+AssertionError: Real async producer must be awaited before counting: object of type 'coroutine' has no len()
+
+======================================================================
+FAIL: test_real_entrypoint_awaits_transport_once (test_app.AsyncContractTests.test_real_entrypoint_awaits_transport_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 11, in run_successfully
+    return await run(transport)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+           ^^^^^^^^^^^^^^^^^^^
+TypeError: object of type 'coroutine' has no len()
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 23, in test_real_entrypoint_awaits_transport_once
+    self.assertEqual(await self.run_successfully(transport), 2)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 13, in run_successfully
+    self.fail(f"Real async producer must be awaited before counting: {error}")
+AssertionError: Real async producer must be awaited before counting: object of type 'coroutine' has no len()
+
+======================================================================
+FAIL: test_transport_original_exception_propagates_once (test_app.AsyncContractTests.test_transport_original_exception_propagates_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 41, in test_transport_original_exception_propagates_once
+    await run(transport)
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 18, in run
+    return await count_records(FeedClient(transport))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/app.py", line 14, in count_records
+    return len(client.fetch())
+           ^^^^^^^^^^^^^^^^^^^
+TypeError: object of type 'coroutine' has no len()
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<PYTHON_STDLIB>/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<PYTHON_STDLIB>/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<EXERCISE_ROOT>/documentation-evidence/adoption-20261003/worker/lane/tests/test_app.py", line 43, in test_transport_original_exception_propagates_once
+    self.assertIs(caught, original)
+AssertionError: TypeError("object of type 'coroutine' has no len()") is not RuntimeError('test-owned transport failure')
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.010s
+
+FAILED (failures=3)

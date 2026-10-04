@@ -1,0 +1,50 @@
+[
+  {
+    "name": "reviewer",
+    "exactCandidate": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "phase": "INDEPENDENT_REPAIR_REVIEW",
+    "result": {
+      "recordValid": true,
+      "findings": [],
+      "semanticApplicationVerified": false,
+      "hostEnforcementVerified": false
+    }
+  },
+  {
+    "name": "P2-negative-wrong-current-sha",
+    "expected": "FAIL_CLOSED",
+    "result": {
+      "recordValid": false,
+      "findings": [
+        {
+          "reason": "SUBJECT_MISMATCH",
+          "path": "$.subject"
+        }
+      ],
+      "semanticApplicationVerified": false,
+      "hostEnforcementVerified": false
+    }
+  },
+  {
+    "name": "worker-repair",
+    "exactCandidate": "fe9a33c5cd3a1b014b7f3ac0d22c6e80395b4372",
+    "phase": "WORKER_REPAIR_1",
+    "result": {
+      "recordValid": true,
+      "findings": [],
+      "semanticApplicationVerified": false,
+      "hostEnforcementVerified": false
+    }
+  },
+  {
+    "name": "historical-reviewer",
+    "exactCandidate": "11062995ea3607f680b6168651d7f2f2b6688354",
+    "phase": "INDEPENDENT_REVIEW",
+    "result": {
+      "recordValid": true,
+      "findings": [],
+      "semanticApplicationVerified": false,
+      "hostEnforcementVerified": false
+    }
+  }
+]

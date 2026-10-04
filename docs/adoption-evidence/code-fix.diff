@@ -1,0 +1,73 @@
+diff --git a/app.py b/app.py
+index 1cd6c94..dfac65e 100644
+--- a/app.py
++++ b/app.py
+@@ -11,7 +11,8 @@ class FeedClient:
+ 
+ 
+ async def count_records(client):
+-    return len(client.fetch())
++    records = await client.fetch()
++    return len(records)
+ 
+ 
+ async def run(transport):
+diff --git a/tests/test_app.py b/tests/test_app.py
+index e499379..100d7ac 100644
+--- a/tests/test_app.py
++++ b/tests/test_app.py
+@@ -1,14 +1,46 @@
+-"""Starting green test uses the wrong producer shape, intentionally."""
++"""Contract tests use the real async producer and test-owned transports."""
++import asyncio
+ import unittest
+ 
+-from app import count_records
++from app import run
+ 
+ 
+-class SyncDouble:
+-    def fetch(self):
+-        return [{"id": "first"}, {"id": "second"}]
++class AsyncContractTests(unittest.IsolatedAsyncioTestCase):
++    async def run_successfully(self, transport):
++        try:
++            return await run(transport)
++        except TypeError as error:
++            self.fail(f"Real async producer must be awaited before counting: {error}")
+ 
++    async def test_real_entrypoint_awaits_transport_once(self):
++        calls = []
+ 
+-class StartingTests(unittest.IsolatedAsyncioTestCase):
+-    async def test_synchronous_double_is_green(self):
+-        self.assertEqual(await count_records(SyncDouble()), 2)
++        async def transport():
++            calls.append("fetch")
++            await asyncio.sleep(0)
++            return [{"id": "first"}, {"id": "second"}]
++
++        self.assertEqual(await self.run_successfully(transport), 2)
++        self.assertEqual(calls, ["fetch"])
++
++    async def test_empty_result_returns_zero(self):
++        async def transport():
++            return []
++
++        self.assertEqual(await self.run_successfully(transport), 0)
++
++    async def test_transport_original_exception_propagates_once(self):
++        original = RuntimeError("test-owned transport failure")
++        calls = []
++
++        async def transport():
++            calls.append("fetch")
++            raise original
++
++        try:
++            await run(transport)
++        except Exception as caught:
++            self.assertIs(caught, original)
++        else:
++            self.fail("Transport failure must propagate, never become an empty result")
++        self.assertEqual(calls, ["fetch"])
