@@ -1,0 +1,416 @@
+# experiments/v1.2/replay/cases.yaml — REAL HISTORICAL REPLAY CORPUS（非 canonical；2026-10-07 建立，2026-10-08 修订）
+#
+# 本文件是实验 V1.2 / 候选 H3（STRUCTURE_DELTA_SHADOW）的**证据准备**产物：
+# 每个 case 从**公开来源仓库的真实 Git 历史**取出一个可定位的 BASE→CANDIDATE 变更对。
+# 未来最小 shadow 原型（本轮不实现）可以按 provenance.resolver 的命令直接重建输入，
+# 并与 expected_mechanical_signals / structure_disposition / behavioral_disposition 对照。
+#
+# 规则（与 seed corpus 同源，见 ../cases.yaml 头部）：
+# - 禁止 synthetic reconstruction：CANDIDATE 必须能由 SHA 直接取出（git show），
+#   不得按任何文字描述重新编写。
+# - REPLAY_DIFF 唯一绑定：HISTORICAL_DIFF := git diff <base_sha> <candidate_sha>；
+#   resolver 必须验证该对（两 SHA 存在 + diff 可解析且非空）。
+#   STALE_OR_WRONG_BASE ⇒ provenance check FAIL。
+#   candidate^ == base 的 direct-parent 等式为**逐案声明**（当前 5 案均成立），
+#   不是普遍要求——未来 case 允许非 direct-parent 的 diff 对。
+# - 三个事实轴互不替代、禁止合并（防状态坍缩）：
+#     STRUCTURE_SIGNAL != STRUCTURE_VERDICT != CANDIDATE_CORRECTNESS
+#   expected_mechanical_signals 只含 **v1 确定性信号**（NEW_FILE / NEW_DIRECTORY /
+#   NEW_DEPENDENCY；PREDICATE 与 COUNTING_UNIT 见 replay/README.md 定义表）；
+#   其余类别 = NOT_YET_MECHANICALLY_DEFINED，不进入 expected counts。
+#   structure_disposition ∈ {AUTHORIZED_STRUCTURE, NO_STRUCTURE_DELTA, NOT_ADJUDICATED}：
+#   AUTHORIZED_STRUCTURE 必须附 authority_ref（独立于 candidate 自述的公开、可解析
+#   授权 artifact：approved spec / issue / ticket / authority record）；无法证明
+#   ⇒ NOT_ADJUDICATED，且不得从 candidate commit message / 后续 review /
+#   design-history 单独推导结构授权。
+#   behavioral_disposition ∈ {KNOWN_DEFECTIVE, POST_REVIEW_REPAIRS_REQUIRED,
+#   NO_BEHAVIORAL_CLAIM}；两轴各附 rationale（*_rationale）。
+# - durability：ready case 必须默认分支可达；临时分支依赖 ⇒ 不入 ready
+#   （记 not_replay_ready / NOT_DURABLE_REPLAY_READY）。
+# - 找不到可解析证据的 seed 一律记入 not_replay_ready，不强行升级。
+#
+# class 取值（本文件局部语汇）：
+#   POSITIVE_SEAM_DRIFT                真实历史中确认发生的 seam 漂移变更（含修复链证据）
+#   NEGATIVE_AUTHORIZED_STRUCTURE      真实新增结构，且结构面有逐项授权记录（authority_ref）
+#   NEGATIVE_STRUCTURE_NOT_ADJUDICATED 真实新增结构，但结构面无逐项授权记录（未裁决）
+#   NEGATIVE_NO_STRUCTURE_DELTA        真实修复，无任何结构增量（噪声底对照）
+#
+# 全部 SHA、REPLAY_DIFF 绑定与可达性于 2026-10-07 建立、2026-10-08 复核
+# （对应仓库 clone + GitHub API）。
+version: 1
+verified_on: 2026-10-08
+cases:
+  - case_id: r01-zhihu-t14-async-seam-mismatch
+    class: POSITIVE_SEAM_DRIFT
+    source_repository: FlapPearLabs/zhihu-grabber-toolkit
+    source_ref: master
+    base_sha: 4b6d182f1388e27ae33820feee1589cb0188d59b
+    candidate_sha: fa997c12e4c35fdb9267882747d2b55d13772ae2
+    historical_diff: 'git diff 4b6d182f1388e27ae33820feee1589cb0188d59b fa997c12e4c35fdb9267882747d2b55d13772ae2'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 3
+        detail: |
+          research-orchestration/lib/pre-synthesis-guard.mjs、
+          research-orchestration/lib/cross-group-aggregation.mjs、
+          research-orchestration/lib/cross-source-synthesis.mjs；
+          另一既有测试文件被更新（非新增，不计入 v1 信号）。合计 4 files, +755/-5；
+          NEW_DIRECTORY = 0（lib/ 与 test/ 均已在 base 树中）。
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      语料不对此 diff 的结构面做裁决（既不是 AUTHORIZED_STRUCTURE，也不是结构违规）：
+      结构层记录存在（票据 P1-T14 / Issue #46 及其契约提取），但候选时点为
+      non-authoritative 且未获实施授权——票据图自述 AUTHORITY_CLASS =
+      NON_AUTHORITATIVE_PLANNING_CANDIDATE、STATUS = REVIEW_PENDING、
+      IMPLEMENTATION_AUTHORIZATION = NONE——不构成正向结构授权；
+      已定位的缺陷证据只落在行为/合同层（见 behavioral 轴）。
+      明确：新增文件（或任何结构信号）本身不证明 architecture violation——
+      行为缺陷不得被反向投射为结构违规，结构面保持未裁决。
+    behavioral_disposition: KNOWN_DEFECTIVE
+    behavioral_rationale: |
+      该 candidate 包含一个不成立的 seam 假设：cross-source-synthesis.mjs 以同步方式
+      消费注入的 runtime seam（`runtimeResult = runtime.synthesize({...})`，无 await），
+      且 T14 全部测试替身建模为同步 synthesize()。
+      2026-09-10 生产 runtime 接线（4a6767f）后，真实集成在 T16 确定性失败
+      （cfi_synthesis_failed；修复提交信息原文「surfaced as cfi_synthesis_failed
+      at T16」）；PR #87（2026-09-13 落地为 9444a33）把 seam 统一为
+      「Promise-returning, no Result|Promise union」并更新全部调用点与测试。
+      机械信号（NEW_FILE ×3）不显示该缺陷——它只在行为/合同面可判定。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/zhihu-grabber-toolkit
+        commands:
+          - 'git rev-parse 4b6d182f1388e27ae33820feee1589cb0188d59b fa997c12e4c35fdb9267882747d2b55d13772ae2'
+          - 'git diff 4b6d182f1388e27ae33820feee1589cb0188d59b fa997c12e4c35fdb9267882747d2b55d13772ae2 --stat'
+          - 'git merge-base --is-ancestor fa997c12e4c35fdb9267882747d2b55d13772ae2 origin/master'
+      index_refs:
+        - experiments/v1.2/cases.yaml#c06-async-seam-mismatch-integration-blind
+        - docs/design-history.md#H03（[Z03]）
+      related_refs:
+        - 'PR #87「fix(p1-t14): make synthesis runtime seam uniformly async」；head ref
+          repair/p1-t14-async-runtime-contract；PR 合并落点 = GitHub API merge_commit_sha
+          9444a33b3ca24a53f8da4b9e2cb03a241925f47f（单父落地形态）；合并于
+          2026-09-13（经 GitHub API 核验）。'
+        - '修复的 BASE：0d305b03c64f8b4f057415a29043aa41af082576（= 9444a33^）。'
+        - '生产 runtime 接线：4a6767ff8b40c7bf2dbee2f220fc5194f553ede5（2026-09-10，
+          新增 deepseek-research-runtime.mjs / p1-runtime-composer.mjs / research-p1.mjs）。'
+        - '契约提取记录：0856be78ffbfa9e90497e1f1f1cba7fde7bc4b0d（2026-09-05，明示
+          INTEGRATION_STATUS=NOT_YET_REAL_UPSTREAM，当时集成从未对真实上游发生）。'
+      notes: |
+        base 与 candidate 均为 origin/master 可达的真实提交；REPLAY_DIFF =
+        git diff <base> <candidate>（非空）；direct-parent 等式 candidate^ == base 成立
+        （逐案声明，非普遍要求）。fa997c1 不在 master 第一父线上（经 p1-wave merge
+        55180b4 系列并入），属正常合并历史。工作区核验基准：
+        origin/master=854dd3cb2f9d5fa06df1dd79e7aad4ab42aea2b3。
+
+  - case_id: r02-governance-review-evidence-interface
+    class: NEGATIVE_AUTHORIZED_STRUCTURE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: e1da1541eb2b11f1e44f972409abde701496f4b6
+    candidate_sha: 2ed08f6f7ddf58b234b54afb8334e6fae32cd768
+    historical_diff: 'git diff e1da1541eb2b11f1e44f972409abde701496f4b6 2ed08f6f7ddf58b234b54afb8334e6fae32cd768'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 5
+        detail: |
+          references/review-evidence.md（+291）、schemas/review-evidence.schema.json
+          （+267，REVIEW_EVIDENCE_CONTRACT_V1 版本化机器合同）、scripts/review_evidence.py
+          （+538，薄 collect/validate CLI）、scripts/tests/test_review_evidence_contract.py
+          （+1193，测试面）、templates/review-evidence.json（+67，占位模板）。
+          合计 5 files, +2356/-0；NEW_DIRECTORY = 0（四个父目录均已在 base 树中）。
+    structure_disposition: AUTHORIZED_STRUCTURE
+    authority_ref: |
+      GitHub Issue #11「[P1-W2-01] Review Evidence interface foundation: four
+      coordinated surfaces and the frozen field contract」（state: closed 2026-09-17）。
+      其 TICKET CONTRACT 明示：TICKET_ID = P1-T04；CHANGE_KIND = NEW「explicitly
+      permitted because several later slices legally consume it」；
+      CANONICAL_AUTHORITY_REFS 含 integration rows「Evidence interface | new
+      references/review-evidence.md | NEW」「Evidence mechanical form | new schema /
+      template / CLI | NEW」；PARENT_SPEC_SHA =
+      60209cdaf2beeaa718fadcc4028a41c2f0f07db1（仓内可解析的 spec 修订提交）。
+      该记录独立于 candidate 自述，也独立于后续评审与 design-history 叙述。
+    structure_rationale: |
+      授权来源 = Issue #11 的 TICKET CONTRACT（见 authority_ref）：P1-T04 interface
+      freeze——四个协同面 + 单一语义 owner，且 Change kind = NEW 明示获批。
+      新增公开合同 + 新 CLI/模板文件属获批的结构增量。
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地时并非无缺陷：对抗性评审（对象 = 原候选 fabcfc9，与 main 上
+      2ed08f6 为同一内容的重组镜像）记录三个 findings（含 1 个 blocking），
+      由后继 b88df03「Repairs the three findings of the adversarial review of
+      fabcfc99」修复落地（随后 1b48d2b / 0ec774f 继续收敛）。
+      不得把该 candidate 整体判为无缺陷——授权结构 ≠ 候选无缺陷。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse e1da1541eb2b11f1e44f972409abde701496f4b6 2ed08f6f7ddf58b234b54afb8334e6fae32cd768'
+          - 'git diff e1da1541eb2b11f1e44f972409abde701496f4b6 2ed08f6f7ddf58b234b54afb8334e6fae32cd768 --stat'
+          - 'git merge-base --is-ancestor 2ed08f6f7ddf58b234b54afb8334e6fae32cd768 origin/main'
+      index_refs:
+        - docs/design-history.md#H11（机制落地叙述）
+        - GitHub Issue #11（授权 artifact，见 authority_ref）
+      related_refs:
+        - '评审修复链（main）：b88df0313b3b921978a9869b9422beb686d21f3c 及其后继
+          1b48d2b / 0ec774f（与原始候选分支一一镜像）。'
+        - '原始候选分支 feat/p1-t04-review-evidence-foundation：
+          fabcfc9 + e19e545 + 7467909 + 8871e64（重组后落到 main 为
+          2ed08f6 + b88df03 + 1b48d2b + 0ec774f）。'
+      notes: |
+        base 与 candidate 均在 origin/main 第一父线上（线性落地）；REPLAY_DIFF =
+        git diff <base> <candidate>（非空）；direct-parent 等式 candidate^ == base 成立
+        （逐案声明）。工作区核验基准：
+        origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
+
+  - case_id: r03-governance-static-gate-adoption
+    class: NEGATIVE_STRUCTURE_NOT_ADJUDICATED
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 015780be7a3f863c05509b437e4e586b4f388794
+    candidate_sha: 65113de69bda6802a476eefa033cf00439d49f04
+    historical_diff: 'git diff 015780be7a3f863c05509b437e4e586b4f388794 65113de69bda6802a476eefa033cf00439d49f04'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 4
+        detail: |
+          references/static-tooling-profiles.md（+283）、requirements-dev.txt（+11）、
+          ruff.toml（+37）、scripts/tests/test_p1_t17_static_gate_framework_semantics.py
+          （+282）。其余 11 个文件为原地修改（不计入 v1 信号）。合计 15 files, +1234/-9；
+          NEW_DIRECTORY = 0。
+      - signal: NEW_DEPENDENCY
+        count: 1
+        detail: |
+          requirements-dev.txt 的新增依赖声明行 = 1（`ruff==0.15.18`；其余为注释/空行）。
+          v1 counting rule 仅覆盖 requirements 家族（line-oriented）manifest。
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      本轮按 PR #40 review（「Anchor authorization labels to authority evidence」）复核：
+      未能在公开记录中定位到该结构增量的**逐项**授权 artifact（无对应 issue/ticket/spec）。
+      最近的独立记录是阶段级状态索引（.agent/project-state.json @ a94f509，
+      next_legal_action = POST_P1_GOVERNANCE_HARDENING）——它授权的是治理加固工作流
+      整体，不点名本 item 的结构面；按纪律不将其拉伸为逐项授权，也不从 candidate
+      自述 / 后续评审 / design-history 单独推导。故由 AUTHORIZED_STRUCTURE 降级为
+      NOT_ADJUDICATED（非因证据显示违规，而是逐项授权暂不可证）；若未来定位到逐项
+      授权记录，可恢复。
+      保留记录（adoption mechanics，非授权）：按 legacy adoption rule 先测基线
+      （clean main：35 个 Python 文件 / 22,994 行、无静态工具配置），只采纳
+      correctness-only 规则集，并修复基线中 5 处 F841（逐一验证行为中性）；
+      未新增 B 层不变量（RULES.md 未动）。
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地后仍有评审修复：两位独立 fresh-context reviewer 共 12 项 P2
+      （两者 PASS、12/12 properties VERIFIED）由后继 9bc3d95（= 65113de 的直接子提交，
+      append-only）收敛。不得把该 candidate 整体判为无缺陷——
+      授权结构 ≠ 候选无缺陷（本例进一步说明：结构面本身亦未裁决）。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 015780be7a3f863c05509b437e4e586b4f388794 65113de69bda6802a476eefa033cf00439d49f04'
+          - 'git diff 015780be7a3f863c05509b437e4e586b4f388794 65113de69bda6802a476eefa033cf00439d49f04 --stat'
+          - 'git merge-base --is-ancestor 65113de69bda6802a476eefa033cf00439d49f04 origin/main'
+      index_refs:
+        - docs/design-history.md#H13
+        - audit/PAIN_TO_POLICY_MAP_V2.md#P20（同提交内新增）
+        - experiments/v1.2/cases.yaml#c12-lintable-defects-escape-cheap-layer（相邻）
+      related_refs:
+        - '双独立评审收敛：9bc3d951320165de573e9655b0093442617a72c1（= 65113de 的直接子提交；
+          「Two independent fresh-context reviews returned PASS … 12 P2 items … All are
+          converged here」，append-only on top of 65113de）。'
+        - '降级复核所引记录：.agent/project-state.json @ a94f509（阶段级 frontier 授权，
+          不构成逐项授权）。'
+      notes: |
+        base 与 candidate 均在 origin/main 第一父线上；该系列为直接落地 main 的线性提交；
+        REPLAY_DIFF = git diff <base> <candidate>（非空）；direct-parent 等式
+        candidate^ == base 成立（逐案声明）。工作区核验基准：
+        origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
+
+  - case_id: r05-governance-local-only-precondition-fix
+    class: NEGATIVE_NO_STRUCTURE_DELTA
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    candidate_sha: 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48
+    historical_diff: 'git diff c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48'
+    expected_mechanical_signals: []
+    structure_disposition: NO_STRUCTURE_DELTA
+    structure_rationale: |
+      v1 确定性信号（NEW_FILE / NEW_DIRECTORY / NEW_DEPENDENCY）均不触发：
+      单文件原地修改（scripts/tests/test_p1_t16_gate_cli_entrypoint.py，+41/-14），
+      无任何新增文件/目录/依赖。空 expected 集合即本 case 的 oracle 形态——
+      提供 detector 的噪声底与控制对照（接替原 r04 席位；原 r04 因临时分支依赖
+      移入 not_replay_ready，见下）。
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      语料不对该 candidate 的行为正确性做独立裁决（未定位到对其本身的独立评审记录）。
+      记录内可支持的最窄事实：该修复针对 clean-checkout 下的环境性假通过——
+      测试曾断言本机私有文件已存在（此前两位 reviewer 的 PASS 只描述他们本机的树，
+      不描述 CI 执行的树）；修复改为自建前置条件并在移除 local-only profile 的条件下
+      重验。不得由「修复了既有缺陷」推出对 candidate 整体正确性的裁决。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48'
+          - 'git diff c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48 --stat'
+          - 'git merge-base --is-ancestor 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48 origin/main'
+      index_refs:
+        - docs/design-history.md#H15
+        - '（不对应 c01–c12 任一 seed；本轮新增负控）'
+      related_refs:
+        - '同一修复系列的前一提交（= base）：c08f6f8b；该家族的两处锚点为 72cd1a2 / 6d841d5。'
+        - 'H15 记录的家族：本机 fixture / 环境归属导致的假通过（两个评审通过的环境 ≠ 干净 CI）。'
+      notes: |
+        base 与 candidate 均在 origin/main 直线可达（2026-10-08 复核）；REPLAY_DIFF =
+        git diff <base> <candidate>（非空）；direct-parent 等式 candidate^ == base 成立
+        （逐案声明）。工作区核验基准：
+        origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
+
+  - case_id: r06-governance-zcode-adapter-reference
+    class: NEGATIVE_STRUCTURE_NOT_ADJUDICATED
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: af4df6ae706394db5f9dec313993312392aeb516
+    candidate_sha: 069f8be26cc04bb4f9bf3428c1e23b310debb984
+    historical_diff: 'git diff af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 8
+        detail: |
+          adapters/zcode/README.md、adapters/zcode/hooks/_continuity_state.py、
+          codegraph_state.py、governance_sync.py、grounding_guard.py、
+          project_state_guard.py、state_flush_guard.py，以及一个被一并提交的
+          __pycache__/*.pyc（原样计入；该 pyc 由后续评审修复 f3911e0 移除——
+          不美化、不重分类）。合计 8 files, +767/-0。
+      - signal: NEW_DIRECTORY
+        count: 4
+        detail: |
+          adapters/、adapters/zcode/、adapters/zcode/hooks/、
+          adapters/zcode/hooks/__pycache__/（candidate 树目录前缀集合 − base 树目录
+          前缀集合）。本 case 是 v1 信号 NEW_DIRECTORY 的正例覆盖
+          （PR #40 review 于 b5ae51b 时点指出此前 ready 集无正例）。
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      未能在公开记录中定位到该结构增量的**逐项**授权 artifact：search 覆盖公开
+      issue 列表（无该 item 的工单；#4、#5 均实为 PR）与仓内记录。最近的公开记录
+      是 PR #4（V1.1.2 状态合同族交付；其说明为 STATE_RESTORE/STATE_FLUSH
+      runtime-neutral contract）与 PR #5（合同 + 适配器整体交付）——均为交付侧
+      （PR），不构成独立于交付的授权 artifact，且 #4 的说明未点名 adapter 面。
+      按纪律不将上述记录拉伸为逐项授权，也不从 candidate 自述 / 后续评审 /
+      design-history 单独推导。故 structure_disposition = NOT_ADJUDICATED；
+      若未来定位到逐项授权记录，可恢复。
+      （交付形态为合同先行：af4df6a → 069f8be，属事实记录，非授权结论。）
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地时并非无缺陷：独立评审（Reviewer A）判定 FAIL 并记录 findings。
+      F1（R2 leak）：vendored governance_sync 的默认 checkout 硬编码了一台具体主机
+      的绝对路径（Windows 家目录形态；本文件遵守公开扫描规则，不复述其字面值——
+      原字面值见候选提交 069f8be 自身，后继已改为家目录派生）。
+      F6：committed __pycache__。上述 findings 由后继
+      f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0（「fix(review-r1): resolve
+      Reviewer A F1-F7 + SC-1 (append-only repair)」）修复落地。
+      不得把该 candidate 整体判为无缺陷——授权结构 ≠ 候选无缺陷（本例结构面亦未裁决）。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984'
+          - 'git diff af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984 --stat'
+          - 'git merge-base --is-ancestor 069f8be26cc04bb4f9bf3428c1e23b310debb984 origin/main'
+      index_refs:
+        - docs/design-history.md#H02
+        - docs/design-history.md#H09
+        - '（不对应 c01–c12 任一 seed；由 v1 信号 NEW_DIRECTORY 正例覆盖需求自
+          VIABLE_NOT_SELECTED 提升入 ready 集）'
+      related_refs:
+        - '合同先行记录：af4df6ae706394db5f9dec313993312392aeb516（= base）。'
+        - '评审修复：f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0（append-only；移除
+          committed __pycache__ 并修复 Reviewer A F1-F7 + SC-1）。'
+        - '整体交付 PR：PR #5（merged 2026-09-09；合同 + schemas/templates +
+          validate_project_state.py + adapters/zcode/ 参考实现）。'
+      notes: |
+        base 与 candidate 均为 origin/main 可达的真实提交；REPLAY_DIFF =
+        git diff <base> <candidate>（非空）；direct-parent 等式 candidate^ == base 成立
+        （逐案声明）。提升触发：PR #40 review 指出 v1 信号 NEW_DIRECTORY 在 ready 集
+        无正例覆盖（此前该候选记录为 VIABLE_NOT_SELECTED）。工作区核验基准：
+        origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
+
+# 本轮检查过、但不能进入 ready 集合的候选（不得强行升级）。
+not_replay_ready:
+  - seed: c01
+    status: HISTORICAL_EVIDENCE_ONLY
+    reason: |
+      采用演练的红灯证据（docs/adoption-evidence/red-tests.txt）真实归档，但演练的
+      被测代码是合成 fixture（design-history H18 明示「合成 fixture，不冒充知乎原实现」）；
+      不构成 historical replay。
+  - seed: c02
+    status: HISTORICAL_EVIDENCE_ONLY
+    reason: |
+      同上（采用演练 DEMO-1 的失败记录真实，代码合成）；其 seam 家族已由 r01
+      以真实提交代表，不重复计入。
+  - seed: c03
+    status: NOT_REPLAY_READY
+    reason: |
+      「CI 未触发被当通过 / 自分类放行」的事件级 trace 未定位到可回放的 commit/diff；
+      现存证据为世代账本（WORKFLOW_EVOLUTION_MAP G3）与 P09 记录。
+  - seed: c04
+    status: NOT_REPLAY_READY
+    reason: |
+      恢复审计对照证据在仓内（docs/adoption-evidence/recovery-*-controls.json），
+      属评审纪律验证，且演练代码为合成 fixture；不是结构 diff。
+  - seed: c05
+    status: NOT_REPLAY_READY
+    reason: |
+      「实现期发明架构 / 票据形假缝」的事故级 trace 未定位到单一真实 diff；
+      其 seam 家族由 r01 代表，speculative_abstraction 的最强案例留待后续轮次。
+  - seed: c07
+    status: NOT_REPLAY_READY
+    reason: |
+      同票重建的痕迹真实存在：work/p1-t08-source-group-selection 原始线
+      （8cee72056df40f7762ee706ff89c2ceb421b2c7c / c5f6e1452bf1bb90ff9d7824801f01a15bff1f21，
+      2026-09-04；未并入 master、分支仍在远端）与同日并存的 reform 重建线（其提交
+      现经 master 承接：f5d5b62f0c2e6f102246cf33ddd697250a978bb4 /
+      1ef86d98f392677051a9cca6b0e0b2040a56bb8b /
+      0287ba3ef33c29357c7f8306f9e51dcca2b41da0；该线的 -reform 分支 ref 在
+      2026-10-07 远端核验时已不存在，重建痕迹以提交历史为证）。
+      但「互相 invalidate」缺可机器核验的失效边界；本轮不据此断言。
+  - seed: c08
+    status: NOT_REPLAY_READY
+    reason: |
+      修复循环属流程语义；仓内有 T18 多 commit 与 r5–r8 加固的过程记录，
+      但不是结构 diff。
+  - seed: c09
+    status: NOT_REPLAY_READY
+    reason: |
+      饱和/仲裁属流程语义；仓内记录（97ec802、495f7cda）为过程证据，非结构 diff。
+  - seed: c10
+    status: NOT_REPLAY_READY
+    reason: |
+      恢复失败记录真实（docs/adoption-evidence/recovery-initial-*），但产物是裸仓
+      元数据状态与命令输出，不是可回放的 repo diff。
+  - seed: c11
+    status: NOT_DURABLE_RESOLUTION
+    reason: |
+      原 RESOLVED 落点 = webcodex 原生门修复 case（原 r04）。该 case 因临时分支依赖
+      降级为 NOT_DURABLE_REPLAY_READY（见下），c11 的解析随之失去 durable 载体；
+      若该 case 未来恢复为 ready，本项可同步恢复为 RESOLVED。
+  - seed: c12
+    status: ADJACENT_ONLY
+    reason: |
+      结构侧 trace = r03（65113de 同提交记录 gate 前基线并修复 5 处 F841）；
+      c12 自身无单一可回放 diff（「逃逸」是 gate 前的全仓状态，而非某个 diff）。
+      与 replay/README.md crosswalk 的 ADJACENT_ONLY 行一致。
+  - candidate_ref: '909ffb02bfa241384a5daa790f47c5b64bd461e3'
+    status: NOT_DURABLE_REPLAY_READY
+    base_sha: 8f5e46149a4495953841b1b5f2152192ea6b2ca3
+    source_repository: FlapPearLabs/webcodex
+    source_ref: fix/webcodex-execution-normalization-p1-closure
+    reason: |
+      原 r04（webcodex 原生门 false-pass 修复）。真实、v1 信号为空集、两 disposition
+      均可辩护（NO_STRUCTURE_DELTA / NO_BEHAVIORAL_CLAIM），但两枚 SHA 仅由临时
+      P1 closure / handoff / impl 分支承载、**不在默认分支 main 上**（2026-10-07 核验）
+      ——temporary branch dependency：分支被删除或 force-update 后，标准 clone 将
+      无法解析 resolver，readiness 随分支生命周期过期。按本轮纪律：不为 benchmark
+      创建 tag/ref、不修改来源仓、不增加跨仓长期维护面，故从 ready 集合降级；
+      若该线未来并入既成的永久 ref，可在后续轮次恢复为 ready。
