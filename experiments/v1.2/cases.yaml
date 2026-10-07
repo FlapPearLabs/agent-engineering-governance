@@ -1,0 +1,177 @@
+# experiments/v1.2/cases.yaml — HISTORICAL BENCHMARK SEED CORPUS（非 canonical；2026-10-07 建立）
+#
+# 本文件是 seed corpus，**不是可执行的 replay benchmark**：当前 case 不能直接回放。
+# 只有补齐全套真实、可恢复的 BASE STATE / HISTORICAL DIFF OR CANDIDATE / EXPECTED SIGNAL
+# 的 case，才进入未来的 executable replay corpus（见 evidence-lineage.md 第 3 节）。
+# 禁止为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。
+#
+# 每个 case 的来源必须是仓内已有真实历史材料（audit / docs / 测试 / 证据附件）。
+# 禁止 synthetic「漂亮案例」；采样不设配额——数量与类别覆盖随实验轮次演化。
+#
+# 分类标注（已声明的值域，不是覆盖要求）：
+#   task_class     ∈ MICRO / LOW / NORMAL / STRUCTURAL / HIGH
+#   failure_family ∈ fake_red / false_pass / stale_review / speculative_abstraction /
+#                    architecture_drift / duplicate_owner / repair_loop /
+#                    recovery_failure / mechanical_escape
+#
+# 结构为 authored subset（供 experiments/v1.2/tests/test_material.py 完整性校验）：
+#   每个 case：id / source_ref / task_class / failure_family /
+#              historical_failure / must_catch / false_success_condition
+#   source_ref：仓内相对路径；多个引用用 ';' 分隔；'#' 后为人类可读锚记（校验时忽略）。
+version: 1
+cases:
+  - id: c01-weak-red-harness-failure
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P07"
+    task_class: NORMAL
+    failure_family: fake_red
+    historical_failure: |
+      「tests were added」冒充 TDD 的证据形态问题：红灯由模块缺失或 harness 损坏构成，
+      而不是由针对目标失效类的反例断言触发；测试文件的存在被当作先测的证据（P07）。
+      对照材料：docs/adoption-evidence/red-tests.txt 展示了合格形态——三个生产形状反例
+      在实现修改之前失败，且明确不是导入或 harness 故障。
+    must_catch: |
+      RED 的触发来源与它指向的失效类：反例必须指名被攻击的行为边界；
+      导入失败、模块缺失、harness 损坏不得计入反例证据。
+    false_success_condition: |
+      任何非零退出被读成「反例已触发」；或「新增了测试文件」被当作行为合同证据。
+  - id: c02-test-double-green-real-entry-broken
+    source_ref: "docs/adoption-validation.md; docs/adoption-evidence/baseline-tests.txt; docs/adoption-evidence/baseline-app.txt"
+    task_class: NORMAL
+    failure_family: false_pass
+    historical_failure: |
+      采用演练起点（2026-10-03 DEMO-1）：同步替身测试通过，而真实入口因对
+      coroutine 取长度失败——替身绿灯掩盖真实链路失败，「组件自洽」被误当作
+      「系统正确」。
+    must_catch: |
+      生产可达性证据：真实入口必须被实际执行；组件测试、替身绿灯或类型检查
+      不能单独构成「真实链路已验证」。
+    false_success_condition: |
+      单元测试绿灯被读成真实入口已验证；未跑生产形状即宣称组件可用。
+  - id: c03-ci-not-triggered-collapsed-to-pass
+    source_ref: "audit/WORKFLOW_EVOLUTION_MAP.md; audit/PAIN_TO_POLICY_MAP_V2.md#P09"
+    task_class: NORMAL
+    failure_family: false_pass
+    historical_failure: |
+      CI 的未触发状态被当作通过；本地测试冒充真实 CI；执行者自称基线失败并
+      自行放行（WORKFLOW_EVOLUTION_MAP 的 G3 起源痛点；P09 记录的状态
+      坍缩与自分类问题）。
+    must_catch: |
+      非通过类的 CI 状态不可坍缩为通过；本地绿不等于 PR CI 绿；
+      失败分类只是提案，接受权在独立一侧。
+    false_success_condition: |
+      「本地全绿」被当作 CI 通过；未触发的 CI 被静默当作等价证据。
+  - id: c04-stale-review-transferred-to-new-sha
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P06; docs/adoption-evidence/recovery-final-verdict.md"
+    task_class: LOW
+    failure_family: stale_review
+    historical_failure: |
+      修复（哪怕一个字节）之后，旧批准被转移到新的 HEAD；评审结论与其所审对象
+      解耦（P06）。恢复审计的正负控实际证明了该纪律：把旧候选的收据放到当前
+      subject 上会被拒——旧的全 SHA 批准无法转移。
+    must_catch: |
+      评审证据绑定 exact subject（SHA 与内容）；对新候选复述旧批准必须被拒绝。
+    false_success_condition: |
+      旧 SHA 的批准被引用到新 HEAD 上；或「同一分支的后续提交」被默认继承在先结论。
+  - id: c05-dag-shaped-fake-seam
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P01; docs/design-history.md"
+    task_class: STRUCTURAL
+    failure_family: speculative_abstraction
+    historical_failure: |
+      实现 agent 在票内自造模块或启发式，替代既有权威模块；分解产物（票据 DAG）
+      反向塑造模块设计，制造「票据形假缝」（P01/P02；design-history H03 的整理）。
+    must_catch: |
+      结构增量的可追溯性：新模块、新抽象、新依赖必须能映射到既有架构概念或
+      已批准 Spec；映射不上即假缝，需回架构层。
+    false_success_condition: |
+      全部票据绿灯加上 DAG 有效被读成架构合规；测试通过即接受无法溯源的新模块。
+  - id: c06-async-seam-mismatch-integration-blind
+    source_ref: "docs/design-history.md"
+    task_class: STRUCTURAL
+    failure_family: architecture_drift
+    historical_failure: |
+      知乎 PR #87（design-history H03 记录的 Z03 事实）：真实 synthesize 返回
+      Promise，票内却按同步路径校验；组件测试自洽而真实链路不通——缝合同
+      （同步/异步、producer/consumer）错误在单元层面不可见。
+    must_catch: |
+      缝合同在真实边界上被验证：生产形状测试替代想象 fixture；
+      「模块测试自洽」不等于「真实链路正确」。
+    false_success_condition: |
+      单元测试绿灯或类型无误被当作缝合同已满足；真实组合路径从未实际执行。
+  - id: c07-shared-owner-split-tickets
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P03"
+    task_class: NORMAL
+    failure_family: duplicate_owner
+    historical_failure: |
+      两票共享同一状态 owner 却被并行拆开，互相 invalidate；大票无法独立评审
+      （P03；知乎 worktree 史中同票重建并存的直接痕迹）。
+    must_catch: |
+      票集级 owner 唯一性：共享 owner 或状态的票据必须合并、显式串行集成，
+      或走架构授权拆分；不得默认并行。
+    false_success_condition: |
+      每票各自的评审都通过，但组合语义已被对方票破坏而无人发现。
+  - id: c08-repair-loop-and-budget-reset
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P22"
+    task_class: NORMAL
+    failure_family: repair_loop
+    historical_failure: |
+      P1-T18 一票累计 12 个 commit：required quorum 已满足后仍继续施工；
+      「真 finding」被当作修复授权；新 SHA 或新评审者被视为预算重置；
+      加固治理装置本身又产生新的加固需求（r5 到 r8 的实测记录）。
+    must_catch: |
+      收敛切断：quorum 通过且无高价值 blocker 后默认停止；预算计数按票单调；
+      finding 的真实性不自动授予修复权。
+    false_success_condition: |
+      「finding 是真的所以必须修」；「新 SHA 等于新预算」；修复轮次仍在增长
+      但高价值 blocker 早已清零。
+  - id: c09-saturation-as-integration-qualification
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P22"
+    task_class: HIGH
+    failure_family: false_pass
+    historical_failure: |
+      一致性评审对 exact SHA 返回 CHANGES_REQUESTED；修复预算耗尽后仲裁判定该
+      finding 非高价值并给出饱和结论；候选随即被集成——饱和或仲裁被外推成
+      集成资格（P22 增补；97ec802 与 495f7cda 的仓内记录）。
+    must_catch: |
+      三机制分权：修复预算、findings 处置与集成资格（required quorum）
+      互不替代；饱和不豁免未满足的评审门。
+    false_success_condition: |
+      「已饱和」被读成「已通过」；仲裁的价值分类被当作评审通过证据。
+  - id: c10-default-remote-head-recovery-failure
+    source_ref: "docs/adoption-evidence/recovery-initial-verdict.md; docs/adoption-evidence/default-head-correction.json"
+    task_class: LOW
+    failure_family: recovery_failure
+    historical_failure: |
+      恢复演练的初始故障：远端 bare 仓的默认 HEAD 指向不存在的分支；普通 clone
+      退出码为 0 却没有可恢复的 checkout，对象验证随之失败（RECOVERY-F1 初始
+      结论；后经仅元数据修复，初始失败记录保持封存不改写）。
+    must_catch: |
+      恢复成功的判据是「真实 checkout 加固定状态索引可核验」，不是命令退出码；
+      默认入口必须指向真实主线。
+    false_success_condition: |
+      clone 或恢复命令退出 0 即认为恢复完成；远端存在分支引用即认为可恢复。
+  - id: c11-exit-code-masking-premature-pass
+    source_ref: "docs/design-history.md"
+    task_class: NORMAL
+    failure_family: false_pass
+    historical_failure: |
+      WebCodex 原生门事件（design-history H16 记录的 W02）：前一个失败 suite 的
+      退出码被后一个成功命令掩盖；通过标记在实际断言之前输出——门「存在且绿色」
+      但无法失败。
+    must_catch: |
+      聚合命令的失败可见性：任何子步骤失败必须使整体失败；
+      通过标记只能在断言之后产生。
+    false_success_condition: |
+      聚合输出绿灯掩盖早期失败；提前打印的通过标记被当作证据。
+  - id: c12-lintable-defects-escape-cheap-layer
+    source_ref: "audit/PAIN_TO_POLICY_MAP_V2.md#P20; ruff.toml"
+    task_class: MICRO
+    failure_family: mechanical_escape
+    historical_failure: |
+      本仓采纳静态门之前：35 个 Python 文件没有任何语言相称的静态工具；
+      5 处未使用变量完全机械可判，却只能在补门之后一次性检出；随后写新测试时
+      同类缺陷再次发生并被同一门命中（P20/P21 的一手记录）。
+    must_catch: |
+      机器可证缺陷在最低可靠层就被拦截；「评审没发现」不等于
+      「没有可机械检出的缺陷」。
+    false_success_condition: |
+      评审通过被当作代码面正确；机械可判缺陷逃到动态测试或评审预算中才被发现。
