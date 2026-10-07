@@ -53,7 +53,8 @@ cases:
         注入的 runtime seam（`runtimeResult = runtime.synthesize({...})`，无 await），
         且 T14 全部测试替身建模为同步 synthesize()。
         2026-09-10 生产 runtime 接线（4a6767f）后，真实集成在 T16 确定性失败
-        （cfi_synthesis_failed）；PR #87（2026-09-13 合并为 9444a33）把 seam 统一为
+        （cfi_synthesis_failed；修复提交信息原文「surfaced as cfi_synthesis_failed
+        at T16」）；PR #87（2026-09-13 落地为 9444a33）把 seam 统一为
         「Promise-returning, no Result|Promise union」并更新全部调用点与测试。
         注意：机械信号（3 个新模块）本身不显示该缺陷——缺陷在 seam 语义与
         「测试替身 ≠ 生产形状」的落差；本 case 是「结构信号 ≠ 架构裁决」的正面材料。
@@ -69,8 +70,9 @@ cases:
         - docs/design-history.md#H03（[Z03]）
       related_refs:
         - 'PR #87「fix(p1-t14): make synthesis runtime seam uniformly async」；head ref
-          repair/p1-t14-async-runtime-contract；merge commit 9444a33b3ca24a53f8da4b9e2cb03a241925f47f；
-          合并于 2026-09-13（经 GitHub API 核验）。'
+          repair/p1-t14-async-runtime-contract；PR 合并落点 = GitHub API merge_commit_sha
+          9444a33b3ca24a53f8da4b9e2cb03a241925f47f（单父落地形态）；合并于
+          2026-09-13（经 GitHub API 核验）。'
         - '修复的 BASE：0d305b03c64f8b4f057415a29043aa41af082576（= 9444a33^）。'
         - '生产 runtime 接线：4a6767ff8b40c7bf2dbee2f220fc5194f553ede5（2026-09-10，
           新增 deepseek-research-runtime.mjs / p1-runtime-composer.mjs / research-p1.mjs）。'
@@ -260,9 +262,14 @@ not_replay_ready:
   - seed: c07
     status: NOT_REPLAY_READY
     reason: |
-      同票重建的并存痕迹真实存在（work/p1-t08-source-group-selection 与其 -reform，
-      两者均 2026-09-04、原始线未并入 master），但「互相 invalidate」缺可机器核验的
-      失效边界；本轮不据此断言。
+      同票重建的痕迹真实存在：work/p1-t08-source-group-selection 原始线
+      （8cee72056df40f7762ee706ff89c2ceb421b2c7c / c5f6e1452bf1bb90ff9d7824801f01a15bff1f21，
+      2026-09-04；未并入 master、分支仍在远端）与同日并存的 reform 重建线（其提交
+      现经 master 承接：f5d5b62f0c2e6f102246cf33ddd697250a978bb4 /
+      1ef86d98f392677051a9cca6b0e0b2040a56bb8b /
+      0287ba3ef33c29357c7f8306f9e51dcca2b41da0；该线的 -reform 分支 ref 在
+      2026-10-07 远端核验时已不存在，重建痕迹以提交历史为证）。
+      但「互相 invalidate」缺可机器核验的失效边界；本轮不据此断言。
   - seed: c08
     status: NOT_REPLAY_READY
     reason: |
