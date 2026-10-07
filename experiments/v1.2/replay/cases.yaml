@@ -267,6 +267,72 @@ cases:
         （逐案声明）。工作区核验基准：
         origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
 
+  - case_id: r06-governance-zcode-adapter-reference
+    class: NEGATIVE_STRUCTURE_NOT_ADJUDICATED
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: af4df6ae706394db5f9dec313993312392aeb516
+    candidate_sha: 069f8be26cc04bb4f9bf3428c1e23b310debb984
+    historical_diff: 'git diff af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 8
+        detail: |
+          adapters/zcode/README.md、adapters/zcode/hooks/_continuity_state.py、
+          codegraph_state.py、governance_sync.py、grounding_guard.py、
+          project_state_guard.py、state_flush_guard.py，以及一个被一并提交的
+          __pycache__/*.pyc（原样计入；该 pyc 由后续评审修复 f3911e0 移除——
+          不美化、不重分类）。合计 8 files, +767/-0。
+      - signal: NEW_DIRECTORY
+        count: 4
+        detail: |
+          adapters/、adapters/zcode/、adapters/zcode/hooks/、
+          adapters/zcode/hooks/__pycache__/（candidate 树目录前缀集合 − base 树目录
+          前缀集合）。本 case 是 v1 信号 NEW_DIRECTORY 的正例覆盖
+          （PR #40 review 于 b5ae51b 时点指出此前 ready 集无正例）。
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      未能定位到该结构增量的**逐项**授权 artifact：search 覆盖公开 issue 列表与
+      仓内记录。最近的相关独立记录是 Issue #4「[V1.1.2] Project state persistence
+      + cross-agent continuity」（closed；STATE_RESTORE/STATE_FLUSH runtime-neutral
+      contract）——它授权的是 V1.1.2 状态合同族，未点名 adapter 面；PR #5（merged）
+      记录合同 + 适配器整体交付，但属 candidate 侧。按纪律不将上述记录拉伸为逐项
+      授权，也不从 candidate 自述 / 后续评审 / design-history 单独推导。故
+      structure_disposition = NOT_ADJUDICATED；若未来定位到逐项授权记录，可恢复。
+      （交付形态为合同先行：af4df6a → 069f8be，属事实记录，非授权结论。）
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地时并非无缺陷：独立评审（Reviewer A）对交付面提出 findings
+      （含 F1：vendored governance_sync 以 expanduser('~') 构造默认 checkout；
+      F6：committed __pycache__），由其后继
+      f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0（「fix(review-r1): resolve
+      Reviewer A F1-F7 + SC-1 (append-only repair)」）修复落地。
+      不得把该 candidate 整体判为无缺陷——授权结构 ≠ 候选无缺陷（本例结构面亦未裁决）。
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984'
+          - 'git diff af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984 --stat'
+          - 'git merge-base --is-ancestor 069f8be26cc04bb4f9bf3428c1e23b310debb984 origin/main'
+      index_refs:
+        - docs/design-history.md#H02
+        - docs/design-history.md#H09
+        - '（不对应 c01–c12 任一 seed；由 v1 信号 NEW_DIRECTORY 正例覆盖需求自
+          VIABLE_NOT_SELECTED 提升入 ready 集）'
+      related_refs:
+        - '合同先行记录：af4df6ae706394db5f9dec313993312392aeb516（= base）。'
+        - '评审修复：f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0（append-only；移除
+          committed __pycache__ 并修复 Reviewer A F1-F7 + SC-1）。'
+        - '整体交付 PR：PR #5（merged 2026-09-09；合同 + schemas/templates +
+          validate_project_state.py + adapters/zcode/ 参考实现）。'
+      notes: |
+        base 与 candidate 均为 origin/main 可达的真实提交；REPLAY_DIFF =
+        git diff <base> <candidate>（非空）；direct-parent 等式 candidate^ == base 成立
+        （逐案声明）。提升触发：PR #40 review 指出 v1 信号 NEW_DIRECTORY 在 ready 集
+        无正例覆盖（此前该候选记录为 VIABLE_NOT_SELECTED）。工作区核验基准：
+        origin/main=324fc36ec1696116c311fd440225a95aeda04a91。
+
 # 本轮检查过、但不能进入 ready 集合的候选（不得强行升级）。
 not_replay_ready:
   - seed: c01
@@ -332,12 +398,6 @@ not_replay_ready:
       结构侧 trace = r03（65113de 同提交记录 gate 前基线并修复 5 处 F841）；
       c12 自身无单一可回放 diff（「逃逸」是 gate 前的全仓状态，而非某个 diff）。
       与 replay/README.md crosswalk 的 ADJACENT_ONLY 行一致。
-  - candidate_ref: '069f8be26cc04bb4f9bf3428c1e23b310debb984'
-    status: VIABLE_NOT_SELECTED
-    reason: |
-      ZCode hook reference implementation（新增目录 + 6 模块；合同先行 af4df6a，
-      经 Reviewer A F1-F7 + SC-1 修复 f3911e0）。真实且可解析，未选入是为在
-      2–4 例窗口内控制样本量并避免同类信号重复；NEW_DIRECTORY 类留待后续轮次。
   - candidate_ref: '909ffb02bfa241384a5daa790f47c5b64bd461e3'
     status: NOT_DURABLE_REPLAY_READY
     base_sha: 8f5e46149a4495953841b1b5f2152192ea6b2ca3

@@ -120,11 +120,24 @@ git merge-base --is-ancestor <candidate_sha> <source_ref>   # 可达性
 git rev-parse <candidate_sha>^                      # 逐案声明：direct-parent 等式（若适用）
 ```
 
-廉价可解析性检查（不做 parser framework，仅维持基本数据格式可解析）：
+基本结构检查（stdlib-only；仓库配置环境可复现——不需要 PyYAML）：
 
 ```bash
-python3 -c "import yaml; yaml.safe_load(open('experiments/v1.2/replay/cases.yaml', encoding='utf-8'))"
+python3 - <<'EOF'
+import re
+t = open("experiments/v1.2/replay/cases.yaml", encoding="utf-8").read()
+assert "\t" not in t, "TAB found (YAML 块缩进禁用 tab)"
+ids = re.findall(r"^  - case_id: (r\d\d-[a-z0-9-]+)$", t, re.M)
+assert ids and len(ids) == len(set(ids)), "case_id missing or duplicated"
+assert t.count("historical_diff: 'git diff ") == len(ids), "a case lacks the base..candidate diff binding"
+for key in ("base_sha:", "candidate_sha:", "structure_disposition:", "behavioral_disposition:"):
+    assert t.count(key) >= len(ids), f"missing {key}"
+print("REPLAY_CHEAP_CHECK_OK", len(ids), "ready cases")
+EOF
 ```
+
+（完整 YAML 解析需要 PyYAML——属 detector 环境职责，本目录不新增依赖；
+上述 stdlib 检查覆盖基础结构不变量：无 tab、case_id 唯一、diff 绑定与必需字段的存在性。）
 
 PR 类 provenance 另用 GitHub API 核验（例：`gh pr view 87` 的 title / headRefName /
 mergeCommit 与实际本地提交逐字段一致）。
@@ -137,6 +150,7 @@ mergeCommit 与实际本地提交逐字段一致）。
 | [r02](cases.yaml) | NEGATIVE_AUTHORIZED_STRUCTURE | agent-engineering-governance | NEW_FILE ×5 | AUTHORIZED_STRUCTURE（authority_ref = Issue #11） | POST_REVIEW_REPAIRS_REQUIRED |
 | [r03](cases.yaml) | NEGATIVE_STRUCTURE_NOT_ADJUDICATED | agent-engineering-governance | NEW_FILE ×4；NEW_DEPENDENCY ×1 | NOT_ADJUDICATED（逐项授权暂不可证） | POST_REVIEW_REPAIRS_REQUIRED |
 | [r05](cases.yaml) | NEGATIVE_NO_STRUCTURE_DELTA | agent-engineering-governance | 空集（噪声底对照） | NO_STRUCTURE_DELTA | NO_BEHAVIORAL_CLAIM |
+| [r06](cases.yaml) | NEGATIVE_STRUCTURE_NOT_ADJUDICATED | agent-engineering-governance | NEW_FILE ×8；NEW_DIRECTORY ×4 | NOT_ADJUDICATED（逐项授权暂不可证） | POST_REVIEW_REPAIRS_REQUIRED |
 
 （原 r04 = webcodex 原生门修复：真实但仅由临时分支承载，已降级为
 `NOT_DURABLE_REPLAY_READY`，见 cases.yaml 的 `not_replay_ready`。）
@@ -144,7 +158,7 @@ mergeCommit 与实际本地提交逐字段一致）。
 ## 与 seed corpus 的 crosswalk
 
 [seed corpus](../cases.yaml) 是索引；本目录把其中可解析的 seed 落到真实提交，并按既有
-轮次补充了负控（r02、r03、r05）。未就绪项逐条记录在本目录 cases.yaml 的 `not_replay_ready`，
+轮次补充了负控（r02、r03、r05、r06）。未就绪项逐条记录在本目录 cases.yaml 的 `not_replay_ready`，
 两处必须保持一致：
 
 | seed | 状态 | 落点 / 原因（摘要，与 cases.yaml 结构化条目一致） |
@@ -164,4 +178,4 @@ mergeCommit 与实际本地提交逐字段一致）。
   REPLAY_DIFF 绑定均为**实验 corpus 的事实建模**，不升格为 canonical rule。
 - manifest 的自动解析校验与 negative controls：`DEFERRED_TO_DETECTOR_IMPLEMENTATION`
   ——detector 本身必然要读取该 corpus，在此之前另建 parser 会形成重复实现与实验维护成本；
-  本目录以「廉价可解析性检查」（见上）+ 独立评审维持基本数据格式完整性。
+  本目录以「基本结构检查（stdlib-only）」（见上）+ 独立评审维持基本数据格式完整性。
