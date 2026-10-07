@@ -3,7 +3,7 @@
 > 本目录是 V1.2 实验的证据准备产物：为将来的最小 `STRUCTURE_DELTA_SHADOW` 原型
 > 提供**真实历史、可机械解析**的输入与对照。它**不是** benchmark framework、
 > **不接 CI**、**不 block merge**、**不产生任何自动化判定**；detector / 分类器 / runner 均未实现。
-> 状态：`REPLAY_INPUT_CORPUS = READY_FOR_SHADOW_PROTOTYPE`（durable cases 就绪）、
+> 状态：`REPLAY_INPUT_CORPUS = PARTIALLY_READY / READY_FOR_SHADOW_PROTOTYPE`（durable cases 就绪）、
 > `DETECTOR = NOT_IMPLEMENTED`、`LOCAL_VALIDATION = NOT_YET_RUN`。
 > 建立基线：main 的 324fc36（PR #39 合并后），分支 experiment/v1.2-replay-corpus（PR #40）。
 
@@ -129,15 +129,20 @@ t = open("experiments/v1.2/replay/cases.yaml", encoding="utf-8").read()
 assert "\t" not in t, "TAB found (YAML 块缩进禁用 tab)"
 ids = re.findall(r"^  - case_id: (r\d\d-[a-z0-9-]+)$", t, re.M)
 assert ids and len(ids) == len(set(ids)), "case_id missing or duplicated"
-assert t.count("historical_diff: 'git diff ") == len(ids), "a case lacks the base..candidate diff binding"
-for key in ("base_sha:", "candidate_sha:", "structure_disposition:", "behavioral_disposition:"):
-    assert t.count(key) >= len(ids), f"missing {key}"
+ready = t.split("\nnot_replay_ready:", 1)[0]
+blocks = re.split(r"\n  - case_id: ", ready)[1:]
+assert len(blocks) == len(ids), "case blocks do not match case_id lines"
+for b in blocks:
+    for key in ("base_sha:", "candidate_sha:", "historical_diff: 'git diff ",
+                "structure_disposition:", "behavioral_disposition:"):
+        assert key in b, "a case block is missing " + key
 print("REPLAY_CHEAP_CHECK_OK", len(ids), "ready cases")
 EOF
 ```
 
 （完整 YAML 解析需要 PyYAML——属 detector 环境职责，本目录不新增依赖；
-上述 stdlib 检查覆盖基础结构不变量：无 tab、case_id 唯一、diff 绑定与必需字段的存在性。）
+上述 stdlib 检查覆盖基础结构不变量：无 tab、case_id 唯一、diff 绑定，以及
+**逐 case 块**的必需字段存在性——不做完整 schema 校验（那是 detector 的职责）。）
 
 PR 类 provenance 另用 GitHub API 核验（例：`gh pr view 87` 的 title / headRefName /
 mergeCommit 与实际本地提交逐字段一致）。

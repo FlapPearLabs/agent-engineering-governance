@@ -11,7 +11,7 @@
 # - REPLAY_DIFF 唯一绑定：HISTORICAL_DIFF := git diff <base_sha> <candidate_sha>；
 #   resolver 必须验证该对（两 SHA 存在 + diff 可解析且非空）。
 #   STALE_OR_WRONG_BASE ⇒ provenance check FAIL。
-#   candidate^ == base 的 direct-parent 等式为**逐案声明**（当前 4 案均成立），
+#   candidate^ == base 的 direct-parent 等式为**逐案声明**（当前 5 案均成立），
 #   不是普遍要求——未来 case 允许非 direct-parent 的 diff 对。
 # - 三个事实轴互不替代、禁止合并（防状态坍缩）：
 #     STRUCTURE_SIGNAL != STRUCTURE_VERDICT != CANDIDATE_CORRECTNESS
@@ -292,19 +292,22 @@ cases:
           （PR #40 review 于 b5ae51b 时点指出此前 ready 集无正例）。
     structure_disposition: NOT_ADJUDICATED
     structure_rationale: |
-      未能定位到该结构增量的**逐项**授权 artifact：search 覆盖公开 issue 列表与
-      仓内记录。最近的相关独立记录是 Issue #4「[V1.1.2] Project state persistence
-      + cross-agent continuity」（closed；STATE_RESTORE/STATE_FLUSH runtime-neutral
-      contract）——它授权的是 V1.1.2 状态合同族，未点名 adapter 面；PR #5（merged）
-      记录合同 + 适配器整体交付，但属 candidate 侧。按纪律不将上述记录拉伸为逐项
-      授权，也不从 candidate 自述 / 后续评审 / design-history 单独推导。故
-      structure_disposition = NOT_ADJUDICATED；若未来定位到逐项授权记录，可恢复。
+      未能在公开记录中定位到该结构增量的**逐项**授权 artifact：search 覆盖公开
+      issue 列表（无该 item 的工单；#4、#5 均实为 PR）与仓内记录。最近的公开记录
+      是 PR #4（V1.1.2 状态合同族交付；其说明为 STATE_RESTORE/STATE_FLUSH
+      runtime-neutral contract）与 PR #5（合同 + 适配器整体交付）——均为交付侧
+      （PR），不构成独立于交付的授权 artifact，且 #4 的说明未点名 adapter 面。
+      按纪律不将上述记录拉伸为逐项授权，也不从 candidate 自述 / 后续评审 /
+      design-history 单独推导。故 structure_disposition = NOT_ADJUDICATED；
+      若未来定位到逐项授权记录，可恢复。
       （交付形态为合同先行：af4df6a → 069f8be，属事实记录，非授权结论。）
     behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
     behavioral_rationale: |
-      candidate 落地时并非无缺陷：独立评审（Reviewer A）对交付面提出 findings
-      （含 F1：vendored governance_sync 以 expanduser('~') 构造默认 checkout；
-      F6：committed __pycache__），由其后继
+      candidate 落地时并非无缺陷：独立评审（Reviewer A）判定 FAIL 并记录 findings。
+      F1（R2 leak）：vendored governance_sync 的默认 checkout 硬编码了一台具体主机
+      的绝对路径（Windows 家目录形态；本文件遵守公开扫描规则，不复述其字面值——
+      原字面值见候选提交 069f8be 自身，后继已改为家目录派生）。
+      F6：committed __pycache__。上述 findings 由后继
       f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0（「fix(review-r1): resolve
       Reviewer A F1-F7 + SC-1 (append-only repair)」）修复落地。
       不得把该 candidate 整体判为无缺陷——授权结构 ≠ 候选无缺陷（本例结构面亦未裁决）。
