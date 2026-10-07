@@ -3,13 +3,18 @@
 # 本文件是实验 V1.2 / 候选 H3（STRUCTURE_DELTA_SHADOW）的**证据准备**产物：
 # 每个 case 从**公开来源仓库的真实 Git 历史**取出一个可定位的 BASE→CANDIDATE 变更对。
 # 未来最小 shadow 原型（本轮不实现）可以按 provenance.resolver 的命令直接重建输入，
-# 并与 expected_mechanical_signals / semantic_expectation 对照。
+# 并与 expected_mechanical_signals / structure_disposition / behavioral_disposition 对照。
 #
 # 规则（与 seed corpus 同源，见 ../cases.yaml 头部）：
 # - 禁止 synthetic reconstruction：CANDIDATE 必须能由 SHA 直接取出（git show），
 #   不得按任何文字描述重新编写。
-# - 机械信号与语义裁决分离：expected_mechanical_signals 只写机器可观察的结构事实；
-#   semantic_expectation 单独记录 KNOWN_BAD / KNOWN_GOOD / NEUTRAL_STRUCTURE_CHANGE 及理由。
+# - 三个事实轴互不替代、禁止合并（防状态坍缩）：
+#     STRUCTURE_SIGNAL != STRUCTURE_VERDICT != CANDIDATE_CORRECTNESS
+#   expected_mechanical_signals 只写机器可观察的结构事实；
+#   structure_disposition ∈ {AUTHORIZED_STRUCTURE, NO_STRUCTURE_DELTA, NOT_ADJUDICATED}
+#   与 behavioral_disposition ∈ {KNOWN_DEFECTIVE, POST_REVIEW_REPAIRS_REQUIRED,
+#   NO_BEHAVIORAL_CLAIM} 是两个正交轴的独立裁决，各附 rationale（*_rationale），
+#   不得合并成一个总括 verdict（授权结构 ≠ 候选无缺陷；行为缺陷 ≠ 结构违规）。
 # - 找不到可解析证据的 seed 一律记入 not_replay_ready，不强行升级。
 #
 # class 取值（本文件局部语汇）：
@@ -46,18 +51,22 @@ cases:
         detail: |
           新模块导出的入口：runPreSynthesisGuard；aggregateCrossGroupClaims
           （含 deriveAuthorRef / deriveSynthesisClaimId）；produceCrossSourceSynthesis。
-    semantic_expectation:
-      verdict: KNOWN_BAD
-      why: |
-        该变更包含一个不成立的 seam 假设：cross-source-synthesis.mjs 以同步方式消费
-        注入的 runtime seam（`runtimeResult = runtime.synthesize({...})`，无 await），
-        且 T14 全部测试替身建模为同步 synthesize()。
-        2026-09-10 生产 runtime 接线（4a6767f）后，真实集成在 T16 确定性失败
-        （cfi_synthesis_failed；修复提交信息原文「surfaced as cfi_synthesis_failed
-        at T16」）；PR #87（2026-09-13 落地为 9444a33）把 seam 统一为
-        「Promise-returning, no Result|Promise union」并更新全部调用点与测试。
-        注意：机械信号（3 个新模块）本身不显示该缺陷——缺陷在 seam 语义与
-        「测试替身 ≠ 生产形状」的落差；本 case 是「结构信号 ≠ 架构裁决」的正面材料。
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      语料不对此 diff 的结构面做裁决（既不是 AUTHORIZED_STRUCTURE，也不是结构违规）：
+      可定位证据只覆盖行为/合同层（见 behavioral 轴）。
+      明确：NEW_MODULE 信号本身不证明 architecture violation——
+      行为缺陷不得被反向投射为结构违规，结构面保持未裁决。
+    behavioral_disposition: KNOWN_DEFECTIVE
+    behavioral_rationale: |
+      该 candidate 包含一个不成立的 seam 假设：cross-source-synthesis.mjs 以同步方式
+      消费注入的 runtime seam（`runtimeResult = runtime.synthesize({...})`，无 await），
+      且 T14 全部测试替身建模为同步 synthesize()。
+      2026-09-10 生产 runtime 接线（4a6767f）后，真实集成在 T16 确定性失败
+      （cfi_synthesis_failed；修复提交信息原文「surfaced as cfi_synthesis_failed
+      at T16」）；PR #87（2026-09-13 落地为 9444a33）把 seam 统一为
+      「Promise-returning, no Result|Promise union」并更新全部调用点与测试。
+      机械信号（3 个新模块）不显示该缺陷——它只在行为/合同面可判定。
     provenance:
       resolver:
         repository: FlapPearLabs/zhihu-grabber-toolkit
@@ -106,14 +115,17 @@ cases:
         detail: |
           references/review-evidence.md（+291，单一语义 owner 文档）；
           templates/review-evidence.json（+67，占位模板）。合计 5 files, +2356/-0。
-    semantic_expectation:
-      verdict: KNOWN_GOOD
-      why: |
-        授权来源：P1-T04 scope（interface freeze：四个协同面 + 单一语义 owner，
-        仅声明字段名、闭合集合与机器形状）。
-        该变更经对抗性评审：b88df03（直接后继提交）记录「Repairs the three findings
-        of the adversarial review of fabcfc99」，修复随主分支 append-only 落地。
-        结构信号（新公开合同 + 新 CLI 模块）全部是获批增量，无架构违规。
+    structure_disposition: AUTHORIZED_STRUCTURE
+    structure_rationale: |
+      授权来源：P1-T04 scope（interface freeze：四个协同面 + 单一语义 owner，
+      仅声明字段名、闭合集合与机器形状）。新增公开合同 + 新 CLI 模块属获批的结构增量。
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地时并非无缺陷：对抗性评审（对象 = 原候选 fabcfc9，与 main 上
+      2ed08f6 为同一内容的重组镜像）记录三个 findings（含 1 个 blocking），
+      由后继 b88df03「Repairs the three findings of the adversarial review of
+      fabcfc99」修复落地（随后 1b48d2b / 0ec774f 继续收敛）。
+      不得把该 candidate 整体判为无缺陷——授权结构 ≠ 候选无缺陷。
     provenance:
       resolver:
         repository: FlapPearLabs/agent-engineering-governance
@@ -156,15 +168,18 @@ cases:
         detail: |
           ruff.toml（+37，select=["E9","F"] correctness-only；并入
           scripts/validate_governance.py 的新检查 ci-executes-static-gate）。合计 15 files, +1234/-9。
-    semantic_expectation:
-      verdict: KNOWN_GOOD
-      why: |
-        授权/流程证据：按 legacy adoption rule 先测基线（clean main：35 个 Python 文件 /
-        22,994 行、无任何静态工具配置），只采纳 correctness-only 规则集，并修复基线中
-        5 处 F841（逐一验证行为中性）；未新增 B 层不变量（RULES.md 未动）。
-        后续 9bc3d95（直接子提交）收敛了两位独立 fresh-context reviewer 的 12 项 P2
-        （两者均 PASS，12/12 properties VERIFIED）。
-        新增依赖（仓库内固定的 ruff）属获批的工具链增量，非漂移。
+    structure_disposition: AUTHORIZED_STRUCTURE
+    structure_rationale: |
+      授权/流程证据：按 legacy adoption rule 先测基线（clean main：35 个 Python 文件 /
+      22,994 行、无静态工具配置），只采纳 correctness-only 规则集，并修复基线中
+      5 处 F841（逐一验证行为中性）；未新增 B 层不变量（RULES.md 未动）。
+      新增依赖（仓库内固定的 ruff）属获批的工具链增量，非漂移。
+    behavioral_disposition: POST_REVIEW_REPAIRS_REQUIRED
+    behavioral_rationale: |
+      candidate 落地后仍有评审修复：两位独立 fresh-context reviewer 共 12 项 P2
+      （两者 PASS、12/12 properties VERIFIED）由后继 9bc3d95（= 65113de 的直接子提交，
+      append-only）收敛。不得把该 candidate 整体判为无缺陷——
+      授权结构 ≠ 候选无缺陷。
     provenance:
       resolver:
         repository: FlapPearLabs/agent-engineering-governance
@@ -201,14 +216,17 @@ cases:
           该 diff 仅原地修改两个既有文件（crates/webcodex-workspace/src/
           workspace_checkpoint.rs ±15；research/spikes/native-normalization-p1.sh ±108），
           合计 2 files, +88/-35，无任何新增文件。用途：detector 的噪声底与控制对照。
-    semantic_expectation:
-      verdict: NEUTRAL_STRUCTURE_CHANGE
-      why: |
-        修复对象是门自身的「可失败性」：前一个失败 suite 的退出码被后一个成功命令
-        掩盖（组合退出码折叠），以及 P1_NATIVE_GIT_APPLY=PASS 标记在实际断言之前输出
-        （断言失败时标记仍进入 harness 日志）。提交信息明示「No behaviour change in
-        production paths: this is harness trustworthiness only」。
-        结构面中性、无任何增量——真实且有意义的修复 ≠ 结构信号。
+    structure_disposition: NO_STRUCTURE_DELTA
+    structure_rationale: |
+      八个结构类别均不触发；2 个既有文件原地修改（+88/-35），无任何新增文件。
+      结构面中性，提供 detector 的噪声底与控制对照。
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      语料不对该 candidate 的行为正确性做独立裁决（未定位到对其本身的独立评审记录）。
+      记录内可支持的最窄事实：该 candidate 修复其 BASE 中已记录的门 false-pass
+      （组合退出码折叠、断言前 PASS marker），提交自述「No behaviour change in
+      production paths」。不得由「修复了既有缺陷」推出对该 candidate 整体正确性的裁决，
+      也不得为了与其它 case 对称而强造结论。
     provenance:
       resolver:
         repository: FlapPearLabs/webcodex

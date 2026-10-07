@@ -13,14 +13,26 @@
 BASE_SHA                       变更前状态（真实提交）
 CANDIDATE_SHA                  变更本身（真实提交；diff 由 git show 解析，禁止改写为合成 patch）
 EXPECTED_MECHANICAL_SIGNALS    机器未来应该能够观察到的结构事实
-SEMANTIC_EXPECTATION           KNOWN_BAD / KNOWN_GOOD / NEUTRAL_STRUCTURE_CHANGE（与机械信号分字段）
+STRUCTURE_DISPOSITION          结构增量是否被架构/票据权威允许（独立轴；AUTHORIZED_STRUCTURE /
+                               NO_STRUCTURE_DELTA / NOT_ADJUDICATED）
+BEHAVIORAL_DISPOSITION         candidate 自身是否存在行为/合同缺陷（独立轴；KNOWN_DEFECTIVE /
+                               POST_REVIEW_REPAIRS_REQUIRED / NO_BEHAVIORAL_CLAIM）
 PROVENANCE                     来源仓、ref、解析命令、评审/修复关联、核验日期
 ```
+
+三个事实轴互不替代、禁止合并（防状态坍缩）：
+
+```text
+STRUCTURE_SIGNAL != STRUCTURE_VERDICT != CANDIDATE_CORRECTNESS
+```
+
+即：机械信号（有没有结构增量）≠ 结构裁决（该增量是否被授权）≠ 候选正确性（candidate 是否
+无行为/合同缺陷）。授权结构 ≠ 候选无缺陷；候选有行为缺陷 ≠ 结构违规。
 
 禁止项（与 [seed corpus](../cases.yaml) 同规则）：
 
 - 根据任何文字描述**重新编写**类似实现并称为 historical replay（synthetic reconstruction）；
-- 把语义裁决写进机械信号（机械信号 ≠ 漂移结论）；
+- 把任一轴的裁决写进机械信号，或把两个 disposition 轴合并成一个总括 verdict；
 - 为了让未来 detector 容易成功而挑选过度简化的案例（selection bias 由独立评审检查，见下）。
 
 ## 字段对应（本目录 ↔ 本轮契约字段名）
@@ -34,7 +46,8 @@ PROVENANCE                     来源仓、ref、解析命令、评审/修复关
 | `candidate_sha` | CANDIDATE_SHA |
 | `historical_diff` | HISTORICAL_DIFF（解析命令） |
 | `expected_mechanical_signals` | EXPECTED_MECHANICAL_SIGNALS |
-| `semantic_expectation` | SEMANTIC_EXPECTATION |
+| `structure_disposition`（附 `structure_rationale`） | STRUCTURE_DISPOSITION |
+| `behavioral_disposition`（附 `behavioral_rationale`） | BEHAVIORAL_DISPOSITION |
 | `provenance` | PROVENANCE |
 
 ## replay-readiness 判据（ready case 必须全部满足）
@@ -44,7 +57,8 @@ REAL_BASE = YES                     两枚 SHA 真实存在于来源仓
 REAL_CANDIDATE_OR_DIFF = YES        可由 SHA 直接取出（非重写）
 PROVENANCE_RESOLVES = YES           解析命令在来源仓 clone 中可执行
 EXPECTED_MECHANICAL_SIGNAL_DEFINED = YES
-SEMANTIC_EXPECTATION_SEPARATE = YES 与机械信号分字段、不混写
+STRUCTURE_DISPOSITION_DEFINED = YES        独立成轴，不与行为轴合并
+BEHAVIORAL_DISPOSITION_DEFINED = YES       独立成轴，不与结构轴合并
 SYNTHETIC_RECONSTRUCTION = NO
 ```
 
@@ -64,12 +78,12 @@ mergeCommit 与实际本地提交逐字段一致）。
 
 ## 用例一览
 
-| case | class | 来源 | 结构信号（预期） | 语义裁决 |
-|---|---|---|---|---|
-| [r01](cases.yaml) | POSITIVE_SEAM_DRIFT | zhihu-grabber-toolkit | NEW_MODULE ×3；NEW_PUBLIC_INTERFACE | KNOWN_BAD |
-| [r02](cases.yaml) | NEGATIVE_AUTHORIZED_STRUCTURE | agent-engineering-governance | NEW_PUBLIC_INTERFACE；NEW_MODULE；新文档/模板文件 | KNOWN_GOOD |
-| [r03](cases.yaml) | NEGATIVE_AUTHORIZED_STRUCTURE | agent-engineering-governance | NEW_DEPENDENCY；NEW_MODULE；ruff.toml；CI 执行静态门 | KNOWN_GOOD |
-| [r04](cases.yaml) | NEGATIVE_NO_STRUCTURE_DELTA | webcodex | 无结构增量（噪声底对照） | NEUTRAL_STRUCTURE_CHANGE |
+| case | class | 来源 | EXPECTED_MECHANICAL_SIGNALS | STRUCTURE_DISPOSITION | BEHAVIORAL_DISPOSITION |
+|---|---|---|---|---|---|
+| [r01](cases.yaml) | POSITIVE_SEAM_DRIFT | zhihu-grabber-toolkit | NEW_MODULE ×3；NEW_PUBLIC_INTERFACE | NOT_ADJUDICATED | KNOWN_DEFECTIVE |
+| [r02](cases.yaml) | NEGATIVE_AUTHORIZED_STRUCTURE | agent-engineering-governance | NEW_PUBLIC_INTERFACE；NEW_MODULE；新文档/模板文件 | AUTHORIZED_STRUCTURE | POST_REVIEW_REPAIRS_REQUIRED |
+| [r03](cases.yaml) | NEGATIVE_AUTHORIZED_STRUCTURE | agent-engineering-governance | NEW_DEPENDENCY；NEW_MODULE；ruff.toml；CI 执行静态门 | AUTHORIZED_STRUCTURE | POST_REVIEW_REPAIRS_REQUIRED |
+| [r04](cases.yaml) | NEGATIVE_NO_STRUCTURE_DELTA | webcodex | 无结构增量（噪声底对照） | NO_STRUCTURE_DELTA | NO_BEHAVIORAL_CLAIM |
 
 ## 与 seed corpus 的 crosswalk
 
@@ -89,3 +103,5 @@ mergeCommit 与实际本地提交逐字段一致）。
 - 非 canonical；本目录可整体删除而不影响任何 canonical 语义。
 - 不接入 CI、不 block merge、不新增评审门、不改变既有评审语义。
 - 本目录只承载**输入**；detector 实现、promotion 与任何形式化都不在本轮范围内。
+- 双轴建模（STRUCTURE_DISPOSITION / BEHAVIORAL_DISPOSITION）是**实验 corpus 的事实建模**，
+  不升格为 canonical rule；不得据此新增 gate 或改写治理语义。
