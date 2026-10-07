@@ -87,7 +87,7 @@ LOCALLY_VALIDATED      = 实验已实际运行，候选效果在本地得到证�
 - LOCAL_FAILURE_EVIDENCE = 实现期发明架构与假缝（P2M 的 P01、P02、P03）；缝合同错误穿透单元层（DH 的 H03；Z03）；P01 明确该类的机械执行面目前是「部分，靠评审」——即机械检出缺位。
 - EXTERNAL_SUPPORT = 外部「结构感知检查、diff 结构统计」类实践。SUPPORT ONLY。
 - CURRENT_HYPOTHESIS = 结构信号可以从 diff 机械提取，作为 shadow 报告供给评审与架构层；它本身不构成 gate，也不替代语义判断。
-- CURRENT_STATUS = EXPERIMENT_CANDIDATE（机制设计见第 3 节；seed corpus 已建；replay input corpus = READY_FOR_SHADOW_PROTOTYPE，见第 3 节；detector 未实现——状态不升级）
+- CURRENT_STATUS = EXPERIMENT_CANDIDATE（机制设计见第 3 节；seed corpus 已建；replay input corpus = READY_FOR_SHADOW_PROTOTYPE；v0 detector 已实现、H3-A 历史回放已运行——状态不升级，见第 3 节）
 
 ### H4 — reduce low-risk review/process overhead
 
@@ -121,16 +121,19 @@ CROSS_BOUNDARY_DEPENDENCY
 - 信号语义（与 [metrics.md](metrics.md) 对齐）：机械信号 ≠ 漂移结论；`confirmed_architecture_drift` 需要「结构信号 + 架构/Spec 语义处置」，不得由信号数替代。
 - 明确禁止（本轮与下一轮实现前）：不接入 CI、不 block merge、不新增评审门、不改变既有评审语义；「看起来很好」不构成接入理由。
 - **回放前置条件（executable replay corpus）**：当前 cases.yaml 是 `HISTORICAL BENCHMARK SEED CORPUS`，**不能直接回放**；只有补齐全套真实、可恢复的 `BASE STATE / HISTORICAL DIFF OR CANDIDATE / EXPECTED SIGNAL` 的 case，才进入未来的 executable replay corpus。
-- **状态更新（2026-10-08，PR #40）**：durable replay-ready cases 已建于 [replay/](replay/)
-  （REPLAY_DIFF 唯一绑定 + v1 确定性信号 + 双轴 disposition + authority_ref 纪律）：
+- **状态更新（2026-10-08，PR #40 → H3-A 轮）**：durable replay-ready cases 已建于 [replay/](replay/)
+  （REPLAY_DIFF 唯一绑定 + v1 确定性信号 + 双轴 disposition + authority_ref 纪律）；
+  v0 detector（[structure_delta.py](structure_delta.py)）已实现，并在全部 ready cases 上
+  完成 H3-A 历史回放（结果见 [results/h3-a-structure-delta-v0.md](results/h3-a-structure-delta-v0.md)）：
 
 ```text
 REPLAY_INPUT_CORPUS = PARTIALLY_READY / READY_FOR_SHADOW_PROTOTYPE
-DETECTOR = NOT_IMPLEMENTED
-LOCAL_VALIDATION = NOT_YET_RUN
+DETECTOR = V0_IMPLEMENTED_NOT_WIRED
+LOCAL_VALIDATION = H3_A_HISTORICAL_REPLAY_RUN
 ```
 
-  H3 不因此升级（仍 `EXPERIMENT_CANDIDATE`）；seed corpus 本身的「不能直接回放」性质不变。
+  H3 不因此升级（仍 `EXPERIMENT_CANDIDATE`——自分类仅提案，升格另走独立评审）；
+  seed corpus 本身的「不能直接回放」性质不变。
 
 - 下一轮优先：从真实历史 commit/diff 中提取少量 positive / negative controls；**禁止**为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。（已完成：durable replay-ready cases 已建于 [replay/](replay/)；数量属实验数据，不在此固化。）
 - 成本纪律：不得为 shadow 引入每会话全量重建（对照 P2M 的 P10 教训）；只对候选 diff 做增量提取。
