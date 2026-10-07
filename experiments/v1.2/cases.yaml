@@ -43,12 +43,12 @@ cases:
     false_success_condition: |
       单元测试绿灯被读成真实入口已验证；未跑生产形状即宣称组件可用。
   - id: c03-ci-not-triggered-collapsed-to-pass
-    source_ref: "audit/WORKFLOW_EVOLUTION_MAP.md; audit/PAIN_TO_POLICY_MAP_V2.md#P08"
+    source_ref: "audit/WORKFLOW_EVOLUTION_MAP.md; audit/PAIN_TO_POLICY_MAP_V2.md#P09"
     task_class: NORMAL
     failure_family: false_pass
     historical_failure: |
       CI 的未触发状态被当作通过；本地测试冒充真实 CI；执行者自称基线失败并
-      自行放行（WORKFLOW_EVOLUTION_MAP 的 G3 起源痛点；P08/P09 记录的状态
+      自行放行（WORKFLOW_EVOLUTION_MAP 的 G3 起源痛点；P09 记录的状态
       坍缩与自分类问题）。
     must_catch: |
       非通过类的 CI 状态不可坍缩为通过；本地绿不等于 PR CI 绿；
