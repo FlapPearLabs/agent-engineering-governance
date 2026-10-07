@@ -10,7 +10,7 @@
 ```text
 IDEA_ONLY              = 只有方向，尚无任何本地失败证据
 LOCAL_FAILURE_OBSERVED = 本地真实失败或命中已有仓内记录
-EXPERIMENT_CANDIDATE   = 本地失败证据 + 可回放实验设计（cases / metrics / 机制草案）已就位
+EXPERIMENT_CANDIDATE   = 本地失败证据 + 实验设计（cases / metrics / 机制草案）已就位（可执行回放的前置条件见第 3 节）
 LOCALLY_VALIDATED      = 实验已实际运行，候选效果在本地得到证据支持
 ```
 
