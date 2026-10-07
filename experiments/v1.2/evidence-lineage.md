@@ -34,6 +34,10 @@ LOCALLY_VALIDATED      = 实验已实际运行，候选效果在本地得到证�
 - 评审与修复膨胀：无限修复循环、修复预算被反复重置 —— P2M 的 P11、P22（12 commit 记录）。
 - 文本膨胀与注入压力：仓内流程文本一度达 846 行；规则塞入记忆尾部导致注入截断、
   实际可见性崩塌 —— WEM 的 G1、G3；BC（实测截断点与指针字节预算）；DH 的 H14。
+- 实验形状的过度机械化（本治理仓自身；2026-10-07 本轮修正记录）：V1.2 地基把一次性的实验启动要求
+  （case 数量区间、五类 task_class 全覆盖、指定 failure family 全覆盖）机械固化进 canonical 测试
+  套件（274 行），形成新的维护成本 —— `TEMPORARY EXPERIMENT SHAPE != PERMANENT GOVERNANCE
+  INVARIANT`。记录为证据，不上升为 canonical rule。
 
 ### B. ARCHITECTURE_DRIFT（架构漂移）
 
@@ -83,19 +87,19 @@ LOCALLY_VALIDATED      = 实验已实际运行，候选效果在本地得到证�
 - LOCAL_FAILURE_EVIDENCE = 实现期发明架构与假缝（P2M 的 P01、P02、P03）；缝合同错误穿透单元层（DH 的 H03；Z03）；P01 明确该类的机械执行面目前是「部分，靠评审」——即机械检出缺位。
 - EXTERNAL_SUPPORT = 外部「结构感知检查、diff 结构统计」类实践。SUPPORT ONLY。
 - CURRENT_HYPOTHESIS = 结构信号可以从 diff 机械提取，作为 shadow 报告供给评审与架构层；它本身不构成 gate，也不替代语义判断。
-- CURRENT_STATUS = EXPERIMENT_CANDIDATE（实验设计已给出：第 3 节与 cases.yaml；尚未实现与回放）
+- CURRENT_STATUS = EXPERIMENT_CANDIDATE（机制设计见第 3 节；seed corpus 已建，executable replay corpus 未就绪）
 
 ### H4 — reduce low-risk review/process overhead
 
 - CANDIDATE = 低风险与非生产票的流程成本下降（更少的固定轮次与证据形态），质量底线不动。
 - LOCAL_FAILURE_EVIDENCE = 首版「每个通过都需要独立评审」过宽、误伤低风险非生产票（P2M 的 P05 修正记录）；低风险票被要求同等证据的过度形态（P2M 的 P07 修正记录）；低风险工作消耗强模型与人工搬运（DH 的 H06；P2M 的 P14）；治理仓自身修复循环消耗评审预算（P2M 的 P22）。
 - EXTERNAL_SUPPORT = 外部按风险缩放流程的实践。SUPPORT ONLY。
-- CURRENT_HYPOTHESIS = 在 B 层不变量与高价值 blocker 语义不动的前提下，低风险票可以进一步薄化；底线由 cases.yaml 回放守住（must_catch 未命中即失败）。
+- CURRENT_HYPOTHESIS = 在 B 层不变量与高价值 blocker 语义不动的前提下，低风险票可以进一步薄化；底线由材料回放守住（executable replay corpus 就绪后；must_catch 未命中即失败）。
 - CURRENT_STATUS = LOCAL_FAILURE_OBSERVED
 
 ## 3. 下一实验候选 — STRUCTURE_DELTA_SHADOW（本轮不实现）
 
-- 目标：把「结构增量」从主观评审判断扩展为可机械回放的第一版观察信号。
+- 目标：把「结构增量」从主观评审判断扩展为可机械提取的第一版观察信号。
 - 第一版预计观察（仅 shadow 输出，不做判定）：
 
 ```text
@@ -109,7 +113,9 @@ NEW_PERSISTENCE_SURFACE
 CROSS_BOUNDARY_DEPENDENCY
 ```
 
+- 信号语义（与 [metrics.md](metrics.md) 对齐）：机械信号 ≠ 漂移结论；`confirmed_architecture_drift` 需要「结构信号 + 架构/Spec 语义处置」，不得由信号数替代。
 - 明确禁止（本轮与下一轮实现前）：不接入 CI、不 block merge、不新增评审门、不改变既有评审语义；「看起来很好」不构成接入理由。
-- 回放计划：以 cases.yaml 为主——STRUCTURAL 类（c05、c06）检验信号能否覆盖已知漂移形态；以 MICRO 与 LOW 类（c10、c12 等）作负控，确认 shadow 不因噪声淹没信号。
+- **回放前置条件（executable replay corpus）**：当前 cases.yaml 是 `HISTORICAL BENCHMARK SEED CORPUS`，**不能直接回放**；只有补齐全套真实、可恢复的 `BASE STATE / HISTORICAL DIFF OR CANDIDATE / EXPECTED SIGNAL` 的 case，才进入未来的 executable replay corpus。
+- 下一轮优先：从真实历史 commit/diff 中提取少量 positive / negative controls；**禁止**为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。
 - 成本纪律：不得为 shadow 引入每会话全量重建（对照 P2M 的 P10 教训）；只对候选 diff 做增量提取。
 - 预期产出仅为 shadow 报告与 reviewer 可引用的证据块；promotion 与否另走既有治理变更协议。

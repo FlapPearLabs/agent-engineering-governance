@@ -1,15 +1,20 @@
-# experiments/v1.2/cases.yaml — benchmark case manifest（非 canonical；2026-10-07 建立）
+# experiments/v1.2/cases.yaml — HISTORICAL BENCHMARK SEED CORPUS（非 canonical；2026-10-07 建立）
+#
+# 本文件是 seed corpus，**不是可执行的 replay benchmark**：当前 case 不能直接回放。
+# 只有补齐全套真实、可恢复的 BASE STATE / HISTORICAL DIFF OR CANDIDATE / EXPECTED SIGNAL
+# 的 case，才进入未来的 executable replay corpus（见 evidence-lineage.md 第 3 节）。
+# 禁止为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。
 #
 # 每个 case 的来源必须是仓内已有真实历史材料（audit / docs / 测试 / 证据附件）。
-# 禁止 synthetic「漂亮案例」；没有可靠历史证据的类别不硬凑数量。
+# 禁止 synthetic「漂亮案例」；采样不设配额——数量与类别覆盖随实验轮次演化。
 #
-# 覆盖目标：
+# 分类标注（已声明的值域，不是覆盖要求）：
 #   task_class     ∈ MICRO / LOW / NORMAL / STRUCTURAL / HIGH
 #   failure_family ∈ fake_red / false_pass / stale_review / speculative_abstraction /
 #                    architecture_drift / duplicate_owner / repair_loop /
 #                    recovery_failure / mechanical_escape
 #
-# 结构为 authored subset（供 scripts/tests/test_experiment_v12_foundation.py 结构校验）：
+# 结构为 authored subset（供 experiments/v1.2/tests/test_material.py 完整性校验）：
 #   每个 case：id / source_ref / task_class / failure_family /
 #              historical_failure / must_catch / false_success_condition
 #   source_ref：仓内相对路径；多个引用用 ';' 分隔；'#' 后为人类可读锚记（校验时忽略）。

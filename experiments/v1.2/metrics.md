@@ -2,7 +2,8 @@
 
 > 本文件只定义「以后真正想比较的量」。它不是仪表盘，不要求本轮产生数据；
 > 不得为凑数填入无法观测的值。
-> 观测标注：`OBSERVABLE` / `OBSERVABLE_WITH_RECEIPT` / `NOT_OBSERVABLE`。
+> 观测标注：`OBSERVABLE` / `OBSERVABLE_WITH_RECEIPT` / `REQUIRES_SEMANTIC_DISPOSITION` / `NOT_OBSERVABLE`。
+> `REQUIRES_SEMANTIC_DISPOSITION` = 不能由机械信号直接观测；必须叠加架构/Spec 语义处置才能确认（见 QUALITY 的 confirmed_architecture_drift）。
 > `NOT_OBSERVABLE` = 当前 runtime 无法可靠观测：**不得估算、不得造数**。
 
 ## QUALITY（质量面）
@@ -11,7 +12,8 @@
 |---|---|---|
 | high-value defects escaped | 回放中「must_catch 未命中、且会导致实质错误决策或行为」的缺陷计数 | OBSERVABLE_WITH_RECEIPT（独立评审记录） |
 | invalid PASS | 被后续证据推翻的通过声明计数（涵盖状态坍缩与越权授权两类形态） | OBSERVABLE_WITH_RECEIPT |
-| architecture drift | 结构增量中无法溯源到既有架构或已批准 Spec 的新模块、新依赖计数（shadow 报告） | OBSERVABLE（结构增量信号；由下一实验候选实现） |
+| structure_delta_signals | 从 diff 机械提取的结构增量信号计数（新模块/目录/依赖/接口/状态 owner/持久化面/跨边界依赖）——**信号 ≠ 漂移结论** | OBSERVABLE（机械提取；由下一实验候选实现） |
+| confirmed_architecture_drift | 经「结构信号 + 架构/Spec 语义处置」共同确认的漂移计数（信号只是输入） | REQUIRES_SEMANTIC_DISPOSITION（非纯机械可观测；不得以信号数替代） |
 
 ## COST（成本面）
 
@@ -38,3 +40,4 @@
 - 比较必须成对：同一 case 分别在控制组与实验候选下回放；单边数字不构成结论。
 - 回合边界：一轮回放 = 一个 case 从开工到关闭的完整记录。
 - 外部经验不进入指标来源；指标只从本地回放记录采集。
+- 回放前置条件见 [evidence-lineage.md](evidence-lineage.md) 第 3 节：seed corpus 尚不可直接回放，就绪前不得据此造数。
