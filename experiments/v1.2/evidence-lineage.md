@@ -132,6 +132,6 @@ LOCAL_VALIDATION = NOT_YET_RUN
 
   H3 不因此升级（仍 `EXPERIMENT_CANDIDATE`）；seed corpus 本身的「不能直接回放」性质不变。
 
-- 下一轮优先：从真实历史 commit/diff 中提取少量 positive / negative controls；**禁止**为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。（已完成：`replay/` 的 4 个 durable cases。）
+- 下一轮优先：从真实历史 commit/diff 中提取少量 positive / negative controls；**禁止**为了让 benchmark 可运行，按事故描述人工编造 synthetic architecture case。（已完成：durable replay-ready cases 已建于 [replay/](replay/)；数量属实验数据，不在此固化。）
 - 成本纪律：不得为 shadow 引入每会话全量重建（对照 P2M 的 P10 教训）；只对候选 diff 做增量提取。
 - 预期产出仅为 shadow 报告与 reviewer 可引用的证据块；promotion 与否另走既有治理变更协议。
