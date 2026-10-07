@@ -54,7 +54,11 @@ cases:
     structure_disposition: NOT_ADJUDICATED
     structure_rationale: |
       语料不对此 diff 的结构面做裁决（既不是 AUTHORIZED_STRUCTURE，也不是结构违规）：
-      可定位证据只覆盖行为/合同层（见 behavioral 轴）。
+      结构层记录存在（票据 P1-T14 / Issue #46 及其契约提取），但候选时点为
+      non-authoritative 且未获实施授权——票据图自述 AUTHORITY_CLASS =
+      NON_AUTHORITATIVE_PLANNING_CANDIDATE、STATUS = REVIEW_PENDING、
+      IMPLEMENTATION_AUTHORIZATION = NONE——不构成正向结构授权；
+      已定位的缺陷证据只落在行为/合同层（见 behavioral 轴）。
       明确：NEW_MODULE 信号本身不证明 architecture violation——
       行为缺陷不得被反向投射为结构违规，结构面保持未裁决。
     behavioral_disposition: KNOWN_DEFECTIVE
