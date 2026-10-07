@@ -51,8 +51,13 @@ SUPPORTED_SIGNALS = ("NEW_FILE", "NEW_DIRECTORY", "NEW_DEPENDENCY")
 _MANIFEST_BASENAME = "requirements*.txt"
 
 _CASE_ANCHOR = "\n  - case_id: "
+_CASE_ID_RE = re.compile(r"^  - case_id: (r\d\d-[a-z0-9-]+)$", re.M)
 _SHA_RE = re.compile(r"[0-9a-f]{40}")
-_SIGNAL_ENTRY_RE = re.compile(r"- signal: ([A-Z_]+)\s*\n\s*count: (\d+)")
+_SIGNAL_LINE_RE = re.compile(r"^      - signal: ([A-Z][A-Z0-9_]*)$")
+_COUNT_LINE_RE = re.compile(r"^        count: (\d+)$")
+_DETAIL_LINE_RE = re.compile(r"^        detail: \|\s*$")
+_DETAIL_BODY_RE = re.compile(r"^          ")
+_NEXT_FIELD_RE = re.compile(r"^    [a-z_]+:")
 
 
 class StructureDeltaError(RuntimeError):
@@ -151,19 +156,70 @@ def _field(block: str, name: str) -> str:
     return match.group(1).strip()
 
 
+def _parse_expected_signals(block: str, case_id: str) -> dict[str, int]:
+    """Strict parse of one block's `expected_mechanical_signals` section.
+
+    Malformed entries raise: an entry that fails to parse must never be
+    silently indistinguishable from an empty oracle (`[]`).
+    """
+    header = re.search(r"^    expected_mechanical_signals:(.*)$", block, re.M)
+    if not header:
+        raise StructureDeltaError(f"{case_id}: missing field 'expected_mechanical_signals'")
+    inline = header.group(1).strip()
+    if inline == "[]":
+        return {}
+    if inline:
+        raise StructureDeltaError(
+            f"{case_id}: unexpected content after 'expected_mechanical_signals:': {inline!r}"
+        )
+    expected: dict[str, int] = {}
+    pending: str | None = None
+    for line in block[header.end():].splitlines():
+        if _NEXT_FIELD_RE.match(line):  # next sibling field: the section is over
+            break
+        if not line.strip():
+            continue
+        signal_match = _SIGNAL_LINE_RE.match(line)
+        count_match = _COUNT_LINE_RE.match(line)
+        if signal_match:
+            if pending is not None:
+                raise StructureDeltaError(
+                    f"{case_id}: signal entry without count: {pending!r}"
+                )
+            pending = signal_match.group(1)
+        elif count_match:
+            if pending is None:
+                raise StructureDeltaError(
+                    f"{case_id}: count line without a preceding signal entry"
+                )
+            expected[pending] = int(count_match.group(1))
+            pending = None
+        elif _DETAIL_LINE_RE.match(line) or _DETAIL_BODY_RE.match(line):
+            continue
+        else:
+            raise StructureDeltaError(
+                f"{case_id}: unrecognized line in expected_mechanical_signals: {line!r}"
+            )
+    if pending is not None:
+        raise StructureDeltaError(f"{case_id}: signal entry without count: {pending!r}")
+    return expected
+
+
 def load_replay_cases(cases_path: Path | str) -> list[dict]:
     """Focused, stdlib-only reader for the fields this experiment needs.
 
-    Reads only the `cases:` (ready) section; `not_replay_ready` anchors are a
-    different key and are therefore never loaded. Structural invariants are
-    asserted (anchor/block count, unique ids, required fields, 40-hex SHAs,
-    v1-only expected signal names) so a case can never be silently skipped and
-    a non-v1 signal can never be silently compared.
+    Reads only the `cases:` (ready) section; `not_replay_ready` entries use
+    different anchor keys and are therefore never loaded. Structural
+    invariants are asserted so that nothing can be silently skipped or
+    silently ignored: anchor/block count within the ready section, a
+    file-wide case_id anchor cross-check (a misplaced section boundary must
+    fail, not truncate), unique ids, required fields, 40-hex SHAs, a strict
+    per-entry parse of expected signals, and v1-only signal names.
     """
     text = Path(cases_path).read_text(encoding="utf-8")
     ready = text.split("\nnot_replay_ready:", 1)[0]
     blocks = ready.split(_CASE_ANCHOR)[1:]
-    anchors = re.findall(r"^  - case_id: (r\d\d-[a-z0-9-]+)$", ready, re.M)
+    anchors = _CASE_ID_RE.findall(ready)
     if len(blocks) != len(anchors):
         raise StructureDeltaError(
             f"case blocks ({len(blocks)}) do not match case_id anchors ({len(anchors)})"
@@ -175,9 +231,7 @@ def load_replay_cases(cases_path: Path | str) -> list[dict]:
         if case_id in seen:
             raise StructureDeltaError(f"duplicate case_id {case_id!r}")
         seen.add(case_id)
-        expected: dict[str, int] = {}
-        for name, count in _SIGNAL_ENTRY_RE.findall(block):
-            expected[name] = int(count)
+        expected = _parse_expected_signals(block, case_id)
         unknown = sorted(set(expected) - set(SUPPORTED_SIGNALS))
         if unknown:
             raise StructureDeltaError(
@@ -199,6 +253,13 @@ def load_replay_cases(cases_path: Path | str) -> list[dict]:
         )
     if not cases:
         raise StructureDeltaError("no ready cases found (empty corpus is not a pass)")
+    file_anchors = _CASE_ID_RE.findall(text)
+    if len(cases) != len(file_anchors):
+        raise StructureDeltaError(
+            f"loaded {len(cases)} cases but the file carries {len(file_anchors)} case_id "
+            "anchors -- a 'not_replay_ready' section boundary may be misplaced; failing "
+            "loudly instead of silently dropping ready cases"
+        )
     return cases
 
 

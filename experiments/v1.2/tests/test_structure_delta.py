@@ -16,7 +16,8 @@ no real-clone dependency:
 
 Also: the focused corpus reader must load exactly the ready `case_id` anchors
 of `replay/cases.yaml` (no case silently skipped, no `not_replay_ready` entry
-loaded).
+loaded); a misplaced section boundary and any unparseable expected-signal
+entry are rejected instead of yielding a false-green.
 
 This file lives INSIDE the experiment directory on purpose: reshaping or
 deleting the experiment must not leave a permanent maintenance obligation in
@@ -316,6 +317,47 @@ class CorpusReaderTests(unittest.TestCase):
         self.assertNotIn("909ffb02", " ".join(ids))
         repos = {case["source_repository"] for case in cases}
         self.assertNotIn("FlapPearLabs/webcodex", repos)
+
+    def test_misplaced_section_boundary_is_rejected(self):
+        """A not_replay_ready marker ahead of ready cases must fail, not truncate."""
+        original = self.CASES.read_text(encoding="utf-8")
+        mutated = original.replace(
+            "\n  - case_id: r05-",
+            "\nnot_replay_ready: injected-before-r05\n  - case_id: r05-",
+            1,
+        )
+        self.assertNotEqual(original, mutated, "mutation must change the text")
+        self._assert_reader_rejects(mutated)
+
+    def test_malformed_expected_signal_entries_are_rejected(self):
+        """Entries that fail to parse must not silently read as an empty oracle."""
+        original = self.CASES.read_text(encoding="utf-8")
+        mutations = {
+            "quoted signal name": original.replace(
+                "      - signal: NEW_FILE\n        count: 3",
+                '      - signal: "NEW_FILE"\n        count: 3',
+                1,
+            ),
+            "count before signal": original.replace(
+                "      - signal: NEW_FILE\n        count: 3",
+                "      - count: 3\n        signal: NEW_FILE",
+                1,
+            ),
+        }
+        for name, mutated in mutations.items():
+            with self.subTest(mutation=name):
+                self.assertNotEqual(original, mutated, "mutation must change the text")
+                self._assert_reader_rejects(mutated)
+
+    def _assert_reader_rejects(self, mutated_text: str) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="sd-v0-corpus-"))
+        try:
+            path = tmp / "cases.yaml"
+            path.write_text(mutated_text, encoding="utf-8")
+            with self.assertRaises(structure_delta.StructureDeltaError):
+                structure_delta.load_replay_cases(path)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

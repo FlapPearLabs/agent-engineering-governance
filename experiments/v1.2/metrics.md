@@ -12,7 +12,7 @@
 |---|---|---|
 | high-value defects escaped | 回放中「must_catch 未命中、且会导致实质错误决策或行为」的缺陷计数 | OBSERVABLE_WITH_RECEIPT（独立评审记录） |
 | invalid PASS | 被后续证据推翻的通过声明计数（涵盖状态坍缩与越权授权两类形态） | OBSERVABLE_WITH_RECEIPT |
-| structure_delta_signals | 从 diff 机械提取的结构增量信号计数（新模块/目录/依赖/接口/状态 owner/持久化面/跨边界依赖）——**信号 ≠ 漂移结论** | OBSERVABLE（机械提取；由下一实验候选实现） |
+| structure_delta_signals | 从 diff 机械提取的结构增量信号计数（新模块/目录/依赖/接口/状态 owner/持久化面/跨边界依赖）——**信号 ≠ 漂移结论** | OBSERVABLE（机械提取；v0 已实现 3 类确定性信号：见 [structure_delta.py](structure_delta.py)） |
 | confirmed_architecture_drift | 经「结构信号 + 架构/Spec 语义处置」共同确认的漂移计数（信号只是输入） | REQUIRES_SEMANTIC_DISPOSITION（非纯机械可观测；不得以信号数替代） |
 
 ## COST（成本面）

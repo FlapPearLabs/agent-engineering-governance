@@ -97,7 +97,7 @@ LOCALLY_VALIDATED      = 实验已实际运行，候选效果在本地得到证�
 - CURRENT_HYPOTHESIS = 在 B 层不变量与高价值 blocker 语义不动的前提下，低风险票可以进一步薄化；底线由材料回放守住（executable replay corpus 就绪后；must_catch 未命中即失败）。
 - CURRENT_STATUS = LOCAL_FAILURE_OBSERVED
 
-## 3. 下一实验候选 — STRUCTURE_DELTA_SHADOW（本轮不实现）
+## 3. 下一实验候选 — STRUCTURE_DELTA_SHADOW（v0 已实现：H3-A 历史回放已运行，状态见下）
 
 - 目标：把「结构增量」从主观评审判断扩展为可机械提取的第一版观察信号。
 - 第一版预计观察（仅 shadow 输出，不做判定）：
