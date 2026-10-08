@@ -100,9 +100,16 @@ EXCLUDED（pre-registered）：
   纯 issue 型工作（若有）：无单一可落地 diff 对，v1 单元定义之外。
 ```
 
-BASE/CANDIDATE 绑定（v1 规则）：采用**集成落地对**——`CANDIDATE_SHA = merge 提交`
-（本批全部为 fast-forward 形态，merge == PR head），`BASE_SHA = candidate^`。
+BASE/CANDIDATE 绑定（v1 规则，2026-10-08 修正）：采用**ticket 完整落地对**——
+`CANDIDATE_SHA = merge 提交`（本批全部 fast-forward 形态，merge == PR head）；
+`BASE_SHA = PR 的 fork point`（= PR 提交列表首个提交的父提交，即 GitHub 三点 diff 的基线）。
 两枚 SHA 必须可由 clone 解析；否则该 observation 记 `UNINTERPRETABLE`/NOT_OBSERVABLE。
+
+修正记录（append-only，发现于 Step B 首跑）：protocol 冻结时曾写 `BASE_SHA = candidate^`；
+h3b-001 首跑即证伪——多提交 FF PR 的 `candidate^` 只给出**最后一个提交**的增量
+（得 0/0/0，与 PR 声明的「New module」矛盾）。根因：replay corpus 的 `candidate^ == base`
+逐案等式不适用于多提交 PR。已改为 fork-point 对并复跑；本批 5/7 票受此修正影响
+（#128/#36/#37/#38/#132）。此为实验协议修正，非 detector 机械错误。
 
 ## 7. Observation receipt（observations.jsonl，一行一条）
 
@@ -182,5 +189,33 @@ python3 experiments/v1.2/live-shadow/check_observations.py
 
 ```text
 H3_B_BATCH = 1
-H3_B_STATUS = COLLECTING（处理中；结果见本文件末尾追加的 Batch 1 段）
+H3_B_STATUS = COLLECTING（Batch 1 已完成：n=7；结果见下）
 ```
+
+## Batch 1（2026-10-08）— 结果
+
+```text
+OBSERVATIONS = 7                SIGNAL_FIRED_TICKETS = 5        NO_SIGNAL_TICKETS = 2
+SIGNAL_EVENTS = 8               DUPLICATE_EVENTS = 8           NON_ACTIONABLE_EVENTS = 0
+UNIQUE_LOW_VALUE_EVENTS = 0     UNIQUE_HIGH_VALUE_FINDINGS = 0 UNINTERPRETABLE_EVENTS = 0
+MECHANICAL_ERRORS = 0           SHADOW_EVALUATOR_CALLS = 1（batch evaluator，方法审阅）
+SHADOW_RUNTIME_MS = 103.4–129.9（单次 signals 运行墙钟，本机，informational）
+
+H3_B_RESULT = INSUFFICIENT_SAMPLE
+  （observations = 7 < 10；按预注册语义，即使出现 unique finding 也只能算 early signal）
+```
+
+- 逐条 observation：[observations.jsonl](observations.jsonl)（h3b-001..h3b-007，逐案
+  EXPECTED-free：仅记录 normal evidence 快照 + 三信号计数 + 窄语义 disposition）。
+- 采样面：窗口内全部 merged PR = 11 个 → 纳入 7；pre-registered 排除 4（实验弧
+  #39/#40/#41，其中 #41 为 mandate 明文排除）；gov #32 在途挂起（证据未冻结）。
+- 校准记录（append-only）：见第 6 节修正记录（diff 绑定 → fork-point 对；h3b-001 已重跑）。
+- 污染检查：7 票的正常证据（body / review / comments / CI）全文扫描无任何
+  shadow / detector / 信号术语命中；shadow 从未进入任何 ticket 流程。
+- 早期模式（非结论，供后续批次对照）：5 个 signal-fired ticket 的全部 8 个 fired events
+  均为既已记录信息（依据 = contract 逐名声明 / review 直接锚定 / 归档 manifest 机器核验）；
+  2 个零信号票与其声明范围一致。本批未见 UNIQUE_* 事件、未见机械错误、
+  未见 UNSUPPORTED_SIGNAL_OPPORTUNITY 主张。
+- 值得记入的观察（不作为结论）：h3b-007 显示计数型信号与验收管线自带的文件级
+  manifest 核验（472 条目 + 缺失文件级 P2）相比，分辨率严格更弱；在该类 ticket 上，
+  增加信号类别不会改变这一分辨率关系。
