@@ -5,7 +5,7 @@
 > 提供正常 V1.1.1 流程之外**独特、高价值**的信息。
 > 组成：**H3-B0**（retrospective calibration：对 2026-09-24..10-08 已完成真实 ticket 的
 > 事后校准，n=7，见文末段）与 **H3-B1**（prospective live shadow：自 PROSPECTIVE_EPOCH_START
-> 起对自然发生的 ticket 做序时受控观察；协议为紧随的独立增量）。
+> 起对自然发生的 ticket 做序时受控观察；权威协议见 §13）。
 > 边界：**非 canonical、不接 CI、不 block merge、不产生任何自动化判定、不进入 reviewer
 > 正常流程**；shadow 输出在正常证据冻结之前不可见。
 
@@ -143,7 +143,8 @@ h3b-001 首跑即证伪——多提交 FF PR 的 `candidate^` 只给出**最后�
 - 处置粒度 = **逐 signal**（`signal_dispositions`，每个信号一个值；未触发信号记 `NO_SIGNAL`）。
   不设 ticket 级单值处置覆盖全部 fired events（混合结果会被迫错分类；见 §8 与收敛记录 F4）。
 - 模式/编号配对：RETROSPECTIVE 行 = `h3b-NNN`；PROSPECTIVE 行 = `h3b1-NNN`。
-  检查器强制该配对，保证 retrospective 数据**永远不可能**被计入 prospective 计数。
+  检查器强制该配对（把 retrospective 行计入 prospective 的文件必然验证失败）——
+  通过验证的运行中，retrospective 数据不可能被计入 prospective 计数。
 - `normal_findings` 只存稳定 refs / 紧凑摘要（不复制大段 reviewer 文本）；
   `tests/ci` = 正常流程实际记录的测试与 CI 证据（check-run 名与结论）；
   `review` = 实际记录的评审 findings（含「无记录」这一事实本身）。
@@ -222,8 +223,40 @@ shadow_signals 恰为三信号且为**非负整数**（拒绝 bool）；signal_d
 
 ```text
 H3_B0 = COMPLETE（retrospective calibration；结果见下）
-H3_B1_STATUS = NOT_STARTED（prospective 协议为紧随的独立增量；本文档其后将追加 B1 权威小节）
+H3_B1_STATUS = NOT_STARTED / COLLECTING（prospective 权威协议见 §13；尚无 observation）
 ```
+
+## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
+
+```text
+PROSPECTIVE_EPOCH_START = 2026-10-08T03:15:29Z（PR #42 合并点；
+                          merge SHA = 6b9ba7314c4e82e809dca1d965edd4b3ed1889b6
+                          = 本协议建立提交的父提交）
+```
+
+- **准入**：只有在该时间点之后**自然开始并完成**正常流程的 eligible ticket 才计入 H3-B1。
+  历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与实验弧
+  PR #39–#42 亦在排除之列（§4）。禁止为凑样本开工单或人为制造结构变化。
+- **时序强制（prospective 特有）**：
+  ticket 正常发生 → 正常实现 → tests / CI / review → 冻结 NORMAL_EVIDENCE_SNAPSHOT
+  （记录 `normal_evidence_frozen_at`）→ 首次运行 shadow（记录 `shadow_first_run_at`）
+  → 事后 value disposition（§8 词表，逐 signal）。
+  检查器强制 `normal_evidence_frozen_at < shadow_first_run_at`（ISO-8601 含时区偏移）；
+  违反或缺失 ⇒ 该行不是合法 prospective observation（`CHECK=FAIL`）。
+- **记录**：observations.jsonl 追加；`observation_id = h3b1-NNN`、`mode = PROSPECTIVE`；
+  字段见 §7。检查器按 mode 计数（`RETROSPECTIVE=` / `PROSPECTIVE=` 永久分离）——
+  retrospective 数据不可能被计入 prospective 计数。
+- **采样**：signal-blind、按自然时间连续纳入；不得先看 diff / 信号再决定是否纳入；不跳选。
+  当前无 eligible ticket 时保持 `PROSPECTIVE_LIVE_OBSERVATIONS = 0`——这是合法状态：
+  不等待、不造票。
+- **TARGET = 10（prospective 集）**——研究目标，非治理不变量、非 gate；样本不足则持续
+  `COLLECTING`。
+- **Detector 冻结**：仅 `NEW_FILE` / `NEW_DIRECTORY` / `NEW_DEPENDENCY`；发现其它结构机会
+  只记 `UNSUPPORTED_SIGNAL_OPPORTUNITY`，不实现。
+- **边界**：非阻塞、非权威、事后；不接 CI / gate / hook / reviewer 正常流程；
+  不产生 WARN / BLOCK / promotion。§10 结果语义在 prospective 集满 10 后适用；
+  早停/方向性结论只在后续实验审查中评估。
+- **无 observation 时**：本协议即当前交付；等自然 ticket 出现后按本文档执行。
 
 ## H3-B0（RETROSPECTIVE CALIBRATION）— 结果（2026-10-08）
 
@@ -241,7 +274,7 @@ SHADOW_RUNTIME_MS = 103.4–129.9（单次 signals 运行墙钟，本机，infor
 H3_B0_RESULT = NO_UNIQUE_VALUE_OBSERVED
   （精确表述 = NO_UNIQUE_HIGH_VALUE_OBSERVED；另有 5 个 UNIQUE_LOW_VALUE 事件——均为
     「集合未被逐项记录、但非决策相关」的聚合量——不构成价值证据）
-H3_B1_STATUS = NOT_STARTED
+H3_B1_STATUS = NOT_STARTED / COLLECTING（协议见 §13）
   （本批 7 条 retrospective observations 不计入 prospective threshold）
 ```
 
