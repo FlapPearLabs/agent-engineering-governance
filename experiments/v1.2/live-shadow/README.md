@@ -207,8 +207,11 @@ H3_B_RESULT = INSUFFICIENT_SAMPLE
 
 - 逐条 observation：[observations.jsonl](observations.jsonl)（h3b-001..h3b-007，逐案
   EXPECTED-free：仅记录 normal evidence 快照 + 三信号计数 + 窄语义 disposition）。
-- 采样面：窗口内全部 merged PR = 11 个 → 纳入 7；pre-registered 排除 4（实验弧
-  #39/#40/#41，其中 #41 为 mandate 明文排除）；gov #32 在途挂起（证据未冻结）。
+- 采样面：窗口内全部 merged PR = 10 个（四仓合计：gov 7 + zhihu 3）→ 纳入 7；
+  pre-registered 排除 3（实验弧 #39/#40/#41，其中 #41 为 mandate 明文排除）；
+  gov #32（OPEN）在途挂起（证据未冻结）。
+  （2026-10-08 修正：初稿误记「11 个 / 排除 4」——batch evaluator F1 指出后按事实更正；
+  纳入集合本身未受影响。）
 - 校准记录（append-only）：见第 6 节修正记录（diff 绑定 → fork-point 对；h3b-001 已重跑）。
 - 污染检查：7 票的正常证据（body / review / comments / CI）全文扫描无任何
   shadow / detector / 信号术语命中；shadow 从未进入任何 ticket 流程。
@@ -219,3 +222,10 @@ H3_B_RESULT = INSUFFICIENT_SAMPLE
 - 值得记入的观察（不作为结论）：h3b-007 显示计数型信号与验收管线自带的文件级
   manifest 核验（472 条目 + 缺失文件级 P2）相比，分辨率严格更弱；在该类 ticket 上，
   增加信号类别不会改变这一分辨率关系。
+- Batch evaluator（fresh，experiment-method review）@11a46e0 = CHANGES_REQUIRED：
+  1×P2（F1：采样面计数笔误，本提交已按事实修正为 10/3）+ 2×P3（F2：绑定规则修正
+  已披露、仅预注册卫生注记；F3：h3b-007 在 rubrics 边界上——评阅确认「可辩护、
+  immaterial」，本批保留 DUPLICATE，依据 = 归档面已在证据中逐面记录且被文件级核验，
+  仅聚合计数未逐字出现）。评阅同时独立复跑全部 7 条计数（与记录逐一相同）、
+  复算 3 个 fork 点（全部一致）、污染扫描 0 命中、无 selection bias、detector 零改动。
+  F1 修正本身未改变任何 observation、计数、disposition 或结果。
