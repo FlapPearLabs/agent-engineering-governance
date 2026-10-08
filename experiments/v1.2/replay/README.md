@@ -1,10 +1,12 @@
 # experiments/v1.2/replay — REAL HISTORICAL REPLAY CORPUS（非 canonical）
 
-> 本目录是 V1.2 实验的证据准备产物：为将来的最小 `STRUCTURE_DELTA_SHADOW` 原型
+> 本目录是 V1.2 实验的证据准备产物：为最小 `STRUCTURE_DELTA_SHADOW` 原型
 > 提供**真实历史、可机械解析**的输入与对照。它**不是** benchmark framework、
-> **不接 CI**、**不 block merge**、**不产生任何自动化判定**；detector / 分类器 / runner 均未实现。
+> **不接 CI**、**不 block merge**、**不产生任何自动化判定**；本目录不含
+> detector / 分类器 / runner 实现（v0 实验实现见 [../structure_delta.py](../structure_delta.py)）。
 > 状态：`REPLAY_INPUT_CORPUS = PARTIALLY_READY / READY_FOR_SHADOW_PROTOTYPE`（durable cases 就绪）、
-> `DETECTOR = NOT_IMPLEMENTED`、`LOCAL_VALIDATION = NOT_YET_RUN`。
+> `DETECTOR = V0_IMPLEMENTED_NOT_WIRED`、`LOCAL_VALIDATION = H3_A_HISTORICAL_REPLAY_RUN`
+> （结果见 [../results/h3-a-structure-delta-v0.md](../results/h3-a-structure-delta-v0.md)）。
 > 建立基线：main 的 324fc36（PR #39 合并后），分支 experiment/v1.2-replay-corpus（PR #40）。
 
 ## 每个 case 的构成
@@ -178,9 +180,10 @@ mergeCommit 与实际本地提交逐字段一致）。
 
 - 非 canonical；本目录可整体删除而不影响任何 canonical 语义。
 - 不接入 CI、不 block merge、不新增评审门、不改变既有评审语义。
-- 本目录只承载**输入**；detector 实现、promotion 与任何形式化都不在本轮范围内。
+- 本目录只承载**输入**；detector 实现（v0 见 [../structure_delta.py](../structure_delta.py)）、promotion 与任何形式化均不在本目录范围内。
 - 双轴建模（STRUCTURE_DISPOSITION / BEHAVIORAL_DISPOSITION）、v1 信号定义与
   REPLAY_DIFF 绑定均为**实验 corpus 的事实建模**，不升格为 canonical rule。
-- manifest 的自动解析校验与 negative controls：`DEFERRED_TO_DETECTOR_IMPLEMENTATION`
-  ——detector 本身必然要读取该 corpus，在此之前另建 parser 会形成重复实现与实验维护成本；
+- manifest 的自动解析校验与 negative controls：原 `DEFERRED_TO_DETECTOR_IMPLEMENTATION`，
+  已由 v0 兑现——[../structure_delta.py](../structure_delta.py) 以 focused、stdlib-only
+  reader 读取本 corpus（不引入 PyYAML），其测试覆盖 detector-level negative controls；
   本目录以「基本结构检查（stdlib-only）」（见上）+ 独立评审维持基本数据格式完整性。

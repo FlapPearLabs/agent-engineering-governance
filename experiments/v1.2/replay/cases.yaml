@@ -2,7 +2,7 @@
 #
 # 本文件是实验 V1.2 / 候选 H3（STRUCTURE_DELTA_SHADOW）的**证据准备**产物：
 # 每个 case 从**公开来源仓库的真实 Git 历史**取出一个可定位的 BASE→CANDIDATE 变更对。
-# 未来最小 shadow 原型（本轮不实现）可以按 provenance.resolver 的命令直接重建输入，
+# 最小 shadow 原型（v0 已实现：见 ../structure_delta.py）可以按 provenance.resolver 的命令直接重建输入，
 # 并与 expected_mechanical_signals / structure_disposition / behavioral_disposition 对照。
 #
 # 规则（与 seed corpus 同源，见 ../cases.yaml 头部）：
