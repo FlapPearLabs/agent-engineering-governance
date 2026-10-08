@@ -5,7 +5,7 @@
 > 提供正常 V1.1.1 流程之外**独特、高价值**的信息。
 > 组成：**H3-B0**（retrospective calibration：对 2026-09-24..10-08 已完成真实 ticket 的
 > 事后校准，n=7，见文末段）与 **H3-B1**（prospective live shadow：自 PROSPECTIVE_EPOCH_START
-> 起对自然发生的 ticket 做序时受控观察；协议为紧随的独立增量）。
+> 起对自然发生的 ticket 做序时受控观察；权威协议见 §13）。
 > 边界：**非 canonical、不接 CI、不 block merge、不产生任何自动化判定、不进入 reviewer
 > 正常流程**；shadow 输出在正常证据冻结之前不可见。
 
@@ -60,8 +60,8 @@ NORMAL_FINDINGS_FROZEN_BEFORE_SHADOW = YES
 
 ```text
 - replay corpus cases r01–r06 的源变更对（不得再次计入）；
-- agent-engineering-governance PR #39 / #40 / #41（V1.2 实验构造弧自身；#41 含 detector
-  实现，明文禁止）；
+- V1.2 实验构造/维护弧的**全部**工作（含 agent-engineering-governance PR #39–#43 及今后
+  任何面向 experiments/v1.2/ 的变更——本协议 PR 自身亦在其列；#41 含 detector 实现，明文禁止）；
 - synthetic fixture / 为 detector 写的 demo / 人为制造的结构变化；
 - 为凑样本重新执行的历史 ticket。
 ```
@@ -71,8 +71,9 @@ NORMAL_FINDINGS_FROZEN_BEFORE_SHADOW = YES
 ```text
 来源仓 = 当前工作环境内的全部 FlapPearLabs 项目：
   agent-engineering-governance / zhihu-grabber-toolkit / webcodex / workbuddy-toolkit
-窗口   = 正常流程到达记录终态（merged）且 mergedAt ∈ [2026-09-24, 2026-10-08]
-         （H3-B 开工前 14 天，H3-B 开工前预设，未按结果调整）
+窗口   = 【H3-B0（retrospective）采样窗口】正常流程到达记录终态（merged）且
+         mergedAt ∈ [2026-09-24, 2026-10-08]（H3-B 开工前 14 天，开工前预设，
+         未按结果调整）；【H3-B1（prospective）】不适用本窗口——其窗口定义见 §13。
 单元   = 每个 merged PR = 一个 observation；按 merge 时间顺序连续纳入，不跳选。
 ```
 
@@ -99,7 +100,8 @@ INCLUDED（7，按 merge 时间序 → observation_id h3b-001..h3b-007）：
   h3b-007  zhihu-grabber-toolkit #132  880862566478f9885b9a3c5bf25581529edd2a28  2026-10-07
 
 PENDING（不计入）：
-  gov #32（OPEN @ head 95de4c3aab；在途，正常证据未冻结——若未来自然完成可入下一批）。
+  gov #32（OPEN @ head 95de4c3aab；created 2026-09-24 —— 早于任何 prospective epoch
+  ⇒ INELIGIBLE_FOR_PROSPECTIVE_COHORT；H3-B0 窗口亦已按 mergedAt 上界关闭）。
 
 EXCLUDED（pre-registered）：
   gov #39 / #40 / #41（实验构造弧）；replay r01–r06 源变更对；
@@ -143,7 +145,10 @@ h3b-001 首跑即证伪——多提交 FF PR 的 `candidate^` 只给出**最后�
 - 处置粒度 = **逐 signal**（`signal_dispositions`，每个信号一个值；未触发信号记 `NO_SIGNAL`）。
   不设 ticket 级单值处置覆盖全部 fired events（混合结果会被迫错分类；见 §8 与收敛记录 F4）。
 - 模式/编号配对：RETROSPECTIVE 行 = `h3b-NNN`；PROSPECTIVE 行 = `h3b1-NNN`。
-  检查器强制该配对，保证 retrospective 数据**永远不可能**被计入 prospective 计数。
+  检查器强制该配对（把 retrospective 行计入 prospective 的文件必然验证失败）——
+  通过验证的运行中，**被标记为 retrospective 的行**不会被计入 prospective 计数。
+  （该保证仅覆盖 mode 字段的**机制一致性**：检查器校验自述字段的内部一致性，不校验其
+  真实性——伪造自述字段不是任何 schema 能阻止的；真实性由 §13 的可审计记录与纪律保证。）
 - `normal_findings` 只存稳定 refs / 紧凑摘要（不复制大段 reviewer 文本）；
   `tests/ci` = 正常流程实际记录的测试与 CI 证据（check-run 名与结论）；
   `review` = 实际记录的评审 findings（含「无记录」这一事实本身）。
@@ -194,11 +199,18 @@ MECHANICAL_ERRORS  SHADOW_EVALUATOR_CALLS  SHADOW_RUNTIME_MS（可低成本获�
 ## 10. 结果语义（pre-registered，无 promotion；对 H3-B1 prospective 集生效）
 
 ```text
-prospective observations < 10                      → H3_B1_STATUS = COLLECTING
-prospective observations >= 10 且 UNIQUE_HIGH = 0  → VALUE_NOT_DEMONSTRATED
-prospective observations >= 10 且 UNIQUE_HIGH >= 1 → VALUE_SIGNAL_FOUND
+结果门槛按 interpretable（可解释）prospective observations 计：
+  有 fired signals 的行 = 其 signal_dispositions 不含 UNINTERPRETABLE；
+  零信号行天然可解释。
+  分子 UNIQUE_HIGH 亦仅统计可解释行内的 fired events（§9 的 event 级计数在此被可解释性
+  过滤）。
+interpretable < 10                      → H3_B1_STATUS = COLLECTING
+interpretable >= 10 且 UNIQUE_HIGH = 0  → VALUE_NOT_DEMONSTRATED
+interpretable >= 10 且 UNIQUE_HIGH >= 1 → VALUE_SIGNAL_FOUND
 ```
 
+- UNINTERPRETABLE 行**不计入**门槛；不足 10 条可解释样本 ⇒ 保持 COLLECTING，不得判
+  VALUE_NOT_DEMONSTRATED（防「不可解释样本被计入并得出否定结论」）。
 - H3-B0（retrospective）**不计入** prospective threshold；其结果是校准信息，不是 H3 结论。
 - 任何结果都**不**产生 WARN / BLOCK / promotion；`VALUE_SIGNAL_FOUND` 也只说明值得继续
   有限 shadow 验证。样本不足 = `COLLECTING`，完全合法；**不得为凑样本造票**。
@@ -222,8 +234,82 @@ shadow_signals 恰为三信号且为**非负整数**（拒绝 bool）；signal_d
 
 ```text
 H3_B0 = COMPLETE（retrospective calibration；结果见下）
-H3_B1_STATUS = NOT_STARTED（prospective 协议为紧随的独立增量；本文档其后将追加 B1 权威小节）
+H3_B1_STATUS = COLLECTING（§10 唯一定义：interpretable observations < 10，当前 0；权威协议见 §13）
 ```
+
+## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
+
+```text
+PROSPECTIVE_PROTOCOL_FREEZE = PR #43（本协议 PR）的 merge commit —— 合并提交包含本协议
+                              全文（最终形态）；合并动作本身即冻结动作
+PROSPECTIVE_EPOCH_START = 该 merge commit 的真实时间戳（GitHub 服务器时间，非手写；合并后
+                          由 git / GitHub API 实证；其 SHA 与时间戳随首个 observation 落盘记录）
+```
+
+（为什么冻结 = 合并提交：协议文本在合并前经历多轮评审收敛——**编制分支上的任何提交都
+可能在合并前被追加修订**，而合并提交是首个进入默认分支、此后不再修改、且时间戳晚于全部
+编制提交的对象（这才是可审计的差别；不可变性本身分支提交也具备）。协议沿革（全部
+pre-freeze；完整清单以 `git log 6b9ba73..HEAD -- experiments/v1.2/live-shadow/README.md`
+为准）：56a68b2 建立 → f29a3c6 → 4cbc585 → 34551b2 → 56dec23 → 6e85097 → 本收敛
+提交。PR #42 合并点（`6b9ba7314c4e82e809dca1d965edd4b3ed1889b6`）仅为 H3-B0 → H3-B1 的
+branch/base provenance，**不是** eligibility epoch。）
+
+- **准入（prospective 合法性第 1 层）**：ticket 必须在 `PROSPECTIVE_EPOCH_START` **之后**
+  **自然开始并完成**正常流程：`ticket_start_at > PROSPECTIVE_EPOCH_START`。
+  `ticket_start_at` = 全部适用可审计激活记录中**最早者**（授权 issue/ticket created_at、
+  PR created_at、project-state activation timestamp——取最早，**不得择晚者**以通过 epoch
+  检查；来源必须可审计、**不得**凭人工回忆推断）；无法可靠确定最早者 ⇒
+  `NOT_ELIGIBLE_FOR_PROSPECTIVE_COHORT`（不硬收）。
+  历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与 V1.2 实验
+  构造弧的**全部**工作（含 #39–#43 及今后同类变更——含本协议 PR 自身，§4）亦在排除之列。
+  禁止为凑样本开工单或人为制造结构变化。
+  （当前 `PROSPECTIVE_OBSERVATIONS = 0`。**约束**：首个 prospective observation 落盘时，
+  `ticket_start_at` 的来源引用必须随行记录，且 checker 对本层的强制校验（对照
+  `PROSPECTIVE_EPOCH_START`）一并落地——在此之前不接受任何 prospective 行。）
+- **时序强制（prospective 合法性第 2 层；checker 强制）**：
+  ticket 正常发生 → 正常实现 → tests / CI / review → 正常流程**终端决策完成（merge 落地）**
+  → 冻结 NORMAL_EVIDENCE_SNAPSHOT（记录 `normal_evidence_frozen_at`）→ 首次运行 shadow
+  （记录 `shadow_first_run_at`）→ 事后 value disposition（§8 词表，逐 signal）。
+  冻结必须晚于**终端 merge 决策**：shadow 不得在正常流程的任何决策（含 merge）仍悬置
+  期间运行。冻结还必须在首次 shadow 运行**之前**以**不可变、可外部核验**的形式持久化
+  （快照身份引用——快照 commit / 内容摘要 / 带服务器时间戳的引用——随 observation 落盘），
+  使非污染主张可复现；仅在事后声明时间戳与布尔值不构成冻结。
+  （快照身份引用的记录字段与检查器规则随首个 prospective observation 一并落地——在此之前
+  不接受任何 prospective 行。）
+  检查器强制 `normal_evidence_frozen_at < shadow_first_run_at`（ISO-8601 含时区偏移）；
+  违反或缺失 ⇒ 该行不是合法 prospective observation（`CHECK=FAIL`）。
+- **记录**：observations.jsonl 追加；`observation_id = h3b1-NNN`、`mode = PROSPECTIVE`；
+  字段见 §7。检查器按 mode 计数（`RETROSPECTIVE=` / `PROSPECTIVE=` 永久分离）——
+  **被标记为 retrospective 的行**不会被计入 prospective 计数（机制保证，非真实性保证）。
+  **一行 = 一个 ticket**：唯一性按 ticket
+  身份（repository + PR 号，或所绑定的 candidate 提交）而非 `observation_id`；同一 ticket
+  重复出现即 `CHECK=FAIL`（该唯一性在首个 prospective 行落地时由检查器强制）。
+- **绑定（prospective 修订）**：`BASE_SHA` = PR fork point、`CANDIDATE_SHA` = **被评审的
+  PR head**（评审所依据的三点 diff 两端）。非 FF 落地时不得用落地 merge 提交参与信号 diff
+  （会把期间主干推进计入该 ticket）；落地面核验可另记 merge 提交（净差异 = 第一父..merge）
+  为 provenance。
+- **采样**：signal-blind、按自然时间连续纳入；不得先看 diff / 信号再决定是否纳入；不跳选。
+  **窗口（H3-B1）**：来源仓 = §5 同一四仓；窗口**开放**（无上界；持续纳入至 TARGET 达成
+  或实验终止）。
+  **候选面冻结（防选择偏差的审计面）**：任一 ticket 进入 Step B 之前，必须先以仅元数据方式
+  （无 diff / 无信号）枚举 epoch 后全部候选并冻结为本批候选清单（append-only；首个收集批次
+  建立此清单面）；清单之外不得纳入，清单不得在检视 diff / 信号后增删。
+  当前无 eligible ticket 时保持 `PROSPECTIVE_LIVE_OBSERVATIONS = 0`——这是合法状态：
+  不等待、不造票。
+- **TARGET = 10（interpretable 可解释样本）**——研究目标，非治理不变量、非 gate；采样持续至
+  **可解释样本满 10**（UNINTERPRETABLE 行不计入该目标，见 §10）；**不得**因总行数达 10
+  而停止（否则结果门槛永远无法满足）。
+- **Detector 冻结**：仅 `NEW_FILE` / `NEW_DIRECTORY` / `NEW_DEPENDENCY`；发现其它结构机会
+  只记 `UNSUPPORTED_SIGNAL_OPPORTUNITY`，不实现。每条 prospective observation 记录其运行时
+  所用的 detector 修订（`structure_delta.py` 的 blob SHA）；**结果 cohort 钉住单一 blob**
+  （随首个 prospective 行固定；其后的 detector 变更不得并入同一结果集——新修订另起 cohort
+  或归档），不同修订的计数不得直接混比。
+  （blob 的记录字段与钉住规则随首个 prospective observation 一并落地——在此之前不接受
+  任何 prospective 行。）
+- **边界**：非阻塞、非权威、事后；不接 CI / gate / hook / reviewer 正常流程；
+  不产生 WARN / BLOCK / promotion。§10 结果语义在**可解释样本满 10** 后适用；
+  早停/方向性结论只在后续实验审查中评估。
+- **无 observation 时**：本协议即当前交付；等自然 ticket 出现后按本文档执行。
 
 ## H3-B0（RETROSPECTIVE CALIBRATION）— 结果（2026-10-08）
 
@@ -241,7 +327,7 @@ SHADOW_RUNTIME_MS = 103.4–129.9（单次 signals 运行墙钟，本机，infor
 H3_B0_RESULT = NO_UNIQUE_VALUE_OBSERVED
   （精确表述 = NO_UNIQUE_HIGH_VALUE_OBSERVED；另有 5 个 UNIQUE_LOW_VALUE 事件——均为
     「集合未被逐项记录、但非决策相关」的聚合量——不构成价值证据）
-H3_B1_STATUS = NOT_STARTED
+H3_B1_STATUS = COLLECTING（协议见 §13）
   （本批 7 条 retrospective observations 不计入 prospective threshold）
 ```
 
@@ -251,7 +337,7 @@ H3_B1_STATUS = NOT_STARTED
   h3b-007 NEW_FILE×2141→UL、NEW_DIRECTORY×967→UL。
 - 采样面：窗口内全部 merged PR = 10 个（四仓合计：gov 7 + zhihu 3）→ 纳入 7；
   pre-registered 排除 3（实验弧 #39/#40/#41，其中 #41 为 mandate 明文排除）；
-  gov #32（OPEN）在途挂起（证据未冻结）。
+  gov #32（OPEN）不计入任何批次：created 2026-09-24 早于 prospective epoch。
   （2026-10-08 修正：初稿误记「11 个 / 排除 4」——batch evaluator F1 指出后按事实更正；
   纳入集合本身未受影响。）
 - **重分类（2026-10-08，本轮）**：本批运行于 ticket 全部完成之后（detector 2026-10-08 才
