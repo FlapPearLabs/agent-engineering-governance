@@ -60,8 +60,8 @@ NORMAL_FINDINGS_FROZEN_BEFORE_SHADOW = YES
 
 ```text
 - replay corpus cases r01–r06 的源变更对（不得再次计入）；
-- agent-engineering-governance PR #39 / #40 / #41（V1.2 实验构造弧自身；#41 含 detector
-  实现，明文禁止）；
+- V1.2 实验构造/维护弧的**全部**工作（含 agent-engineering-governance PR #39–#43 及今后
+  任何面向 experiments/v1.2/ 的变更——本协议 PR 自身亦在其列；#41 含 detector 实现，明文禁止）；
 - synthetic fixture / 为 detector 写的 demo / 人为制造的结构变化；
 - 为凑样本重新执行的历史 ticket。
 ```
@@ -223,7 +223,7 @@ shadow_signals 恰为三信号且为**非负整数**（拒绝 bool）；signal_d
 
 ```text
 H3_B0 = COMPLETE（retrospective calibration；结果见下）
-H3_B1_STATUS = NOT_STARTED / COLLECTING（prospective 权威协议见 §13；尚无 observation）
+H3_B1_STATUS = COLLECTING（§10 唯一定义：prospective observations < 10，当前 0；权威协议见 §13）
 ```
 
 ## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
@@ -245,20 +245,27 @@ eligibility epoch。）
   `ticket_start_at` 必须来自**可审计的正常工程记录**（PR created_at / 获授权的 ticket 或
   issue created_at / 明确的 project-state activation timestamp）——**不得**凭人工回忆推断；
   无法可靠确定 ⇒ `NOT_ELIGIBLE_FOR_PROSPECTIVE_COHORT`（不硬收）。
-  历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与实验弧
-  PR #39–#42 亦在排除之列（§4）。禁止为凑样本开工单或人为制造结构变化。
-  （当前 `PROSPECTIVE_OBSERVATIONS = 0`；`ticket_start_at` 的来源与证据将随首个
-  prospective observation 一并落盘。）
+  历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与 V1.2 实验
+  构造弧的**全部**工作（含 #39–#43 及今后同类变更——含本协议 PR 自身，§4）亦在排除之列。
+  禁止为凑样本开工单或人为制造结构变化。
+  （当前 `PROSPECTIVE_OBSERVATIONS = 0`。**约束**：首个 prospective observation 落盘时，
+  `ticket_start_at` 的来源引用必须随行记录，且 checker 对本层的强制校验（对照
+  `PROSPECTIVE_EPOCH_START`）一并落地——在此之前不接受任何 prospective 行。）
 - **时序强制（prospective 合法性第 2 层；checker 强制）**：
-  ticket 正常发生 → 正常实现 → tests / CI / review → 冻结 NORMAL_EVIDENCE_SNAPSHOT
-  （记录 `normal_evidence_frozen_at`）→ 首次运行 shadow（记录 `shadow_first_run_at`）
-  → 事后 value disposition（§8 词表，逐 signal）。
+  ticket 正常发生 → 正常实现 → tests / CI / review → 正常流程**终端决策完成（merge 落地）**
+  → 冻结 NORMAL_EVIDENCE_SNAPSHOT（记录 `normal_evidence_frozen_at`）→ 首次运行 shadow
+  （记录 `shadow_first_run_at`）→ 事后 value disposition（§8 词表，逐 signal）。
+  冻结必须晚于**终端 merge 决策**：shadow 不得在正常流程的任何决策（含 merge）仍悬置
+  期间运行。
   检查器强制 `normal_evidence_frozen_at < shadow_first_run_at`（ISO-8601 含时区偏移）；
   违反或缺失 ⇒ 该行不是合法 prospective observation（`CHECK=FAIL`）。
 - **记录**：observations.jsonl 追加；`observation_id = h3b1-NNN`、`mode = PROSPECTIVE`；
   字段见 §7。检查器按 mode 计数（`RETROSPECTIVE=` / `PROSPECTIVE=` 永久分离）——
   retrospective 数据不可能被计入 prospective 计数。
 - **采样**：signal-blind、按自然时间连续纳入；不得先看 diff / 信号再决定是否纳入；不跳选。
+  **候选面冻结（防选择偏差的审计面）**：任一 ticket 进入 Step B 之前，必须先以仅元数据方式
+  （无 diff / 无信号）枚举 epoch 后全部候选并冻结为本批候选清单（append-only；首个收集批次
+  建立此清单面）；清单之外不得纳入，清单不得在检视 diff / 信号后增删。
   当前无 eligible ticket 时保持 `PROSPECTIVE_LIVE_OBSERVATIONS = 0`——这是合法状态：
   不等待、不造票。
 - **TARGET = 10（prospective 集）**——研究目标，非治理不变量、非 gate；样本不足则持续
@@ -286,7 +293,7 @@ SHADOW_RUNTIME_MS = 103.4–129.9（单次 signals 运行墙钟，本机，infor
 H3_B0_RESULT = NO_UNIQUE_VALUE_OBSERVED
   （精确表述 = NO_UNIQUE_HIGH_VALUE_OBSERVED；另有 5 个 UNIQUE_LOW_VALUE 事件——均为
     「集合未被逐项记录、但非决策相关」的聚合量——不构成价值证据）
-H3_B1_STATUS = NOT_STARTED / COLLECTING（协议见 §13）
+H3_B1_STATUS = COLLECTING（协议见 §13）
   （本批 7 条 retrospective observations 不计入 prospective threshold）
 ```
 
