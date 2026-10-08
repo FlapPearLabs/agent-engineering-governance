@@ -229,15 +229,27 @@ H3_B1_STATUS = NOT_STARTED / COLLECTING（prospective 权威协议见 §13；尚
 ## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
 
 ```text
-PROSPECTIVE_EPOCH_START = 2026-10-08T03:15:29Z（PR #42 合并点；
-                          merge SHA = 6b9ba7314c4e82e809dca1d965edd4b3ed1889b6
-                          = 本协议建立提交的父提交）
+PROSPECTIVE_PROTOCOL_FREEZE_SHA = 56a68b216e2cf3f1fd2c4b5ee9961766ea381d51
+PROSPECTIVE_EPOCH_START = 2026-10-08T03:17:09Z（= 2026-10-08T11:17:09+08:00；
+                          协议冻结提交的真实 commit 时间戳，author = committer；
+                          经 git %aI/%cI 与 GitHub API commit.{author,committer}.date
+                          双向实证，非手写）
 ```
 
-- **准入**：只有在该时间点之后**自然开始并完成**正常流程的 eligible ticket 才计入 H3-B1。
+（PR #42 合并点——merge SHA `6b9ba7314c4e82e809dca1d965edd4b3ed1889b6`，即协议冻结
+提交的父提交——仅作为 H3-B0 → H3-B1 的 branch/base provenance；**不是** sample
+eligibility epoch。）
+
+- **准入（prospective 合法性第 1 层）**：ticket 必须在 `PROSPECTIVE_EPOCH_START` **之后**
+  **自然开始并完成**正常流程：`ticket_start_at > PROSPECTIVE_EPOCH_START`。
+  `ticket_start_at` 必须来自**可审计的正常工程记录**（PR created_at / 获授权的 ticket 或
+  issue created_at / 明确的 project-state activation timestamp）——**不得**凭人工回忆推断；
+  无法可靠确定 ⇒ `NOT_ELIGIBLE_FOR_PROSPECTIVE_COHORT`（不硬收）。
   历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与实验弧
   PR #39–#42 亦在排除之列（§4）。禁止为凑样本开工单或人为制造结构变化。
-- **时序强制（prospective 特有）**：
+  （当前 `PROSPECTIVE_OBSERVATIONS = 0`；`ticket_start_at` 的来源与证据将随首个
+  prospective observation 一并落盘。）
+- **时序强制（prospective 合法性第 2 层；checker 强制）**：
   ticket 正常发生 → 正常实现 → tests / CI / review → 冻结 NORMAL_EVIDENCE_SNAPSHOT
   （记录 `normal_evidence_frozen_at`）→ 首次运行 shadow（记录 `shadow_first_run_at`）
   → 事后 value disposition（§8 词表，逐 signal）。
