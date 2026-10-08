@@ -229,7 +229,7 @@ shadow_signals 恰为三信号且为**非负整数**（拒绝 bool）；signal_d
 
 ```text
 H3_B0 = COMPLETE（retrospective calibration；结果见下）
-H3_B1_STATUS = COLLECTING（§10 唯一定义：prospective observations < 10，当前 0；权威协议见 §13）
+H3_B1_STATUS = COLLECTING（§10 唯一定义：interpretable observations < 10，当前 0；权威协议见 §13）
 ```
 
 ## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
@@ -286,11 +286,14 @@ provenance，**不是** eligibility epoch。）
   建立此清单面）；清单之外不得纳入，清单不得在检视 diff / 信号后增删。
   当前无 eligible ticket 时保持 `PROSPECTIVE_LIVE_OBSERVATIONS = 0`——这是合法状态：
   不等待、不造票。
-- **TARGET = 10（prospective 集）**——研究目标，非治理不变量、非 gate；样本不足则持续
-  `COLLECTING`。
+- **TARGET = 10（interpretable 可解释样本）**——研究目标，非治理不变量、非 gate；采样持续至
+  **可解释样本满 10**（UNINTERPRETABLE 行不计入该目标，见 §10）；**不得**因总行数达 10
+  而停止（否则结果门槛永远无法满足）。
 - **Detector 冻结**：仅 `NEW_FILE` / `NEW_DIRECTORY` / `NEW_DEPENDENCY`；发现其它结构机会
   只记 `UNSUPPORTED_SIGNAL_OPPORTUNITY`，不实现。每条 prospective observation 记录其运行时
-  所用的 detector 修订（`structure_delta.py` 的 blob SHA）；不同修订的计数不得直接混比。
+  所用的 detector 修订（`structure_delta.py` 的 blob SHA）；**结果 cohort 钉住单一 blob**
+  （随首个 prospective 行固定；其后的 detector 变更不得并入同一结果集——新修订另起 cohort
+  或归档），不同修订的计数不得直接混比。
 - **边界**：非阻塞、非权威、事后；不接 CI / gate / hook / reviewer 正常流程；
   不产生 WARN / BLOCK / promotion。§10 结果语义在**可解释样本满 10** 后适用；
   早停/方向性结论只在后续实验审查中评估。
