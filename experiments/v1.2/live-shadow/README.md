@@ -71,8 +71,9 @@ NORMAL_FINDINGS_FROZEN_BEFORE_SHADOW = YES
 ```text
 来源仓 = 当前工作环境内的全部 FlapPearLabs 项目：
   agent-engineering-governance / zhihu-grabber-toolkit / webcodex / workbuddy-toolkit
-窗口   = 正常流程到达记录终态（merged）且 mergedAt ∈ [2026-09-24, 2026-10-08]
-         （H3-B 开工前 14 天，H3-B 开工前预设，未按结果调整）
+窗口   = 【H3-B0（retrospective）采样窗口】正常流程到达记录终态（merged）且
+         mergedAt ∈ [2026-09-24, 2026-10-08]（H3-B 开工前 14 天，开工前预设，
+         未按结果调整）；【H3-B1（prospective）】不适用本窗口——其窗口定义见 §13。
 单元   = 每个 merged PR = 一个 observation；按 merge 时间顺序连续纳入，不跳选。
 ```
 
@@ -195,11 +196,16 @@ MECHANICAL_ERRORS  SHADOW_EVALUATOR_CALLS  SHADOW_RUNTIME_MS（可低成本获�
 ## 10. 结果语义（pre-registered，无 promotion；对 H3-B1 prospective 集生效）
 
 ```text
-prospective observations < 10                      → H3_B1_STATUS = COLLECTING
-prospective observations >= 10 且 UNIQUE_HIGH = 0  → VALUE_NOT_DEMONSTRATED
-prospective observations >= 10 且 UNIQUE_HIGH >= 1 → VALUE_SIGNAL_FOUND
+结果门槛按 interpretable（可解释）prospective observations 计：
+  有 fired signals 的行 = 其 signal_dispositions 不含 UNINTERPRETABLE；
+  零信号行天然可解释。
+interpretable < 10                      → H3_B1_STATUS = COLLECTING
+interpretable >= 10 且 UNIQUE_HIGH = 0  → VALUE_NOT_DEMONSTRATED
+interpretable >= 10 且 UNIQUE_HIGH >= 1 → VALUE_SIGNAL_FOUND
 ```
 
+- UNINTERPRETABLE 行**不计入**门槛；不足 10 条可解释样本 ⇒ 保持 COLLECTING，不得判
+  VALUE_NOT_DEMONSTRATED（防「不可解释样本被计入并得出否定结论」）。
 - H3-B0（retrospective）**不计入** prospective threshold；其结果是校准信息，不是 H3 结论。
 - 任何结果都**不**产生 WARN / BLOCK / promotion；`VALUE_SIGNAL_FOUND` 也只说明值得继续
   有限 shadow 验证。样本不足 = `COLLECTING`，完全合法；**不得为凑样本造票**。
@@ -229,16 +235,17 @@ H3_B1_STATUS = COLLECTING（§10 唯一定义：prospective observations < 10，
 ## 13. H3-B1 prospective live shadow（权威协议；PROSPECTIVE_EPOCH_START 后生效）
 
 ```text
-PROSPECTIVE_PROTOCOL_FREEZE_SHA = 56a68b216e2cf3f1fd2c4b5ee9961766ea381d51
-PROSPECTIVE_EPOCH_START = 2026-10-08T03:17:09Z（= 2026-10-08T11:17:09+08:00；
-                          协议冻结提交的真实 commit 时间戳，author = committer；
-                          经 git %aI/%cI 与 GitHub API commit.{author,committer}.date
-                          双向实证，非手写）
+PROSPECTIVE_PROTOCOL_FREEZE = PR #43（本协议 PR）的 merge commit —— 合并提交包含本协议
+                              全文（最终形态）；合并动作本身即冻结动作
+PROSPECTIVE_EPOCH_START = 该 merge commit 的真实时间戳（GitHub 服务器时间，非手写；合并后
+                          由 git / GitHub API 实证；其 SHA 与时间戳随首个 observation 落盘记录）
 ```
 
-（PR #42 合并点——merge SHA `6b9ba7314c4e82e809dca1d965edd4b3ed1889b6`，即协议冻结
-提交的父提交——仅作为 H3-B0 → H3-B1 的 branch/base provenance；**不是** sample
-eligibility epoch。）
+（为什么冻结 = 合并提交：协议文本在合并前经历多轮评审收敛，任何更早的编制提交
+（56a68b2 建立 → f29a3c6 → 4cbc585 → 本收敛提交）都不含最终规则集；合并提交是首个
+包含协议全文的不可变对象。PR #42 合并点（merge SHA
+`6b9ba7314c4e82e809dca1d965edd4b3ed1889b6`）仅为 H3-B0 → H3-B1 的 branch/base
+provenance，**不是** eligibility epoch。）
 
 - **准入（prospective 合法性第 1 层）**：ticket 必须在 `PROSPECTIVE_EPOCH_START` **之后**
   **自然开始并完成**正常流程：`ticket_start_at > PROSPECTIVE_EPOCH_START`。
@@ -256,13 +263,21 @@ eligibility epoch。）
   → 冻结 NORMAL_EVIDENCE_SNAPSHOT（记录 `normal_evidence_frozen_at`）→ 首次运行 shadow
   （记录 `shadow_first_run_at`）→ 事后 value disposition（§8 词表，逐 signal）。
   冻结必须晚于**终端 merge 决策**：shadow 不得在正常流程的任何决策（含 merge）仍悬置
-  期间运行。
+  期间运行。冻结还必须在首次 shadow 运行**之前**以**不可变、可外部核验**的形式持久化
+  （快照身份引用——快照 commit / 内容摘要 / 带服务器时间戳的引用——随 observation 落盘），
+  使非污染主张可复现；仅在事后声明时间戳与布尔值不构成冻结。
   检查器强制 `normal_evidence_frozen_at < shadow_first_run_at`（ISO-8601 含时区偏移）；
   违反或缺失 ⇒ 该行不是合法 prospective observation（`CHECK=FAIL`）。
 - **记录**：observations.jsonl 追加；`observation_id = h3b1-NNN`、`mode = PROSPECTIVE`；
   字段见 §7。检查器按 mode 计数（`RETROSPECTIVE=` / `PROSPECTIVE=` 永久分离）——
   retrospective 数据不可能被计入 prospective 计数。
+- **绑定（prospective 修订）**：`BASE_SHA` = PR fork point、`CANDIDATE_SHA` = **被评审的
+  PR head**（评审所依据的三点 diff 两端）。非 FF 落地时不得用落地 merge 提交参与信号 diff
+  （会把期间主干推进计入该 ticket）；落地面核验可另记 merge 提交（净差异 = 第一父..merge）
+  为 provenance。
 - **采样**：signal-blind、按自然时间连续纳入；不得先看 diff / 信号再决定是否纳入；不跳选。
+  **窗口（H3-B1）**：来源仓 = §5 同一四仓；窗口**开放**（无上界；持续纳入至 TARGET 达成
+  或实验终止）。
   **候选面冻结（防选择偏差的审计面）**：任一 ticket 进入 Step B 之前，必须先以仅元数据方式
   （无 diff / 无信号）枚举 epoch 后全部候选并冻结为本批候选清单（append-only；首个收集批次
   建立此清单面）；清单之外不得纳入，清单不得在检视 diff / 信号后增删。
@@ -271,9 +286,10 @@ eligibility epoch。）
 - **TARGET = 10（prospective 集）**——研究目标，非治理不变量、非 gate；样本不足则持续
   `COLLECTING`。
 - **Detector 冻结**：仅 `NEW_FILE` / `NEW_DIRECTORY` / `NEW_DEPENDENCY`；发现其它结构机会
-  只记 `UNSUPPORTED_SIGNAL_OPPORTUNITY`，不实现。
+  只记 `UNSUPPORTED_SIGNAL_OPPORTUNITY`，不实现。每条 prospective observation 记录其运行时
+  所用的 detector 修订（`structure_delta.py` 的 blob SHA）；不同修订的计数不得直接混比。
 - **边界**：非阻塞、非权威、事后；不接 CI / gate / hook / reviewer 正常流程；
-  不产生 WARN / BLOCK / promotion。§10 结果语义在 prospective 集满 10 后适用；
+  不产生 WARN / BLOCK / promotion。§10 结果语义在**可解释样本满 10** 后适用；
   早停/方向性结论只在后续实验审查中评估。
 - **无 observation 时**：本协议即当前交付；等自然 ticket 出现后按本文档执行。
 
