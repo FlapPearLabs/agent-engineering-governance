@@ -249,9 +249,10 @@ provenance，**不是** eligibility epoch。）
 
 - **准入（prospective 合法性第 1 层）**：ticket 必须在 `PROSPECTIVE_EPOCH_START` **之后**
   **自然开始并完成**正常流程：`ticket_start_at > PROSPECTIVE_EPOCH_START`。
-  `ticket_start_at` 必须来自**可审计的正常工程记录**（PR created_at / 获授权的 ticket 或
-  issue created_at / 明确的 project-state activation timestamp）——**不得**凭人工回忆推断；
-  无法可靠确定 ⇒ `NOT_ELIGIBLE_FOR_PROSPECTIVE_COHORT`（不硬收）。
+  `ticket_start_at` = 全部适用可审计激活记录中**最早者**（授权 issue/ticket created_at、
+  PR created_at、project-state activation timestamp——取最早，**不得择晚者**以通过 epoch
+  检查；来源必须可审计、**不得**凭人工回忆推断）；无法可靠确定最早者 ⇒
+  `NOT_ELIGIBLE_FOR_PROSPECTIVE_COHORT`（不硬收）。
   历史 ticket（含本目录 7 条 retrospective 记录）一律不得搬入；replay corpus 与 V1.2 实验
   构造弧的**全部**工作（含 #39–#43 及今后同类变更——含本协议 PR 自身，§4）亦在排除之列。
   禁止为凑样本开工单或人为制造结构变化。
@@ -270,7 +271,9 @@ provenance，**不是** eligibility epoch。）
   违反或缺失 ⇒ 该行不是合法 prospective observation（`CHECK=FAIL`）。
 - **记录**：observations.jsonl 追加；`observation_id = h3b1-NNN`、`mode = PROSPECTIVE`；
   字段见 §7。检查器按 mode 计数（`RETROSPECTIVE=` / `PROSPECTIVE=` 永久分离）——
-  retrospective 数据不可能被计入 prospective 计数。
+  retrospective 数据不可能被计入 prospective 计数。**一行 = 一个 ticket**：唯一性按 ticket
+  身份（repository + PR 号，或所绑定的 candidate 提交）而非 `observation_id`；同一 ticket
+  重复出现即 `CHECK=FAIL`（该唯一性在首个 prospective 行落地时由检查器强制）。
 - **绑定（prospective 修订）**：`BASE_SHA` = PR fork point、`CANDIDATE_SHA` = **被评审的
   PR head**（评审所依据的三点 diff 两端）。非 FF 落地时不得用落地 merge 提交参与信号 diff
   （会把期间主干推进计入该 ticket）；落地面核验可另记 merge 提交（净差异 = 第一父..merge）
