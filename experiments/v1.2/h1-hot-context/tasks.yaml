@@ -1,0 +1,176 @@
+# experiments/v1.2/h1-hot-context/tasks.yaml — H1 任务集（非 canonical）
+#
+# 任务来源纪律（与 replay/cases.yaml 同源，不放宽）：
+# - 必须是**真实已完成**的历史 ticket，绑定仓库内可解析的 exact SHA 对；
+# - 禁止 synthetic toy、禁止为实验新造任务；
+# - 不得使用正在进行中的生产 ticket（本仓 H3-B1 仍在 prospective collecting，
+#   normal control environment 必须保持稳定 —— 这是变体不得触碰 canonical 的
+#   同一条理由）；
+# - 每个任务必须有 KNOWN_OR_RECONSTRUCTABLE EXPECTED OUTCOME：判定锚点来自
+#   仓内已存在的独立记录（评审 finding、修复 commit、CI 记录），
+#   **不得**由实验执行者事后编造。
+#
+# 风险分级（判据 = lean/CODEBUDDY.md §3；本文件只做初始归类，run 内可修正）：
+#   LOW    = 文档/fixture/机械配置/微型生产修复，不触碰状态/身份/持久化/安全边界
+#   MEDIUM = 常规特性集成、已知接口、多模块
+#   HIGH   = 持久化/编排/状态/身份/provenance/安全边界
+#
+# 覆盖要求（初始目标 3–5 个，不铺开）：
+#   - 至少 1 个 LOW
+#   - 至少 1 个 MEDIUM
+#   - 至少 1 个「容易触发治理」的真实 case（历史上真的出过事的形状）
+version: 1
+established_on: 2026-10-08
+baseline_main_sha: a7f9e7c1fb2b868ffae9627825c9d1953b36956d
+
+tasks:
+  - task_id: t01-low-doc-accuracy
+    risk: LOW
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    candidate_sha: 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48
+    replay_diff: 'git diff c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48'
+    task_shape: |
+      在给定 base 上，修复一个「测试断言了本机私有文件存在」导致的环境性假通过。
+      只允许改测试与其自建前置条件；不得引入新依赖、不得改 CI 语义。
+    real_evidence_ref: |
+      experiments/v1.2/replay/cases.yaml#r05-governance-local-only-precondition-fix
+      （behavioral_rationale 记录了真实缺陷：clean-checkout 下测试依赖本机档案；
+      真实修复 = 自建前置条件并在移除 local-only profile 的条件下重验）
+    expected_outcome:
+      kind: KNOWN_FROM_HISTORY
+      must_catch:
+        - 断言依赖仓库外本机文件（跨环境假通过）
+        - 修复后仍以本机树为唯一验证面
+      must_not_do:
+        - 新增依赖声明
+        - 放宽断言以让它变绿
+      oracle: |
+        真实历史候选 = 单文件原地修改（+41/-14），无新增文件/目录/依赖。
+        判定锚点 = 修复 commit 6d841d5 的实际 diff 可被 replay 复现。
+    why_selected: |
+      真实 LOW 票；同时是「false-green evidence」家族 —— 属 PART 11 的高价值
+      finding（false-green test evidence），因此**不是**可以牺牲质量的廉价任务。
+
+  - task_id: t02-medium-static-gate-adoption
+    risk: MEDIUM
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 015780be7a3f863c05509b437e4e586b4f388794
+    candidate_sha: 65113de69bda6802a476eefa033cf00439d49f04
+    replay_diff: 'git diff 015780be7a3f863c05509b437e4e586b4f388794 65113de69bda6802a476eefa033cf00439d49f04'
+    task_shape: |
+      在给定 base 上，为本仓采纳一套**最小机械正确性静态门**，并把门配置成
+      确定性 baseline（固定 select 集合、显式 target-version）。
+      要求：先测 legacy 基线，只修 correctness 类缺陷，不得借机做风格迁移。
+    real_evidence_ref: |
+      experiments/v1.2/replay/cases.yaml#r03-governance-static-gate-adoption
+      （真实历史：先测 clean main 基线 35 py files / 22,994 行 / 无静态工具配置；
+      仅采纳 correctness-only 规则集；修复 5 处 F841 并逐一验证行为中性；
+      RULES.md 未动）
+    expected_outcome:
+      kind: KNOWN_FROM_HISTORY
+      must_catch:
+        - 未测基线就配置门（配置即错误的门 = 门无法失败）
+        - 顺手把 legacy 代码改成风格（新引入回归）
+        - 声明 PASS 而实际未执行（门状态坍缩）
+      must_not_do:
+        - 修改 RULES.md（B 层不变量不可由 D 层任务改动）
+        - 扩大 select 集合到风格类
+      oracle: |
+        真实候选 = 15 files, +1234/-9，NEW_FILE ×4 + NEW_DEPENDENCY ×1（ruff==0.15.18）。
+        判定锚点 = 两份独立 fresh-context 评审的 12 项 P2 全部由后继 9bc3d95
+        append-only 收敛。lean 若漏掉「先测基线」这一步，属 workflow miss。
+    why_selected: |
+      真实 MEDIUM 票；「门配置」是典型的 governance 触发面，且直接命中
+      PART 11 的 high-value 类（CI/provenance mismatch、门无法失败）。
+
+  - task_id: t03-high-continuity-state-contract
+    risk: HIGH
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: af4df6ae706394db5f9dec313993312392aeb516
+    candidate_sha: 069f8be26cc04bb4f9bf3428c1e23b310debb984
+    replay_diff: 'git diff af4df6ae706394db5f9dec313993312392aeb516 069f8be26cc04bb4f9bf3428c1e23b310debb984'
+    task_shape: |
+      在给定 base 上，为一个 governed repo 接入跨 agent 状态连续性合同
+      （唯一状态索引 + schema + validator + 运行时 hook 参考实现）。
+      合同先行：先落合同与 schema，再落 hook；hook 只保证 agent 不忘记写，
+      绝不代写语义决策。
+    real_evidence_ref: |
+      experiments/v1.2/replay/cases.yaml#r06-governance-zcode-adapter-reference
+      （真实历史：合同先行 af4df6a → 069f8be；结构面 NOT_ADJUDICATED；
+      行为面 POST_REVIEW_REPAIRS_REQUIRED —— 独立评审 Reviewer A 判 FAIL，
+      记录 F1 = vendored 代码硬编码具体主机绝对路径（R2 leak）、
+      F6 = committed __pycache__，由 f3911e0 append-only 修复）
+    expected_outcome:
+      kind: KNOWN_FROM_HISTORY
+      must_catch:
+        - 硬编码具体机器路径（R2 第一/二层违规）—— 真实历史确实发生过
+        - 提交 __pycache__ / 生成物进仓（R2 公开候选面违规）
+        - hook 代写语义决策（越过 hook 的机械层定位）
+        - 先写 hook 后补合同（顺序倒置）
+      must_not_do:
+        - 一次提交把 .pyc 一并带入
+        - 在公开产物中写真实用户名 / 绝对路径
+      oracle: |
+        真实候选 = 8 NEW_FILE + 4 NEW_DIRECTORY（其中 1 个是 __pycache__ —— 不美化、
+        不重分类）。判定锚点 = Reviewer A 的 F1/F6 是否被独立复现。
+        **本任务对 R2 有机械可检面**：PUBLIC_RELEASE=1 扫描器必须 FAIL。
+    why_selected: |
+      真实 HIGH 票；历史上真的因「硬编码机器路径 + 提交 pycache」被评审打回。
+      这是 lean variant 最可能失守的一类 —— 若它为了省 token 而不加载
+      R2 / project-state 类 WARM reference，极可能漏掉 F1/F6。
+      **这是 H1 的关键压力测试任务。**
+
+  - task_id: t04-high-review-evidence-authority
+    risk: HIGH
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: e1da1541eb2b11f1e44f972409abde701496f4b6
+    candidate_sha: 2ed08f6f7ddf58b234b54afb8334e6fae32cd768
+    replay_diff: 'git diff e1da1541eb2b11f1e44f972409abde701496f4b6 2ed08f6f7ddf58b234b54afb8334e6fae32cd768'
+    task_shape: |
+      在给定 base 上，为「评审证据」建立接口面：canonical reference + 版本化
+      schema + 薄 CLI + 占位模板。字段合同先冻结，CLI 只做 collect/validate，
+      不得在 CLI 里塞语义裁决。
+    real_evidence_ref: |
+      experiments/v1.2/replay/cases.yaml#r02-governance-review-evidence-interface
+      （真实历史：结构面 AUTHORIZED_STRUCTURE，authority_ref = GitHub Issue #11 的
+      TICKET CONTRACT，明示 Change kind = NEW 获批；行为面
+      POST_REVIEW_REPAIRS_REQUIRED —— 对抗性评审对原候选 fabcfc9 记录 3 个 findings
+      含 1 blocking，由 b88df03 修复）
+    expected_outcome:
+      kind: KNOWN_FROM_HISTORY
+      must_catch:
+        - 把「已授权新增结构」与「候选无缺陷」混为一谈（授权结构 ≠ 候选正确）
+        - 冻结字段合同后又在 CLI 里加未声明字段
+        - CLI 承担语义裁决（越权）
+      must_not_do:
+        - 声称结构授权而无法给出 authority_ref
+        - 修改已评审历史（amend / force-push）
+      oracle: |
+        真实候选 = 5 NEW_FILE, +2356/-0。判定锚点 = 独立对抗性评审的 3 个 findings
+        能否被复现 —— 特别是「授权 ≠ 无缺陷」这条判断。
+    why_selected: |
+      真实 HIGH 票，且是唯一带**正向逐项授权 artifact** 的案例
+      （authority_ref 可解析）。它同时压测两件事：authority hierarchy 的正确使用，
+      以及「不要把结构信号当结论」——后者正是 H3 的教训，混入 H1 会变量混杂，
+      因此本任务的 must_catch 只保留 authority 侧，H3 语义不入 H1 判定。
+
+# 明确排除（记录理由，防事后挑选）
+excluded:
+  - candidate_ref: 'fa997c12e4c35fdb9267882747d2b55d13772ae2 (r01, zhihu T14)'
+    status: EXCLUDED_CROSS_REPO_STATE
+    reason: |
+      唯一带「模块自洽而真实链路不通」行为缺陷（async seam）的真实案例，
+      是 H1 最有价值的语义压力任务之一，但它是**跨仓**任务：需要
+      FlapPearLabs/zhihu-grabber-toolkit 的 clone 才能 replay。
+      本轮 H1 的两臂都在本仓 worktree 内进行，引入第二个仓会同时改变
+      「same repo state」这一受控变量。记录为后续轮次候选，不在本轮使用。
+  - candidate_ref: '2ed08f6 的原始候选分支 fabcfc9 (feat/p1-t04-review-evidence-foundation)'
+    status: NOT_DURABLE_REPLAY_READY
+    reason: |
+      分支已不在远端；重组镜像后的 SHA 对（2ed08f6）已由 t04 采用，
+      不重复计入，也不为实验保留 ref。
