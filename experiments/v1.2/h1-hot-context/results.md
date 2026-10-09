@@ -89,8 +89,14 @@ VARIANT : 14 tests OK / 553 全量 OK / 34/34 治理门 / VIOLATIONS=0 / 无残�
 ```
 
 **上一轮记为 `VALID_COMPLETION = NO` 的原因是环境阻塞，不是臂缺陷。**
-沙箱本轮恢复了安全读取原语，故此前记录的 32 项预存在失败**未出现** ——
-这正是必须现场复跑、不得沿用旧文字报告的理由。
+沙箱本轮恢复了安全读取原语，故此前记录的 32 项预存在失败在**那两棵 replay worktree**
+（base `c08f6f8`，`scripts/tests` = 553 tests）上**未出现**，两臂 553 tests OK。
+
+**该结果绑定在特定树上，不得与其它树混引**（评审 P3 的不一致点）：
+本实验材料所在的那棵 worktree（main @ `562cb5c`）上，`scripts/tests` = **602 tests / 32 failures**，
+失败集合经纯净 clone 逐项比对为**完全相同**（见 §9 L10 与 PR 正文的 KNOWN BASELINE FAILURES）。
+两次观测的对象不同 —— 一个是 replay base 的树，一个是实验材料所在的树；
+测试数不同（553 vs 602）正说明它们是不同的树。**不能读作矛盾，也不能互相替代。**
 
 ### D5 已关闭：残留 stash 清理（含上一轮记录的偏差）
 
@@ -312,8 +318,14 @@ HIGH_VALUE_MISSES_VARIANT = 见 t03 漏掉 3 条治理级发现
 BLIND_EVALUATION = VOID
 盲评者 = fresh subagent，未参与任一臂执行，输入仅 8 份匿名记录
 盲评者自报 = ANONYMIZATION_DEFECT_FOUND = YES
-判别器 = H1_RECEIPT 有无（4/4 完美切分）+ bootstrap 行数三元组（跨任务逐字节相同）
+判别器 = H1_RECEIPT 有无（4/4 完美切分）
+        + bootstrap 行数三元组（**仅部分候选**，见下）
 ```
+
+**判别器 2 的措辞必须收紧**（评审 P3）：三元组只在 `RUN_Q2`/`RUN_M4`
+（157 / 75 / 232）上重合；`RUN_T1` = 157 / 64 / 221、`RUN_P3` = 158 / 76 / 234
+并不相同。准确表述是「**载体行数可跨记录识别臂**」，不是「跨任务逐字节相同」。
+`VOID` 结论**只依赖判别器 1**，不依赖这一条。
 
 盲评者的per-run 判断（`VALIDITY` / `QUALITY` / `SELF_REPORT_HONEST`）
 **仍可作非盲证据引用**，因为这三项不依赖解盲：
@@ -386,6 +398,16 @@ L6  TEST_RUNS 存在多种计数约定（APPRX / 含失败调用 / distinct invo
 L7  TOKEN_USAGE / TOOL_CALLS = NOT_OBSERVABLE：本 harness 无法可靠取得，未估算。
 L8  本实验只在**一个仓**（本仓）+ 一个 runtime 上执行；不外推。
 L9  run 记录由 worker 自报 + 编排者部分独立核验混合构成，两者在记录中已逐处标注。
+L10 预存在失败面随树而异，跨树不可互换引用：
+      replay base c08f6f8 的树 → `scripts/tests` 553 tests / OK；
+      实验材料所在的树（main @ 562cb5c）→ 602 tests / 32 failures（沙箱性，
+      失败集合经纯净 clone 比对为完全相同）。两个数字属不同对象。
+L11 `HOT_LINES_TOTAL` 字段未定义且跨记录不一致（评审 P2）：
+      `RUN_Z8` = 1155、`RUN_W6` = 1017，而同一记录的
+      PRIMARY_BOOTSTRAP_LINES + MANDATORY_READ_LINES 分别只有 202 / 217；
+      其余 6 份记录里该字段恰等于两者之和。
+      该字段是 worker 自报，**不修正**（改写自报会破坏记录纪律），
+      但**不得跨臂比较**，且它作为「载体指纹」证据的强度因此受限（§7 已收紧措辞）。
 ```
 
 ## 10. 复现前置条件（REPLICATION PREREQUISITES，尚未实现）

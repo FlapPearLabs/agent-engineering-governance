@@ -19,6 +19,13 @@ WALL_CLOCK = ~57 分钟（每条命令约 3 分钟，因环境故障）
 SELF_REPORTED_VALID_COMPLETION = YES
 ```
 
+[fact-check] `PRIMARY_BOOTSTRAP_LINES = 158` 与事实相差 1：冻结载体
+（`lean/CODEBUDDY.md`）为 **157 行**（`wc -l` 与 `splitlines()` 均为 157，文件以换行结尾），
+且 `README.md` §8 断言放入各 VARIANT worktree 的副本与之逐字节一致 —— 同一文件不可能
+既是 157 行又是 158 行。**按记录纪律不修正 worker 自报值**，只标注该 off-by-one。
+另注：`HOT_LINES_TOTAL`（234）在本记录中等于 PRIMARY+MANDATORY 之和，
+但该字段跨记录口径不一致，见 `results.md` §9 L11。
+
 ## 报告的高价值 finding
 
 1. **THE_ROUTING_TABLE 存在悬空目标** —— 路由表把评审任务指向

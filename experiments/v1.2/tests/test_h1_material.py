@@ -74,9 +74,10 @@ class TestH1MaterialExists(unittest.TestCase):
             "tasks.yaml",
             "hot_inventory.py",
             "lean/CODEBUDDY.md",
+            "runs/README.md",
             "runs/RUN_A.md",
             "runs/RUN_B.md",
-        ):
+        ) + tuple(f"runs/{run_id}.md" for run_id in CANONICAL_RUN_IDS):
             with self.subTest(rel=rel):
                 self.assertTrue((H1 / rel).is_file(), f"missing H1 artifact: {rel}")
 
@@ -157,6 +158,73 @@ class TestInventoryProfileFidelity(unittest.TestCase):
             check=False,
         )
         self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
+
+
+class TestHeadlineNumbersMatchTheInstrument(unittest.TestCase):
+    """The numbers quoted in prose must equal what the instrument computes.
+
+    Without this, the headline figures (15,784 / 7,840 / 6,382 / 4,354 / 5,916)
+    could be corrupted in the documentation with nothing noticing: the only
+    numeric assertions were "control is truncated (>0)" and "variant is fully
+    delivered". Raised as a constructed counterexample during review.
+    """
+
+    LABEL_TO_KEY = (
+        ("HOT_CONTROL_JS_CHARS", ("control", "hot_js_chars")),
+        ("HOT_VARIANT_JS_CHARS", ("variant", "hot_js_chars")),
+        (
+            "HOT_CONTROL_VISIBLE_JS_CHARS",
+            ("control", "guidance_delivery", "visible_js_chars"),
+        ),
+        (
+            "HOT_VARIANT_VISIBLE_JS_CHARS",
+            ("variant", "guidance_delivery", "visible_js_chars"),
+        ),
+    )
+
+    def _inventory(self) -> dict:
+        proc = subprocess.run(
+            [sys.executable, str(INVENTORY), "--json"],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+            check=False,
+        )
+        self.assertEqual(0, proc.returncode, proc.stderr[-2000:])
+        return json.loads(proc.stdout)
+
+    def _dig(self, data: dict, keys: tuple[str, ...]):
+        node = data
+        for key in keys:
+            node = node[key]
+        return node
+
+    def test_labelled_figures_in_the_docs_equal_the_instrument(self):
+        data = self._inventory()
+        body = _read(RESULTS).replace(",", "")
+        for label, keys in self.LABEL_TO_KEY:
+            value = self._dig(data, keys)
+            with self.subTest(label=label):
+                lines = [ln for ln in body.splitlines() if label in ln]
+                self.assertTrue(lines, f"{label} is not stated in results.md")
+                self.assertTrue(
+                    any(str(value) in ln for ln in lines),
+                    f"{label}: instrument computes {value}, docs say "
+                    f"{[ln.strip() for ln in lines]}",
+                )
+
+    def test_dropped_tail_is_stated_and_equals_total_minus_visible(self):
+        """The 5,916 figure is the one the measurement bug got wrong by ~100x."""
+        data = self._inventory()
+        gd = data["control"]["guidance_delivery"]
+        self.assertEqual(
+            gd["total_js_chars"] - gd["visible_js_chars"], gd["dropped_js_chars"]
+        )
+        body = _read(RESULTS).replace(",", "")
+        self.assertIn(
+            str(gd["dropped_js_chars"]), body,
+            f"results.md does not state the dropped tail {gd['dropped_js_chars']}",
+        )
 
 
 class TestLeanVariantSafetyFloor(unittest.TestCase):
@@ -305,10 +373,14 @@ class TestRunRegistry(unittest.TestCase):
                     self.assertNotIn(leak, lowered)
 
     def test_every_valid_run_declares_a_completion_verdict(self):
+        """A bare substring match would also hit `SELF_REPORTED_VALID_COMPLETION`,
+        so require an actual `... = YES|NO` verdict line.
+        """
+        verdict = re.compile(r"^(?:SELF_REPORTED_)?VALID_COMPLETION\s*=\s*(?:YES|NO)\s*$", re.M)
         for run_id in CANONICAL_RUN_IDS:
             text = _read(RUNS / f"{run_id}.md")
             with self.subTest(run_id=run_id):
-                self.assertIn("VALID_COMPLETION", text)
+                self.assertRegex(text, verdict, f"{run_id} declares no completion verdict")
 
     def test_superseded_records_are_marked_as_superseded(self):
         for name in SUPERSEDED_RUN_IDS:
@@ -335,34 +407,72 @@ class TestRunRegistry(unittest.TestCase):
 
 
 class TestCanonicalUntouched(unittest.TestCase):
-    """The experiment must not have edited any canonical surface."""
+    """The experiment must not have edited any canonical surface.
 
-    def test_no_canonical_file_is_modified_in_the_worktree(self):
+    This is checked against the **committed change set**, not the dirty-worktree
+    state. A clean worktree says nothing about what the commits under review
+    actually changed: an earlier revision of this class decided solely from
+    `git status --porcelain`, which is empty at review time, so it passed no
+    matter what the commit contained. That is the same empty-verdict failure
+    class this experiment opened issue #45 about, so it is fixed here rather
+    than shipped.
+
+    If no base ref is available the committed check FAILS loudly instead of
+    passing vacuously -- a check that cannot run must not read as agreement.
+    """
+
+    def _merge_base_with_default_branch(self) -> str:
+        checked: list[str] = []
+        for candidate in ("origin/main", "main", "refs/remotes/origin/main"):
+            proc = subprocess.run(
+                ["git", "-C", str(ROOT), "rev-parse", "--verify", "--quiet", candidate],
+                capture_output=True, text=True, check=False,
+            )
+            if proc.returncode != 0 or not proc.stdout.strip():
+                continue
+            checked.append(candidate)
+            mb = subprocess.run(
+                ["git", "-C", str(ROOT), "merge-base", "HEAD", candidate],
+                capture_output=True, text=True, check=False,
+            )
+            if mb.returncode == 0 and mb.stdout.strip():
+                return mb.stdout.strip()
+        self.fail(
+            "no usable base ref to compute the committed change set against "
+            f"(tried: {checked or 'origin/main, main'}); refusing to pass vacuously"
+        )
+
+    def test_committed_change_set_is_confined_to_the_experiment_directory(self):
+        base = self._merge_base_with_default_branch()
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), "diff", "--name-only", f"{base}..HEAD"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, proc.returncode, proc.stderr[-2000:])
+        changed = [p for p in proc.stdout.splitlines() if p.strip()]
+        self.assertTrue(
+            changed,
+            "expected the branch to commit the experiment material; an empty "
+            "change set would make this check vacuous too",
+        )
+        outside = [p for p in changed if not p.startswith("experiments/v1.2/")]
+        self.assertEqual(
+            [], outside, f"committed changes outside experiments/v1.2/: {outside}"
+        )
+
+    def test_no_canonical_file_is_dirty_in_the_worktree(self):
+        """Secondary, weaker check: catches uncommitted edits during local work."""
         proc = subprocess.run(
             ["git", "-C", str(ROOT), "status", "--porcelain", "--",
              "AGENTS.md", "RULES.md", "references", "deployment", "scripts",
-             "schemas", "templates", ".github", "adapters", "mcp", "audit", "docs"],
+             "schemas", "templates", ".github", "adapters", "mcp", "audit", "docs",
+             "ruff.toml", "requirements-dev.txt"],
             capture_output=True,
             text=True,
             check=False,
         )
         self.assertEqual(0, proc.returncode, proc.stderr[-2000:])
         self.assertEqual("", proc.stdout.strip(), f"canonical surface modified: {proc.stdout}")
-
-    def test_h1_lives_entirely_under_the_experiment_directory(self):
-        proc = subprocess.run(
-            ["git", "-C", str(ROOT), "status", "--porcelain"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        touched = [
-            line[3:].strip().strip('"')
-            for line in proc.stdout.splitlines()
-            if line.strip()
-        ]
-        outside = [p for p in touched if not p.startswith("experiments/v1.2/")]
-        self.assertEqual([], outside, f"H1 changed non-experiment paths: {outside}")
 
 
 if __name__ == "__main__":

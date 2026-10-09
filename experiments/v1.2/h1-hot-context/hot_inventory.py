@@ -73,7 +73,11 @@ def measure(rel_path: str) -> dict[str, object]:
         "bytes": len(text.encode("utf-8")),
         "js_chars": js_chars(text),
         "truncated_at_8000": js_chars(text) > MAX_GUIDANCE_CHARS,
-        "visible_js_chars": min(js_chars(text), MAX_GUIDANCE_CHARS),
+        # Deliberately NOT named `visible_js_chars`: that name is used by
+        # `guidance_prefix()` for the *delivered* prefix (7,840 for AGENTS.md),
+        # whereas this field is the *budget-capped* size (8,000). Two different
+        # quantities must not share a key name in the same JSON payload.
+        "budget_capped_js_chars": min(js_chars(text), MAX_GUIDANCE_CHARS),
         "tokens": "NOT_OBSERVABLE",
     }
 

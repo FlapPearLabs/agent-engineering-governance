@@ -210,7 +210,7 @@ H2 / H4             = NOT_STARTED
 canonical 变更      = NONE
 H3 变更             = NONE
 GitHub evidence     = GITHUB_EVIDENCE_STATE = PENDING_PR_AT_ARTIFACT_COMMIT（见 results.md §11）
-局限                = 9 项（见 results.md §9）
+局限                = 11 项（见 results.md §9）
 复现前置条件        = 5 项，**尚未实现**（见 results.md §10）
 ```
 
