@@ -447,16 +447,49 @@ PART 23 未满足（第一轮）
   原因 = 执行通道对包括裸 echo 在内的所有命令返回 exit 137，已尝试并取证，非「未尝试」。
 ```
 
-**本轮执行闭环，状态为**：
+**闭环执行结果**：
 
 ```text
-GITHUB_EVIDENCE_STATE = PENDING_PR_AT_ARTIFACT_COMMIT
+GITHUB_EVIDENCE_STATE = MERGED
+
+EVIDENCE_PR       = #47
+EVIDENCE_MERGE_SHA = 5ea5ed41f42cb83c97e0227d594b7501ed617eba
+EVIDENCE_MERGE_PARENTS = 562cb5ccb38846cd635851c13d8998e83a027f29
+                         d9c809e151eac23140d2f29c7e272efbeda9d5b4
+POST_MERGE_CI     = success
+REMOTE_MAIN_CONTAINS_H1_EVIDENCE = YES
+  （`git cat-file -e origin/main:experiments/v1.2/h1-hot-context/results.md` 等三项均可达）
+
+H1_ROUND1_STATUS = CLOSED
 ```
 
-该状态是**本文件被提交时**的事实：材料已本地冻结、本地总门已跑、准备
-commit → push → PR。PR 号 / CI 结果 / merge SHA 属 merge 后事实，
-由 PR 本体与 merge commit 记录 —— **本文件不写未发生的未来值**
-（R3：UNKNOWN != PASS）。
+**过程事实（完整，不省略失败轮）**：
+
+```text
+候选 SHA 链：
+  fc5c3e4  第一版材料（含 D8 转录错误之后的状态）
+           → fresh review 1 = CHANGES_REQUIRED（1×P1 + 1×P2 + 5×P3）
+  d9c809e  修复 7 条 finding 后的候选
+           → fresh review 2 = PASS
+           → CI（governance-ci ×2）= success
+           → merge = 5ea5ed4
+
+P1 的性质值得单独记住：被审出的那条「边界守卫在已提交产物上是空断言」
+与本实验自己开的 #45 属**同一失败类** —— 一个 PR 里同时存在
+「指出别处的门可以是空的」与「自己的门是空的」，正是自查不足的证据。
+它由**外部**评审发现，不是自查发现的。
+```
+
+历史事实（不得丢弃，见上）：`PART 23 未满足（第一轮）`。
+
+**仍未满足/未做的部分（不得读作已完成）**：
+
+```text
+盲评有效性        = VOID（§7）—— 本 PR 只是诚实入仓，不等于产出了有效盲评
+多轮验证          = NOT_DONE
+复现              = 前置条件 5 项尚未实现（§10）
+P3 残留           = 3 项（见 PR #47 的 review-outcome 评论），非阻断但未修
+```
 
 关联发现（本轮已立项，修复不在本 PR 内）：
 
