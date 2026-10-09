@@ -209,7 +209,8 @@ blind evaluation    = 已派，但 **VOID**（匿名化存在完美判别器，�
 H2 / H4             = NOT_STARTED
 canonical 变更      = NONE
 H3 变更             = NONE
-GitHub evidence     = GITHUB_EVIDENCE_STATE = PENDING_PR_AT_ARTIFACT_COMMIT（见 results.md §11）
+GitHub evidence     = MERGED（PR #47，merge `5ea5ed4`；见 results.md §11）
+H1_ROUND1_STATUS    = CLOSED
 局限                = 11 项（见 results.md §9）
 复现前置条件        = 5 项，**尚未实现**（见 results.md §10）
 ```
