@@ -600,6 +600,47 @@ class TestDeliveryLayerMatchesSourceSection(unittest.TestCase):
                 mismatches.append(f"{rule} ({source} -> {expected}, table says {cur.get(rule)})")
         self.assertEqual([], mismatches)
 
+    def test_appendix_d_agrees_with_each_rule_block_source_line(self):
+        """Give appendix D an owner inside the material itself.
+
+        Appendix D's 95 source assignments are the *input* to the CUR derivation,
+        and an external review correctly noted that a hand-written input table
+        with no owner is the very defect this directory exists to eliminate,
+        merely moved one level up. Where a rule block states its own source
+        (`COST = shared:<section>`), the two must agree.
+
+        Coverage is partial by construction: blocks that group several rules under
+        one heading cannot be attributed per-rule. The coverage figure is reported
+        and the residual is recorded as a MINOR_UNRESOLVED in the inventory.
+        """
+        sources = self._sources()
+        text = _read(INVENTORY)
+        checked = 0
+        for block in re.split(r"^### ", text, flags=re.M)[1:]:
+            head, _, body = block.partition("\n")
+            ids = re.findall(r"R-V12-\d{3}", head)
+            if len(ids) != 1:
+                continue  # grouped heading: no per-rule attribution possible
+            cost = re.search(r"^(?:COST|SOURCE) = (?:shared:)?(\S+)", body, re.M)
+            if not cost:
+                continue
+            stated = cost.group(1)
+            if stated not in self.SOURCE_TO_CUR:
+                continue  # e.g. a file name rather than a section label
+            checked += 1
+            rule = ids[0]
+            with self.subTest(rule=rule):
+                self.assertEqual(
+                    stated, sources.get(rule),
+                    f"{rule}: its block says source {stated}, appendix D says "
+                    f"{sources.get(rule)}",
+                )
+        self.assertGreater(
+            checked, 20,
+            f"only {checked} rules carry an independently stated source; the "
+            "cross-check would be near-vacuous",
+        )
+
     def test_rules_from_truncated_sections_are_never_marked_auto_delivered(self):
         """The one concrete contradiction the external review found, pinned."""
         sources = self._sources()
@@ -618,6 +659,23 @@ class TestReadmeCountsMatchTheMatrix(unittest.TestCase):
     says 18 — a hand-written number with no owner. These checks give the README's
     counts an owner: the matrix.
     """
+
+    def test_declared_restatement_count_matches_the_enumerated_pairs(self):
+        """DECLARED_RESTATEMENT_COUNT is a hand-written number; give it an owner.
+
+        The review noted it was stated as 6 when the enumeration was longer.
+        Counting the enumeration is the owner.
+        """
+        text = _read(INVENTORY)
+        appendix = text.split("## 附录 A", 1)[-1].split("## 附录 B", 1)[0]
+        enumerated = [ln for ln in appendix.splitlines() if "←→" in ln]
+        declared = re.search(r"DECLARED_RESTATEMENT_COUNT\s*=\s*(\d+)", appendix)
+        self.assertIsNotNone(declared, "appendix A must declare its count")
+        self.assertEqual(
+            len(enumerated), int(declared.group(1)),
+            f"appendix A enumerates {len(enumerated)} pairs but declares "
+            f"{declared.group(1)}",
+        )
 
     def _matrix_tgt(self) -> dict[str, int]:
         return dict(Counter(cols[2] for cols in _matrix_rows()))
