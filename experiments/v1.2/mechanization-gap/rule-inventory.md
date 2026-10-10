@@ -413,7 +413,9 @@ COST = shared:AGENTS§5
 ### R-V12-048 — FULL_INIT_FORBIDDEN / lane init 至多一次
 ```text
 LAYER = HOT | MUST_REMEMBER = PARTIAL
-PREDICATE = YES | ENFORCEMENT = FULL-ish → codegraph_lifecycle verify 输出 LC-INV1..INV5
+PREDICATE = YES | ENFORCEMENT = FULL-ish → codegraph_lifecycle verify 输出 LC-INV 系列
+      ⚠️ 编号上限记为 **UNVERIFIED**：canonical 写 `LC-INV1..INV5`，本目录初稿曾写 `..INV8`，
+        两者不一致且本轮未复核 hook 实际条数 ⇒ **不写具体上限**（见矩阵 §3.1 的同条说明）。
 COST = shared:AGENTS§5
 ```
 
@@ -570,14 +572,11 @@ LAYER = HOT | MUST_REMEMBER = PARTIAL | PREDICATE = PARTIAL | ENFORCEMENT = PART
 COST = shared:AGENTS§10
 ```
 
-### R-V12-068 — 不得为迁就注入上限而删减 AGENTS.md 的成熟治理语义
-```text
-REQ = 工作区根 bootstrap 指针不得膨胀为第二份 AGENTS.md；不得为迁就 8000 上限删减成熟语义。
-LAYER = HOT | MUST_REMEMBER = YES | PREDICATE = YES（尺寸上限） | ENFORCEMENT = PARTIAL
-      （参考实现见 zhihu-grabber-toolkit 的校验器；本仓不 vendor）
-EVIDENCE = H1：AGENTS.md 13,756 → 只投递 7,840；**该约束正是 H1 的起因**
-COST = shared:AGENTS§10
-```
+> **R-V12-068 已移出本组** —— 评审 P2 指出它的文本实际出自 `BOOTSTRAP_CONTRACT.md` §2.4
+> （「不得为迁就注入上限而删减 AGENTS.md 的成熟治理语义」），而非 AGENTS §10。
+> 它的块现列在 §F（BOOTSTRAP），与 appendix D 的来源声明一致。
+> **教训**：来源被记录在两个地方时，只改一处就会造成文件内部自相矛盾 ——
+> 这正是本目录第 15 节复盘的那种「声明未写明适用范围」。
 
 ---
 
@@ -758,6 +757,21 @@ COST = shared:BOOTSTRAP_CONTRACT
 LAYER = HOT（指针）| MUST_REMEMBER = PARTIAL | PREDICATE = PARTIAL | ENFORCEMENT = NONE
 COST = shared:BOOTSTRAP_CONTRACT
 ```
+
+### R-V12-068 — 不得为迁就注入上限而删减成熟治理语义（**评审 P2 后移入本组**）
+```text
+SOURCE = deployment/BOOTSTRAP_CONTRACT.md §2.4（原文：「不得为迁就注入上限而删减 AGENTS.md 的成熟治理语义」）
+REQ = 工作区根 bootstrap 指针不得膨胀为第二份 AGENTS.md；不得为迁就 8000 上限删减成熟语义。
+LAYER = HOT_READ（与 R-V12-083 同源；二者是同一约束的两个声明点 → TGT = F / 去重）
+MUST_REMEMBER = YES | PREDICATE = YES（尺寸上限） | ENFORCEMENT = PARTIAL
+      （参考实现见 zhihu-grabber-toolkit 的校验器；本仓不 vendor）
+EVIDENCE = H1：AGENTS.md 13,756 → 只投递 7,840；**该约束正是 H1 的起因**
+COST = shared:BOOTSTRAP_CONTRACT
+```
+
+> **移动记录（评审 P2）**：本块原先列在 §D（AGENTS §5–§10）并记 `COST = shared:AGENTS§10`，
+> 而 appendix D 已把它的来源记为 `BOOTSTRAP_CONTRACT` —— 同一文件里两处说法不一致。
+> 现按**实际文本出处**统一到本组。这也是本目录主张的「一个事实只能有一个 owner」的现场应用。
 
 ---
 
@@ -996,4 +1010,19 @@ U-01 R-V12-095 的层归属：RULES.R3 在 MEMORY 指针里只有 13 字摘要�
      ⇒ 把整条 R3 归为 HOT_AUTO_MEMORY 是**乐观的**。
      未解决：应否把 R3 降为 HOT_READ？这会连带影响 R3 家族的全部规则。
      处置：登记未解决，不擅自决定（它同时牵动矩阵的 CUR 推导规则）。
+
+U-02 **附录 D 仍是手写输入**（复评 P3，最锋利的一条）：
+     CUR 现在"由来源推导"，但**来源表本身**是 95 行手写赋值，且**没有任何外部 owner**。
+     这正是本目录要消灭的那个形状 —— 「无外部 owner 的手写声明」—— **上移了一层**。
+     已做的部分补救：`test_appendix_d_agrees_with_each_rule_block_source_line`
+     对**能逐条归因的**规则块做交叉核对（块级 `COST = shared:<section>` ↔ 附录 D）。
+     未解决的部分：分组标题下的规则（如 R-V12-003…008 共用一个标题）无法逐条归因；
+     且一次**计数不变的重贴标签**仍能骗过全部测试（复评者已构造并实证）。
+     下一步候选（未实现）：把来源标记写进正文结构本身（每组一个 `[SOURCE_SECTION=…]` 标记行），
+     使来源从**规则在文件中的位置**推导，而不是从一张表推导。
+
+U-03 **LC-INV 编号范围未复核**：canonical 记 `LC-INV1..INV5`，本目录初稿曾写 `..INV8`。
+     本轮环境降级（shell 连续 exit 137）未能执行
+     `grep -oE 'LC-INV[0-9]+' adapters/zcode/hooks/codegraph_lifecycle.py | sort -u`。
+     处置：三处表述统一为「LC-INV 系列」并**不写上限**；标 UNVERIFIED。
 ```

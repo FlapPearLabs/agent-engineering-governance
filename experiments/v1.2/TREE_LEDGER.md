@@ -386,15 +386,21 @@ WORKTREE_COUNTS（`git worktree list` 实测，2026-10-10）：
   NON_PRUNABLE = 8   PRUNABLE = 8
 
 UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
-  experiment/*                            = **0**（7 个已合并分支）+ 当前 N6 分支 = 2（本 PR 的两提交）
+  experiment/*                            = **0**（7 个已合并分支）
+  experiment/v1.2-mechanization-gap-analysis = **不写数字** —— 它每提交一次就变一次，
+                                              写进去必然立刻过期（同"不自写自身 SHA"）。
+                                              取法：`git rev-list --count origin/main..HEAD`
   audit/hermes-multibot-r062              = 2   ← **非 experiment 分支**，父 clone 的审计分支，
                                                   有意不合并（勿动）
   work/p1-orchestrator-closure-doctrine   = 1   ← 同上，非本实验线
 
-  ⚠️ **修正记录（评审 P2）**：本节初稿写「UNMERGED_LOCAL_COMMITS = 0（逐分支 … 全部为 0）」，
-     只统计了 `experiment/*` 却写成了全部。外部评审用上面两条非 experiment 分支证伪。
-     现按"分域记账"更正：experiment 线为 0，另有 2 个非 experiment 分支有意未合并。
-     **这正是本目录主张的同一类错误**：一个声明如果没写明它的统计域，就会被读成比实际更强。
+  ⚠️ **两次修正记录**：
+     ① 初稿写「UNMERGED_LOCAL_COMMITS = 0（逐分支 … 全部为 0）」，只统计了 `experiment/*`
+        却写成全部 —— 外部评审用上面两条非 experiment 分支证伪。
+     ② 修正稿把本分支写成「= 2（本 PR 的两提交）」，而补提交之后实际是 3 —— **同一类错误再犯一次**，
+        因为"当前分支的提交数"本身就是一个会漂移的自引用量。
+     ⇒ 处置：按域记账，并且**凡是会随本次提交变化的数字一律不写**，只写取法。
+     教训：`SELF_REFERENTIAL_COUNTS GO STALE BY CONSTRUCTION`。
 ```
 
 ### B.4 本轮的 Git 位置（阶段汇报用）

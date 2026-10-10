@@ -126,7 +126,7 @@ R-V12-044  HOT_AUTO                 A    YES    NO       —                    
 R-V12-045  HOT_AUTO                 A    YES    NO       —                                       NO
 R-V12-046  HOT_AUTO                 B    PART   PARTIAL  PARTIAL: t02（11 tests）               YES
 R-V12-047  HOT_AUTO_PARTIAL                 B    YES    PARTIAL  PARTIAL: codegraph_lifecycle（1323）    YES
-R-V12-048  HOT_AUTO_PARTIAL     C    YES    YES      FULL-ish: LC-INV1..INV5                 YES
+R-V12-048  HOT_AUTO_PARTIAL     C    YES    YES      FULL-ish: codegraph_lifecycle verify    YES
 R-V12-049  HOT_AUTO_PARTIAL     C    YES    YES      PARTIAL: schema 字段                    NOT_YET
 R-V12-050  HOT_NOT_DELIVERED                 A    NO     PARTIAL  PARTIAL: L0 项散落在多个扫描器         NO
 R-V12-051  HOT_NOT_DELIVERED                 G    PART   NO       —                                       NO
@@ -246,7 +246,11 @@ PROMOTION_REQUIRED = NO
 
 #### R-V12-048 / R-V12-084 — 两个独立项
 ```text
-R-V12-048（FULL_INIT_FORBIDDEN）= codegraph_lifecycle verify 输出 LC-INV1..LC-INV8，可接 CI
+R-V12-048（FULL_INIT_FORBIDDEN）= `codegraph_lifecycle.py` 的 `verify` 输出 LC-INV 系列不变量，可接 CI
+  ⚠️ **编号范围记为 UNVERIFIED**：canonical（AGENTS §7.1）写 `LC-INV1..INV5`，
+     而本目录初稿曾写 `LC-INV1..LC-INV8` —— 两者不一致，且本轮未能复核 hook 实际发出的条数。
+     处置 = **不写具体上限**（写死的范围若无主人就会漂移，本目录已因同类问题返工两次）。
+     待复核：`grep -oE 'LC-INV[0-9]+' adapters/zcode/hooks/codegraph_lifecycle.py | sort -u`
 R-V12-084 = **与 R-V12-066 / R-V12-068 家族重复**（同一约束在 AGENTS §10、BOOTSTRAP §1、§2.4 三处声明）
         处置 = 合并 owner：数值与交付形状的 owner 归 BOOTSTRAP_CONTRACT，其余处只作指针
         （这正是仓内既有的 §9 值域纪律的同一做法）
