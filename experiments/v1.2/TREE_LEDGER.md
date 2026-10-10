@@ -341,7 +341,9 @@ DEFAULT_BRANCH_SHA  = c028a719ba27ab7aff3035c6269e477491983219
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  experiment/v1.2-mechanization-gap-analysis   @ c028a71（本轮；尚无提交）
+  experiment/v1.2-mechanization-gap-analysis   （本轮 N6 交付）
+  ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
+     取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
 ACTIVE_WORKTREES =
   <WORKSPACE_ROOT>/v1.2-mechanization-gap     [experiment/v1.2-mechanization-gap-analysis]
@@ -399,15 +401,22 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = N6.4 — Rule Migration / Target Layer Matrix
-CURRENT_NODE_STATUS = ACTIVE
-NEXT_NODE = N6.5 → 然后 N9
+CURRENT_NODE = N6 — Mechanization Gap Analysis
+CURRENT_NODE_STATUS = ACTIVE（N6.1–N6.5 产出已完成；**状态转 CLOSED 以 merge 为条件**）
+NEXT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure（依赖 #46 先落地）
+  · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
+  · 更远：N9 V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
   branch   = experiment/v1.2-mechanization-gap-analysis
   worktree = <WORKSPACE_ROOT>/v1.2-mechanization-gap
-  base     = c028a719ba27ab7aff3035c6269e477491983219（提交前；提交后 head 更新）
+  base     = c028a719ba27ab7aff3035c6269e477491983219（本分支的起点）
+  head     = 见 `git rev-parse HEAD` —— 同上：不写死自引用 SHA
 ```
+
+> **为什么这里不写 `CLOSED`**：本文件此刻尚未 merge，声称 `CLOSED` 就是假闭环
+> （`failure-mechanism-map.md` F-013）。状态的权威判据是"进默认分支且 post-merge CI 绿"，
+> 不是"文件写了 CLOSED"。merge 后由下一轮的 TREE_CHANGE 记录这次转迁。
 
 ---
 
