@@ -414,8 +414,9 @@ COST = shared:AGENTS§5
 ```text
 LAYER = HOT | MUST_REMEMBER = PARTIAL
 PREDICATE = YES | ENFORCEMENT = FULL-ish → codegraph_lifecycle verify 输出 LC-INV 系列
-      ⚠️ 编号上限记为 **UNVERIFIED**：canonical 写 `LC-INV1..INV5`，本目录初稿曾写 `..INV8`，
-        两者不一致且本轮未复核 hook 实际条数 ⇒ **不写具体上限**（见矩阵 §3.1 的同条说明）。
+      真实集合 = LC-INV1..LC-INV8（第二轮复评者核实 hook 实现）；
+      不写上限的理由是 **canonical 自身不一致**（AGENTS §7.1 说 INV5，contract 说 INV8）——
+      详见附录 E 的 U-03。
 COST = shared:AGENTS§5
 ```
 
@@ -1021,8 +1022,23 @@ U-02 **附录 D 仍是手写输入**（复评 P3，最锋利的一条）：
      下一步候选（未实现）：把来源标记写进正文结构本身（每组一个 `[SOURCE_SECTION=…]` 标记行），
      使来源从**规则在文件中的位置**推导，而不是从一张表推导。
 
-U-03 **LC-INV 编号范围未复核**：canonical 记 `LC-INV1..INV5`，本目录初稿曾写 `..INV8`。
-     本轮环境降级（shell 连续 exit 137）未能执行
-     `grep -oE 'LC-INV[0-9]+' adapters/zcode/hooks/codegraph_lifecycle.py | sort -u`。
-     处置：三处表述统一为「LC-INV 系列」并**不写上限**；标 UNVERIFIED。
+U-03 **LC-INV 编号范围** —— **已由第二轮复评者解出**（本轮不再 UNVERIFIED）：
+     真实集合 = `LC-INV1 … LC-INV8`（`adapters/zcode/hooks/codegraph_lifecycle.py`）。
+     ⇒ 因此三处表述统一为「LC-INV 系列」是对的（不写死上限），但**理由变了**：
+       不是"无法确定"，而是**canonical 自身互相矛盾**：
+       ```text
+       AGENTS.md §7.1                    → LC-INV1..INV5   （**少数**）
+       references/project-continuity-contract.md → LC-INV1..INV8
+       adapters/zcode/README.md          → LC-INV1..INV8
+       adapters/zcode/hooks/codegraph_lifecycle.py → 实现 INV1..INV8
+       ```
+     ⇒ **这是一条真实的 canonical 内部不一致**（AGENTS §7.1 少算了 3 条不变量）。
+       依 PART 21 的立项判据评估：可复现 ✓ / current-main 相关 ✓ / 不重复 ✓，
+       但**工程影响低**（是文档少算，不是机制缺陷），且修正它属于治理变更（需走 §8 双评审）。
+       **处置 = 登记为 FINDING，不新开 issue，不修改 canonical**（本目录不改 canonical）。
+       候选接手方：未来的 governance-change 票；判据与方法已写在此处，含行号。
+
+     另：这也说明"标 UNVERIFIED"在**可查而没查**时会掩盖真问题 ——
+     本轮把它记为"环境降级导致未复核"是诚实的，但复评者一次 grep 就解出了答案。
+     教训：`UNVERIFIED` 应当是**最后手段**，不是省事的默认。
 ```

@@ -247,10 +247,11 @@ PROMOTION_REQUIRED = NO
 #### R-V12-048 / R-V12-084 — 两个独立项
 ```text
 R-V12-048（FULL_INIT_FORBIDDEN）= `codegraph_lifecycle.py` 的 `verify` 输出 LC-INV 系列不变量，可接 CI
-  ⚠️ **编号范围记为 UNVERIFIED**：canonical（AGENTS §7.1）写 `LC-INV1..INV5`，
-     而本目录初稿曾写 `LC-INV1..LC-INV8` —— 两者不一致，且本轮未能复核 hook 实际发出的条数。
-     处置 = **不写具体上限**（写死的范围若无主人就会漂移，本目录已因同类问题返工两次）。
-     待复核：`grep -oE 'LC-INV[0-9]+' adapters/zcode/hooks/codegraph_lifecycle.py | sort -u`
+  ✅ **已解出**（第二轮复评者核实）：真实集合 = `LC-INV1 … LC-INV8`（hook 实现）。
+     本表**仍不写上限**，理由改为：**canonical 自身不一致** ——
+     `AGENTS.md §7.1` 说 `LC-INV1..INV5`（少数），而 `references/project-continuity-contract.md`
+     与 `adapters/zcode/README.md` 都说 `..INV8`。详见 `rule-inventory.md` 附录 E 的 U-03。
+     这是一个**真实的 canonical 缺陷**，已登记为 FINDING（本目录不改 canonical）。
 R-V12-084 = **与 R-V12-066 / R-V12-068 家族重复**（同一约束在 AGENTS §10、BOOTSTRAP §1、§2.4 三处声明）
         处置 = 合并 owner：数值与交付形状的 owner 归 BOOTSTRAP_CONTRACT，其余处只作指针
         （这正是仓内既有的 §9 值域纪律的同一做法）
