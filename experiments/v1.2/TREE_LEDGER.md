@@ -11,7 +11,7 @@
 > `A new finding invalidates a current architecture assumption`。
 > 普通 P2/P3 走 issue / backlog，**不**扩展主树。
 
-*Last reconciled：2026-10-10，针对 `origin/main = c028a719ba27ab7aff3035c6269e477491983219`。*
+*Last reconciled：2026-10-10（N8 轮），针对 `origin/main = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6`（N6 的 merge；post-merge CI success）。*
 
 ---
 
@@ -28,15 +28,15 @@ N0  V1.2 ROOT
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
 │
-├── N6  Mechanization Gap Analysis                                [ACTIVE]
-│   ├── N6.1 Current Rule Inventory                               [ACTIVE]
-│   ├── N6.2 LongHorizon Mechanism Extraction                     [ACTIVE]
-│   ├── N6.3 Failure → Mechanism Mapping                          [ACTIVE]
-│   ├── N6.4 Rule Migration / Target Layer Matrix                 [ACTIVE]
-│   └── N6.5 H2 / H4 / H5 Protocol Freeze                         [ACTIVE]
+├── N6  Mechanization Gap Analysis                                [CLOSED]
+│   ├── N6.1 Current Rule Inventory                               [CLOSED]
+│   ├── N6.2 LongHorizon Mechanism Extraction                     [CLOSED]
+│   ├── N6.3 Failure → Mechanism Mapping                          [CLOSED]
+│   ├── N6.4 Rule Migration / Target Layer Matrix                 [CLOSED]
+│   └── N6.5 H2 / H4 / H5 Protocol Freeze                         [CLOSED]
 │
 ├── N7  #45 Load-Bearing Gate Disposition                         [BACKLOG / E3]
-├── N8  #46 Route Reachability Disposition                        [BACKLOG / E2]
+├── N8  #46 Route Reachability Disposition                        [ACTIVE]
 │
 ├── N9  V1.2 Architecture Synthesis                               [PLANNED]
 ├── N10 V1.2 Candidate                                            [PLANNED]
@@ -47,7 +47,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = N6.4 — Rule Migration / Target Layer Matrix
+CURRENT_NODE     = N8 — #46 Route Reachability Disposition
 ```
 
 ### A.1 节点详情
@@ -93,7 +93,9 @@ NOTE = H1 **没有**产出 promotion 建议，只产出了量化事实与三条 
 #### N2 — H2 Lazy Skill / Progressive Disclosure
 ```text
 STATUS = PLANNED
-ENTRY_CRITERIA = ① #46 的机械映射落地（否则变体臂在"部分路由不可达"环境中运行）
+ENTRY_CRITERIA = ① #46 的机械映射落地 —— **N8 已交付实验机制**；启动时按
+                    experiments/v1.2/route-reachability/README.md §10 三步重验
+                    （在 H2 实际 fork base 上跑 validator + 扩充 H2 载体自身路由）
                  ② N6.5 §0 的 P1–P7 全部满足
 EXIT_CRITERIA = ≥2 臂 × ≥2 任务，且结论词汇 ∈ {DISCLOSURE_SAFE, DISCLOSURE_HAS_COST,
                 INSUFFICIENT_EVIDENCE}
@@ -101,8 +103,8 @@ EVIDENCE = （待产）experiments/v1.2/mechanization-gap/experiment-protocols.m
 BRANCH = （待建）
 WORKTREE = （待建）
 PR = （待开）
-DEPENDENCIES = N6（协议）+ N8（#46）
-BLOCKERS = #46 未落地
+DEPENDENCIES = N6（协议）+ N8（#46 实验机制，已就绪）
+BLOCKERS = （无硬阻塞；#45 的判据在 H4 协议中被引用，不影响 H2 启动）
 NEXT_NODE = N9
 ```
 
@@ -152,7 +154,8 @@ NOTE = 本机有**可稳定触发**的执行通道故障（exit 137/139，已发
 
 #### N6 — Mechanization Gap Analysis
 ```text
-STATUS = **ACTIVE**
+STATUS = **CLOSED**（PR #49 已合并；merge `6217cc0adcd6c064e8c74e670de6a081bdaba2f6`；
+                     post-merge CI success，run 38030813972；四轮评审 CR→CR→PASS→PASS）
 ENTRY_CRITERIA = H1 闭环后，需要把"哪些提示词约束可以交给机器"系统化
 EXIT_CRITERIA = N6.1–N6.5 全部产出 + 独立评审 + 入仓
 DELIVERABLES = experiments/v1.2/TREE_LEDGER.md（本文件）
@@ -167,7 +170,7 @@ NEXT_NODE = N9
 #### N6.1 — Current Rule Inventory
 ```text
 NODE_ID = N6.1   NAME = Current Rule Inventory   PARENT = N6
-STATUS = ACTIVE
+STATUS = CLOSED
 ENTRY_CRITERIA = 需要一个"按独立行为约束拆分"的规则清单，作为迁移矩阵的输入
 EXIT_CRITERIA = 每条规则都有 RULE_ID 与 11 个字段；ID 唯一且连续
 EVIDENCE = mechanization-gap/rule-inventory.md（95 条 R-V12-*，含评审补录的 R-V12-095）
@@ -181,7 +184,7 @@ NEXT_NODE = N6.2
 #### N6.2 — LongHorizon Mechanism Extraction
 ```text
 NODE_ID = N6.2   NAME = LongHorizon Mechanism Extraction   PARENT = N6
-STATUS = ACTIVE
+STATUS = CLOSED
 ENTRY_CRITERIA = 需要知道外部长周期 harness 有哪些机制可借、哪些必须拒
 EXIT_CRITERIA = 逐机制给出 SOURCE / WHAT_IT_DOES / WHAT_FAILURE_IT_PREVENTS / 分层归属 /
                 OUR_LOCAL_ANALOGUE / OUR_LOCAL_EVIDENCE / ADOPT_CONCEPT / TARGET_LAYER
@@ -197,7 +200,7 @@ NEXT_NODE = N6.3
 #### N6.3 — Failure → Mechanism Mapping
 ```text
 NODE_ID = N6.3   NAME = Failure → Mechanism Mapping   PARENT = N6
-STATUS = ACTIVE
+STATUS = CLOSED
 ENTRY_CRITERIA = 需要把"失败"当一等对象，而非从规则反推
 EXIT_CRITERIA = 每条失败给出 11 个字段，且**区分真实发生 / 仅属假设**
 EVIDENCE = mechanization-gap/failure-mechanism-map.md（22 条 F-*）
@@ -212,7 +215,7 @@ NEXT_NODE = N6.4
 #### N6.4 — Rule Migration / Target Layer Matrix
 ```text
 NODE_ID = N6.4   NAME = Rule Migration / Target Layer Matrix   PARENT = N6
-STATUS = ACTIVE
+STATUS = CLOSED
 ENTRY_CRITERIA = 需要有规则集（N6.1）与失败集（N6.3）才能做去向判定
 EXIT_CRITERIA = 每条规则有唯一目标层；每个"可移出 HOT"都有替代论证
 EVIDENCE = mechanization-gap/rule-migration-matrix.md
@@ -227,7 +230,7 @@ NEXT_NODE = N6.5
 #### N6.5 — H2 / H4 / H5 Protocol Freeze
 ```text
 NODE_ID = N6.5   NAME = H2 / H4 / H5 Protocol Freeze   PARENT = N6
-STATUS = ACTIVE
+STATUS = CLOSED
 ENTRY_CRITERIA = 前四部分完成后才设计实验（否则会设计出无测量面的协议）
 EXIT_CRITERIA = 三个协议各自的对照/变体/测量/停止条件/结论词汇 + 共享前置 P1–P7
 EVIDENCE = mechanization-gap/experiment-protocols.md
@@ -249,13 +252,25 @@ NOTE = 与 F-009/F-018（断言层/自检层空转）**共享同一目标机制*
 
 #### N8 — #46 Route Reachability Disposition
 ```text
-STATUS = BACKLOG / E2
-EVIDENCE = ISSUE #46；git ls-tree 双向取证（base e1da154 不存在 / main 存在，由 2ed08f6 引入）；
-           failure-mechanism-map F-011
-TARGET_LAYER = C（MECHANICAL_GATE）
-DEPENDENCIES = （无）
-BLOCKERS = （无）
-NOTE = **同时是 N2（H2）与所有 B 组规则下沉的前置条件**
+STATUS = **ACTIVE**（本轮；状态转 CLOSED / EXPERIMENTAL_MECHANISM_READY 以 merge 为条件）
+ENTRY_CRITERIA = N6.4 判定 #46 是 H2 与 B 组下沉的硬前置；需要一个 base-aware、
+                 fail-closed 的最小机械机制，使 H2 能证明"路由在声明 base 上可达"
+EXIT_CRITERIA = validator + manifest + 控制矩阵（历史负控 / 正控 / 零路由 / anchor /
+                malformed / base 不可解析）+ 独立评审 + 入仓
+DELIVERABLES = experiments/v1.2/route-reachability/{README.md, routes.json, validate_routes.py}
+             + experiments/v1.2/tests/test_v1_2_route_reachability.py
+EVIDENCE = ISSUE #46（E2）；failure-mechanism-map F-011（E3_LOCAL_REPRODUCIBLE）
+  历史负控复核：`e1da154` 上 review-evidence.md 缺失（rc=128）；
+  正控：`c08f6f8` / `6217cc0` 上 22/22 VALID；
+  本轮新观察（同 base、同类、非新 incident）：该 base 上冻结路由集实为
+  **3 条**悬空（LEAN-07 / LEAN-12 / AGENTS-03），历史只报 1 条 —— 因为披露按任务命中行行进
+TARGET_LAYER = C（MECHANICAL_GATE）；本轮**留在 experiments/v1.2/**（PROMOTION_NOT_YET_EARNED）
+DEPENDENCIES = N6（协议 P6）
+BLOCKERS = （无 —— 机制已可被 H2 使用；#46 本体保持 OPEN / PROMOTION_PENDING）
+NEXT_NODE = N2
+NOTE = **#46 的 promotion 第 4 条（additional carrier/base 证据）保守读法仍未满足**：
+       现有额外证据（S2 AGENTS.md + 3 个 base）全部是**本仓内**的，且仍只有一次
+       由外部独立报告的 incident。canonical promotion 不在本轮。
 ```
 
 #### N9 — V1.2 Architecture Synthesis
@@ -333,20 +348,23 @@ NEXT_NODE = （无 —— 树终点）
 
 ```text
 DEFAULT_BRANCH      = main
-DEFAULT_BRANCH_SHA  = c028a719ba27ab7aff3035c6269e477491983219
-                      （= PR #48 的 merge；`git ls-remote origin refs/heads/main` 复核一致）
+DEFAULT_BRANCH_SHA  = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6
+                      （= PR #49 的 merge；post-merge CI success；
+                      `git ls-remote origin refs/heads/main` 与 `gh run list` 双复核一致）
 ```
 
 ### B.1 ACTIVE
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  experiment/v1.2-mechanization-gap-analysis   （本轮 N6 交付）
+  experiment/v1.2-route-reachability   （本轮 N8 交付）
   ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
      取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
 ACTIVE_WORKTREES =
-  <WORKSPACE_ROOT>/v1.2-mechanization-gap     [experiment/v1.2-mechanization-gap-analysis]
+  <WORKSPACE_ROOT>/v1.2-route-reachability    [experiment/v1.2-route-reachability]
+  <WORKSPACE_ROOT>/v1.2-mechanization-gap     [experiment/v1.2-mechanization-gap-analysis，
+                                               已合并；worktree 保留，树干净]
   <GOVERNANCE_CLONE_ROOT>                     [audit/hermes-multibot-r062]（父 clone，勿打扰）
 
   ⚠️ **路径在本文件中一律用占位符**（`<WORKSPACE_ROOT>` / `<GOVERNANCE_CLONE_ROOT>`）：
@@ -367,6 +385,7 @@ experiment/v1.2-live-shadow                 @ 8aff541   MERGED   （PR #42）
 experiment/v1.2-prospective-shadow          @ 06e9cb8   MERGED   （PR #43）
 experiment/v1.2-h1-hot-context-ablation     @ d9c809e   MERGED   （PR #47）
 experiment/v1.2-h1-closure-ledger           @ 639d199   MERGED   （PR #48）
+experiment/v1.2-mechanization-gap-analysis  @ 5c12d5a   MERGED   （PR #49）
 ```
 
 ### B.3 STALE / PRUNABLE
@@ -386,8 +405,8 @@ WORKTREE_COUNTS（`git worktree list` 实测，2026-10-10）：
   NON_PRUNABLE = 8   PRUNABLE = 8
 
 UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
-  experiment/*                            = **0**（7 个已合并分支）
-  experiment/v1.2-mechanization-gap-analysis = **不写数字** —— 它每提交一次就变一次，
+  experiment/*（8 个已合并分支）          = **0**
+  experiment/v1.2-route-reachability      = **不写数字** —— 它每提交一次就变一次，
                                               写进去必然立刻过期（同"不自写自身 SHA"）。
                                               取法：`git rev-list --count origin/main..HEAD`
   audit/hermes-multibot-r062              = 2   ← **非 experiment 分支**，父 clone 的审计分支，
@@ -408,9 +427,9 @@ UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支�
 ```text
 GIT_LOCATION =
   repo   = FlapPearLabs/agent-engineering-governance
-  branch = experiment/v1.2-mechanization-gap-analysis
-  worktree = <WORKSPACE_ROOT>/v1.2-mechanization-gap
-  base   = c028a719ba27ab7aff3035c6269e477491983219
+  branch = experiment/v1.2-route-reachability
+  worktree = <WORKSPACE_ROOT>/v1.2-route-reachability
+  base   = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6
   head   = （提交前为 base；提交后更新）
 ```
 
@@ -420,16 +439,17 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = N6 — Mechanization Gap Analysis
-CURRENT_NODE_STATUS = ACTIVE（N6.1–N6.5 产出已完成；**状态转 CLOSED 以 merge 为条件**）
-NEXT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure（依赖 #46 先落地）
+CURRENT_NODE = N8 — #46 Route Reachability Disposition
+CURRENT_NODE_STATUS = ACTIVE（机制产出已完成；**状态转 CLOSED / EXPERIMENTAL_MECHANISM_READY 以 merge 为条件**）
+NEXT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure（其 route precondition 已由 N8 交付，
+            启动时按 route-reachability/README.md §10 三步重验）
   · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
   · 更远：N9 V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  branch   = experiment/v1.2-mechanization-gap-analysis
-  worktree = <WORKSPACE_ROOT>/v1.2-mechanization-gap
-  base     = c028a719ba27ab7aff3035c6269e477491983219（本分支的起点）
+  branch   = experiment/v1.2-route-reachability
+  worktree = <WORKSPACE_ROOT>/v1.2-route-reachability
+  base     = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6（本分支的起点）
   head     = 见 `git rev-parse HEAD` —— 同上：不写死自引用 SHA
 ```
 
@@ -455,6 +475,25 @@ REASON = N6 需要唯一树登记处；此前的实验线状态散落在 daily l
 ADDED_NODES = 无
 REMOVED_NODES = 无
 REASON = 本轮产出全部五个子节点交付物。
+```
+
+```text
+[TREE_CHANGE 2026-10-10 · N8 轮] N6 与 N6.1–N6.5 转 CLOSED。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #49 已合并（merge 6217cc0adcd6c064e8c74e670de6a081bdaba2f6），
+         post-merge CI success（run 38030813972），且 `origin/main` 复核包含全部交付物。
+         状态的权威判据（进默认分支 + post-merge CI 绿）此刻成立。
+```
+
+```text
+[TREE_CHANGE 2026-10-10 · N8 轮] N8 从 BACKLOG / E2 推进为 ACTIVE。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = 本轮为 #46 落地最小实验级机械机制（base-aware、fail-closed 的
+         route-reachability validator + 两载体 22 条真实路由的冻结 manifest +
+         控制矩阵），使 H2 的路由前置条件可被机械证明。属现有 19 节点树内推进，
+         非新增主节点。
 ```
 
 > **未发生**：本轮**没有**新增 H6/H7 等主研究节点 —— 无 finding 使现有架构假设失效。

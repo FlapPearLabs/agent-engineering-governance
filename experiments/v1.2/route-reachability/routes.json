@@ -1,0 +1,43 @@
+{
+  "manifest_id": "v1.2-route-reachability-v0",
+  "schema_version": 0,
+  "note": "DECLARED progressive-disclosure routes for the N8 (#46) experimental route-reachability validator. Non-canonical, experimental. Route set frozen 2026-10-10 from the two carriers' reviewed content (see README for provenance). Destinations are repo-relative paths resolved against the base passed to validate_routes.py; route validity is base-relative by construction. No DSL: per route, three fields at most (route_id, destination, optional anchor). No anchor is declared by any current real route; anchor semantics are exercised only by synthetic fixtures in the test suite.",
+  "surfaces": [
+    {
+      "surface_id": "S1",
+      "carrier": "experiments/v1.2/h1-hot-context/lean/CODEBUDDY.md",
+      "kind": "experiment_carrier",
+      "note": "H1 lean bootstrap routing table (section 4). This carrier's route produced issue #46. One carrier row ('MICRO/LOW, docs/fixture only') declares NO load and therefore contributes no route."
+    },
+    {
+      "surface_id": "S2",
+      "carrier": "AGENTS.md",
+      "kind": "canonical_dispatcher",
+      "note": "Canonical D-layer dispatcher ('this file does not duplicate the references; each section names its single detail owner'). Route set = the distinct references/*.md paths named in it. Scope choice: only references/*.md detail pointers; non-references pointers (audit/, deployment/, docs/) are out of scope for N8."
+    }
+  ],
+  "routes": [
+    {"route_id": "LEAN-01", "surface": "S1", "destination": "references/project-state-persistence.md"},
+    {"route_id": "LEAN-02", "surface": "S1", "destination": "references/project-continuity-contract.md"},
+    {"route_id": "LEAN-03", "surface": "S1", "destination": "references/execution-stage.md"},
+    {"route_id": "LEAN-04", "surface": "S1", "destination": "references/git-ci-integration.md"},
+    {"route_id": "LEAN-05", "surface": "S1", "destination": "references/static-analysis-and-code-intelligence.md"},
+    {"route_id": "LEAN-06", "surface": "S1", "destination": "references/review-and-repair-saturation.md"},
+    {"route_id": "LEAN-07", "surface": "S1", "destination": "references/review-evidence.md"},
+    {"route_id": "LEAN-08", "surface": "S1", "destination": "references/ticket-lane.md"},
+    {"route_id": "LEAN-09", "surface": "S1", "destination": "references/codegraph-grounding.md"},
+    {"route_id": "LEAN-10", "surface": "S1", "destination": "references/skills-and-model-routing.md"},
+    {"route_id": "LEAN-11", "surface": "S1", "destination": "references/engineering-memory.md"},
+    {"route_id": "LEAN-12", "surface": "S1", "destination": "references/static-tooling-profiles.md"},
+    {"route_id": "AGENTS-01", "surface": "S2", "destination": "references/skills-and-model-routing.md"},
+    {"route_id": "AGENTS-02", "surface": "S2", "destination": "references/static-analysis-and-code-intelligence.md"},
+    {"route_id": "AGENTS-03", "surface": "S2", "destination": "references/static-tooling-profiles.md"},
+    {"route_id": "AGENTS-04", "surface": "S2", "destination": "references/ticket-lane.md"},
+    {"route_id": "AGENTS-05", "surface": "S2", "destination": "references/git-ci-integration.md"},
+    {"route_id": "AGENTS-06", "surface": "S2", "destination": "references/execution-stage.md"},
+    {"route_id": "AGENTS-07", "surface": "S2", "destination": "references/codegraph-grounding.md"},
+    {"route_id": "AGENTS-08", "surface": "S2", "destination": "references/review-and-repair-saturation.md"},
+    {"route_id": "AGENTS-09", "surface": "S2", "destination": "references/project-state-persistence.md"},
+    {"route_id": "AGENTS-10", "surface": "S2", "destination": "references/project-continuity-contract.md"}
+  ]
+}
