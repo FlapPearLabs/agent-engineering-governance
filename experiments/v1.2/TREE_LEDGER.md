@@ -155,7 +155,11 @@ NOTE = 本机有**可稳定触发**的执行通道故障（exit 137/139，已发
 #### N6 — Mechanization Gap Analysis
 ```text
 STATUS = **CLOSED**（PR #49 已合并；merge `6217cc0adcd6c064e8c74e670de6a081bdaba2f6`；
-                     post-merge CI success，run 38030813972；四轮评审 CR→CR→PASS→PASS）
+                     post-merge CI success，run 38030813972；
+                     评审轮次 CR→CR→PASS→PASS —— 口径 = 本程序自身的"轮次"记录
+                     （含 subagent / PR 评论评审）；GitHub reviews API 只计 3 条
+                     COMMENTED 评论对象，两者口径不同。N8 轮外部评审指出该口径
+                     差异，记录备查）
 ENTRY_CRITERIA = H1 闭环后，需要把"哪些提示词约束可以交给机器"系统化
 EXIT_CRITERIA = N6.1–N6.5 全部产出 + 独立评审 + 入仓
 DELIVERABLES = experiments/v1.2/TREE_LEDGER.md（本文件）
@@ -401,8 +405,12 @@ PRUNABLE_WORKTREES = 8
 
 STALE_WORKTREES = NONE（除上述 prunable 外无）
 
-WORKTREE_COUNTS（`git worktree list` 实测，2026-10-10）：
-  NON_PRUNABLE = 8   PRUNABLE = 8
+WORKTREE_COUNTS（快照 · N8 轮 · 2026-10-10；**计数含父 clone 主 worktree**：
+                 `git worktree list` 实测 17 行 = 9 + 8）：
+  NON_PRUNABLE = 9   （8 个本工作区 linked worktree + 1 个父 clone 主 worktree）
+  PRUNABLE     = 8   （h1-runs 的 t01–t04 × {CONTROL, VARIANT}，见上）
+  ⚠️ 本快照会随新 worktree 增减而漂移（N8 轮新增 1 个即 +1）。数字是快照，
+     口径必须写明（是否含主 worktree）—— 上一版未写口径、且差一，N8 轮外部评审指出。
 
 UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
   experiment/*（8 个已合并分支）          = **0**

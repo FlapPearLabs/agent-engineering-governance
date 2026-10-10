@@ -226,11 +226,12 @@ Against issue #46's four promotion requirements:
 1. **runs at a declared base, base-attributed** — met by design (`--base`
    required; per-route results carry the resolved base SHA).
 2. **no empty PASS** — met (exit 3; `H2_PRECONDITION = FAIL`).
-3. **independent review on the exact SHA + PR merge** — evidenced by this PR's
-   own record (review round + merge commit) and the durable comment on issue
-   #46. **This file deliberately does not vouch for its own PR** — the
-   authoritative outcome lives in the GitHub record, not here (R3:
-   `UNKNOWN != PASS`; a document must not write a future value it cannot know).
+3. **independent review on the exact SHA + PR merge** — the outcome is recorded
+   in this PR's own record (review round + merge commit) and, at closure, in a
+   comment on issue #46. **This file deliberately does not vouch for its own
+   PR** — the authoritative outcome lives in the GitHub record, not here (R3:
+   `UNKNOWN != PASS`; a document must not reference an artifact that does not
+   exist yet).
 4. **evidence from at least one additional carrier/base** — **partially met**:
    an additional real carrier (S2) and additional bases (3) exist and were
    validated, but all evidence is **intra-repo** and there is still exactly one
