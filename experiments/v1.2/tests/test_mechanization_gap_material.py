@@ -71,6 +71,13 @@ EVIDENCE_LEVELS = {
     "HYPOTHESIS_NO_LOCAL",
 }
 
+# The N6 slice's own committed range — frozen historical facts, NOT a moving
+# merge-base. c028a71 = the branch's fork point; 5c12d5a = its final head
+# (merged as 6217cc0, PR #49). See TestNoImplementationSlippedIn for why the
+# scope is pinned to this range instead of merge-base(origin/main, HEAD).
+N6_SLICE_BASE = "c028a719ba27ab7aff3035c6269e477491983219"
+N6_SLICE_HEAD = "5c12d5a0a984f577cc9794236efcafa5195de6af"
+
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -445,13 +452,26 @@ class TestNoImplementationSlippedIn(unittest.TestCase):
         self.assertEqual("", proc.stdout.strip(), f"canonical surface modified:\n{proc.stdout}")
 
     def test_no_new_executable_code_added_by_this_slice(self):
-        """The gap analysis must not ship mechanisms. Only .md plus this test file."""
+        """The gap analysis must not ship mechanisms. Only .md plus this test file.
+
+        Scope pinned during N8: evaluated over the N6 slice's own frozen range,
+        not over `merge-base(origin/main, HEAD)..HEAD`. On a shared experiment
+        tree the moving merge-base later includes other slices' legitimate
+        mechanisms, and the check would fire on the wrong object — which is
+        exactly what happened on the N8 branch (its mechanism files tripped this
+        test). The assertion itself is unchanged; only the object it evaluates
+        over is now the slice it names.
+        """
         proc = subprocess.run(
             ["git", "-C", str(ROOT), "diff", "--name-only",
-             f"{self._merge_base()}..HEAD"],
+             f"{N6_SLICE_BASE}..{N6_SLICE_HEAD}"],
             capture_output=True, text=True, check=False,
         )
+        self.assertEqual(0, proc.returncode, proc.stderr[-2000:])
         changed = [p for p in proc.stdout.splitlines() if p.strip()]
+        self.assertGreater(
+            len(changed), 0, "the frozen N6 range yielded an empty change set"
+        )
         offenders = [
             p for p in changed
             if p.endswith((".py", ".sh", ".yml", ".yaml", ".json"))
@@ -459,7 +479,7 @@ class TestNoImplementationSlippedIn(unittest.TestCase):
         ]
         self.assertEqual(
             [], offenders,
-            f"this slice must add no executable/schema artefacts, found: {offenders}",
+            f"the N6 slice must add no executable/schema artefacts, found: {offenders}",
         )
 
 
