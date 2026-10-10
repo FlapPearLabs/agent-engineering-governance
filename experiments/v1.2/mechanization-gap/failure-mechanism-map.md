@@ -14,15 +14,18 @@ EVIDENCE_LEVEL 取值（本文件专用，与外部 E1 无关）：
   E3_LOCAL_REPRODUCIBLE = 本地真实发生 + 有精确 SHA/命令 + 可再次演示（含正控）
   E2_LOCAL_SINGLE       = 本地真实发生 + 有精确 SHA/记录，但未构造正控
   E1_LOCAL_ATTESTED     = 本地真实发生，但只有流程记录（对话/报告），无独立可复算证据
+  E1_LOCAL_GAP          = **不是 incident**，而是本地**可查证的状态缺口**（如：规则声明了某个 L0 钩子，
+                          但仓内无实现）。有精确查证方式，无失效记录。
   HYPOTHESIS_NO_LOCAL   = **本仓未发生**；来自外部材料或推理。**不得**据此单独立 gate。
 ```
 
 ```text
-本文件统计（**由材料自检机核对过**；首次手写时是错的 —— 见文末 §5）：
-  E3_LOCAL_REPRODUCIBLE = 9
-  E2_LOCAL_SINGLE       = 6
-  E1_LOCAL_ATTESTED     = 1
-  HYPOTHESIS_NO_LOCAL   = 6
+本文件统计（**由材料自检机核对过**；首次手写时是错的 —— 见 README §10 的诚实附注）：
+  E3_LOCAL_REPRODUCIBLE    = 9
+  E2_LOCAL_SINGLE          = 6
+  E1_LOCAL_ATTESTED        = 0
+  E1_LOCAL_GAP             = 1
+  HYPOTHESIS_NO_LOCAL      = 6
   合计                  = 22
 ```
 
@@ -82,7 +85,7 @@ POSITIVE_CONTROL_AVAILABLE = YES（把 review 的 SHA 改成另一个 → 门必
 FAIL_CLOSED_BEHAVIOR = merge gate 拒绝
 RESIDUAL_RISK = 中。难点是"评审记录"目前是分散的（PR comment / 报告文本），
       要机械核验先得有一个**结构化的评审记录对象**（review-evidence schema 已存在但未强制）
-EVIDENCE_LEVEL = E1_LOCAL_ATTESTED  # 规则存在、实现缺失，均可在仓内直接查证；无 incident 记录
+EVIDENCE_LEVEL = E1_LOCAL_GAP  # 规则存在、实现缺失，均可在仓内直接查证；**无 incident 记录**
 ```
 
 ### F-004 — Review completed after merge（先合并后评审）

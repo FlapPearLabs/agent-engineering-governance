@@ -19,7 +19,7 @@
 
 ```text
 先读 这一页（README）
-  ↓ 想知道"现在有哪些规则"        → rule-inventory.md          （94 条 R-V12-*）
+  ↓ 想知道"现在有哪些规则"        → rule-inventory.md          （95 条 R-V12-*）
   ↓ 想知道"外部能借什么"          → longhorizon-mechanism-map.md（12 机制 + 7 条拒绝）
   ↓ 想知道"我们在防什么失败"      → failure-mechanism-map.md   （22 条，3 个模式）
   ↓ 想知道"每条规则去哪一层"      → rule-migration-matrix.md   ← **核心**
@@ -29,6 +29,19 @@
 
 **一句话结论**：缺口不在"缺规则"，而在"缺**可失败性**与**准入条件**"。
 本目录给出的不是一个更长的规则表，而是一张**把规则搬离提示词的迁移图**。
+
+### 0.1 计数（机器可读；材料自检与 `rule-migration-matrix.md` 主表比对）
+
+```text
+LAYER_COUNTS     = A=29 B=16 C=26 D=18 E=3 F=1 G=2
+RULES_TOTAL      = 95
+NEVER_DELIVERED  = 18
+REMOVABLE_NOW    = 23
+```
+
+> 这些数字**不在本文件里手写维护** —— 材料自检
+> `TestReadmeCountsMatchTheMatrix` 会从矩阵主表重算并与本块比对。
+> 本文件先前把"从不投递"写成 31（实为 18），是**手写数字无人对照**的典型后果。
 
 ---
 
@@ -87,21 +100,24 @@ V1.2 要做的不是"把 AGENTS.md 写短一点"，而是**改变治理的承载
 ```
 
 ```text
-留下的 = A 层 25 条（rule-migration-matrix §2）
+留下的 = A 层 29 条（rule-migration-matrix §2；其中 3 条是**禁令**，由评审从 B 组上调）
   典型：AUTHORITY BEFORE ACTION · EVIDENCE BEFORE CONFIDENCE（UNKNOWN != PASS）
         SELF_REVIEW != INDEPENDENT_REVIEW · 门状态不得坍缩的值域纪律
         SATURATION != REVIEW_GATE_BYPASS · MINIMUM NECESSARY COMPLEXITY
   另有 B 层的**指针**：HOT 保留"有这么一张表"，表的内容下沉。
 ```
 
-**同时必须承认一件事**：当前 31 条"声明为 HOT"的规则（AGENTS §6–§10）**从来没被投递过**。
+**同时必须承认一件事**：当前 **18 条**"声明为 HOT"的规则（来源为 AGENTS §6–§10）**从来没被投递过**。
+（这个数字先前写成 31 —— 手写计数，自检与本文件对不上。现已由矩阵主表机械推导，见 §5 与 §10 的附注。）
 它们的问题不是"该不该留"，而是"**如实重分类**"。这一步不需要任何实验、成本为零。
 
 ---
 
 ## 4. WHAT MOVES TO WARM
 
-**B 层 19 条**：决策树 / 默认值 / 退化路径 / 边界说明。
+**B 层 16 条**：决策树 / 默认值 / 退化路径 / 边界说明。
+（原为 19 —— 评审指出其中 3 条其实是**禁令**：禁止 START_ALL、ESCALATION 边界、SEAM-FIRST 的禁止顺序。
+它们不是「查到表才知道」的导航项，已上调为 A 层。）
 
 ```text
 形态 = "当 X 时读 Y"。HOT 只需要知道**存在一个 X→Y 的表**。
@@ -136,7 +152,10 @@ R7 平台卫生           → no-unrelated-platform-requirements
 MEMORY 预算 3500 字节 → memory-pointer-within-budget + t09（24 tests）
 PROJECT_CONTINUITY    → validate_project_state.py + schema + guard（H1 t03 臂已活体验证
                          "hook 不代写语义"）
-注入通道事实（8,000/13,756/7,840/5,916）→ hot_inventory.py 已把它变成**可复算数字**
+注入通道事实（8,000/13,756/7,840/5,916）→ hot_inventory.py 把它变成可复算数字
+   ⚠️ **但不构成强制**（评审 P1）：它是测量脚本，而 CI 从不跑 `experiments/v1.2/tests`
+   ⇒ **它在任何门里都不会失败**。对应规则 R-V12-066 已从 RM=YES 降为 NOT_YET。
+   教训：**MEASUREMENT IS NOT ENFORCEMENT** —— 有数字，不等于有门。
 ```
 
 > **一个有说服力的分布事实**：`RULES.md` 里最长的一条（R2，61%）恰恰是**机械化最彻底**的一条。
@@ -296,9 +315,9 @@ E2_LOCAL_SINGLE（6 条 —— 真实发生，有 SHA/记录，但未构造正�
   F-008 被引用的检查不存在 · F-012 memory 写了不执行 · F-016 作废 run 计数
   · F-020 runtime 事实升格 · F-021 跨树数字 · F-022 回顾性污染
 
-E1_LOCAL_ATTESTED（1 条）
+E1_LOCAL_GAP（1 条）—— **不是 incident**，是可查证的**状态缺口**
   F-003 stale-SHA review（规则 R5 明写该 L0 钩子，但仓内无实现 —— 可在仓内直接查证，
-        无 incident 记录）
+        无失效记录。原标 E1_LOCAL_ATTESTED 属**高报**，评审 P3 指出后新增该等级）
 
 HYPOTHESIS_NO_LOCAL（6 条）⚠️
   F-001 wrong repository · F-004 review-after-merge · F-005 findings ignored
@@ -392,14 +411,61 @@ P7 门承重。**不满足任一项 ⇒ `PROTOCOL_NOT_STARTABLE`。**
 | 文件 | 内容 | 规模 |
 |---|---|---|
 | `README.md` | 本文件：12 问导航 | — |
-| `rule-inventory.md` | N6.1 — 94 条规则的逐条登记（含实测字符基数） | 94 规则 |
+| `rule-inventory.md` | N6.1 — 95 条规则的逐条登记（含实测字符基数） | 95 规则 |
 | `longhorizon-mechanism-map.md` | N6.2 — 12 机制 + 3 佐证 + 7 拒绝 | 12 机制 |
 | `failure-mechanism-map.md` | N6.3 — 22 条失败 + 3 个跨条模式 | 22 失败 |
 | `rule-migration-matrix.md` | N6.4 — 七层分类 + HOT 移除逐条替代论证 | **核心** |
 | `experiment-protocols.md` | N6.5 — H2/H4/H5 协议 + 共享前置 P1–P7 | 3 协议 |
 | `../TREE_LEDGER.md` | 逻辑树 + Git 执行树 | 19 节点 |
+| §15（本文件） | 评审轮次记录（含失败轮的逐条处置） | 4×P1 + 7×P2 + 4×P3 |
 
-## 15. 本目录不做的事
+## 15. 评审轮次记录（exact-SHA；**不省略失败轮**）
+
+本目录的 first-pass 稿被外部评审判 `CHANGES_REQUIRED`（4×P1 + 7×P2 + 4×P3）。
+逐条处置如下 —— **记录它的原因与 H1 相同**：只写过成功轮的记录会让下一轮重犯同一判断。
+
+```text
+P1-1  §1 表与本文件 §0 矛盾：R-V12-051 / R-V12-068 标为"自动投递"，而其来源章节
+      正是本文件证明被截断的 §6/§10。
+  处置 = **结构性修复**：CUR 不再手工标注，改为由 rule-inventory.md 附录 D 的
+      `RULE → SOURCE_SECTION` 映射**机械推导**；新增自检
+      `TestDeliveryLayerMatchesSourceSection`（3 项）钉住"来源章节 → 交付层"的映射。
+      受影响的 CUR 单元共 20 个被重写。
+
+P1-2  漏了一条真实义务：RULES.md 的 `TICKET_DECOMPOSITION_REQUIRES_CONVERGED_PROJECT_CONTRACTS`
+      没有 RULE_ID。
+  处置 = 补录 **R-V12-095**（规则总数 94 → 95），并在附录 E 登记一处 MINOR_UNRESOLVED
+      （R3 在 MEMORY 指针里只有 13 字摘要，把整条归为 HOT_AUTO_MEMORY 是乐观的）。
+
+P1-3  不安全的 HOT 移除：R-V12-070（凭据/local OS identity）的具名强制者只扫**仓内**面，
+      而该规则的义务跨 repo/log/聊天/产物/记忆/报告。
+  处置 = **降级为 RM=NO**；并在 §3.3 说明"通道覆盖必须匹配义务范围"。
+
+P1-4  假机械化：R-V12-066/067 的具名强制者分别是**测量脚本**（且 CI 从不跑
+      `experiments/v1.2/tests`）与**只查字节长度**的检查。
+  处置 = **降级为 RM=NOT_YET**；提炼判据 `MEASUREMENT IS NOT ENFORCEMENT`。
+
+P2    R-V12-068 与 R-V12-083 同文重复且来源误记；README 的"31 条"与矩阵不符；
+      B 组含 3 条**禁令**（不得只留指针）；树账本的 `UNMERGED_LOCAL_COMMITS=0` 被证伪；
+      重述点声明 6 实为 ≥9。
+  处置 = 逐条修正；新增 `TestReadmeCountsMatchTheMatrix`，让 README 的计数由矩阵托管；
+      树账本改为**分域记账**（experiment 线 0 / 非 experiment 线 2 + 1）。
+
+P3    F-003 的证据等级高报；LC-INV 编号；082 的层归属说明缺失；failure map 的 §5 指针。
+  处置 = 新增 `E1_LOCAL_GAP` 等级（"可查证的缺口"≠"发生过的事故"）并重分类；
+      其余逐条补注。
+```
+
+```text
+复盘：四条 P1 里**三条**属于同一形状 —— 一个声明没有写明它的**适用范围**
+（交付层、通道、统计域），于是被读成比实际更强。
+这与 N6.3 归纳的 PATTERN-B/C 是同一个东西，只是这次发生在本目录自己身上。
+```
+
+**这本身是该切片主张的最好证据**：分类表、计数、层归属 —— 只要没有机器对照，就会漂移。
+本轮因此新增了 **5 类自检**（共 88 个测试），全部针对"声明 ↔ 来源"的一致性。
+
+## 16. 本目录不做的事
 
 ```text
 不修改 canonical（AGENTS.md / RULES.md / references/ 未动）

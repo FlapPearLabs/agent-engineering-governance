@@ -170,7 +170,7 @@ NODE_ID = N6.1   NAME = Current Rule Inventory   PARENT = N6
 STATUS = ACTIVE
 ENTRY_CRITERIA = 需要一个"按独立行为约束拆分"的规则清单，作为迁移矩阵的输入
 EXIT_CRITERIA = 每条规则都有 RULE_ID 与 11 个字段；ID 唯一且连续
-EVIDENCE = mechanization-gap/rule-inventory.md（94 条 R-V12-*）
+EVIDENCE = mechanization-gap/rule-inventory.md（95 条 R-V12-*，含评审补录的 R-V12-095）
   + 实测章节字符基数（AGENTS 13,756 / RULES 6,843 / BOOTSTRAP 5,083 / MEMORY 2,028）
   + 6 个重述点登记
 DEPENDENCIES = （无）
@@ -201,7 +201,7 @@ STATUS = ACTIVE
 ENTRY_CRITERIA = 需要把"失败"当一等对象，而非从规则反推
 EXIT_CRITERIA = 每条失败给出 11 个字段，且**区分真实发生 / 仅属假设**
 EVIDENCE = mechanization-gap/failure-mechanism-map.md（22 条 F-*）
-  E3=9 / E2=6 / E1=1 / HYPOTHESIS=6
+  E3=9 / E2=6 / E1_GAP=1 / E1_ATTESTED=0 / HYPOTHESIS=6
   + 3 个跨条模式：PATTERN-A「空的东西看起来像满的」/ B「未验证进入可信面」/ C「声明与目的地脱节」
   + NEW_ISSUES_FROM_THIS_FILE = 0（理由：与 #45 共享同一目标机制，或属实验线纪律）
 DEPENDENCIES = N6.1
@@ -216,7 +216,7 @@ STATUS = ACTIVE
 ENTRY_CRITERIA = 需要有规则集（N6.1）与失败集（N6.3）才能做去向判定
 EXIT_CRITERIA = 每条规则有唯一目标层；每个"可移出 HOT"都有替代论证
 EVIDENCE = mechanization-gap/rule-migration-matrix.md
-  七层分类：A=25 B=19 C=26 D=18 E=3 F=1 G=2（=94）
+  七层分类：A=29 B=16 C=26 D=18 E=3 F=1 G=2（=95）
   + 决定性事实：AGENTS §6–§10 共 5,096 字符（37%）**从未自动投递**
   + HOT 移除候选逐条走 MECHANIZATION_MUST_REPLACE 四问
 DEPENDENCIES = N6.1 + N6.3
@@ -381,7 +381,20 @@ PRUNABLE_WORKTREES = 8
   教训 = 已登记为 R-V12-089（产物必须落持久化位置）→ H2/H5 的协议前置条件 P3。
 
 STALE_WORKTREES = NONE（除上述 prunable 外无）
-UNMERGED_LOCAL_COMMITS = 0（逐分支 `git rev-list --count origin/main..<branch>` 全部为 0）
+
+WORKTREE_COUNTS（`git worktree list` 实测，2026-10-10）：
+  NON_PRUNABLE = 8   PRUNABLE = 8
+
+UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
+  experiment/*                            = **0**（7 个已合并分支）+ 当前 N6 分支 = 2（本 PR 的两提交）
+  audit/hermes-multibot-r062              = 2   ← **非 experiment 分支**，父 clone 的审计分支，
+                                                  有意不合并（勿动）
+  work/p1-orchestrator-closure-doctrine   = 1   ← 同上，非本实验线
+
+  ⚠️ **修正记录（评审 P2）**：本节初稿写「UNMERGED_LOCAL_COMMITS = 0（逐分支 … 全部为 0）」，
+     只统计了 `experiment/*` 却写成了全部。外部评审用上面两条非 experiment 分支证伪。
+     现按"分域记账"更正：experiment 线为 0，另有 2 个非 experiment 分支有意未合并。
+     **这正是本目录主张的同一类错误**：一个声明如果没写明它的统计域，就会被读成比实际更强。
 ```
 
 ### B.4 本轮的 Git 位置（阶段汇报用）

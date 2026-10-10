@@ -9,7 +9,7 @@
 ## 0. 方法与口径
 
 ```text
-CURRENT_RULE_COUNT        = 94
+CURRENT_RULE_COUNT        = 95
 ```
 
 > 上行的值是**机械数出来的**（`R-V12-###` 的去重计数），不是手写声明 ——
@@ -763,6 +763,8 @@ COST = shared:BOOTSTRAP_CONTRACT
 
 ## G. 实验线派生的候选规则（本轮新增，R-V12-086 … R-V12-094）
 
+> 另见 §E 的 **R-V12-095**（评审 P1 补录，源自 RULES.md R3 的独立义务）。
+
 > 来源 = H1/H3 的真实失效。**这些目前只在实验记录里，不在 canonical**；
 > 登记于此是为了让迁移矩阵能对其处置（多数应进 HARNESS_STATE_MACHINE 或 MECHANICAL_GATE）。
 
@@ -811,6 +813,13 @@ R-V12-094 环境故障一律记为环境，不记为任一臂/任一候选的质
 
 ## 附录 A — 重述点（同一约束的多 owner，自身即机械化候选）
 
+> ⚠️ **评审 P2 修正**：本节初稿声明「6 个重述点」，而实际 ≥9。漏掉的三个与已列出的三个
+> 属**同一家族**（doctrine ↔ 操作层）：
+> `R-V12-027` ↔ `R-V12-080`（MINIMUM NECESSARY COMPLEXITY ↔ R8）、
+> `R-V12-026` ↔ `R-V12-042`（RISK-SCALED RIGOR ↔ 风险表）、
+> `R-V12-021` ↔ `R-V12-045`（SEAM BEFORE TICKET ↔ SEAM-FIRST 顺序）。
+> **计数错误的原因与 §G 的统计错误同源**：重述点没有被机器枚举过。
+
 ```text
 R-V12-024 EVIDENCE BEFORE CONFIDENCE  ←→ R3  ←→ AGENTS §6 的 CI 不可坍缩
 R-V12-025 SELF_REVIEW != INDEPENDENT_REVIEW ←→ R4 ←→ AGENTS §1 WORKER 禁止 ←→ §6 L1
@@ -818,6 +827,11 @@ R-V12-050 L0/L1/L2  ←→ §3 风险表 ←→ RULES R4（gate 存在性由 D+C
 R-V12-066 四性质  ←→ R-V12-084（AGENTS §10 与 BOOTSTRAP_CONTRACT §1 双声明）
 R-V12-013 门状态不可坍缩  ←→ R-V12-054 CI 不可坍缩 ←→ H1 P1（断言可失败性）
 R-V12-036/037/038/039 Stage 语义  ←→ references/execution-stage.md §6
+R-V12-027 MINIMUM NECESSARY COMPLEXITY ←→ R-V12-080（RULES R8）
+R-V12-026 RISK-SCALED RIGOR ←→ R-V12-042（AGENTS §3 风险表）
+R-V12-021 SEAM BEFORE TICKET ←→ R-V12-045（SEAM-FIRST 顺序）
+
+**DECLARED_RESTATEMENT_COUNT = 9**（评审修正后）
 ```
 
 重述不是错误（读者可能只看到其中一处），但它意味着**同一语义有多个维护点**：
@@ -843,4 +857,143 @@ PY
 不做：判断哪条能立即从 HOT 移除（= N6.4 的 CAN_REMOVE_FROM_HOT）
 不做：修改任何 canonical 文件
 不做：实现任何机械门
+```
+
+## 附录 D — RULE → SOURCE_SECTION（机器可读；CUR 由它推导，不由手工标注）
+
+```text
+映射规则（材料自检强制）：
+  AGENTS§0-§4 → HOT_AUTO          AGENTS§5 → HOT_AUTO_PARTIAL
+  AGENTS§6-§10 → HOT_NOT_DELIVERED
+  RULES.R1-R5 → HOT_AUTO_MEMORY（其摘要确实在交付的 MEMORY 指针内）
+  RULES.R6-R8 → HOT_READ          BOOTSTRAP_CONTRACT → HOT_READ
+  EXPERIMENTS → EXPERIMENT_ONLY
+
+R-V12-001 = AGENTS§0
+R-V12-002 = AGENTS§0
+R-V12-003 = AGENTS§0
+R-V12-004 = AGENTS§0
+R-V12-005 = AGENTS§0
+R-V12-006 = AGENTS§0
+R-V12-007 = AGENTS§0
+R-V12-008 = AGENTS§0
+R-V12-009 = AGENTS§0
+R-V12-010 = AGENTS§0
+R-V12-011 = AGENTS§0
+R-V12-012 = AGENTS§0
+R-V12-013 = AGENTS§0
+R-V12-014 = AGENTS§0
+R-V12-015 = AGENTS§0
+R-V12-016 = AGENTS§0
+R-V12-017 = AGENTS§0
+R-V12-018 = AGENTS§0
+R-V12-019 = AGENTS§0
+R-V12-020 = AGENTS§0
+R-V12-021 = AGENTS§0
+R-V12-022 = AGENTS§0
+R-V12-023 = AGENTS§0
+R-V12-024 = AGENTS§0
+R-V12-025 = AGENTS§0
+R-V12-026 = AGENTS§0
+R-V12-027 = AGENTS§0
+R-V12-028 = AGENTS§0
+R-V12-029 = AGENTS§1
+R-V12-030 = AGENTS§1
+R-V12-031 = AGENTS§1
+R-V12-032 = AGENTS§1
+R-V12-033 = AGENTS§1
+R-V12-034 = AGENTS§1
+R-V12-035 = AGENTS§1
+R-V12-036 = AGENTS§2
+R-V12-037 = AGENTS§2
+R-V12-038 = AGENTS§2
+R-V12-039 = AGENTS§2
+R-V12-040 = AGENTS§3
+R-V12-041 = AGENTS§3
+R-V12-042 = AGENTS§3
+R-V12-043 = AGENTS§3
+R-V12-044 = AGENTS§3
+R-V12-045 = AGENTS§4
+R-V12-046 = AGENTS§4
+R-V12-047 = AGENTS§5
+R-V12-048 = AGENTS§5
+R-V12-049 = AGENTS§5
+R-V12-050 = AGENTS§6
+R-V12-051 = AGENTS§6
+R-V12-052 = AGENTS§6
+R-V12-053 = AGENTS§6
+R-V12-054 = AGENTS§6
+R-V12-055 = AGENTS§7
+R-V12-056 = AGENTS§7
+R-V12-057 = AGENTS§7.1
+R-V12-058 = AGENTS§7.1
+R-V12-059 = AGENTS§7.1
+R-V12-060 = AGENTS§7.1
+R-V12-061 = AGENTS§7.1
+R-V12-062 = AGENTS§8
+R-V12-063 = AGENTS§9
+R-V12-064 = AGENTS§9
+R-V12-065 = AGENTS§9
+R-V12-066 = AGENTS§10
+R-V12-067 = AGENTS§10
+R-V12-068 = BOOTSTRAP_CONTRACT
+R-V12-069 = RULES.R1
+R-V12-070 = RULES.R2
+R-V12-071 = RULES.R2
+R-V12-072 = RULES.R2
+R-V12-073 = RULES.R2
+R-V12-074 = RULES.R2
+R-V12-075 = RULES.R3
+R-V12-076 = RULES.R4
+R-V12-077 = RULES.R5
+R-V12-078 = RULES.R6
+R-V12-079 = RULES.R7
+R-V12-080 = RULES.R8
+R-V12-081 = BOOTSTRAP_CONTRACT
+R-V12-082 = BOOTSTRAP_CONTRACT
+R-V12-083 = BOOTSTRAP_CONTRACT
+R-V12-084 = BOOTSTRAP_CONTRACT
+R-V12-085 = BOOTSTRAP_CONTRACT
+R-V12-086 = EXPERIMENTS
+R-V12-087 = EXPERIMENTS
+R-V12-088 = EXPERIMENTS
+R-V12-089 = EXPERIMENTS
+R-V12-090 = EXPERIMENTS
+R-V12-091 = EXPERIMENTS
+R-V12-092 = EXPERIMENTS
+R-V12-093 = EXPERIMENTS
+R-V12-094 = EXPERIMENTS
+R-V12-095 = RULES.R3
+```
+
+### R-V12-095 — TICKET_DECOMPOSITION_REQUIRES_CONVERGED_PROJECT_CONTRACTS（**评审 P1 补录**）
+```text
+SOURCE = RULES.md R3（原文：`TICKET_DECOMPOSITION_REQUIRES_CONVERGED_PROJECT_CONTRACTS`）
+REQ = 声称分解完成，必须有**项目权威下的上游语义收敛与票集组合证据**；
+      `DEPENDENCY_DAG_VALID` / `STRUCTURAL_VALIDATION` **不证明** `SEMANTIC_COMPATIBILITY`。
+      全局定义证明义务，项目定义实际语义；不得借此静默覆盖已批准合同（R1）。
+      执行步骤唯一见 `references/execution-stage.md` §6。
+PREVENTS = 用一个结构上合法的 DAG 冒充"语义已收敛"——即"图对=对"。
+LAYER = HOT_AUTO_MEMORY（其摘要不在 MEMORY 指针的 4 条里；R3 的整体在指针摘要第 2 条）
+      —— 严格说本条的**细则**只在 RULES.md 全文里，故实际依赖 HOT_READ。
+      ⚠️ 本条的这一层归属本身是一个 MINOR_UNRESOLVED：R3 的摘要极短（13 字），
+        不足以承载本条的判定义务。见 §附录 E。
+MUST_REMEMBER = YES
+PREDICATE = PARTIAL（"是否存在项目权威下的收敛证据"部分可核；"证据是否真的支持语义收敛"不可）
+ENFORCEMENT = PARTIAL → `references/execution-stage.md` §6 有 gate 序列与测试
+COST = shared:RULES.R3
+```
+
+> **为什么这条是补录**：first-pass 盘点把它与 R3 的"证据真实性"合并看待了，导致一条
+> 有独立判定义务的约束没有独立 ID。外部评审在攻击"inventory 是否有遗漏"时发现。
+> 这正是本目录主张的那件事：**清单必须有机器可核的完备性来源，否则遗漏不可见**。
+
+## 附录 E — MINOR_UNRESOLVED（已知的、未解决的小问题）
+
+```text
+U-01 R-V12-095 的层归属：RULES.R3 在 MEMORY 指针里只有 13 字摘要，
+     而本条要求「项目权威下的语义收敛证据」这一实质判定义务。
+     ⇒ 把整条 R3 归为 HOT_AUTO_MEMORY 是**乐观的**。
+     未解决：应否把 R3 降为 HOT_READ？这会连带影响 R3 家族的全部规则。
+     处置：登记未解决，不擅自决定（它同时牵动矩阵的 CUR 推导规则）。
 ```

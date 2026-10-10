@@ -1,7 +1,7 @@
 # N6.4 — Rule Migration / Target Layer Matrix（V1.2 mechanization gap analysis）
 
 > **状态 = N6.4 本轮产物。非 canonical。本文件是 N6 的核心交付物。**
-> 输入 = `rule-inventory.md`（94 条规则）+ `failure-mechanism-map.md`（22 条失败，3 个模式）
+> 输入 = `rule-inventory.md`（95 条规则）+ `failure-mechanism-map.md`（22 条失败，3 个模式）
 > + `longhorizon-mechanism-map.md`（12 个机制）。
 > **本文件只决定"应该去哪一层"，不实现任何一层。**
 
@@ -71,7 +71,7 @@ TARGET_LAYER（七选一，每条规则**只能**有一个主目标）：
   ④ 外部材料（E1）**不**支撑任何 TARGET 层的选定；只作方向佐证。
 ```
 
-## 2. 主表（94 条，一行一条）
+## 2. 主表（95 条，一行一条；行数由材料自检与 inventory 的 ID 集合比对）
 
 列含义：`CUR` = 当前实际层；`TGT` = 目标层；`FORGET` = 机械化后 agent 是否可忘；
 `PRED` = 确定性谓词可得性；`MECH_TODAY` = 现有机械 owner；`RM` = 现在可否移出（真正会到达的）HOT。
@@ -114,7 +114,7 @@ R-V12-032  HOT_AUTO                 A    NO     PARTIAL  —                    
 R-V12-033  HOT_AUTO                 C    YES    YES      ✗ 无（R5 的 L0 钩子无实现）              NOT_YET
 R-V12-034  HOT_AUTO                 D    PART   PARTIAL  —                                       NOT_YET
 R-V12-035  HOT_AUTO                 B    YES    NO       —                                       YES
-R-V12-036  HOT_AUTO                 B    YES    NO       —                                       YES
+R-V12-036  HOT_AUTO                 A    YES    NO       —                                       NO
 R-V12-037  HOT_AUTO                 D    PART   PARTIAL  PARTIAL: execution-stage §6             NOT_YET
 R-V12-038  HOT_AUTO                 D    PART   NO       —                                       NOT_YET
 R-V12-039  HOT_AUTO                 B    YES    NO       —                                       YES
@@ -122,14 +122,14 @@ R-V12-040  HOT_AUTO                 D    PART   PARTIAL  ✗ 无 —— **最大
 R-V12-041  HOT_AUTO                 C    PART   PARTIAL  PARTIAL: CI 步骤顺序                   NOT_YET
 R-V12-042  HOT_AUTO                 D    PART   PARTIAL  ✗ 无（H4 的标的）                      NOT_YET
 R-V12-043  HOT_AUTO                 A    NO     NO       —                                       NO
-R-V12-044  HOT_AUTO                 B    YES    NO       —                                       YES
-R-V12-045  HOT_AUTO                 B    YES    NO       —                                       YES
+R-V12-044  HOT_AUTO                 A    YES    NO       —                                       NO
+R-V12-045  HOT_AUTO                 A    YES    NO       —                                       NO
 R-V12-046  HOT_AUTO                 B    PART   PARTIAL  PARTIAL: t02（11 tests）               YES
-R-V12-047  HOT_AUTO                 B    YES    PARTIAL  PARTIAL: codegraph_lifecycle（1323）    YES
+R-V12-047  HOT_AUTO_PARTIAL                 B    YES    PARTIAL  PARTIAL: codegraph_lifecycle（1323）    YES
 R-V12-048  HOT_AUTO_PARTIAL     C    YES    YES      FULL-ish: LC-INV1..INV5                 YES
 R-V12-049  HOT_AUTO_PARTIAL     C    YES    YES      PARTIAL: schema 字段                    NOT_YET
-R-V12-050  HOT_AUTO                 A    NO     PARTIAL  PARTIAL: L0 项散落在多个扫描器         NO
-R-V12-051  HOT_AUTO                 G    PART   NO       —                                       NO
+R-V12-050  HOT_NOT_DELIVERED                 A    NO     PARTIAL  PARTIAL: L0 项散落在多个扫描器         NO
+R-V12-051  HOT_NOT_DELIVERED                 G    PART   NO       —                                       NO
 R-V12-052  HOT_NOT_DELIVERED     G    PART   PARTIAL  PARTIAL: 饱和文件 + 评审证据          NO
 R-V12-053  HOT_NOT_DELIVERED   A    NO     NO       —                                       NO
 R-V12-054  HOT_NOT_DELIVERED   C    PART   PARTIAL  PARTIAL: t03（17 tests）               NOT_YET
@@ -144,26 +144,26 @@ R-V12-062  HOT_NOT_DELIVERED   D    PART   PARTIAL  ✗ 无（双评审是流程
 R-V12-063  HOT_NOT_DELIVERED   B    PART   PARTIAL  PARTIAL: 饱和文件 §5 模板              YES
 R-V12-064  HOT_NOT_DELIVERED   C    YES    YES      ✗ 无                                     NOT_YET
 R-V12-065  HOT_NOT_DELIVERED   C    PART   PARTIAL  PARTIAL: skills-and-model-routing      NOT_YET
-R-V12-066  HOT_AUTO_MEMORY         E    PART   YES      FULL-ish: hot_inventory.py              YES
-R-V12-067  HOT_AUTO_MEMORY         E    YES    PARTIAL  PARTIAL: 预算检查                    YES
-R-V12-068  HOT_AUTO                 A    NO     NO       —                                       NO
-R-V12-069  HOT_READ                 A    NO     PARTIAL  PARTIAL: no-authority-inversion         NO
-R-V12-070  HOT_READ                 C    YES    YES      FULL: validate_public_release           YES
-R-V12-071  HOT_READ                 C    YES    YES      FULL: machine-facts-…                   YES
-R-V12-072  HOT_READ                 C    PART   YES      PARTIAL: 归档规则                      NOT_YET
-R-V12-073  HOT_READ                 C    PART   YES      PARTIAL: mcp-canonical-set-v1            NOT_YET
-R-V12-074  HOT_READ                 C    YES    YES      FULL: --selftest 51/51                  YES
-R-V12-075  HOT_READ                 A    NO     PARTIAL  PARTIAL: t05/t06/t07/t08             NO
-R-V12-076  HOT_READ                 C    PART   PARTIAL  ✗ 无（身份断言）                        NOT_YET
-R-V12-077  HOT_READ                 C    YES    YES      ✗ 无（R5 L0 钩子未实现）                 NOT_YET
+R-V12-066  HOT_NOT_DELIVERED         E    PART   YES      FULL-ish: hot_inventory.py              NOT_YET
+R-V12-067  HOT_NOT_DELIVERED         E    YES    PARTIAL  PARTIAL: 预算检查                    NOT_YET
+R-V12-068  HOT_READ                 A    NO     NO       —                                       NO
+R-V12-069  HOT_AUTO_MEMORY                 A    NO     PARTIAL  PARTIAL: no-authority-inversion         NO
+R-V12-070  HOT_AUTO_MEMORY                 C    YES    YES      FULL: validate_public_release           NO
+R-V12-071  HOT_AUTO_MEMORY                 C    YES    YES      FULL: machine-facts-…                   YES
+R-V12-072  HOT_AUTO_MEMORY                 C    PART   YES      PARTIAL: 归档规则                      NOT_YET
+R-V12-073  HOT_AUTO_MEMORY                 C    PART   YES      PARTIAL: mcp-canonical-set-v1            NOT_YET
+R-V12-074  HOT_AUTO_MEMORY                 C    YES    YES      FULL: --selftest 51/51                  YES
+R-V12-075  HOT_AUTO_MEMORY                 A    NO     PARTIAL  PARTIAL: t05/t06/t07/t08             NO
+R-V12-076  HOT_AUTO_MEMORY                 C    PART   PARTIAL  ✗ 无（身份断言）                        NOT_YET
+R-V12-077  HOT_AUTO_MEMORY                 C    YES    YES      ✗ 无（R5 L0 钩子未实现）                 NOT_YET
 R-V12-078  HOT_READ                 C    PART   PARTIAL  PARTIAL: H1 新增的 committed-set 检查   NOT_YET
 R-V12-079  HOT_READ                 C    YES    YES      FULL: no-unrelated-platform-…            YES
 R-V12-080  HOT_READ                 A    NO     NO       —                                       NO
-R-V12-081  HOT_AUTO_MEMORY         D    PART   PARTIAL  PARTIAL: B5 可全机械                 NOT_YET
+R-V12-081  HOT_READ         D    PART   PARTIAL  PARTIAL: B5 可全机械                 NOT_YET
 R-V12-082  HOT_READ                 C    YES    YES      FULL: memory-pointer-within-budget       YES
-R-V12-083  HOT_AUTO                 E    PART   YES      PARTIAL: 参考实现在别仓                  NOT_YET
-R-V12-084  HOT_NOT_DELIVERED   F    YES    —        —（与 R-V12-066 重复）                  YES
-R-V12-085  HOT_NOT_DELIVERED   B    YES    PARTIAL  —                                       YES
+R-V12-083  HOT_READ                 E    PART   YES      PARTIAL: 参考实现在别仓                  NOT_YET
+R-V12-084  HOT_READ   F    YES    —        —（与 R-V12-066 重复）                  YES
+R-V12-085  HOT_READ   B    YES    PARTIAL  —                                       YES
 R-V12-086  EXPERIMENT_ONLY          D    YES    YES      ✗ 无（H1 教训）                          N/A
 R-V12-087  EXPERIMENT_ONLY          D    YES    YES      ✗ 无（H1 教训）                          N/A
 R-V12-088  EXPERIMENT_ONLY          D    PART   PARTIAL  ✗ 无（H1 教训）                          N/A
@@ -172,22 +172,26 @@ R-V12-090  EXPERIMENT_ONLY          D    PART   PARTIAL  ✗ 无（H1 教训） 
 R-V12-091  EXPERIMENT_ONLY          C    PART   PARTIAL  ✗ 无（H1 教训）                          N/A
 R-V12-092  EXPERIMENT_ONLY          C    PART   PARTIAL  ✗ 无（H1 教训）                          N/A
 R-V12-093  EXPERIMENT_ONLY          C    PART   PARTIAL  ✗ 无（H1 教训）                          N/A
-R-V12-094  HOT_AUTO                 A    NO     NO       —                                       NO
+R-V12-094  EXPERIMENT_ONLY                 A    NO     NO       —                                       NO
+R-V12-095  HOT_AUTO_MEMORY           A    NO     PARTIAL  PARTIAL: execution-stage §6 gate 序列   NO
 ```
 
 **统计**
 
 ```text
-A  HOT_INVARIANT               = 25
-B  WARM_PROGRESSIVE_DISCLOSURE = 19   （其中 13 条现在即可下沉；6 条 §6–§10 本来就没投递）
-C  MECHANICAL_GATE             = 26
-D  HARNESS_STATE_MACHINE       = 18
-E  RUNTIME_ADAPTER             =  3
-F  DELETE_REDUNDANT            =  1
-G  KEEP_PENDING_EVIDENCE       =  2
+A  HOT_INVARIANT                = 29
+B  WARM_PROGRESSIVE_DISCLOSURE  = 16
+C  MECHANICAL_GATE              = 26
+D  HARNESS_STATE_MACHINE        = 18
+E  RUNTIME_ADAPTER              =  3
+F  DELETE_REDUNDANT             =  1
+G  KEEP_PENDING_EVIDENCE        =  2
                                ────
-                                  94
+                                95
 ```
+
+> 本块**由主表生成**（不是手写）：材料自检 `test_distribution_matches_the_rows_actually_tabled`
+> 会重算并与它比对。手写计数在本轮出过错（见 README §10 的诚实附注）。
 
 ---
 
@@ -197,9 +201,10 @@ G  KEEP_PENDING_EVIDENCE       =  2
 
 ### 3.1 现在即可移除（替代者已在仓内并已验证）
 
-#### R-V12-070 / R-V12-071 / R-V12-074 / R-V12-079 / R-V12-082 — R2 与 R7 的机械面
+#### R-V12-071 / R-V12-074 / R-V12-079 / R-V12-082 — R2 与 R7 的机械面
 ```text
 （五个 ID 逐一列出，不用 "070 / 071" 这类简写 —— 简写无法被机器逐条核验）
+⚠️ **R-V12-070 原在本块，评审 P1 后已降级为 RM=NO** —— 见 §3.3。
 WHAT NOW ENFORCES IT = validate_public_release.py（1414 行，双层扫描 + 5 条实现纪律）
                        + validate_governance.py 的 `no-credentials-anywhere` /
                          `machine-facts-only-in-designated-files` /
@@ -217,6 +222,13 @@ RESIDUAL RISK = 扫描器只能命中**模式化**的泄漏。非模式化的敏
         但 4,196 字符的操作细节可以从必读面移除。
 EXTERNAL_EVIDENCE_LEVEL = N/A（不依赖外部）
 PROMOTION_REQUIRED = NO（已在 main）
+
+⚠️ **R-V12-082 的层归属有一处需要说清（评审 P3）**：3500 字节这个**值**是 profile 事实
+（BOOTSTRAP_CONTRACT §2.1 自述"观测/profile 属性，不是规范常数"），而它的**检查**
+（`memory-pointer-within-budget`）由 canonical 拥有并接在 CI 上。
+⇒ 值与检查可以分层：**值属 E，检查属 C**。本表记 TGT=C 是按"谁来强制"计的，
+   不是按"值是什么性质"计的。这不是矛盾，但**必须写明**，否则会被读成 E/C 分类不一致。
+   对照：R-V12-066/067 的 profile 事实**没有**canonical 拥有的检查，故归 E。
 ```
 
 #### R-V12-060 — PROJECT_CONTINUITY_CONTRACT 的机械面
@@ -232,22 +244,21 @@ RESIDUAL = "何时写"（meaningful transitions 的判定）仍需认知 → 保
 PROMOTION_REQUIRED = NO
 ```
 
-#### R-V12-048 R-V12-066 R-V12-067 R-V12-084 — 注入通道事实 + 预算 + 重复项
+#### R-V12-048 / R-V12-084 — 两个独立项
 ```text
-R-V12-048（FULL_INIT_FORBIDDEN）= codegraph_lifecycle verify 输出 LC-INV1..INV5，可接 CI
-R-V12-066/067（两条通道 + 四性质 + profile 事实）= hot_inventory.py 已把它变成**可复算数字**
-        （8,000 / 13,756 / 7,840 / 5,916 / 59.6%），且 H1 材料里有回归测试
-R-V12-084 = **与 R-V12-066 重复**（AGENTS §10 与 BOOTSTRAP_CONTRACT §1 双声明）
-        处置 = 合并 owner：数值 owner 归 BOOTSTRAP_CONTRACT §1，AGENTS §10 只作指针
+R-V12-048（FULL_INIT_FORBIDDEN）= codegraph_lifecycle verify 输出 LC-INV1..LC-INV8，可接 CI
+R-V12-084 = **与 R-V12-066 / R-V12-068 家族重复**（同一约束在 AGENTS §10、BOOTSTRAP §1、§2.4 三处声明）
+        处置 = 合并 owner：数值与交付形状的 owner 归 BOOTSTRAP_CONTRACT，其余处只作指针
         （这正是仓内既有的 §9 值域纪律的同一做法）
+⚠️ **R-V12-066 / R-V12-067 原在本块，评审 P1 后已降级为 RM=NOT_YET** —— 见 §3.3。
 CAN_AGENT_FORGET = YES
-PROMOTION_REQUIRED = NO（对 066/067/084 的**去重**；048 已有门）
+PROMOTION_REQUIRED = NO（R-V12-048 已有门；R-V12-084 是**去重**）
 ```
 
-#### B 组的 19 条（细节下沉，HOT 留指针）
+#### B 组的 16 条（细节下沉，HOT 留指针）
 ```text
 逐条列出（**不用区间/简写** —— 区间会让"哪条被处置了"无法被机器逐条核验）。
-这 19 条 = 矩阵中 TGT=B 且 RM=YES 的**全部**（由材料自检与主表比对）。
+这 16 条 = 矩阵中 TGT=B 且 RM=YES 的**全部**（由材料自检与主表比对）。
   R-V12-003  证据路由：MECHANICAL QUESTION → 静态工具
   R-V12-004  证据路由：BEHAVIORAL CONTRACT → TEST
   R-V12-005  证据路由：CROSS-MODULE STRUCTURE → CODEGRAPH
@@ -258,17 +269,20 @@ PROMOTION_REQUIRED = NO（对 066/067/084 的**去重**；048 已有门）
   R-V12-021  SEAM BEFORE TICKET
   R-V12-028  AUTO-ADVANCE UNTIL REAL AUTHORITY UNCERTAINTY
   R-V12-035  隔离 worker 直接实现；handoff 仅四情形
-  R-V12-036  DAG-ready ≠ 立即开工；禁止 START_ALL
   R-V12-039  无 DAG 退化语义
-  R-V12-044  LOW 票不得触发 ESCALATION
-  R-V12-045  SEAM-FIRST 合法顺序与禁止顺序
   R-V12-046  分解的四条纪律（/to-tickets 不是架构生成器；必须读 execution-stage §6 …）
   R-V12-047  CODEGRAPH 三模式语义（细节下沉；**它的可达性由 #46 保证**）
   R-V12-055  授权路径自动推进不问"是否继续"
   R-V12-063  报告 novelty-first 七字段模板
   R-V12-085  部署验收记录只登记状态字段
 
-  这几条的共同形态 = "决策树 / 默认值 / 退化路径 / 边界说明"。
+  ⚠️ **评审 P2 修正**：原先还列了 036（禁止 START_ALL）、044（LOW 不得触发 ESCALATION）、
+     045（SEAM-FIRST 的禁止顺序）。这三条**已改为 TGT=A / RM=NO** —— 理由：
+     它们是**判定前必须知道的禁令**，不是"查到表才知道"的导航项。
+     「HOT 只保留'存在一个 X→Y 的表'」这一说法对**禁令**不成立：
+     一个从不触发查表的 agent 会静默违反，而没有任何东西会响。
+
+  这 16 条的共同形态 = "决策树 / 默认值 / 退化路径 / 边界说明"。
   WHAT NOW ENFORCES IT = 不是"由谁强制"，而是**它们本来就不需要被记住**：
     它们是"当 X 时读 Y"的导航，HOT 只需要知道**存在一个 X→Y 的表**。
   WHERE = references/（各自的 owner 文件；HOT 保留指针）
@@ -382,61 +396,112 @@ REMOVAL_BLOCKER = 机制不存在；且**不能靠设计消除** —— 需要�
 
 ---
 
+### 3.3 评审后**降级**的规则（原 RM=YES → 现 RM=NO / NOT_YET）
+
+本节存在的原因是：**降级必须留痕**。三条规则在第一版里被标为"现在即可移出 HOT"，
+外部评审证明了它们是**假机械化**。若不记录，下一轮会重犯同一个判断。
+
+#### R-V12-070 — R2 第一层（凭据与 local OS identity）→ RM=NO
+```text
+规则义务（RULES.md:17）= 凭据/local OS identity 绝不进入 repo、**log、聊天、产物、长期记忆、报告**。
+具名强制者（原）= validate_public_release.py + `no-credentials-anywhere`。
+**问题**：这两个扫描器只读**受治理仓的公开候选面**（tracked + untracked 未忽略）。
+        它们**不读** chat、log、报告、长期记忆。
+⇒ 对 repo/产物面：强制者成立（FULL）。
+⇒ 对 log/chat/记忆/报告面：**没有强制者**。而 R2 的整个价值主张就是"泄漏不可撤回" ——
+   一个写进聊天窗口的凭据，扫描器永远看不到。
+⇒ 处置：CAN_AGENT_FORGET = **NO**。该义务必须留在会到达的 HOT。
+   缓解事实：MEMORY 指针的 B 层不变量摘要第 1 条确实投递了这句话
+   （`凭据/secret 绝不进入 repo/log/产物/记忆`）⇒ 该义务并非不可达，但仍**不可忘**。
+⇒ 这同时是 R-V12-070 的 CUR = HOT_AUTO_MEMORY 的**正当性来源**（而非仅"它在 RULES.md 里"）。
+```
+
+#### R-V12-066 / R-V12-067 — 注入通道事实与 profile 事实 → RM=NOT_YET
+```text
+规则义务：066 = 两条注入通道 + 四性质；067 = 机制事实是 profile 事实、升级后须重新取证。
+具名强制者（原）= hot_inventory.py。
+**问题（两个）**：
+ ① hot_inventory.py 是**测量脚本**，不是门：它被 `experiments/v1.2/tests/test_h1_material.py`
+    引用，而 CI（`governance-ci.yml`）只跑 `scripts/tests` 与 `adapters/*/tests`，
+    **从不跑 `experiments/v1.2/tests`** ⇒ 它**在任何门里都不会失败**。
+ ② 067 的义务是"升级后重新取证"，而具名的"预算检查"只验 MEMORY 指针的 **UTF-8 字节长度**
+    —— 它检验的是**另一个量**。
+⇒ 处置：两条从 RM=YES 降为 RM=NOT_YET。066 需要"把测量接进一个会失败的门"，
+   067 需要一个**新谓词**（"本轮是否在 profile 变更后重新取证"）。
+⇒ 这两条是"**测量 ≠ 强制**"的实例：有数字，不等于有门。
+```
+
+#### 从本节的教训提炼的判据（加进 §1 的四条纪律）
+```text
+⑤ MEASUREMENT IS NOT ENFORCEMENT —— 一个产出数字的脚本不是强制者。
+   把它当强制者，等于把"能观测"冒充成"会拦住"。
+⑥ CHANNEL COVERAGE MUST MATCH OBLIGATION SCOPE —— 若规则管辖 5 个通道而强制者只覆盖 1 个，
+   那 4 个通道就没有强制者。**按最窄的覆盖面判定**，不按最宽的那个说得最漂亮的。
+```
+
 ## 4. 量化：提示词减负潜力（PART 16）
 
 ### 4.1 计数
 
 ```text
-CURRENT_RULE_COUNT        = 94（可复算：主表行数 == inventory 的 R-V12-* 去重计数）
+CURRENT_RULE_COUNT        = 95（可复算：主表行数 == inventory 的 R-V12-* 去重计数）
 HOT_RULE_COUNT            = 86（CUR ∈ {HOT_AUTO, HOT_AUTO_MEMORY, HOT_AUTO_PARTIAL,
                                 HOT_NOT_DELIVERED, HOT_READ}）
-  ├─ HOT_AUTO                 = 52   **真正自动投递**
-  ├─ HOT_AUTO_MEMORY          =  3   经 MEMORY 指针投递
-  ├─ HOT_AUTO_PARTIAL         =  2   所属章节部分被投递
-  ├─ HOT_NOT_DELIVERED        = 16   **自称 HOT 但从不投递**
-  └─ HOT_READ                 = 13   不自动注入，须显式全文读（RULES.md）
-EXPERIMENT_ONLY               =  8   仅存在于实验线，尚未进 canonical
+  ├─ HOT_AUTO             = 46
+  ├─ HOT_AUTO_MEMORY      = 10
+  ├─ HOT_AUTO_PARTIAL     =  3
+  ├─ HOT_NOT_DELIVERED    = 18
+  └─ HOT_READ             =  9
+EXPERIMENT_ONLY               =  9   仅存在于实验线，尚未进 canonical
                                 ────
-                                  94
+                                  95
 
-  ⇒ 真正自动到达 agent 的 HOT 规则 = 52 + 3 = **55 / 86（64%）**
-  ⇒ 自称 HOT 却从不投递           = **16 条**
+  ⇒ 真正自动到达 agent 的 HOT 规则 = HOT_AUTO 46 + HOT_AUTO_MEMORY 10 = **56 / 86**
+  ⇒ 自称 HOT 却从不投递           = **18 条**
+
+> 本块同样**由主表生成**。CUR 本身则由 `rule-inventory.md` 附录 D 的
+> `RULE → SOURCE_SECTION` 映射**机械推导**（不是手工标注）——
+> 这是外部评审抓到「§1 表与自己 §0 矛盾」后的结构性修复。
 
 MECHANICAL_RULE_COUNT     = 26（TGT = C）
 HARNESS_RULE_COUNT        = 18（TGT = D）
 ADAPTER_RULE_COUNT        =  3（TGT = E）
 REDUNDANT_RULE_COUNT      =  1（TGT = F）
 KEEP_PENDING_EVIDENCE     =  2（TGT = G）
-WARM_RULE_COUNT           =  0（当前无规则以 WARM 为**主**层；references 承载的是细节而非独立规则）
+WARM_RULE_COUNT           =  16（TGT = B；HOT 留指针，细节下沉 references）
 ```
 
 ### 4.2 可分阶段移除的 HOT 规则
 
 ```text
-HOT_RULES_REMOVABLE_NOW = 29    ← 逐个与主表的 RM=YES 列比对（材料自检强制）
-  ├─ B 组 19：003,004,005,006,007,008,010,021,028,035,036,039,044,045,046,047,055,063,085
-  ├─ C 组  6：048,070,071,074,079,082   （机械替代已在仓内并已验证）
+HOT_RULES_REMOVABLE_NOW = 23   （= 16 + 5 + 1 + 1；由主表 RM=YES 逐行相加，非手写）
+  ← 逐个与主表的 RM=YES 列比对（材料自检 `test_every_now_removable_rule_appears_in_the_replacement_section` 强制）
+  ├─ B 组 16：003, 004, 005, 006, 007, 008, 010, 021, 028, 035, 039, 046, 047, 055, 063, 085
+  ├─ C 组  5：048, 071, 074, 079, 082   （机械替代已在仓内并已验证）
   ├─ D 组  1：060                        （validate_project_state 已 FULL）
-  ├─ E 组  2：066,067                    （注入通道事实 → 下沉 runtime adapter）
-  └─ F 组  1：084                        （与 066 重复 ⇒ 去重）
-  ⚠️ 其中 19 条（B 组）**以 #46 落地为前提** —— 否则"下沉"= 移到不可达处。
-     故实操口径：这 19 条在 #46 修复后**立刻**可做。
+  └─ F 组  1：084                        （与 066/068 家族重复 ⇒ 去重）
+  ⚠️ 其中 16 条（B 组）**以 #46 落地为前提** —— 否则"下沉"= 移到不可达处。
 
-NOT_YET_REMOVABLE = 30（主表 RM=NOT_YET），按**可能的解锁实验**分组。
+NOT_YET_REMOVABLE = 32（主表 RM=NOT_YET），按**可能的解锁实验**分组。
   ⚠️ 分组是**假设**，不是承诺；实验可能证明它们**永远不该移除**。
   ├─ H2 可能解锁（WARM 可达/可载与 Skill 检索被证明后）= 002, 049, 065
   ├─ H4 可能解锁（风险绑定与程序性治理的边界被测出后）= 041, 042, 054, 064
   ├─ H5 可能解锁（状态/完成语义移入 harness 后）= 029, 030, 031, 033, 034, 037, 038,
   │      040, 057, 058, 059, 062, 076, 077, 078, 081                （16 条）
-  └─ 无明确解锁实验（blocker 是"证据不存在"，非"某实验可产出"）= 011, 012, 014,
-         061, 072, 073, 083                                          （7 条）
+  └─ 无明确解锁实验（blocker 是"证据不存在"或"强制者不成立"）= 011, 012, 014, 061,
+         066, 067, 072, 073, 083                                       （9 条）
+         ⚠️ 066/067 **从 RM=YES 降级而来**：它们的"强制者"分别是一个测量脚本与一个
+            只查字节长度的检查，都不强制这两条规则的实际义务（评审 P1）。
 
-NEVER_REMOVABLE = 27（主表 RM=NO）
-  ├─ A 组 25：语义不变量（违反后果不可机械检出）
+NEVER_REMOVABLE = 32（主表 RM=NO）
+  ├─ A 组 29：语义不变量（违反后果不可机械检出，且"不查表"本身就会违反）
+  ├─ C 组  1：070
+  │       ⚠️ R-V12-070 **从 RM=YES 降级而来**（评审 P1）：其义务跨 log/chat/报告/记忆，
+  │           而具名强制者只扫仓内公开候选面
   └─ G 组  2：方向已定但证据不足，保持原状
 
-REMOVAL_BLOCKERS 的诚实记法：30 条 NOT_YET 里只有 23 条能指向一个具体实验；
-余 7 条没有解锁路径。**不假装它们都有出路。**
+REMOVAL_BLOCKERS 的诚实记法：32 条 NOT_YET 里
+  23 条能指向一个具体实验；9 条没有解锁路径。**不假装它们都有出路。**
 ```
 
 ### 4.3 字符投影（**PROJECTED ≠ OBSERVED**）

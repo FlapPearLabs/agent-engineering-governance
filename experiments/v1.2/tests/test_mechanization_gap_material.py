@@ -67,6 +67,7 @@ EVIDENCE_LEVELS = {
     "E3_LOCAL_REPRODUCIBLE",
     "E2_LOCAL_SINGLE",
     "E1_LOCAL_ATTESTED",
+    "E1_LOCAL_GAP",
     "HYPOTHESIS_NO_LOCAL",
 }
 
@@ -499,6 +500,156 @@ class TestReferencedPathsResolve(unittest.TestCase):
                     text, rf"(?<![\w/.\-])`{re.escape(rel)}`",
                     f"{rel} is written as if it were a path in this repo",
                 )
+
+
+def _matrix_rows() -> list[list[str]]:
+    """Every parsed row of the migration matrix, as 7 columns.
+
+    Split on runs of 2+ spaces: two columns legitimately contain single spaces.
+    """
+    rows: list[list[str]] = []
+    for line in _read(MATRIX).splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("R-V12-"):
+            continue
+        cols = [c.strip() for c in re.split(r"\s{2,}", stripped)]
+        if len(cols) == 7:
+            rows.append(cols)
+    return rows
+
+
+def _matrix_cur() -> dict[str, str]:
+    """rule id -> declared current delivery layer, from the matrix table."""
+    cur: dict[str, str] = {}
+    for line in _read(MATRIX).splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("R-V12-"):
+            continue
+        cols = [c.strip() for c in re.split(r"\s{2,}", stripped)]
+        if len(cols) == 7:
+            cur[cols[0]] = cols[1]
+    return cur
+
+
+class TestDeliveryLayerMatchesSourceSection(unittest.TestCase):
+    """A rule may not claim a delivery layer its source section cannot support.
+
+    This closes the hole an external review found: the matrix's CUR column had
+    been written by hand, so two rules sourced from AGENTS sections 6 and 10 were
+    labelled "auto-delivered" while the matrix's own section 0 proves those
+    sections are truncated away. The suite could not see it, because it only
+    compared the table to a histogram derived from that same table. CUR is now
+    derived from each rule's declared source, and the two must agree.
+    """
+
+    SOURCE_TO_CUR = {
+        "AGENTS§0": "HOT_AUTO",
+        "AGENTS§1": "HOT_AUTO",
+        "AGENTS§2": "HOT_AUTO",
+        "AGENTS§3": "HOT_AUTO",
+        "AGENTS§4": "HOT_AUTO",
+        "AGENTS§5": "HOT_AUTO_PARTIAL",
+        "AGENTS§6": "HOT_NOT_DELIVERED",
+        "AGENTS§7": "HOT_NOT_DELIVERED",
+        "AGENTS§7.1": "HOT_NOT_DELIVERED",
+        "AGENTS§8": "HOT_NOT_DELIVERED",
+        "AGENTS§9": "HOT_NOT_DELIVERED",
+        "AGENTS§10": "HOT_NOT_DELIVERED",
+        "RULES.R1": "HOT_AUTO_MEMORY",
+        "RULES.R2": "HOT_AUTO_MEMORY",
+        "RULES.R3": "HOT_AUTO_MEMORY",
+        "RULES.R4": "HOT_AUTO_MEMORY",
+        "RULES.R5": "HOT_AUTO_MEMORY",
+        "RULES.R6": "HOT_READ",
+        "RULES.R7": "HOT_READ",
+        "RULES.R8": "HOT_READ",
+        "BOOTSTRAP_CONTRACT": "HOT_READ",
+        "EXPERIMENTS": "EXPERIMENT_ONLY",
+    }
+
+    TRUNCATED_SOURCES = {
+        "AGENTS§6", "AGENTS§7", "AGENTS§7.1",
+        "AGENTS§8", "AGENTS§9", "AGENTS§10",
+    }
+
+    def _sources(self) -> dict[str, str]:
+        block = _read(INVENTORY).split("## 附录 D", 1)[-1].split("```")[1]
+        return {
+            m.group(1): m.group(2)
+            for m in re.finditer(r"^(R-V12-\d{3}) = (\S+)$", block, re.M)
+        }
+
+    def test_every_rule_declares_a_known_source_section(self):
+        sources = self._sources()
+        rules = {f"R-V12-{n:03d}" for n in range(1, 96)}
+        self.assertEqual(
+            sorted(rules - set(sources)), [],
+            "these rules have no declared source section in appendix D",
+        )
+        for rule, source in sorted(sources.items()):
+            with self.subTest(rule=rule):
+                self.assertIn(source, self.SOURCE_TO_CUR, f"unknown source {source}")
+
+    def test_matrix_delivery_layer_equals_the_layer_derived_from_the_source(self):
+        sources = self._sources()
+        cur = _matrix_cur()
+        mismatches = []
+        for rule, source in sorted(sources.items()):
+            expected = self.SOURCE_TO_CUR[source]
+            if cur.get(rule) != expected:
+                mismatches.append(f"{rule} ({source} -> {expected}, table says {cur.get(rule)})")
+        self.assertEqual([], mismatches)
+
+    def test_rules_from_truncated_sections_are_never_marked_auto_delivered(self):
+        """The one concrete contradiction the external review found, pinned."""
+        sources = self._sources()
+        cur = _matrix_cur()
+        offenders = [
+            rule for rule, source in sorted(sources.items())
+            if source in self.TRUNCATED_SOURCES and cur.get(rule) != "HOT_NOT_DELIVERED"
+        ]
+        self.assertEqual([], offenders)
+
+
+class TestReadmeCountsMatchTheMatrix(unittest.TestCase):
+    """The orientation README restates the layer counts; nothing compared them.
+
+    An external review found the README asserting "31 rules" where the matrix
+    says 18 — a hand-written number with no owner. These checks give the README's
+    counts an owner: the matrix.
+    """
+
+    def _matrix_tgt(self) -> dict[str, int]:
+        return dict(Counter(cols[2] for cols in _matrix_rows()))
+
+    def _declared(self) -> dict[str, str]:
+        """Read the README's machine-readable count block (values may contain spaces)."""
+        text = _read(README)
+        keys = ("LAYER_COUNTS", "RULES_TOTAL", "NEVER_DELIVERED", "REMOVABLE_NOW")
+        found: dict[str, str] = {}
+        for key in keys:
+            m = re.search(rf"^{key}\s*=\s*(.+?)\s*$", text, re.M)
+            self.assertIsNotNone(m, f"README must declare {key}")
+            found[key] = m.group(1)
+        return found
+
+    def test_readme_layer_counts_equal_the_matrix_distribution(self):
+        tgt = self._matrix_tgt()
+        declared = self._declared()["LAYER_COUNTS"]
+        got = {k: int(v) for k, v in (p.split("=") for p in declared.split())}
+        self.assertEqual(
+            {k: tgt.get(k, 0) for k in "ABCDEFG"}, got,
+            "README's LAYER_COUNTS block disagrees with the matrix table",
+        )
+
+    def test_readme_total_and_never_delivered_match_the_matrix(self):
+        declared = self._declared()
+        rows = _matrix_rows()
+        self.assertEqual(len(rows), int(declared["RULES_TOTAL"]))
+        cur = Counter(cols[1] for cols in rows)
+        self.assertEqual(cur.get("HOT_NOT_DELIVERED"), int(declared["NEVER_DELIVERED"]))
+        rm = Counter(cols[6] for cols in rows)
+        self.assertEqual(rm.get("YES"), int(declared["REMOVABLE_NOW"]))
 
 
 if __name__ == "__main__":
