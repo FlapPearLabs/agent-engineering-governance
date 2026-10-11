@@ -277,3 +277,17 @@ TRUE values:
 · release-scan clean rc 正取:
   clean rc=0 (expect 0)
     
+
+--- [12a] corrections to [12] (same session, pre-commit) ---
+· [12] 的 candidate-root scan planted 用例曾得 rc=2 的原因：一次被 SIGTERM 截断的电池遗留了
+  空 .h2_scan_tools/ 目录，触发当时脚本的占用即拒绝守卫（fail-closed 正确，但把残留变成伪失败）。
+  处置：脚本改为先清理再放置（入口 rm -rf + 事后 rm -rf）；清理后用同一 planted 用例复演：
+  rc=1、VIOLATIONS=1、泄漏行按 **相对 run worktree 路径** 报告（无父目录前缀）——扫描根确证为候选：
+    ### CURRENT_TREE_SCAN
+    MODE=PUBLIC
+    CURRENT_TREE_SCOPE enum=git_ls_files_cached_others_exclude_standard refs=0 objects=0 blobs=103 text_scanned=103 skipped_binary=0 skipped_oversize=0 skipped_unreadable=0 surfaces_index=87 surfaces_worktree=103 deduped_paths=87 eol_only_dedup=0 size_cap_bytes=2097152
+    VIOLATIONS=1
+      [LOCAL_IDENTITY/UNIX_USER_HOME] zz_leak_probe.md:1 :: contact: /Users/<LOCAL_OS_USERNAME>/dev
+    
+· dirty-probe 残留（MATERIALS_DIRTY 用例在 worktree 创建之后触发）：已 git worktree remove --force
+  移除注册 + 清空目录（记录于本文件；#[12] 的 rc=2 MATERIALS_DIRTY 结论不受影响）。

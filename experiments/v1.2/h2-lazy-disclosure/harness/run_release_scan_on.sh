@@ -15,12 +15,14 @@ SRC="$H2_REPO/scripts/validate_public_release.py"
 # The checker resolves its scan root as __file__.parent.parent. To make that resolve to the
 # CANDIDATE worktree, the copy must sit exactly two levels below $WT (R6-1): $WT/.h2_scan_tools/<file>.
 TOOLS_DIR="$WT/.h2_scan_tools"
-[ -e "$TOOLS_DIR" ] && { echo "RELEASE_SCAN_FAIL reason=TOOLS_SLOT_OCCUPIED"; exit 2; }
+# Clean any leftover from an interrupted prior run, then place the copy. (An earlier version
+# refused on occupancy; a leftover dir from an aborted battery turned that into a spurious
+# rc=2 — recorded in precondition/p1-p2-dryrun.txt [12]/[12a].)
+rm -rf "$TOOLS_DIR" 2>/dev/null || true
 mkdir -p "$TOOLS_DIR" || { echo "RELEASE_SCAN_FAIL reason=MKDIR_FAILED"; exit 2; }
 DEST="$TOOLS_DIR/validate_public_release.py"
 cp "$SRC" "$DEST" || { echo "RELEASE_SCAN_FAIL reason=COPY_FAILED"; exit 2; }
 ( cd "$WT" && PUBLIC_RELEASE=1 "$PY" "$DEST" )
 rc=$?
-rm -f "$DEST"
-rmdir "$TOOLS_DIR" 2>/dev/null || true
+rm -rf "$TOOLS_DIR" 2>/dev/null || true
 exit $rc
