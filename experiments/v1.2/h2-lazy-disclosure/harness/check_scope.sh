@@ -62,11 +62,18 @@ if rid:
 if base:
     head = subprocess.run(["git", "-C", wt, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     if head != base:
-        d = subprocess.run(["git", "-C", wt, "diff", "--name-only", "-z", base], capture_output=True)
-        for p in d.stdout.split(b"\x00"):
-            p = p.decode("utf-8", errors="replace")
-            if p and not in_artifacts(p):
-                paths.add(p)
+        # --no-renames: a committed rename must expose BOTH sides (source delete + dest add) — R8-7
+        d = subprocess.run(["git", "-C", wt, "diff", "--name-status", "--no-renames", "-z", base],
+                           capture_output=True)
+        parts = d.stdout.split(b"\x00")
+        for tok in parts:
+            tok = tok.decode("utf-8", errors="replace")
+            if not tok or tok in ("A", "M", "D", "T"):
+                continue
+            if len(tok) <= 2 and tok.strip() in ("A", "M", "D", "T", "R", "C"):
+                continue
+            if not in_artifacts(tok):
+                paths.add(tok)
 
 paths = sorted(paths)
 print("CHANGE SURFACE:")

@@ -56,6 +56,20 @@ case "$R_LC" in
 esac
 H2_RUNS_ROOT="$R_TRIM"
 
+# ---- materials validation FIRST, before any run-id allocation (R8-9) ----
+MATERIALS_COMMIT="$(git -C "$H2_WT" rev-parse HEAD)" \
+  || { echo "PREPARE_FAIL reason=MATERIALS_COMMIT_UNREADABLE"; exit 2; }
+DIRTY="$(git -C "$H2_WT" status --porcelain -- . ':(exclude)experiments/v1.2/h2-lazy-disclosure/runs' ':(exclude).workbuddy')"
+if [ -n "$DIRTY" ]; then
+  echo "PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit; run records under runs/ are exempt)"
+  echo "$DIRTY" | head -5
+  exit 2
+fi
+git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:RULES.md" 2>/dev/null \
+  || { echo "PREPARE_FAIL reason=SOURCE_RULES_MISSING"; exit 2; }
+git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:AGENTS.md" 2>/dev/null \
+  || { echo "PREPARE_FAIL reason=SOURCE_AGENTS_MISSING"; exit 2; }
+
 if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN_ID" = "H2-DRYRUN-variant" ]; then
   TASK_ID="t01"
   BASE_SHA="c08f6f8b3bbe57853a56adf3c2847e806bbb60a3"
@@ -96,42 +110,41 @@ if [ -e "$WT" ]; then echo "PREPARE_FAIL reason=WORKTREE_EXISTS $WT"; exit 2; fi
 if [ -e "$EV" ]; then echo "PREPARE_FAIL reason=EVIDENCE_EXISTS $EV (silent rerun of a run id is forbidden; register a new run id)"; exit 2; fi
 mkdir -p "$EV" || { echo "PREPARE_FAIL reason=MKDIR_EVIDENCE_FAILED $EV"; exit 2; }
 
+# Transactional rollback for failures AFTER allocation (R8-9): remove the half-created
+# worktree and move the (partial) evidence aside, so the frozen run id can be re-prepared
+# after the operator fixes the problem without tripping the EXISTS guards forever.
+alloc_rollback() {
+  git -C "$H2_WT" worktree remove --force "$WT" >/dev/null 2>&1 || true
+  mv "$EV" "$EV.failed-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
+}
+fatal_alloc() {
+  echo "PREPARE_FAIL reason=$1 (allocation rolled back: worktree removed; failed evidence preserved beside $EV)"
+  alloc_rollback
+  exit 2
+}
+
 git -C "$H2_WT" worktree add "$WT" --detach "$BASE_SHA" >/dev/null 2>&1 \
-  || { echo "PREPARE_FAIL reason=WORKTREE_ADD_FAILED base=$BASE_SHA"; exit 2; }
-ACTUAL="$(git -C "$WT" rev-parse HEAD)" || { echo "PREPARE_FAIL reason=HEAD_UNREADABLE"; exit 2; }
+  || fatal_alloc "WORKTREE_ADD_FAILED base=$BASE_SHA"
+ACTUAL="$(git -C "$WT" rev-parse HEAD)" || fatal_alloc "HEAD_UNREADABLE"
 if [ "$ACTUAL" != "$BASE_SHA" ]; then
-  echo "PREPARE_FAIL reason=WRONG_BASE expected=$BASE_SHA actual=$ACTUAL"; exit 2
+  fatal_alloc "WRONG_BASE expected=$BASE_SHA actual=$ACTUAL"
 fi
-git -C "$WT" status --porcelain > "$EV/status-pre.txt" \
-  || { echo "PREPARE_FAIL reason=STATUS_SNAPSHOT_FAILED"; exit 2; }
-git -C "$WT" status --porcelain --ignored > "$EV/status-pre-ignored.txt" \
-  || { echo "PREPARE_FAIL reason=STATUS_SNAPSHOT_FAILED"; exit 2; }
+git -C "$WT" status --porcelain > "$EV/status-pre.txt" || fatal_alloc "STATUS_SNAPSHOT_FAILED"
+git -C "$WT" status --porcelain --ignored > "$EV/status-pre-ignored.txt" || fatal_alloc "STATUS_SNAPSHOT_FAILED"
 
 # ---- delivery v5 (symmetric slots; same-era placed texts; commit-sourced reads) ----
-MATERIALS_COMMIT="$(git -C "$H2_WT" rev-parse HEAD)" \
-  || { echo "PREPARE_FAIL reason=MATERIALS_COMMIT_UNREADABLE"; exit 2; }
-DIRTY="$(git -C "$H2_WT" status --porcelain -- . ':(exclude)experiments/v1.2/h2-lazy-disclosure/runs' ':(exclude).workbuddy')"
-if [ -n "$DIRTY" ]; then
-  echo "PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit; run records under runs/ are exempt)"
-  echo "$DIRTY" | head -5
-  exit 2
-fi
 SRC_RULES="$H2_WT/RULES.md"
 SRC_AGENTS="$H2_WT/AGENTS.md"
-git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:RULES.md" 2>/dev/null \
-  || { echo "PREPARE_FAIL reason=SOURCE_RULES_MISSING"; exit 2; }
-git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:AGENTS.md" 2>/dev/null \
-  || { echo "PREPARE_FAIL reason=SOURCE_AGENTS_MISSING"; exit 2; }
 
 for leftover in CODEBUDDY.md H2_RULES.md H2_AGENTS.md H2_WARM; do
   if [ -e "$WT/$leftover" ]; then
-    echo "PREPARE_FAIL reason=DELIVERY_SLOT_CONTAMINATED $leftover"; exit 2
+    fatal_alloc "DELIVERY_SLOT_CONTAMINATED $leftover"
   fi
 done
 
 # All delivery reads come from MATERIALS_COMMIT objects (R6-2: working-tree bytes never leak in).
 git -C "$H2_WT" show "$MATERIALS_COMMIT:RULES.md" > "$WT/H2_RULES.md" \
-  || { echo "PREPARE_FAIL reason=COPY_RULES_FAILED"; exit 2; }
+  || fatal_alloc "COPY_RULES_FAILED"
 RULES_HASH="$(shasum -a 256 "$WT/H2_RULES.md" | awk '{print $1}')"
 
 if [ "$ARM" = "variant" ]; then
@@ -139,13 +152,12 @@ if [ "$ARM" = "variant" ]; then
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["freeze"]["VARIANT_HASH"])
 PYEOF
-)" || { echo "PREPARE_FAIL reason=MANIFEST_UNREADABLE"; exit 2; }
+)" || fatal_alloc "MANIFEST_UNREADABLE"
   cp "$EXP_DIR/carriers/H2_LEAN_BOOTSTRAP.md" "$WT/CODEBUDDY.md" \
-    || { echo "PREPARE_FAIL reason=COPY_CARRIER_FAILED"; exit 2; }
+    || fatal_alloc "COPY_CARRIER_FAILED"
   GOT="$(shasum -a 256 "$WT/CODEBUDDY.md" | awk '{print $1}')"
   if [ "$GOT" != "$VAR_HASH" ]; then
-    rm -f "$WT/CODEBUDDY.md" "$WT/H2_RULES.md"
-    echo "PREPARE_FAIL reason=CARRIER_HASH_MISMATCH got=$GOT want=$VAR_HASH"; exit 2
+    fatal_alloc "CARRIER_HASH_MISMATCH got=$GOT want=$VAR_HASH"
   fi
   CARRIER_KIND="variant_lean_v1"
   CARRIER_HASH="$GOT"
@@ -153,7 +165,7 @@ else
   # control carrier = thin header + current AGENTS.md VERBATIM + thin footer, in the SAME
   # recognized slot as the variant carrier (so runtime guidance selection is symmetric).
   "$PY" - "$HERE/control-carrier-header.md" "$H2_WT" "$MATERIALS_COMMIT" "$WT/CODEBUDDY.md" <<'PYEOF' \
-    || { echo "PREPARE_FAIL reason=CONTROL_CARRIER_COMPOSE_FAILED"; exit 2; }
+    || fatal_alloc "CONTROL_CARRIER_COMPOSE_FAILED"
 import pathlib, subprocess, sys
 header = pathlib.Path(sys.argv[1]).read_bytes()
 agents = subprocess.run(["git", "-C", sys.argv[2], "show", f"{sys.argv[3]}:AGENTS.md"],
@@ -189,7 +201,7 @@ for dest in dests:
     lines.append(f"{dest} {hashlib.sha256(dst.read_bytes()).hexdigest()}")
 print(hashlib.sha256("\n".join(lines).encode()).hexdigest())
 PYEOF
-)" || { echo "PREPARE_FAIL reason=WARM_BUNDLE_FAILED $WARM_HASH"; exit 2; }
+)" || fatal_alloc "WARM_BUNDLE_FAILED $WARM_HASH"
 
 RUFF_WT_HASH=""
 if [ -f "$WT/ruff.toml" ]; then
@@ -200,7 +212,7 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "$PY" - "$EV/receipt.json" "$RUN_ID" "$TASK_ID" "$ARM" "$WT" "$BASE_SHA" "$ACTUAL" \
         "$CARRIER_KIND" "$CARRIER_HASH" "$RULES_HASH" "$WARM_HASH" \
         "$MATERIALS_COMMIT" "$MODEL_TIER" "$RUFF_WT_HASH" "$TS" <<'PYEOF' \
-  || { echo "PREPARE_FAIL reason=RECEIPT_WRITE_FAILED"; exit 2; }
+  || fatal_alloc "RECEIPT_WRITE_FAILED"
 import json, sys
 (p, rid, tid, arm, wt, base, head, ckind, ch, rh, wh, mc, mt, rth, ts) = sys.argv[1:16]
 json.dump({
@@ -215,7 +227,7 @@ json.dump({
 PYEOF
 
 "$PY" - "$REG" "$TASK_ID" > "$EV/task.txt" <<'PYEOF' \
-  || { echo "PREPARE_FAIL reason=TASK_WRITE_FAILED"; exit 2; }
+  || fatal_alloc "TASK_WRITE_FAILED"
 import json, sys
 reg = json.load(open(sys.argv[1], encoding="utf-8"))
 t = [x for x in reg["tasks"] if x["task_id"] == sys.argv[2]][0]
@@ -223,7 +235,7 @@ sys.stdout.write(t["task_text"] + "\n")
 PYEOF
 
 "$PY" - "$HERE" "$EV" "$WT" "$BASE_SHA" "$ARM" "$MODEL_TIER" <<'PYEOF' \
-  || { echo "PREPARE_FAIL reason=CONTRACT_WRITE_FAILED"; exit 2; }
+  || fatal_alloc "CONTRACT_WRITE_FAILED"
 import json, sys
 here, ev, wt, base, arm, model_tier = sys.argv[1:7]
 tpl = open(f"{here}/worker-brief-template.md", encoding="utf-8").read()

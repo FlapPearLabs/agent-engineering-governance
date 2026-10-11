@@ -60,8 +60,9 @@ while IFS=$'\t' read -r kind cwdflag cmd; do
   if [ "$cwdflag" = "1" ]; then run_cmd="cd $WT_Q && $run_cmd"; fi
   { printf '=== EXEC CMD ===\n%s\n=== OUTPUT ===\n' "$run_cmd"; } >> "$OUT"
   bash -c "$run_cmd" 2>&1 | tee -a "$OUT"
-  rc=${PIPESTATUS[0]}
-  tee_rc=${PIPESTATUS[1]}
+  RC_ARR=("${PIPESTATUS[@]}")   # snapshot the array FIRST (assigning rc=... would reset PIPESTATUS; R8-1)
+  rc="${RC_ARR[0]:-0}"
+  tee_rc="${RC_ARR[1]:-0}"
   printf '\n=== RC=%s (tee=%s) ===\n\n' "$rc" "$tee_rc" >> "$OUT"
   if [ "$rc" -ne 0 ] || [ "$tee_rc" -ne 0 ]; then FAIL=1; fi
 done < "$EV/acceptance-entries.txt"

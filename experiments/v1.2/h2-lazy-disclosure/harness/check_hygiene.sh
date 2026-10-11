@@ -6,7 +6,8 @@
 # Fails closed if the worktree is not a git worktree or any git inspection fails ([5]).
 set -uo pipefail
 PY="${PY:-python3}"
-WT="${1:?usage: check_hygiene.sh <WORKTREE>}"
+WT="${1:?usage: check_hygiene.sh <WORKTREE> [RUN_ID]}"
+RUN_ID="${2:-}"
 fail=0
 
 if ! git -C "$WT" rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -15,7 +16,22 @@ if ! git -C "$WT" rev-parse --show-toplevel >/dev/null 2>&1; then
   exit 2
 fi
 
-files="$( { git -C "$WT" diff --name-only HEAD && git -C "$WT" ls-files --others --exclude-standard; } | sort -u )" \
+# Committed changes must also count: when RUN_ID is given, enumerate from the receipt's base
+# (with --no-renames so both sides of a committed rename are visible) — R8-6/R8-7.
+BASE_FROM_RECEIPT=""
+if [ -n "$RUN_ID" ] && [ -n "${H2_RUNS_ROOT:-}" ]; then
+  RP="$H2_RUNS_ROOT/evidence/$RUN_ID/receipt.json"
+  if [ -f "$RP" ]; then
+    BASE_FROM_RECEIPT="$("$PY" - "$RP" <<'PYEOF'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["expected_base"])
+PYEOF
+)" || BASE_FROM_RECEIPT=""
+  fi
+fi
+
+files="$( { git -C "$WT" diff --name-only HEAD && git -C "$WT" ls-files --others --exclude-standard \
+  && { [ -n "$BASE_FROM_RECEIPT" ] && git -C "$WT" diff --name-only --no-renames "$BASE_FROM_RECEIPT" || true; }; } | sort -u )" \
   || { echo "FAIL git inspection failed (diff/ls-files)"; echo "HYGIENE = FAIL"; exit 2; }
 
 pyfiles="$(printf '%s\n' "$files" | grep -E '\.py$' | grep -v '__pycache__' || true)"

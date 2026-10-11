@@ -110,10 +110,14 @@ report("CARRIER_RECHECK(H2_WARM bundle)",
        not extra and not missing and got == want,
        f"recomputed={got} expected={want} files={len(found)}/{len(dests)} extra={extra} missing={missing}")
 
-# 4. run tree's own canonical texts untouched (base-relative)
+# 4. run tree's own canonical texts untouched (worktree status AND base-relative, incl. commits — R8-2)
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain", "--", "AGENTS.md", "RULES.md"],
                     capture_output=True, text=True).stdout.strip()
-report("CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched)", st == "", st)
+d = subprocess.run(["git", "-C", wt, "diff", "--name-status", "--no-renames",
+                    receipt["expected_base"], "--", "AGENTS.md", "RULES.md"],
+                   capture_output=True, text=True).stdout.strip()
+report("CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched)", st == "" and d == "",
+       "; ".join(x for x in (st, d) if x))
 
 # 5. telemetry present, non-empty, FULL-GRAMMAR valid (no synthesized or truncated evidence)
 tel = os.path.join(wt, ".h2-telemetry.log")

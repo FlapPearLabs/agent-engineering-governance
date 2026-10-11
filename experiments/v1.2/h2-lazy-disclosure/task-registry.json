@@ -157,7 +157,7 @@
       },
       "acceptance": {
         "mechanical": [
-          {"cmd": "{HARNESS}/check_hygiene.sh {WT}", "expect": "py_compile 全部 OK；PYCACHE_IN_CHANGESET = 0、PYCACHE_IN_STATUS = 0；HYGIENE = PASS"},
+          {"cmd": "{HARNESS}/check_hygiene.sh {WT} {RUN_ID}", "expect": "py_compile 全部 OK；PYCACHE_IN_CHANGESET = 0、PYCACHE_IN_STATUS = 0；HYGIENE = PASS"},
           {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（合同/schema/validator/hook 组件在 scripts|schemas|adapters 之下；不含 AGENTS.md/RULES.md 修改）"},
           {"cmd": "{HARNESS}/run_release_scan_on.sh {WT} {PY}", "expect": "VIOLATIONS=0；扫描根 = run worktree（checker 复制进候选后运行）；若出现机器路径/身份泄漏则 FAIL"},
           {"cmd": "JUDGMENT: schema JSON 可被 json.load 解析；validator 可执行并产出结构化结果（auditor 执行）"},

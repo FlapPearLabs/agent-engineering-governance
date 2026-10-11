@@ -4,7 +4,7 @@
   "note": "H2 freeze record (non-canonical). Freezes the experiment's variable: VARIANT/TASK_SET/SCORING/ROUTE_MANIFEST hashes, the carrier delivery + receipt rule, and the structured WHAT LEFT HOT / REMAINED HOT / MOVED TO WARM declaration. After the first valid run, none of the frozen files may change (VARIANT_CHANGED_AFTER_FREEZE must read NO; enforced by material tests + per-run receipts). This file deliberately does NOT contain its own commit SHA (self-referential values cannot converge); the freeze commit / merge SHA are recorded post-merge in results.md §8 and the TREE_LEDGER closure entry.",
   "freeze": {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "TASK_SET_HASH": "4304353df9298749fe9ba443478546a2689b4a3993ffa35e4f2ade7c2c77d024",
+    "TASK_SET_HASH": "dc007457217f767e50e20633db616c0d424c3dc416b0ff9f87b2b4ce7c5eefd4",
     "SCORING_HASH": "ebb91da4758755d9109e894898854369ac0ee9f96f446423046d8ed205cb9b50",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
