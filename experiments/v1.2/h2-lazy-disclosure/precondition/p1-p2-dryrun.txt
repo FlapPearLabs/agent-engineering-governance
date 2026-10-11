@@ -291,3 +291,34 @@ TRUE values:
     
 · dirty-probe 残留（MATERIALS_DIRTY 用例在 worktree 创建之后触发）：已 git worktree remove --force
   移除注册 + 清空目录（记录于本文件；#[12] 的 rc=2 MATERIALS_DIRTY 结论不受影响）。
+
+--- [13] R8 battery outputs ---
+  [experiment/v1.2-h2-lazy-disclosure da1cd4c] experiments(v1.2): H2 freeze — disposition of bot review round 8 (9 findings: 4xP1 + 5xP2)
+   9 files changed, 119 insertions(+), 57 deletions(-)
+  da1cd4c experiments(v1.2): H2 freeze — disposition of bot review round 8 (9 findings: 4xP1 + 5xP2)
+  --- [13] R8 battery ---
+  · acceptance fix demo (t01 dryrun; must run entries, no unbound crash; rc=1 on unfixed base):
+    acceptance rc=1 (expect 1)
+      RC markers: 3
+      === RC=1 (tee=0) ===
+      === RC=1 (tee=0) ===
+      === RC=1 (tee=0) ===
+  · collect committed-AGENTS negative (R8-2):
+    rc=3 (expect 3)
+      CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = FAIL M	AGENTS.md
+  ?? .h2-telemetry.log
+  ?? CODEBUDDY.md
+  ?? H2_RULES.md
+    restored rc=0
+  · prepare rollback demo (R8-9): broken carrier source -> COPY_CARRIER_FAILED + rollback
+  PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit; run records under runs/ are exempt)
+   D experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md
+    rc=2 (expect 2)
+    worktree after rollback: ls: <H2_RUNS_ROOT>/scratch/rb-root/worktrees/H2-DRYRUN-variant: No such file or directoryREMOVED-OK
+    failed evidence: ls: <H2_RUNS_ROOT>/scratch/rb-root/evidence/H2-DRYRUN-variant.failed-*: No such file or directory
+    retry with carrier restored:
+    retry rc=0 (expect 0)
+  [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":106,"threshold":50,"scope":"turn","targets":["<H2_RUNS_ROOT>/scratch/rb-root"],"targetCount":1}
+  · hygiene RUN_ID smoke (dryrun-variant; no py changes):
+      HYGIENE = PASS
+  · done
