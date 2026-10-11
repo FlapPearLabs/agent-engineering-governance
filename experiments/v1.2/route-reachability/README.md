@@ -61,6 +61,11 @@ it — that is beyond what a mechanical check can prove.
 - It does not require any carrier to declare anchors, and it does not modify any
   carrier, route, or reference.
 - It does not run in CI; it is not wired into any gate (experimental status).
+- Known boundary (recorded, **not** gate-built): a git **symlink** (mode 120000)
+  is a blob, so a symlink-to-directory would satisfy the `object_type == blob`
+  check. The repo's trees at all three frozen bases contain zero symlinks /
+  gitlinks, so the case is unreachable today; per R8 (no real failure instance ⇒
+  no new gate) it is recorded here rather than fixed speculatively.
 
 ## 4. THE ROUTE CONTRACT (minimal, no DSL)
 
@@ -290,11 +295,13 @@ python3 -m unittest discover -s experiments/v1.2/tests -v
 
 ## 12. POST-MERGE REVIEW FINDINGS (disposition)
 
-An external automated review (Codex bot) reviewed PR #50 at `87f6f78…` **after
-the merge** and filed five P2 findings against this mechanism. All five were
-verified as real — finding #1 reproduced directly (`cat-file -t <base>:references`
-→ `"tree"`, `cat-file -e` → rc 0), the rest confirmed by inspection — and are
-fixed in this revision:
+An external automated review (Codex bot) reviewed PR #50 at `87f6f78…` and filed
+five P2 findings against this mechanism — **~44 minutes before the merge** (bot
+review completed `2026-10-10T15:42:38Z`; PR #50 merged `2026-10-10T16:27:01Z`,
+both from the GitHub record). The findings were **available on the PR and were
+merged past**. All five were verified as real — finding #1 reproduced directly
+(`cat-file -t <base>:references` → `"tree"`, `cat-file -e` → rc 0), the rest
+confirmed by inspection — and are fixed in this revision:
 
 ```text
 #1  validate_routes.py — a destination naming a directory/gitlink made
@@ -329,8 +336,10 @@ artifacts' *claims* against the repository, while findings #1–#3 require runni
 the validator against a **hostile/broken manifest** — a different attack direction
 ("can the mechanism be fooled?" rather than "are the claims true?"). Lesson
 recorded: **the merge gate must read the external review comments on the exact
-SHA — an asynchronous bot review is not covered by internal review rounds**,
-which is why these findings briefly post-dated the merge.
+SHA before merging** — these findings were already on the PR and were merged
+past. (An early draft of this note described them as arriving *after* the merge;
+the GitHub timestamps above are the record, and the correction is part of this
+PR's own trail.)
 
 ---
 
