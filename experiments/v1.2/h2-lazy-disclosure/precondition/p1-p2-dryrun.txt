@@ -84,3 +84,42 @@ rc=2 (expect 2 NO_RUN_ROW)
   "ts": "2026-10-11T16:56:05Z",
   "prepare": "OK"
 }
+--- [9] post-delta-review addendum (728e9b0 review; fixes before merge) ---
+· volatile-root guard now normalizes (resolve symlinks + case-fold) before matching:
+PREPARE_RUN OK run_id=H2-DRYRUN-control arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = //tmp/worktrees/H2-DRYRUN-control
+  evidence = //tmp/evidence/H2-DRYRUN-control
+  carrier  = canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)
+  carrier_hash = agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41
+  rc=0 (//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (/tmp/)
+PREPARE_FAIL reason=VOLATILE_ROOT /private//tmp
+  rc=2 (/private//tmp)
+· collect_run.sh now exits 3 when carrier recheck FAILs (evidence still captured):
+  tamper rc=3
+CARRIER_RECHECK = FAIL (variant sha256=869ac73e7ac68aa6d285ea06b565e9212d4d4b8d5ece7ca8830472b417e1350b != 4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639) — RUN_INVALID candidate
+COLLECT_RUN INVALID (carrier recheck FAIL) run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 telemetry_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (evidence captured)
+  -> register this run as INVALID in run-registry.md (carrier not intact at collection)
+  restored rc=0
+CARRIER_RECHECK = OK (variant, sha256=4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639)
+
+--- [9b] correction to [9] (pre-merge): v1 guard FAILED OPEN on //tmp (rc=0; a worktree
+was created under //tmp and removed immediately: git worktree remove --force, rm -rf /private/tmp/evidence/H2-DRYRUN-control).
+ROOT CAUSE (measured): on this platform, cd //tmp && pwd -P returns //private/tmp (leading //
+preserved); v1 matched nothing and accepted. Guard v2: squash duplicate slashes + strip trailing
+slash + reject empty/root. Rerun (all must reject rc=2):
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp
+  rc=2 (//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (/tmp/)
+PREPARE_FAIL reason=VOLATILE_ROOT /private//tmp
+  rc=2 (/private//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /TMP
+  rc=2 (/TMP)
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp/
+  rc=2 (//tmp/)
+Valid root still accepted:
+PREPARE_FAIL reason=__NO_RUN_ROW__
+  rc=2 (valid root, expect 2 NO_RUN_ROW — guard not triggered)

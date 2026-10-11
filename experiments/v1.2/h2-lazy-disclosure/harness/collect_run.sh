@@ -61,6 +61,12 @@ cat "$RECHECK"
 
 DIFF_SHA="$(shasum -a 256 "$EV/diff.patch" | awk '{print $1}')"
 TEL_SHA="$(shasum -a 256 "$EV/telemetry.log" | awk '{print $1}')"
+if grep -q "FAIL" "$RECHECK"; then
+  echo "COLLECT_RUN INVALID (carrier recheck FAIL) run_id=$RUN_ID head=$HEAD base=$BASE"
+  echo "  diff_sha256=$DIFF_SHA telemetry_sha256=$TEL_SHA (evidence captured)"
+  echo "  -> register this run as INVALID in run-registry.md (carrier not intact at collection)"
+  exit 3
+fi
 echo "COLLECT_RUN OK run_id=$RUN_ID head=$HEAD base=$BASE worker_committed=$WORKER_COMMITTED"
 echo "  diff_sha256=$DIFF_SHA"
 echo "  telemetry_sha256=$TEL_SHA"

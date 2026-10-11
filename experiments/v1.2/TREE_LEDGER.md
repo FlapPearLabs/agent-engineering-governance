@@ -94,7 +94,8 @@ NOTE = H1 **没有**产出 promotion 建议，只产出了量化事实与三条 
 ```text
 STATUS = **ACTIVE**（freeze 阶段已产出；runs 待 freeze 进 main 后执行）
 ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
-                    H2 base + 6 个 task base 上 S3 载体行 11/11 VALID，N8 冻结面 22/22 ✅
+                    6 个不同 base（H2 base = n02 base）上 S3 载体行 11/11 VALID，
+                    N8 冻结面 22/22 ✅
                  ② N6.5 §0 的 P1–P7 逐项落实（证据 = h2-lazy-disclosure/precondition/）✅
 EXIT_CRITERIA = 每 shape 每臂 ≥2 有效 run 且两臂有机械可核终态；
                 结论词汇 ∈ {DISCLOSURE_SAFE, DISCLOSURE_HAS_COST, INSUFFICIENT_EVIDENCE}
@@ -464,7 +465,7 @@ TREE_NODES_TOTAL = 19
 CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
 CURRENT_NODE_STATUS = ACTIVE（freeze 已产出：协议/载体/任务集/评分/路由 manifest 冻结，
                      P1–P7 逐项落实；runs 待 freeze 进默认分支后执行）
-  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（H2 base + 6 task base 复验：S3 11/11 VALID；
+  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（6 个不同 base 复验：S3 11/11 VALID；
     N8 冻结面 22/22）；② N6.5 §0 的 P1–P7 = 已落实 ✅（precondition/ 证据）
 NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
   · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2

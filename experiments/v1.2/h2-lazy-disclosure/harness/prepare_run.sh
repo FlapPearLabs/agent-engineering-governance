@@ -18,8 +18,18 @@ H2_RUNS_ROOT="${H2_RUNS_ROOT:-}"
 if [ -z "$H2_RUNS_ROOT" ]; then
   echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2
 fi
-case "$H2_RUNS_ROOT" in
-  /tmp|/private/tmp|/tmp/*|/private/tmp/*|*'/tmp/'*) echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
+# Normalize before matching: resolve symlinks where possible, case-fold, squash duplicate
+# slashes, strip the trailing slash, and reject empty/"/" — so //tmp, /tmp/, /TMP,
+# /private//tmp etc. cannot bypass the guard. (v2: v1 failed open on `//tmp` — the failing
+# control and this correction are recorded in precondition/p1-p2-dryrun.txt [9]/[9b].)
+R_ROOT="$H2_RUNS_ROOT"
+NORM="$(cd "$R_ROOT" 2>/dev/null && pwd -P)" || NORM=""
+if [ -n "$NORM" ]; then R_ROOT="$NORM"; fi
+R_LC="$(printf '%s' "$R_ROOT" | tr 'A-Z' 'a-z' | tr -s '/')"
+R_LC="${R_LC%/}"
+case "$R_LC" in
+  ""|"/") echo "PREPARE_FAIL reason=VOLATILE_OR_ROOT $H2_RUNS_ROOT"; exit 2 ;;
+  /tmp|/private/tmp|/tmp/*|/private/tmp/*) echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
 esac
 
 if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN_ID" = "H2-DRYRUN-variant" ]; then
