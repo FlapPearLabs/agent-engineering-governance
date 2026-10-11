@@ -417,8 +417,9 @@ WORKTREE_COUNTS（快照 · N8 轮 · 2026-10-10；**计数含父 clone 主 work
      口径必须写明（是否含主 worktree）—— 上一版未写口径、且差一，N8 轮外部评审指出。
 
 UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
-  experiment/*                            = **0**（全部已合并；**不写具体条数** —— 每轮 +1，
-                                              取法：逐分支 `git rev-list --count origin/main..<branch>`）
+  experiment/*（**除本闭环记录分支自身**） = **0**（其余全部已合并；**不写具体条数** ——
+                                              每轮 +1）。本记录分支自身是自引用，不写数字：
+                                              取法 `git rev-list --count origin/main..HEAD`。
   audit/hermes-multibot-r062              = 2   ← **非 experiment 分支**，父 clone 的审计分支，
                                                   有意不合并（勿动）
   work/p1-orchestrator-closure-doctrine   = 1   ← 同上，非本实验线
