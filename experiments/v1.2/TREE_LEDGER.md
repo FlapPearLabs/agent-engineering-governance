@@ -11,7 +11,7 @@
 > `A new finding invalidates a current architecture assumption`。
 > 普通 P2/P3 走 issue / backlog，**不**扩展主树。
 
-*Last reconciled：2026-10-10（N8 轮），针对 `origin/main = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6`（N6 的 merge；post-merge CI success）。*
+*Last reconciled：2026-10-11（N8 闭环轮 + post-merge 修复），针对 `origin/main = ca9affe4c58cfaccc2db157e78144f75cac9c601`（PR #52 的 merge；其父链含 N8 全部内容与 5×P2 加固）。*
 
 ---
 
@@ -36,7 +36,7 @@ N0  V1.2 ROOT
 │   └── N6.5 H2 / H4 / H5 Protocol Freeze                         [CLOSED]
 │
 ├── N7  #45 Load-Bearing Gate Disposition                         [BACKLOG / E3]
-├── N8  #46 Route Reachability Disposition                        [ACTIVE]
+├── N8  #46 Route Reachability Disposition                        [CLOSED]
 │
 ├── N9  V1.2 Architecture Synthesis                               [PLANNED]
 ├── N10 V1.2 Candidate                                            [PLANNED]
@@ -47,7 +47,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = N8 — #46 Route Reachability Disposition
+CURRENT_NODE     = N2 — H2 Lazy Skill / Progressive Disclosure（READY_TO_START）
 ```
 
 ### A.1 节点详情
@@ -260,6 +260,10 @@ STATUS = **CLOSED / EXPERIMENTAL_MECHANISM_READY**
    已合并：PR #50，merge `8b6b15d7553b6d59a5c1355c6fc88192a9251c65`（parents=[6217cc0, 0a180fe]）；
    post-merge CI success（run 38067709307）。评审 exact-SHA：`87f6f78` → PASS（2×P3，已修）
    → `0a180fe` → PASS（delta = 那两处修复）。
+   **post-merge 外部评审补救**：Codex bot 在 `87f6f78` 留 5×P2 —— 完成于 **merge 前 ~44 分钟**
+   （`15:42:38Z` vs `16:27:01Z`），在 PR 上可见却被 merge 越过；已由 PR #52
+   （merge `ca9affe4c58cfaccc2db157e78144f75cac9c601`）处置并加固（T11 非文件目标 / 严格键 /
+   carrier 绑定）。教训：**合并门必须读 exact SHA 上的外部评审评论**。
 ENTRY_CRITERIA = N6.4 判定 #46 是 H2 与 B 组下沉的硬前置；需要一个 base-aware、
                  fail-closed 的最小机械机制，使 H2 能证明"路由在声明 base 上可达"
 EXIT_CRITERIA = validator + manifest + 控制矩阵（历史负控 / 正控 / 零路由 / anchor /
@@ -355,8 +359,8 @@ NEXT_NODE = （无 —— 树终点）
 
 ```text
 DEFAULT_BRANCH      = main
-DEFAULT_BRANCH_SHA  = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6
-                      （= PR #49 的 merge；post-merge CI success；
+DEFAULT_BRANCH_SHA  = ca9affe4c58cfaccc2db157e78144f75cac9c601
+                      （= PR #52 的 merge；其父链含 N8 全部内容 + 5×P2 加固；
                       `git ls-remote origin refs/heads/main` 与 `gh run list` 双复核一致）
 ```
 
@@ -394,6 +398,7 @@ experiment/v1.2-h1-hot-context-ablation     @ d9c809e   MERGED   （PR #47）
 experiment/v1.2-h1-closure-ledger           @ 639d199   MERGED   （PR #48）
 experiment/v1.2-mechanization-gap-analysis  @ 5c12d5a   MERGED   （PR #49）
 experiment/v1.2-route-reachability           @ 0a180fe   MERGED   （PR #50）
+experiment/v1.2-n8-postmerge-fixes          @ faacd04   MERGED   （PR #52）
 ```
 
 ### B.3 STALE / PRUNABLE
@@ -458,7 +463,7 @@ NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环
   · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  main     = 8b6b15d7553b6d59a5c1355c6fc88192a9251c65（N8 的 merge；默认分支现值，下一轮刷新）
+  main     = ca9affe4c58cfaccc2db157e78144f75cac9c601（PR #52 的 merge；含 N8 全部内容 + 加固）
   branches = 本闭环记录 PR 合并后即无进行中实验分支；N2 启动时新建
   head     = 取法 `git rev-parse origin/main` —— 不自写 SHA
 ```
