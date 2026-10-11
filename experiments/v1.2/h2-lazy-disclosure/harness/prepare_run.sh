@@ -18,19 +18,30 @@ H2_RUNS_ROOT="${H2_RUNS_ROOT:-}"
 if [ -z "$H2_RUNS_ROOT" ]; then
   echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2
 fi
-# Normalize before matching: resolve symlinks where possible, case-fold, squash duplicate
-# slashes, strip the trailing slash, and reject empty/"/" — so //tmp, /tmp/, /TMP,
-# /private//tmp etc. cannot bypass the guard. (v2: v1 failed open on `//tmp` — the failing
-# control and this correction are recorded in precondition/p1-p2-dryrun.txt [9]/[9b].)
-R_ROOT="$H2_RUNS_ROOT"
-NORM="$(cd "$R_ROOT" 2>/dev/null && pwd -P)" || NORM=""
-if [ -n "$NORM" ]; then R_ROOT="$NORM"; fi
-R_LC="$(printf '%s' "$R_ROOT" | tr 'A-Z' 'a-z' | tr -s '/')"
+# Normalize before matching: trim whitespace, resolve symlinks where possible, case-fold,
+# squash duplicate slashes, strip the trailing slash, and reject empty/"/" or relative roots —
+# so //tmp, /tmp/, /TMP, /private//tmp, ' /tmp', /var/tmp and $TMPDIR shapes cannot bypass the
+# guard. (v2 fixed the //tmp fail-open; v3 adds OS temp roots, whitespace trim and the
+# absolute-path requirement, all from delta-review #2's matrix; controls recorded in
+# precondition/p1-p2-dryrun.txt [9]/[9b]/[9c].)
+R_TRIM="$(printf '%s' "$H2_RUNS_ROOT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+case "$R_TRIM" in
+  "") echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2 ;;
+  /*) ;;
+  *) echo "PREPARE_FAIL reason=ROOT_NOT_ABSOLUTE $H2_RUNS_ROOT"; exit 2 ;;
+esac
+NORM="$(cd "$R_TRIM" 2>/dev/null && pwd -P)" || NORM=""
+R_MATCH="${NORM:-$R_TRIM}"
+R_LC="$(printf '%s' "$R_MATCH" | tr 'A-Z' 'a-z' | tr -s '/')"
 R_LC="${R_LC%/}"
 case "$R_LC" in
   ""|"/") echo "PREPARE_FAIL reason=VOLATILE_OR_ROOT $H2_RUNS_ROOT"; exit 2 ;;
-  /tmp|/private/tmp|/tmp/*|/private/tmp/*) echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
+  /tmp|/private/tmp|/tmp/*|/private/tmp/*|\
+  /var/tmp|/private/var/tmp|/var/tmp/*|/private/var/tmp/*|\
+  /var/folders|/private/var/folders|/var/folders/*|/private/var/folders/*)
+    echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
 esac
+H2_RUNS_ROOT="$R_TRIM"
 
 if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN_ID" = "H2-DRYRUN-variant" ]; then
   # P1/P2 self-test path: exercises the SAME worktree/carrier mechanics on task t01.

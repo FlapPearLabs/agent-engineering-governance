@@ -123,3 +123,24 @@ PREPARE_FAIL reason=VOLATILE_ROOT //tmp/
 Valid root still accepted:
 PREPARE_FAIL reason=__NO_RUN_ROW__
   rc=2 (valid root, expect 2 NO_RUN_ROW — guard not triggered)
+
+--- [9c] guard v3 (delta-review #2 P3s): OS temp roots + whitespace trim + absolute requirement ---
+PREPARE_FAIL reason=VOLATILE_ROOT /var/tmp
+  rc=2 (root='/var/tmp')
+PREPARE_FAIL reason=VOLATILE_ROOT <$TMPDIR>   [machine-session path abbreviated for R2]
+  rc=2 (root='<$TMPDIR>')
+PREPARE_FAIL reason=VOLATILE_ROOT  /tmp
+  rc=2 (root=' /tmp')
+PREPARE_FAIL reason=ROOT_NOT_ABSOLUTE h2-runs
+  rc=2 (root='h2-runs')
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp
+  rc=2 (root='//tmp')
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (root='/tmp/')
+Valid root still passes the guard:
+PREPARE_FAIL reason=__NO_RUN_ROW__
+  rc=2 (expect 2 NO_RUN_ROW)
+No residue under /tmp, /var/tmp, $TMPDIR or the repo:
+  none
+ M experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh
+ M experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt
