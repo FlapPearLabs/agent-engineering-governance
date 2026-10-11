@@ -151,9 +151,9 @@ DISCLOSURE_SAFE 成立需要**同时**满足：
       （PASS < PARTIAL < FAIL < BLOCKED）排序后**逐位比较**，VARIANT 不得更差。
       （例：control {PASS, FAIL} vs variant {FAIL, FAIL} ⇒ S4 不成立 —— 比较的是结果
       计数分布，不是"是否出现新失败类别"。）
-  S5  WARM/Skill 机制实际工作：M2/M3 有非零真实加载证据 + **VARIANT 臂自身**的 M6 ≥ 2/3
-      适用 run 为 HIT（S5 检验的是变体的懒加载机制；两臂聚合的阈值会被对照臂命中掩盖
-      —— bot review「Require the skill hit threshold in the variant arm」）。
+  S5  WARM/Skill 机制实际工作：**来自 variant 臂有效 run 的** M2/M3 有非零真实加载证据 +
+      **VARIANT 臂自身**的 M6 ≥ 2/3 适用 run 为 HIT（S5 检验的是变体的懒加载机制；对照臂的
+      读取不能替代变体的路由行为，两臂聚合的阈值同样会被掩盖 —— bot review R6-11）。
 
 DISCLOSURE_HAS_COST 成立需要：至少 1 条 §3 定义的 MISSED_GUIDANCE。
 INSUFFICIENT_EVIDENCE：valid run 覆盖不足 —— 任一 shape 实际 n/arm < 2，**或任一任务的

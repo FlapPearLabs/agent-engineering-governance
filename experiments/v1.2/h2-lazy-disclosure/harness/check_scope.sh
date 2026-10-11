@@ -10,29 +10,65 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXP_DIR="$(cd "$HERE/.." && pwd)"
 PY="${PY:-python3}"
-WT="${1:?usage: check_scope.sh <WORKTREE> <TASK_ID>}"
-TASK_ID="${2:?usage: check_scope.sh <WORKTREE> <TASK_ID>}"
-"$PY" - "$EXP_DIR/task-registry.json" "$WT" "$TASK_ID" <<'PYEOF'
-import json, subprocess, sys
+WT="${1:?usage: check_scope.sh <WORKTREE> <TASK_ID> [RUN_ID]}"
+TASK_ID="${2:?usage: check_scope.sh <WORKTREE> <TASK_ID> [RUN_ID]}"
+SCOPE_RUN_ID="${3:-}"
+export SCOPE_RUN_ID
+"$PY" - "$EXP_DIR/task-registry.json" "$WT" "$TASK_ID" "$H2_RUNS_ROOT" <<'PYEOF'
+import json, os, subprocess, sys
 reg = json.load(open(sys.argv[1], encoding="utf-8"))
-wt, tid = sys.argv[2], sys.argv[3]
+wt, tid, runs_root = sys.argv[2], sys.argv[3], sys.argv[4]
 task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
 scope = task.get("scope") or {}
 ARTIFACTS = {"CODEBUDDY.md", ".h2-telemetry.log", "H2_RULES.md", "H2_AGENTS.md"}
+PREFIX_ARTIFACTS = ("H2_WARM/", ".h2_scan_tools/")
 
-st = subprocess.run(["git", "-C", wt, "status", "--porcelain=v1", "--untracked-files=all"],
-                    capture_output=True, text=True)
+def in_artifacts(p):
+    return p in ARTIFACTS or p.startswith(PREFIX_ARTIFACTS)
+
+def parse_status_z(stdout_bytes):
+    """Parse `git status --porcelain=v1 -z` (NUL-separated; quote-safe)."""
+    parts = stdout_bytes.split(b"\x00")
+    paths = []
+    i = 0
+    while i < len(parts):
+        entry = parts[i]
+        if not entry:
+            i += 1
+            continue
+        text = entry.decode("utf-8", errors="replace")
+        xy, path = text[:2], text[3:]
+        if xy[0] in "RC":  # rename/copy: next token is the ORIGINAL path
+            i += 2
+        else:
+            i += 1
+        paths.append(path)
+    return paths
+
+st = subprocess.run(["git", "-C", wt, "status", "--porcelain=v1", "--untracked-files=all", "-z"],
+                    capture_output=True)
 if st.returncode != 0:
     print("SCOPE_FAIL reason=GIT_INSPECTION_FAILED"); sys.exit(2)
-paths = []
-for line in st.stdout.splitlines():
-    p = line[3:]
-    if " -> " in p:
-        p = p.split(" -> ")[-1]
-    if p in ARTIFACTS or p.startswith("H2_WARM/"):
-        continue
-    paths.append(p)
-paths = sorted(set(paths))
+paths = set(p for p in parse_status_z(st.stdout) if not in_artifacts(p))
+
+# Committed changes (HEAD != base) must also count: read base from the run receipt when present.
+h2r = runs_root
+base = None
+rid = os.environ.get("SCOPE_RUN_ID") or ""
+if rid:
+    receipt_path = os.path.join(h2r, "evidence", rid, "receipt.json")
+    if os.path.isfile(receipt_path):
+        base = json.load(open(receipt_path, encoding="utf-8"))["expected_base"]
+if base:
+    head = subprocess.run(["git", "-C", wt, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if head != base:
+        d = subprocess.run(["git", "-C", wt, "diff", "--name-only", "-z", base], capture_output=True)
+        for p in d.stdout.split(b"\x00"):
+            p = p.decode("utf-8", errors="replace")
+            if p and not in_artifacts(p):
+                paths.add(p)
+
+paths = sorted(paths)
 print("CHANGE SURFACE:")
 for p in paths:
     print("  " + p)

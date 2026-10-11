@@ -61,8 +61,9 @@ while IFS=$'\t' read -r kind cwdflag cmd; do
   { printf '=== EXEC CMD ===\n%s\n=== OUTPUT ===\n' "$run_cmd"; } >> "$OUT"
   bash -c "$run_cmd" 2>&1 | tee -a "$OUT"
   rc=${PIPESTATUS[0]}
-  printf '\n=== RC=%s ===\n\n' "$rc" >> "$OUT"
-  if [ "$rc" -ne 0 ]; then FAIL=1; fi
+  tee_rc=${PIPESTATUS[1]}
+  printf '\n=== RC=%s (tee=%s) ===\n\n' "$rc" "$tee_rc" >> "$OUT"
+  if [ "$rc" -ne 0 ] || [ "$tee_rc" -ne 0 ]; then FAIL=1; fi
 done < "$EV/acceptance-entries.txt"
 
 if [ "$FAIL" -ne 0 ]; then

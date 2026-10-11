@@ -69,7 +69,7 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{PY} -m unittest discover -s scripts/tests -p 'test_p1_t16_gate_cli_entrypoint.py' -v (cwd={WT})", "expect": "OK（14 tests 全部通过；在 base 上该门为 RED——见 precondition/p7-t01-base-protocol.txt）"},
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（禁止前缀 deployment/、experiments/、.github/、requirements*；必须含 scripts/tests/ 下变更；含未跟踪文件）"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（禁止前缀 deployment/、experiments/、.github/、requirements*；必须含 scripts/tests/ 下变更；含未跟踪文件）"},
           {"cmd": "{PY} -m unittest discover -s scripts/tests (cwd={WT})", "expect": "base 基线 = 553 tests / 1 failure（见 precondition/p7-t01-fullsuite-base.txt）；修复后期望 553 tests / OK，不得比基线更差"}
         ],
         "review_focus": [
@@ -114,7 +114,7 @@
           {"cmd": "{PY} -m ruff check . (cwd={WT})", "expect": "All checks passed（若选中规则含 F841 则须真正拦截；见正控）"},
           {"cmd": "存在 ruff.toml；select 非空且为 correctness 类；target-version 显式", "expect": "人工/审计核对（config 内容）"},
           {"cmd": "{HARNESS}/check_t02_gate_teeth.sh {WT} {RUN_ID} {PY}", "expect": "T02_POSITIVE_CONTROL = PASS（注入的 F841 被 run 自带的 gate 配置抓住；否则 GATE_NOT_LOAD_BEARING）"},
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（不含 RULES.md / AGENTS.md / deployment/** / experiments/**；必须含 ruff.toml；含未跟踪文件）"}
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（不含 RULES.md / AGENTS.md / deployment/** / experiments/**；必须含 ruff.toml；含未跟踪文件）"}
         ],
         "review_focus": [
           "是否先测 legacy 基线并记录（证据形态）",
@@ -158,7 +158,7 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{HARNESS}/check_hygiene.sh {WT}", "expect": "py_compile 全部 OK；PYCACHE_IN_CHANGESET = 0、PYCACHE_IN_STATUS = 0；HYGIENE = PASS"},
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（合同/schema/validator/hook 组件在 scripts|schemas|adapters 之下；不含 AGENTS.md/RULES.md 修改）"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（合同/schema/validator/hook 组件在 scripts|schemas|adapters 之下；不含 AGENTS.md/RULES.md 修改）"},
           {"cmd": "{HARNESS}/run_release_scan_on.sh {WT} {PY}", "expect": "VIOLATIONS=0；扫描根 = run worktree（checker 复制进候选后运行）；若出现机器路径/身份泄漏则 FAIL"},
           {"cmd": "JUDGMENT: schema JSON 可被 json.load 解析；validator 可执行并产出结构化结果（auditor 执行）"},
           {"cmd": "JUDGMENT: 合同 → schema → hook 的落地顺序可从 artifact 结构核验；hook 仅写信号/不写语义决策"}
@@ -205,7 +205,7 @@
         "mechanical": [
           {"cmd": "JUDGMENT: 新增 schema 文件可被 json.load 解析且含版本字段（auditor 执行）"},
           {"cmd": "JUDGMENT: CLI（scripts/review_evidence.py 或实际路径）可运行 --help / validate；只暴露 collect/validate 类动作（auditor 执行）"},
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（reference + schema + CLI + 模板在 scripts|references|schemas|templates 之下；不含 AGENTS.md/RULES.md 修改）"}
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（reference + schema + CLI + 模板在 scripts|references|schemas|templates 之下；不含 AGENTS.md/RULES.md 修改）"}
         ],
         "review_focus": [
           "报告的 authority_ref 是否可核（任务合同即授权来源）",
@@ -249,7 +249,7 @@
       },
       "acceptance": {
         "mechanical": [
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（纯评审任务：被审对象零改动，max_files=0）"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（纯评审任务：被审对象零改动，max_files=0）"},
           {"cmd": "findings 报告存在，每条 finding 含：断言 + 最小复现/对照 + 受影响文件", "expect": "结构完整"},
           {"cmd": "抽 1–2 条 finding 的复现命令在 scratch 副本中重放", "expect": "与报告一致（auditor 执行）"}
         ],
@@ -296,7 +296,7 @@
       },
       "acceptance": {
         "mechanical": [
-          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（诊断任务须完整还原：净改动为 0，max_files=0）"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}", "expect": "SCOPE = PASS（诊断任务须完整还原：净改动为 0，max_files=0）"},
           {"cmd": "JUDGMENT: auditor 在 scratch 副本重放 worker 报告的最小复现命令（A/B 两状态至少各一条）"},
           {"cmd": "{HARNESS}/check_restore.sh {RUN_ID}", "expect": "STATUS_RESTORED = YES；RUFF_TOML_RESTORED = YES（字节级还原、无残留）"},
           {"cmd": "JUDGMENT: 报告含：复现步骤 / A-D 观察 / 根因 / ≥2 修复方向候选"}

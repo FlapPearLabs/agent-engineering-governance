@@ -28,7 +28,7 @@ if [ "$HEAD" != "$BASE" ]; then WORKER_COMMITTED=YES; fi
 
 # --- capture (rc-checked; committed changes captured vs base; placed artifacts excluded) ---
 git -C "$WT" add -A || fail CAPTURE_ADD_FAILED
-git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/dev/null || true
+git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM .h2_scan_tools 2>/dev/null || true
 if [ "$HEAD" != "$BASE" ]; then
   git -C "$WT" diff --binary "$BASE" -- . ':(exclude)CODEBUDDY.md' ':(exclude)H2_RULES.md' \
     ':(exclude)H2_WARM' > "$EV/diff.patch" || fail CAPTURE_DIFF_FAILED
@@ -86,38 +86,52 @@ if os.path.exists(p):
 else:
     report("CARRIER_RECHECK(H2_RULES.md)", False, "missing at collection")
 
-# 3. WARM bundle (both arms): recompute over H2_WARM/<dest> for the same dest set
+# 3. WARM bundle (both arms): exact recursive file set + digest over the expected destinations
 routes = json.load(open(routes_manifest, encoding="utf-8"))["routes"]
 dests = sorted({r["destination"] for r in routes if r.get("surface") == "S3"})
+expected = set(dests)
+found = set()
+bundle_root = os.path.join(wt, "H2_WARM")
+for root_dir, _dirs, files in os.walk(bundle_root):
+    for fname in files:
+        found.add(os.path.relpath(os.path.join(root_dir, fname), bundle_root))
+extra = sorted(found - expected)
+missing = sorted(expected - found)
 lines = []
-ok = True
 for dest in dests:
     fp = os.path.join(wt, "H2_WARM", dest)
     if not os.path.isfile(fp):
-        ok = False
         lines.append(f"{dest} MISSING")
     else:
         lines.append(f"{dest} {sha(fp)}")
 want = receipt["warm_bundle_sha256"]
 got = hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
 report("CARRIER_RECHECK(H2_WARM bundle)",
-       ok and got == want,
-       f"recomputed={got} expected={want} files={len(lines)}/{len(dests)}")
+       not extra and not missing and got == want,
+       f"recomputed={got} expected={want} files={len(found)}/{len(dests)} extra={extra} missing={missing}")
 
 # 4. run tree's own canonical texts untouched (base-relative)
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain", "--", "AGENTS.md", "RULES.md"],
                     capture_output=True, text=True).stdout.strip()
 report("CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched)", st == "", st)
 
-# 5. telemetry present, non-empty, well-formed (no synthesized evidence)
+# 5. telemetry present, non-empty, FULL-GRAMMAR valid (no synthesized or truncated evidence)
 tel = os.path.join(wt, ".h2-telemetry.log")
 if not os.path.isfile(tel):
     report("TELEMETRY_RECHECK", False, "missing .h2-telemetry.log (must not be synthesized)")
 else:
     body = open(tel, encoding="utf-8", errors="replace").read()
-    good_lines = [ln for ln in body.splitlines() if re.match(r"^(READ|ROUTE|SKILL)\b", ln)]
-    report("TELEMETRY_RECHECK", len(good_lines) >= 1,
-           f"lines={len(body.splitlines())} well-formed={len(good_lines)}")
+    grammar = re.compile(
+        r"^(READ\s+(FULL|PARTIAL|GREP)\s+\S+"
+        r"|ROUTE\s+\S+\s+\S+\s+(LOADED|MISSING|SKIPPED)"
+        r"|SKILL\s+\S+\s+(LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE))$"
+    )
+    nonempty = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    bad = [ln for ln in nonempty if not grammar.match(ln)]
+    reads = [ln for ln in nonempty if ln.startswith("READ") and grammar.match(ln)]
+    report("TELEMETRY_RECHECK",
+           bool(reads) and not bad,
+           f"lines={len(nonempty)} valid_reads={len(reads)} malformed={len(bad)}")
 
 sys.exit(fail)
 PYEOF

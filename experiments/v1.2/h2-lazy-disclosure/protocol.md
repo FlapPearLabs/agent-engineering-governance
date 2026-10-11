@@ -189,6 +189,10 @@ VARIANT_CHANGED_AFTER_FREEZE = NO 的判定 = ①仓库内冻结文件 hash 未�
 测试文件中另有**同值字面量**互为锚定）；②全部 valid run 的 receipt 记录与 freeze 一致
 （control: carrier_hash / H2_RULES / H2_WARM 与 receipt 一致；variant: carrier sha256 == VARIANT_HASH）。
 若必须修 variant：ROUND_INVALID，已跑 run 全部作废（保留登记），改协议后开新 round。
+补充绑定（bot review R6-2/R6-3/R6-6 处置）：全部 20 个 run 的 `materials_commit` 与
+`model_tier` 必须一致（时间混杂控制；delivery 源一律读自该 commit 的 git 对象，不读工作树，
+且 prepare 断言材料工作树干净）；worker/auditor 的 episode 身份（agent id）记录于
+`runs/<RUN_ID>/run.json`，闭环时机械校验全局唯一、跨臂不重用。
 ```
 
 **锚定语义（bot review「Anchor freeze hashes outside the mutable freeze set」的处置）**：

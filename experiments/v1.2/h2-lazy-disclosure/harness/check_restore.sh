@@ -26,7 +26,7 @@ def norm(lines):
     for line in lines:
         s = line.rstrip("\n")
         body = s[3:] if len(s) > 3 else s  # strip porcelain XY+space (incl. '!!' ignored)
-        if body in ROOT_ARTIFACTS or body.startswith("H2_WARM/"):
+        if body in ROOT_ARTIFACTS or body.startswith(("H2_WARM/", ".h2_scan_tools/")):
             continue
         out.append(s)
     return out
@@ -42,15 +42,21 @@ if not restored:
     failed = True
 
 blob = run("git", "-C", wt, "rev-parse", f"{base}:ruff.toml")
-if blob.returncode == 0:
+recorded = receipt.get("ruff_toml_worktree_sha256") or ""
+if blob.returncode == 0 or recorded:
     p = os.path.join(wt, "ruff.toml")
     if os.path.exists(p):
         h = hashlib.sha256(open(p, "rb").read()).hexdigest()
-        show = run("git", "-C", wt, "show", f"{base}:ruff.toml")
-        base_h = hashlib.sha256(show.stdout.encode("utf-8")).hexdigest()
         print("RUFF_TOML_WORKTREE_SHA256 =", h)
-        print("RUFF_TOML_BASE_SHA256     =", base_h)
-        ok = h == base_h
+        if recorded:
+            # Prepared-worktree byte hash (R6-12): robust to autocrlf / smudge filters.
+            print("RUFF_TOML_PREPARED_SHA256 =", recorded)
+            ok = h == recorded
+        else:
+            show = run("git", "-C", wt, "show", f"{base}:ruff.toml")
+            base_h = hashlib.sha256(show.stdout.encode("utf-8")).hexdigest()
+            print("RUFF_TOML_BASE_SHA256     =", base_h)
+            ok = h == base_h
         print("RUFF_TOML_RESTORED =", "YES" if ok else "NO")
         if not ok:
             failed = True

@@ -92,8 +92,8 @@ def _run_validator(base: str, manifest: Path):
 # (recorded in results.md section 8).
 EXPECTED_FREEZE_LITERALS = {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "TASK_SET_HASH": "6a288eb9ca7527064a19b31f9da6f9978403403561ced699ae164b09ef145145",
-    "SCORING_HASH": "43d9f38e17959c9e4cd45b03b4dcd77d185abe510a834a7fc6e4f20568a24719",
+    "TASK_SET_HASH": "4304353df9298749fe9ba443478546a2689b4a3993ffa35e4f2ade7c2c77d024",
+    "SCORING_HASH": "ebb91da4758755d9109e894898854369ac0ee9f96f446423046d8ed205cb9b50",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
 }
 
@@ -115,6 +115,18 @@ class FreezeHashes(unittest.TestCase):
         freeze = json.loads(_read(MANIFEST))["freeze"]
         for key, want in EXPECTED_FREEZE_LITERALS.items():
             self.assertEqual(freeze[key], want, f"{key}: manifest vs test-literal mismatch")
+
+    def test_manifest_hot_metrics_match_live_inventory(self):
+        proc = subprocess.run(
+            [sys.executable, str(H2 / "h2_hot_inventory.py"), "--json"],
+            capture_output=True, text=True, cwd=str(ROOT),
+        )
+        self.assertEqual(0, proc.returncode, proc.stderr[-800:])
+        inv = json.loads(proc.stdout)
+        m = json.loads(_read(MANIFEST))["hot_metrics"]["observed_at_freeze_at_H2_base"]
+        self.assertEqual(m["CONTROL_HOT_JS_CHARS"], inv["control"]["hot_js_chars"])
+        self.assertEqual(m["VARIANT_HOT_JS_CHARS"], inv["variant"]["hot_js_chars"])
+        self.assertEqual(m["HOT_REDUCTION_PERCENT"], inv["reduction"]["hot_reduction_percent"])
 
 
 class RouteManifestIntegrity(unittest.TestCase):

@@ -107,13 +107,18 @@ git -C "$WT" status --porcelain > "$EV/status-pre.txt" \
 git -C "$WT" status --porcelain --ignored > "$EV/status-pre-ignored.txt" \
   || { echo "PREPARE_FAIL reason=STATUS_SNAPSHOT_FAILED"; exit 2; }
 
-# ---- delivery v5 (symmetric slots; same-era placed texts) ----
+# ---- delivery v5 (symmetric slots; same-era placed texts; commit-sourced reads) ----
 MATERIALS_COMMIT="$(git -C "$H2_WT" rev-parse HEAD)" \
   || { echo "PREPARE_FAIL reason=MATERIALS_COMMIT_UNREADABLE"; exit 2; }
+if [ -n "$(git -C "$H2_WT" status --porcelain)" ]; then
+  echo "PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit)"; exit 2
+fi
 SRC_RULES="$H2_WT/RULES.md"
 SRC_AGENTS="$H2_WT/AGENTS.md"
-[ -f "$SRC_RULES" ] || { echo "PREPARE_FAIL reason=SOURCE_RULES_MISSING"; exit 2; }
-[ -f "$SRC_AGENTS" ] || { echo "PREPARE_FAIL reason=SOURCE_AGENTS_MISSING"; exit 2; }
+git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:RULES.md" 2>/dev/null \
+  || { echo "PREPARE_FAIL reason=SOURCE_RULES_MISSING"; exit 2; }
+git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:AGENTS.md" 2>/dev/null \
+  || { echo "PREPARE_FAIL reason=SOURCE_AGENTS_MISSING"; exit 2; }
 
 for leftover in CODEBUDDY.md H2_RULES.md H2_AGENTS.md H2_WARM; do
   if [ -e "$WT/$leftover" ]; then
@@ -121,7 +126,9 @@ for leftover in CODEBUDDY.md H2_RULES.md H2_AGENTS.md H2_WARM; do
   fi
 done
 
-cp "$SRC_RULES" "$WT/H2_RULES.md" || { echo "PREPARE_FAIL reason=COPY_RULES_FAILED"; exit 2; }
+# All delivery reads come from MATERIALS_COMMIT objects (R6-2: working-tree bytes never leak in).
+git -C "$H2_WT" show "$MATERIALS_COMMIT:RULES.md" > "$WT/H2_RULES.md" \
+  || { echo "PREPARE_FAIL reason=COPY_RULES_FAILED"; exit 2; }
 RULES_HASH="$(shasum -a 256 "$WT/H2_RULES.md" | awk '{print $1}')"
 
 if [ "$ARM" = "variant" ]; then
@@ -142,12 +149,13 @@ PYEOF
 else
   # control carrier = thin header + current AGENTS.md VERBATIM + thin footer, in the SAME
   # recognized slot as the variant carrier (so runtime guidance selection is symmetric).
-  "$PY" - "$HERE/control-carrier-header.md" "$SRC_AGENTS" "$WT/CODEBUDDY.md" <<'PYEOF' \
+  "$PY" - "$HERE/control-carrier-header.md" "$H2_WT" "$MATERIALS_COMMIT" "$WT/CODEBUDDY.md" <<'PYEOF' \
     || { echo "PREPARE_FAIL reason=CONTROL_CARRIER_COMPOSE_FAILED"; exit 2; }
-import pathlib, sys
+import pathlib, subprocess, sys
 header = pathlib.Path(sys.argv[1]).read_bytes()
-agents = pathlib.Path(sys.argv[2]).read_bytes()
-out_path = pathlib.Path(sys.argv[3])
+agents = subprocess.run(["git", "-C", sys.argv[2], "show", f"{sys.argv[3]}:AGENTS.md"],
+                        capture_output=True, check=True).stdout
+out_path = pathlib.Path(sys.argv[4])
 footer = ("\n---\n（以上为当前时代 AGENTS.md 的逐字全文，由 harness 投放；配套 B 层不变量副本 = "
           "H2_RULES.md；治理性 references 读取一律使用 H2_WARM/ 副本。本臂 = 全文投递。）\n").encode()
 out = header + agents + footer
@@ -158,40 +166,47 @@ PYEOF
   CARRIER_HASH="$(shasum -a 256 "$WT/CODEBUDDY.md" | awk '{print $1}')"
 fi
 
-# ---- WARM bundle: current-era copies of the routed WARM owners (source list = routes-h2 S3) ----
-WARM_HASH="$("$PY" - "$EXP_DIR/routes-h2.json" "$H2_WT" "$WT" <<'PYEOF'
-import hashlib, json, pathlib, shutil, sys
+# ---- WARM bundle: current-era copies of the routed WARM owners (source list = routes-h2 S3;
+#      bytes read from MATERIALS_COMMIT objects, never the working tree — R6-2) ----
+WARM_HASH="$("$PY" - "$EXP_DIR/routes-h2.json" "$H2_WT" "$MATERIALS_COMMIT" "$WT" <<'PYEOF'
+import hashlib, json, pathlib, subprocess, sys
 routes = json.load(open(sys.argv[1], encoding="utf-8"))["routes"]
-src_root = pathlib.Path(sys.argv[2]); wt = pathlib.Path(sys.argv[3])
+wt_repo, commit, wt = sys.argv[2], sys.argv[3], pathlib.Path(sys.argv[4])
 dests = sorted({r["destination"] for r in routes if r.get("surface") == "S3"})
 if not dests:
     print("EMPTY_BUNDLE"); raise SystemExit(3)
 lines = []
 for dest in dests:
-    src = src_root / dest
-    if not src.is_file():
+    proc = subprocess.run(["git", "-C", wt_repo, "show", f"{commit}:{dest}"], capture_output=True)
+    if proc.returncode != 0:
         print(f"MISSING_SOURCE {dest}"); raise SystemExit(4)
     dst = wt / "H2_WARM" / dest
     dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst)
+    dst.write_bytes(proc.stdout)
     lines.append(f"{dest} {hashlib.sha256(dst.read_bytes()).hexdigest()}")
 print(hashlib.sha256("\n".join(lines).encode()).hexdigest())
 PYEOF
 )" || { echo "PREPARE_FAIL reason=WARM_BUNDLE_FAILED $WARM_HASH"; exit 2; }
 
+RUFF_WT_HASH=""
+if [ -f "$WT/ruff.toml" ]; then
+  RUFF_WT_HASH="$(shasum -a 256 "$WT/ruff.toml" | awk '{print $1}')"
+fi
+
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "$PY" - "$EV/receipt.json" "$RUN_ID" "$TASK_ID" "$ARM" "$WT" "$BASE_SHA" "$ACTUAL" \
         "$CARRIER_KIND" "$CARRIER_HASH" "$RULES_HASH" "$WARM_HASH" \
-        "$MATERIALS_COMMIT" "$MODEL_TIER" "$TS" <<'PYEOF' \
+        "$MATERIALS_COMMIT" "$MODEL_TIER" "$RUFF_WT_HASH" "$TS" <<'PYEOF' \
   || { echo "PREPARE_FAIL reason=RECEIPT_WRITE_FAILED"; exit 2; }
 import json, sys
-(p, rid, tid, arm, wt, base, head, ckind, ch, rh, wh, mc, mt, ts) = sys.argv[1:15]
+(p, rid, tid, arm, wt, base, head, ckind, ch, rh, wh, mc, mt, rth, ts) = sys.argv[1:16]
 json.dump({
     "run_id": rid, "task_id": tid, "arm": arm, "worktree": wt,
     "expected_base": base, "actual_head": head,
     "carrier_kind": ckind, "carrier_hash": ch,
     "h2_rules_sha256": rh, "warm_bundle_sha256": wh,
     "materials_commit": mc, "model_tier": mt,
+    "ruff_toml_worktree_sha256": rth,
     "codebuddy_present": True, "ts": ts, "prepare": "OK",
 }, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PYEOF
