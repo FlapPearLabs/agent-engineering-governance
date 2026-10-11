@@ -256,7 +256,10 @@ NOTE = 与 F-009/F-018（断言层/自检层空转）**共享同一目标机制*
 
 #### N8 — #46 Route Reachability Disposition
 ```text
-STATUS = **ACTIVE**（本轮；状态转 CLOSED / EXPERIMENTAL_MECHANISM_READY 以 merge 为条件）
+STATUS = **CLOSED / EXPERIMENTAL_MECHANISM_READY**
+   已合并：PR #50，merge `8b6b15d7553b6d59a5c1355c6fc88192a9251c65`（parents=[6217cc0, 0a180fe]）；
+   post-merge CI success（run 38067709307）。评审 exact-SHA：`87f6f78` → PASS（2×P3，已修）
+   → `0a180fe` → PASS（delta = 那两处修复）。
 ENTRY_CRITERIA = N6.4 判定 #46 是 H2 与 B 组下沉的硬前置；需要一个 base-aware、
                  fail-closed 的最小机械机制，使 H2 能证明"路由在声明 base 上可达"
 EXIT_CRITERIA = validator + manifest + 控制矩阵（历史负控 / 正控 / 零路由 / anchor /
@@ -361,7 +364,7 @@ DEFAULT_BRANCH_SHA  = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  experiment/v1.2-route-reachability   （本轮 N8 交付）
+  （无 —— N8 已合并（见 B.2），闭环由本记录 PR 补记；N2 启动时新建分支）
   ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
      取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
@@ -390,6 +393,7 @@ experiment/v1.2-prospective-shadow          @ 06e9cb8   MERGED   （PR #43）
 experiment/v1.2-h1-hot-context-ablation     @ d9c809e   MERGED   （PR #47）
 experiment/v1.2-h1-closure-ledger           @ 639d199   MERGED   （PR #48）
 experiment/v1.2-mechanization-gap-analysis  @ 5c12d5a   MERGED   （PR #49）
+experiment/v1.2-route-reachability           @ 0a180fe   MERGED   （PR #50）
 ```
 
 ### B.3 STALE / PRUNABLE
@@ -413,10 +417,8 @@ WORKTREE_COUNTS（快照 · N8 轮 · 2026-10-10；**计数含父 clone 主 work
      口径必须写明（是否含主 worktree）—— 上一版未写口径、且差一，N8 轮外部评审指出。
 
 UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支实测）：
-  experiment/*（8 个已合并分支）          = **0**
-  experiment/v1.2-route-reachability      = **不写数字** —— 它每提交一次就变一次，
-                                              写进去必然立刻过期（同"不自写自身 SHA"）。
-                                              取法：`git rev-list --count origin/main..HEAD`
+  experiment/*                            = **0**（全部已合并；**不写具体条数** —— 每轮 +1，
+                                              取法：逐分支 `git rev-list --count origin/main..<branch>`）
   audit/hermes-multibot-r062              = 2   ← **非 experiment 分支**，父 clone 的审计分支，
                                                   有意不合并（勿动）
   work/p1-orchestrator-closure-doctrine   = 1   ← 同上，非本实验线
@@ -435,9 +437,9 @@ UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支�
 ```text
 GIT_LOCATION =
   repo   = FlapPearLabs/agent-engineering-governance
-  branch = experiment/v1.2-route-reachability
+  branch = experiment/v1.2-n8-closure-ledger（本闭环记录 PR；合并后即无进行中实验分支）
   worktree = <WORKSPACE_ROOT>/v1.2-route-reachability
-  base   = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6
+  base   = 8b6b15d7553b6d59a5c1355c6fc88192a9251c65（N8 的 merge = 本分支起点）
   head   = （提交前为 base；提交后更新）
 ```
 
@@ -447,23 +449,24 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = N8 — #46 Route Reachability Disposition
-CURRENT_NODE_STATUS = ACTIVE（机制产出已完成；**状态转 CLOSED / EXPERIMENTAL_MECHANISM_READY 以 merge 为条件**）
-NEXT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure（其 route precondition 已由 N8 交付，
-            启动时按 route-reachability/README.md §10 三步重验）
+CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
+CURRENT_NODE_STATUS = READY_TO_START（route precondition 已由 N8 交付并通过闭环；
+                    启动时按 route-reachability/README.md §10 三步重验）
+  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅；② N6.5 §0 的 P1–P7 于启动时逐项落实
+NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
   · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
-  · 更远：N9 V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  branch   = experiment/v1.2-route-reachability
-  worktree = <WORKSPACE_ROOT>/v1.2-route-reachability
-  base     = 6217cc0adcd6c064e8c74e670de6a081bdaba2f6（本分支的起点）
-  head     = 见 `git rev-parse HEAD` —— 同上：不写死自引用 SHA
+  main     = 8b6b15d7553b6d59a5c1355c6fc88192a9251c65（N8 的 merge；默认分支现值，下一轮刷新）
+  branches = 本闭环记录 PR 合并后即无进行中实验分支；N2 启动时新建
+  head     = 取法 `git rev-parse origin/main` —— 不自写 SHA
 ```
 
-> **为什么这里不写 `CLOSED`**：本文件此刻尚未 merge，声称 `CLOSED` 就是假闭环
-> （`failure-mechanism-map.md` F-013）。状态的权威判据是"进默认分支且 post-merge CI 绿"，
-> 不是"文件写了 CLOSED"。merge 后由下一轮的 TREE_CHANGE 记录这次转迁。
+> **闭环记账机制（N8 轮定型）**：merge SHA 与 post-merge CI 在 merge 前不存在，无法
+> 写进被 merge 的那个 commit ⇒ 状态转迁（ACTIVE → CLOSED）由**专门的闭环记录 commit**
+> 补记：H1 用 PR #48，N8 用本 PR；或由下一轮的 TREE_CHANGE 记账（N6 即由 N8 轮记账——
+> 两种机制等效，选哪种取决于当轮 mandate）。判据始终是"进默认分支且 post-merge CI 绿"
+> （`failure-mechanism-map.md` F-013），不是"文件写了 CLOSED"。
 
 ---
 
@@ -502,6 +505,17 @@ REASON = 本轮为 #46 落地最小实验级机械机制（base-aware、fail-clo
          route-reachability validator + 两载体 22 条真实路由的冻结 manifest +
          控制矩阵），使 H2 的路由前置条件可被机械证明。属现有 19 节点树内推进，
          非新增主节点。
+```
+
+```text
+[TREE_CHANGE 2026-10-11 · N8 闭环] N8 从 ACTIVE 转 CLOSED / EXPERIMENTAL_MECHANISM_READY；
+CURRENT_NODE 转 N2（READY_TO_START）。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #50 已合并（merge `8b6b15d7553b6d59a5c1355c6fc88192a9251c65`，
+         parents=[6217cc0, 0a180fe]）；post-merge CI success（run 38067709307）；
+         `origin/main` 复核包含全部交付物；#46 已留 durable 闭环评论
+         （issuecomment-6104305352）。状态转迁的判据（进默认分支 + post-merge CI 绿）成立。
 ```
 
 > **未发生**：本轮**没有**新增 H6/H7 等主研究节点 —— 无 finding 使现有架构假设失效。
