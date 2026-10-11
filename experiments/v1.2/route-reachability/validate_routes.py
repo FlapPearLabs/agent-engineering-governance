@@ -5,20 +5,25 @@ What it proves, per declared route, against a DECLARED BASE (never implicitly HE
 
     ROUTE_DECLARED != DESTINATION_EXISTS != DESTINATION_LOADABLE
 
-    DESTINATION_EXISTS = `git cat-file -e <base>:<destination>` succeeds
-    ANCHOR_EXISTS      = only when the route declares an anchor; the anchor is a
-                         literal substring of the destination blob at that base
-    LOADABLE           = DESTINATION_EXISTS and (no anchor declared or ANCHOR_EXISTS)
-                         -- a deliberately minimal definition: the declared text is
-                         present at the declared base. It is NOT a claim that any
-                         agent found, read, or understood it.
+    DESTINATION_EXISTS  = `git cat-file -t <base>:<destination>` resolves
+    DESTINATION_IS_FILE = the resolved object is a `blob` -- a resolving
+                          directory/gitlink is NOT a route target and is reported
+                          DESTINATION_NOT_A_FILE, never VALID
+    ANCHOR_EXISTS       = only when the route declares an anchor; the anchor is a
+                          literal substring of the destination blob at that base
+    LOADABLE            = a blob exists and (no anchor declared or ANCHOR_EXISTS)
+                          -- a deliberately minimal definition: the declared text
+                          is present at the declared base. It is NOT a claim that
+                          any agent found, read, or understood it.
 
 Fail-closed by construction (an empty PASS is impossible):
 
     exit 0  ALL_ROUTES_VALID     (>=1 route declared, all valid)
     exit 1  ROUTES_UNSATISFIED   (>=1 route failed)
-    exit 2  MALFORMED_MANIFEST   (schema / fields / destination sanity; also the
-                                  argparse usage error when --base is omitted)
+    exit 2  MALFORMED_MANIFEST   (schema / fields / destination sanity, INCLUDING
+                                  unknown or misspelled keys at any level -- a
+                                  typo fails closed, it is never silently ignored;
+                                  also the argparse usage error when --base is omitted)
     exit 3  NO_ROUTES_DECLARED   (zero routes is never a pass; H2 precondition FAIL)
     exit 4  BASE_UNRESOLVABLE    (the declared base does not resolve to a commit)
 
@@ -46,6 +51,13 @@ EXIT_NO_ROUTES = 3
 EXIT_BASE_UNRESOLVABLE = 4
 
 DESTINATION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+# Strict schemas: unknown keys fail closed — a misspelled field must never be
+# silently ignored (post-merge review finding #2 on PR #50: "anchro" degraded an
+# anchored route to destination-only).
+TOP_LEVEL_KEYS = {"manifest_id", "schema_version", "note", "surfaces", "routes"}
+SURFACE_KEYS = {"surface_id", "carrier", "kind", "note"}
+ROUTE_KEYS = {"route_id", "surface", "destination", "anchor"}
 
 
 class Malformed(Exception):
@@ -77,6 +89,9 @@ def load_manifest(path: Path) -> dict:
         raise Malformed(f"manifest unreadable or not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise Malformed("manifest top level must be an object")
+    unknown_top = sorted(set(data) - TOP_LEVEL_KEYS)
+    if unknown_top:
+        raise Malformed(f"unknown top-level keys: {unknown_top}")
     routes = data.get("routes")
     if not isinstance(routes, list):
         raise Malformed("manifest must carry a 'routes' list")
@@ -88,9 +103,17 @@ def load_manifest(path: Path) -> dict:
     for surf in surfaces:
         if not isinstance(surf, dict):
             raise Malformed("each surface must be an object")
+        unknown = sorted(set(surf) - SURFACE_KEYS)
+        if unknown:
+            raise Malformed(f"unknown surface keys: {unknown}")
         sid = surf.get("surface_id")
         if not isinstance(sid, str) or not sid:
             raise Malformed("each surface needs a non-empty string 'surface_id'")
+        if sid in surface_ids:
+            raise Malformed(f"duplicate surface_id: {sid}")
+        carrier = surf.get("carrier")
+        if carrier is not None and (not isinstance(carrier, str) or not carrier):
+            raise Malformed(f"surface {sid}: 'carrier' must be a non-empty string when present")
         surface_ids.add(sid)
 
     checked: list[dict] = []
@@ -98,6 +121,11 @@ def load_manifest(path: Path) -> dict:
     for i, route in enumerate(routes):
         if not isinstance(route, dict):
             raise Malformed(f"routes[{i}] is not an object")
+        unknown = sorted(set(route) - ROUTE_KEYS)
+        if unknown:
+            raise Malformed(
+                f"routes[{i}]: unknown keys {unknown} (a misspelled field is a violation, not a no-op)"
+            )
         rid = route.get("route_id")
         dest = route.get("destination")
         anchor = route.get("anchor")
@@ -110,29 +138,41 @@ def load_manifest(path: Path) -> dict:
             raise Malformed(f"{rid}: missing 'destination'")
         if dest.startswith("/") or "\\" in dest or ".." in dest.split("/"):
             raise Malformed(f"{rid}: destination must be a clean repo-relative path: {dest!r}")
+        if dest.endswith("/"):
+            raise Malformed(f"{rid}: destination must not end with '/': {dest!r}")
         if not DESTINATION_RE.match(dest):
             raise Malformed(f"{rid}: destination has unsupported characters: {dest!r}")
         if anchor is not None and (not isinstance(anchor, str) or not anchor):
             raise Malformed(f"{rid}: 'anchor' must be a non-empty string when present")
         surf = route.get("surface")
-        if surf is not None and surf not in surface_ids:
+        if surf is not None and (not isinstance(surf, str) or surf not in surface_ids):
             raise Malformed(f"{rid}: references unknown surface {surf!r}")
         checked.append({"route_id": rid, "destination": dest, "anchor": anchor})
     return {"routes": checked}
 
 
 def evaluate(repo: str, base_sha: str, routes: list[dict]) -> list[dict]:
+    """Resolve each destination's object type at the base; only a blob is loadable.
+
+    `cat-file -t` (not `-e`): a destination naming a directory/gitlink resolves,
+    yet is not a route target — it must not be reported VALID (post-merge review
+    finding #1 on PR #50).
+    """
     results: list[dict] = []
     for route in routes:
         spec = f"{base_sha}:{route['destination']}"
-        exists = _git(repo, "cat-file", "-e", spec).returncode == 0
+        kind = _git(repo, "cat-file", "-t", spec)
+        object_type = kind.stdout.strip() if kind.returncode == 0 else None
+        exists = object_type is not None
         anchor: str | None = route["anchor"]
         anchor_exists: bool | None = None
-        if exists and anchor is not None:
+        if object_type == "blob" and anchor is not None:
             blob = _git(repo, "cat-file", "-p", spec)
             anchor_exists = blob.returncode == 0 and anchor in blob.stdout
         if not exists:
             result, loadable = "DESTINATION_MISSING", False
+        elif object_type != "blob":
+            result, loadable = "DESTINATION_NOT_A_FILE", False
         elif anchor is not None and not anchor_exists:
             result, loadable = "ANCHOR_MISSING", False
         else:
@@ -143,6 +183,7 @@ def evaluate(repo: str, base_sha: str, routes: list[dict]) -> list[dict]:
                 "destination": route["destination"],
                 "anchor": anchor,
                 "destination_exists": exists,
+                "object_type": object_type,
                 "anchor_exists": anchor_exists,
                 "loadable": loadable,
                 "result": result,
