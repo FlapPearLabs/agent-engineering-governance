@@ -6,8 +6,8 @@ Pins, mechanically:
   * routes-h2.json S1/S2 sections == the N8 frozen routes.json, route-for-route (no drift);
   * routes-h2.json S3 section == what a bounded extraction finds in the H2 carrier
     (zero routes is never a pass);
-  * live validator runs at the H2 base and all six task bases (P6): expected failing
-    route sets are frozen; S3 (H2 carrier) rows are VALID at EVERY base;
+  * live validator runs at six distinct bases (H2 base = n02 base = 9494de8e) — P6: expected
+    failing route sets are frozen; S3 (H2 carrier) rows are VALID at EVERY base;
   * the N8 frozen routes.json still validates 22/22 at the H2 base;
   * hostile-manifest re-checks: the PR #50 5xP2 hardening must stay closed under H2
     (directory target / unknown key / unhashable surface / zero routes / bad base / missing target);
