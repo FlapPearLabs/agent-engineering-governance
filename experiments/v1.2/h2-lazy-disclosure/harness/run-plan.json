@@ -1,0 +1,22 @@
+[
+  {"run_id": "H2-R01", "task_id": "t01", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R02", "task_id": "t01", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R03", "task_id": "t02", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R04", "task_id": "t02", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R05", "task_id": "t03", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R06", "task_id": "t03", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R07", "task_id": "t04", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R08", "task_id": "t04", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R09", "task_id": "n01", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R10", "task_id": "n01", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R11", "task_id": "n02", "arm": "control", "rep": 1, "block": 1},
+  {"run_id": "H2-R12", "task_id": "n02", "arm": "variant", "rep": 1, "block": 1},
+  {"run_id": "H2-R13", "task_id": "t03", "arm": "control", "rep": 2, "block": 2},
+  {"run_id": "H2-R14", "task_id": "t03", "arm": "variant", "rep": 2, "block": 2},
+  {"run_id": "H2-R15", "task_id": "t04", "arm": "control", "rep": 2, "block": 2},
+  {"run_id": "H2-R16", "task_id": "t04", "arm": "variant", "rep": 2, "block": 2},
+  {"run_id": "H2-R17", "task_id": "n01", "arm": "control", "rep": 2, "block": 2},
+  {"run_id": "H2-R18", "task_id": "n01", "arm": "variant", "rep": 2, "block": 2},
+  {"run_id": "H2-R19", "task_id": "n02", "arm": "control", "rep": 2, "block": 2},
+  {"run_id": "H2-R20", "task_id": "n02", "arm": "variant", "rep": 2, "block": 2}
+]

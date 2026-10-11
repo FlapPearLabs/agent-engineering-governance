@@ -1,0 +1,51 @@
+### P7 GATE PROBES — h2probe scratch worktree @ 9494de8 ###
+
+--- [1] baseline ruff (expect clean) ---
+All checks passed!
+rc=0
+
+--- [2] baseline public-release (expect VIOLATIONS=0) ---
+MODE=PUBLIC
+CURRENT_TREE_SCOPE enum=git_ls_files_cached_others_exclude_standard refs=0 objects=0 blobs=195 text_scanned=195 skipped_binary=0 skipped_oversize=0 skipped_unreadable=0 surfaces_index=195 surfaces_worktree=195 deduped_paths=195 eol_only_dedup=0 size_cap_bytes=2097152
+VIOLATIONS=0
+
+
+--- [3] baseline governance (expect all checks passed) ---
+PASS  orchestrator-closure-doctrine-present
+
+35/35 checks passed
+
+--- [4] inject F841 probe → ruff MUST fail ---
+F841 Local variable `unused_local` is assigned to but never used
+ --> scripts/_p7_probe.py:2:5
+  |
+1 | def f():
+2 |     unused_local = 1
+  |     ^^^^^^^^^^^^
+3 |     return 2
+  |
+help: Remove assignment to unused variable `unused_local`
+
+Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+rc=1
+
+--- [5] inject identity probe → both scanners MUST fail ---
+### CURRENT_TREE_SCAN
+MODE=PUBLIC
+CURRENT_TREE_SCOPE enum=git_ls_files_cached_others_exclude_standard refs=0 objects=0 blobs=196 text_scanned=196 skipped_binary=0 skipped_oversize=0 skipped_unreadable=0 surfaces_index=195 surfaces_worktree=196 deduped_paths=195 eol_only_dedup=0 size_cap_bytes=2097152
+VIOLATIONS=1
+  [LOCAL_IDENTITY/UNIX_USER_HOME] p7_identity_probe.md:1 :: contact: /Users/<LOCAL_OS_USERNAME>/dev
+
+
+PASS  static-gate-documentation-wiring-only
+PASS  orchestrator-closure-doctrine-present
+
+34/35 checks passed
+
+--- [6] cleanup: both green again ---
+CURRENT_TREE_SCOPE enum=git_ls_files_cached_others_exclude_standard refs=0 objects=0 blobs=195 text_scanned=195 skipped_binary=0 skipped_oversize=0 skipped_unreadable=0 surfaces_index=195 surfaces_worktree=195 deduped_paths=195 eol_only_dedup=0 size_cap_bytes=2097152
+VIOLATIONS=0
+
+All checks passed!
+rc=0

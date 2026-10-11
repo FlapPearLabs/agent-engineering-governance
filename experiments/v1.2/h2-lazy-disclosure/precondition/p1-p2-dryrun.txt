@@ -1,0 +1,63 @@
+# [R2-REDACTION] machine paths / real local identity replaced with placeholders
+# before public commit (validate_public_release pattern UNIX_USER_HOME). The original
+# unredacted outputs remain in the local evidence dir. Probe strings are sanitized;
+# the injected probe was constructed to match the scanner on purpose.
+
+### P1/P2 DRY-RUN — harness/prepare_run.sh (H2-DRYRUN path + refusal negatives) ###
+
+--- [1] variant arm (positive) ---
+PREPARE_RUN OK run_id=H2-DRYRUN arm=variant task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = <H2_RUNS_ROOT>/scratch/dryrun-variant
+  evidence = <H2_RUNS_ROOT>/scratch/dryrun-variant-ev
+  carrier  = carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md
+  carrier_hash = 4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639
+rc=0
+
+--- [2] control arm (positive) ---
+PREPARE_RUN OK run_id=H2-DRYRUN arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = <H2_RUNS_ROOT>/scratch/dryrun-control
+  evidence = <H2_RUNS_ROOT>/scratch/dryrun-control-ev
+  carrier  = canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)
+  carrier_hash = agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41
+rc=0
+
+--- [3] carrier slot states ---
+4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639  <H2_RUNS_ROOT>/scratch/dryrun-variant/CODEBUDDY.md
+ls: <H2_RUNS_ROOT>/scratch/dryrun-control/CODEBUDDY.md: No such file or directory
+--- [4] refusal negatives (must fail closed) ---
+PREPARE_FAIL reason=WORKTREE_EXISTS <H2_RUNS_ROOT>/scratch/dryrun-variant
+rc=2 (expected 2: WORKTREE_EXISTS)
+PREPARE_FAIL reason=__ARM_MISMATCH__ row_arm=control
+rc=2 (expected 2: ARM_MISMATCH — R01 is control)
+PREPARE_FAIL reason=__NO_RUN_ROW__
+rc=2 (expected 2: NO_RUN_ROW)
+
+--- [5] receipts ---
+variant:
+{
+  "run_id": "H2-DRYRUN",
+  "task_id": "t01",
+  "arm": "variant",
+  "worktree": "<H2_RUNS_ROOT>/scratch/dryrun-variant",
+  "expected_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "actual_head": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "carrier_expected": "carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md",
+  "carrier_hash": "4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639",
+  "codebuddy_present": true,
+  "ts": "2026-10-11T16:12:44Z",
+  "prepare": "OK"
+}
+control:
+{
+  "run_id": "H2-DRYRUN",
+  "task_id": "t01",
+  "arm": "control",
+  "worktree": "<H2_RUNS_ROOT>/scratch/dryrun-control",
+  "expected_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "actual_head": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "carrier_expected": "canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)",
+  "carrier_hash": "agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41",
+  "codebuddy_present": false,
+  "ts": "2026-10-11T16:12:45Z",
+  "prepare": "OK"
+}

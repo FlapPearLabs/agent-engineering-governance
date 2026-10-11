@@ -11,7 +11,7 @@
 > `A new finding invalidates a current architecture assumption`。
 > 普通 P2/P3 走 issue / backlog，**不**扩展主树。
 
-*Last reconciled：2026-10-11（N8 闭环轮 + post-merge 修复），针对 `origin/main = ca9affe4c58cfaccc2db157e78144f75cac9c601`（PR #52 的 merge；其父链含 N8 全部内容与 5×P2 加固）。*
+*Last reconciled：2026-10-11（H2 轮 freeze），针对 `origin/main = 9494de8e2d3bbc5c38b311e8cce29230e7574dce`（PR #51 的 merge；H2 轮的 fork base）。*
 
 ---
 
@@ -47,7 +47,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = N2 — H2 Lazy Skill / Progressive Disclosure（READY_TO_START）
+CURRENT_NODE     = N2 — H2 Lazy Skill / Progressive Disclosure（ACTIVE）
 ```
 
 ### A.1 节点详情
@@ -92,20 +92,24 @@ NOTE = H1 **没有**产出 promotion 建议，只产出了量化事实与三条 
 
 #### N2 — H2 Lazy Skill / Progressive Disclosure
 ```text
-STATUS = PLANNED
-ENTRY_CRITERIA = ① #46 的机械映射落地 —— **N8 已交付实验机制**；启动时按
-                    experiments/v1.2/route-reachability/README.md §10 三步重验
-                    （在 H2 实际 fork base 上跑 validator + 扩充 H2 载体自身路由）
-                 ② N6.5 §0 的 P1–P7 全部满足
-EXIT_CRITERIA = ≥2 臂 × ≥2 任务，且结论词汇 ∈ {DISCLOSURE_SAFE, DISCLOSURE_HAS_COST,
-                INSUFFICIENT_EVIDENCE}
-EVIDENCE = （待产）experiments/v1.2/mechanization-gap/experiment-protocols.md §1
-BRANCH = （待建）
-WORKTREE = （待建）
-PR = （待开）
-DEPENDENCIES = N6（协议）+ N8（#46 实验机制，已就绪）
-BLOCKERS = （无硬阻塞；#45 的判据在 H4 协议中被引用，不影响 H2 启动）
+STATUS = **ACTIVE**（freeze 阶段已产出；runs 待 freeze 进 main 后执行）
+ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
+                    H2 base + 6 个 task base 上 S3 载体行 11/11 VALID，N8 冻结面 22/22 ✅
+                 ② N6.5 §0 的 P1–P7 逐项落实（证据 = h2-lazy-disclosure/precondition/）✅
+EXIT_CRITERIA = 每 shape 每臂 ≥2 有效 run 且两臂有机械可核终态；
+                结论词汇 ∈ {DISCLOSURE_SAFE, DISCLOSURE_HAS_COST, INSUFFICIENT_EVIDENCE}
+EVIDENCE = experiments/v1.2/h2-lazy-disclosure/（README / protocol / variant-manifest /
+           task-registry / scoring-rubric / run-registry / carriers/ / routes-h2.json /
+           harness/ / precondition/）+ experiments/v1.2/tests/test_v1_2_h2_material.py
+BRANCH = experiment/v1.2-h2-lazy-disclosure（freeze PR）
+WORKTREE = <WORKSPACE_ROOT>/v1.2-h2-lazy-disclosure
+HEAD_SHA = 取法 `git rev-parse HEAD`（本文件不写死后验 SHA）
+PR = （freeze PR；开于本轮）
+DEPENDENCIES = N6（协议）+ N8（#46 实验机制，已复验）
+BLOCKERS = （无）
 NEXT_NODE = N9
+NOTE = run 的执行顺序与臂分配已冻结于 harness/run-plan.json + run-registry.md；
+       freeze 未进 main 前不得开始 runs；runs 产物落 <H2_RUNS_ROOT>（持久，非 /tmp）与 repo runs/。
 ```
 
 #### N3 — H3 Prospective Structure Shadow
@@ -359,21 +363,23 @@ NEXT_NODE = （无 —— 树终点）
 
 ```text
 DEFAULT_BRANCH      = main
-DEFAULT_BRANCH_SHA  = ca9affe4c58cfaccc2db157e78144f75cac9c601
-                      （= PR #52 的 merge；其父链含 N8 全部内容 + 5×P2 加固；
-                      `git ls-remote origin refs/heads/main` 与 `gh run list` 双复核一致）
+DEFAULT_BRANCH_SHA  = 9494de8e2d3bbc5c38b311e8cce29230e7574dce
+                      （= PR #51 的 merge；= H2 轮的 fork base；
+                      `git ls-remote origin refs/heads/main` 复核一致）
 ```
 
 ### B.1 ACTIVE
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  （无 —— N8 已合并（见 B.2），闭环由本记录 PR 补记；N2 启动时新建分支）
+  experiment/v1.2-h2-lazy-disclosure（H2 freeze PR；runs 未开始）
   ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
      取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
 ACTIVE_WORKTREES =
-  <WORKSPACE_ROOT>/v1.2-route-reachability    [experiment/v1.2-route-reachability]
+  <WORKSPACE_ROOT>/v1.2-h2-lazy-disclosure   [experiment/v1.2-h2-lazy-disclosure]
+  <WORKSPACE_ROOT>/v1.2-route-reachability    [experiment/v1.2-route-reachability，
+                                               已合并；worktree 保留，树干净]
   <WORKSPACE_ROOT>/v1.2-mechanization-gap     [experiment/v1.2-mechanization-gap-analysis，
                                                已合并；worktree 保留，树干净]
   <GOVERNANCE_CLONE_ROOT>                     [audit/hermes-multibot-r062]（父 clone，勿打扰）
@@ -456,15 +462,16 @@ GIT_LOCATION =
 ```text
 TREE_NODES_TOTAL = 19
 CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
-CURRENT_NODE_STATUS = READY_TO_START（route precondition 已由 N8 交付并通过闭环；
-                    启动时按 route-reachability/README.md §10 三步重验）
-  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅；② N6.5 §0 的 P1–P7 于启动时逐项落实
+CURRENT_NODE_STATUS = ACTIVE（freeze 已产出：协议/载体/任务集/评分/路由 manifest 冻结，
+                     P1–P7 逐项落实；runs 待 freeze 进默认分支后执行）
+  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（H2 base + 6 task base 复验：S3 11/11 VALID；
+    N8 冻结面 22/22）；② N6.5 §0 的 P1–P7 = 已落实 ✅（precondition/ 证据）
 NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
   · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  main     = ca9affe4c58cfaccc2db157e78144f75cac9c601（PR #52 的 merge；含 N8 全部内容 + 加固）
-  branches = 本闭环记录 PR 合并后即无进行中实验分支；N2 启动时新建
+  main     = 9494de8e2d3bbc5c38b311e8cce29230e7574dce（PR #51 的 merge；= H2 fork base）
+  branches = experiment/v1.2-h2-lazy-disclosure（H2 freeze PR，进行中）
   head     = 取法 `git rev-parse origin/main` —— 不自写 SHA
 ```
 
@@ -522,6 +529,18 @@ REASON = PR #50 已合并（merge `8b6b15d7553b6d59a5c1355c6fc88192a9251c65`，
          parents=[6217cc0, 0a180fe]）；post-merge CI success（run 38067709307）；
          `origin/main` 复核包含全部交付物；#46 已留 durable 闭环评论
          （issuecomment-6104305352）。状态转迁的判据（进默认分支 + post-merge CI 绿）成立。
+```
+
+```text
+[TREE_CHANGE 2026-10-11 · H2 轮] N2 从 PLANNED 推进为 ACTIVE（freeze）。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = H2 轮启动：在 experiment/v1.2-h2-lazy-disclosure 上冻结协议 / 载体 / 任务集 /
+         评分规约 / 路由 manifest（experiments/v1.2/h2-lazy-disclosure/），并在 H2 base +
+         6 个 task base 上复验路由前置（S3 11/11 VALID；N8 冻结面 22/22）、落实 N6.5 §0
+         的 P1–P7（precondition/ 证据）。属现有 19 节点树内推进，非新增主节点。
+         runs 的执行顺序与臂分配已冻结（harness/run-plan.json + run-registry.md）；
+         freeze 进默认分支后、且仅在其后，方可开始 runs。
 ```
 
 > **未发生**：本轮**没有**新增 H6/H7 等主研究节点 —— 无 finding 使现有架构假设失效。
