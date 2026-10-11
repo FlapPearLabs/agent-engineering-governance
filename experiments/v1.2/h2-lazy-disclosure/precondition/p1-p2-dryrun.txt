@@ -144,3 +144,45 @@ No residue under /tmp, /var/tmp, $TMPDIR or the repo:
   none
  M experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh
  M experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt
+
+--- [10] v4 delivery + full-chain dry-run (bot-review countermeasures) ---
+· prepare receipts:
+  variant: "carrier_hash":"9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1","h2_rules_sha256":"d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d","materials_commit":"2a1a4e78ed5f1597921251ccd2aea469f252f684",
+  control: "h2_agents_sha256":"aab6392a1058cc0f14260356c0bbe9776a9242b1d8740e84ef642c2b03c5c760","h2_rules_sha256":"d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d","materials_commit":"2a1a4e78ed5f1597921251ccd2aea469f252f684",
+· collect (both arms; multi-line recheck):
+  variant rc=0
+  control rc=0
+· tamper negatives:
+  variant carrier tamper rc=3 (2 FAIL line(s))
+  restored rc=0
+  control run-tree AGENTS tamper rc=3 (2 FAIL line(s))
+  restored rc=0
+· symlinked-parent guard [13]:
+PREPARE_FAIL reason=VOLATILE_ROOT <H2_RUNS_ROOT>/scratch/tmplink/new-root
+  rc=2 (expect 2 VOLATILE_ROOT)
+· t02 gate-teeth control [12] (positive: intact config must catch F841):
+    No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+    T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run's own gate config)
+  positive rc=0
+· t02 gate-teeth negative (hollowed config must be caught as GATE_NOT_LOAD_BEARING):
+    All checks passed!
+    T02_POSITIVE_CONTROL = FAIL (injected F841 NOT caught; rc=0) — GATE_NOT_LOAD_BEARING
+  negative rc=0
+· acceptance on unfixed base (expected red; verifies [15] parsing + [19] exit propagation):
+  acceptance rc=1 (expect 1)
+    RC=1 count: 0
+· hygiene + list_changes on dryrun:
+    HYGIENE = PASS
+
+--- [10a] correction to [10] (same session, pre-commit): displayed rc values in [10] for the t02
+gate-teeth controls were pipeline-contaminated (captured tail/sed rc instead of the script rc);
+and the acceptance stdout lacks the in-file markers, so 'RC=1 count: 0' was a capture artifact.
+TRUE values:
+  t02 gate-teeth positive rc=0 (T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run...)
+  t02 gate-teeth negative rc=1 (T02_POSITIVE_CONTROL = FAIL (injected F841 NOT caught; rc=0) — GATE_NOT_LOAD_BEA...)
+  acceptance overall rc=1 (expected on the unfixed base); acceptance.txt RC lines:
+    === RC=1 ===
+    === RC=0 ===
+    === RC=1 ===
+  (committed entries ran REAL commands — unittest tracebacks present in stdout — which confirms
+   the [15] cwd-parsing fix; overall rc=1 confirms the [19] exit-propagation fix.)

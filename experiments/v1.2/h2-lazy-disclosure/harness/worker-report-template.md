@@ -6,8 +6,10 @@
 ## A. Receipt
 
 ```text
-H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<targets|none> S4:<sha|MISMATCH>
+H2_RECEIPT = S0:<sha|MISMATCH> S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<targets|none> S4:<full|partial|missing>
 ```
+
+（S0 = 执行目标断言；S4 = 本臂全文投递面的完整读取状态。）
 
 ## B. Outcome
 

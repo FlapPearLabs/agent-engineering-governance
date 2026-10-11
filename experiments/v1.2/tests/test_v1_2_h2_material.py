@@ -11,9 +11,11 @@ Pins, mechanically:
   * the N8 frozen routes.json still validates 22/22 at the H2 base;
   * hostile-manifest re-checks: the PR #50 5xP2 hardening must stay closed under H2
     (directory target / unknown key / unhashable surface / zero routes / bad base / missing target);
-  * run-plan.json <-> task-registry replication declaration consistency, and the run ids
-    appear in run-registry.md;
-  * arm-block field parity (P4: same structured fields in both delivery blocks).
+  * run-plan.json <-> task-registry replication declaration consistency, arm-order
+    counterbalance (no fixed control-first ordering), and the run ids appear in run-registry.md;
+  * arm-block field parity (P4: same structured fields in both delivery blocks);
+  * freeze cross-anchor: manifest hashes == literal constants below (a frozen-file change
+    must update both the manifest and these literals; the final anchor is the merged commit).
 
 Run:  python3 -m unittest discover -s experiments/v1.2/tests -v
 """
@@ -84,6 +86,18 @@ def _run_validator(base: str, manifest: Path):
     return proc.returncode, payload
 
 
+# Cross-anchor literals (bot review "Anchor freeze hashes outside the mutable freeze set"):
+# changing a frozen file requires updating BOTH variant-manifest.json and these literals;
+# neither alone stays silently consistent. The FINAL anchor is the merged commit chain
+# (recorded in results.md section 8).
+EXPECTED_FREEZE_LITERALS = {
+    "VARIANT_HASH": "9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1",
+    "TASK_SET_HASH": "e36c4cc3aa8ae9faa8e20825ef72218fe860de018567da483ae3b6b04698cfe3",
+    "SCORING_HASH": "7c3f3b7f4eb26cfc75ddac892521b631a2102aff2f41e1bf7b60a7e803701688",
+    "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+}
+
+
 class FreezeHashes(unittest.TestCase):
     def test_variant_manifest_hashes_match_files(self):
         freeze = json.loads(_read(MANIFEST))["freeze"]
@@ -96,6 +110,11 @@ class FreezeHashes(unittest.TestCase):
         for key, path in pairs.items():
             got = hashlib.sha256(path.read_bytes()).hexdigest()
             self.assertEqual(freeze[key], got, f"{key} stale for {path}")
+
+    def test_manifest_matches_test_literals(self):
+        freeze = json.loads(_read(MANIFEST))["freeze"]
+        for key, want in EXPECTED_FREEZE_LITERALS.items():
+            self.assertEqual(freeze[key], want, f"{key}: manifest vs test-literal mismatch")
 
 
 class RouteManifestIntegrity(unittest.TestCase):
@@ -234,6 +253,21 @@ class RunPlanConsistency(unittest.TestCase):
             for arm in ("control", "variant"):
                 self.assertEqual(per_shape_arm.get((sid, arm), 0), 2, f"{sid}/{arm}")
 
+    def test_arm_order_is_counterbalanced(self):
+        plan = json.loads(_read(RUN_PLAN))
+        first_per = {}
+        for r in plan:
+            first_per.setdefault((r["task_id"], r["rep"]), r["arm"])
+        for task in ("t03", "t04", "n01", "n02"):
+            self.assertNotEqual(
+                first_per[(task, 1)], first_per[(task, 2)],
+                f"{task}: the two repetitions must start with different arms",
+            )
+        self.assertNotEqual(
+            first_per[("t01", 1)], first_per[("t02", 1)],
+            "t01/t02 (single-rep) must alternate their first arm across tasks",
+        )
+
     def test_run_ids_appear_in_run_registry_md(self):
         text = _read(RUN_REGISTRY_MD)
         plan = json.loads(_read(RUN_PLAN))
@@ -254,14 +288,17 @@ class ArmBlockParity(unittest.TestCase):
     def test_blocks_share_structured_receipt_fields(self):
         control = _read(H2 / "harness" / "arm-blocks" / "control.md")
         variant = _read(H2 / "harness" / "arm-blocks" / "variant.md")
-        for tok in ("H2_RECEIPT = S1:", "S2:", "S3:", "S4:"):
+        for tok in ("H2_RECEIPT = S0:", "S1:", "S2:", "S3:", "S4:"):
             self.assertIn(tok, control)
             self.assertIn(tok, variant)
+        for text in (control, variant):
+            self.assertIn("H2_RULES.md", text)
 
     def test_report_template_declares_shared_fields(self):
         tpl = _read(H2 / "harness" / "worker-report-template.md")
         for tok in (
             "H2_RECEIPT",
+            "S0:",
             "FILES_FULLY_READ",
             "FILES_PARTIAL_READ",
             "FILES_GREPPED_FOUND",

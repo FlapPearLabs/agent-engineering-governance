@@ -1,25 +1,41 @@
 #!/usr/bin/env bash
 # H2 harness — check_hygiene.sh <WORKTREE>
-# (1) py_compile every changed/untracked .py file in the worktree diff/status;
-# (2) count __pycache__ / *.pyc entries in status + changed file list.
-# Prints FAIL lines and exits non-zero if any check fails.
-set -u
+# (1) syntax-compile every changed/untracked .py file IN MEMORY (no __pycache__ residue
+#     created by the checker itself — [6]);
+# (2) count __pycache__ / *.pyc entries in the change set and status.
+# Fails closed if the worktree is not a git worktree or any git inspection fails ([5]).
+set -uo pipefail
 PY="${PY:-python3}"
 WT="${1:?usage: check_hygiene.sh <WORKTREE>}"
 fail=0
 
-mapfile_cmd() { :; }  # placeholder for portability below
+if ! git -C "$WT" rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "FAIL not a readable git worktree: $WT"
+  echo "HYGIENE = FAIL"
+  exit 2
+fi
 
-files="$( { git -C "$WT" diff --name-only HEAD; git -C "$WT" ls-files --others --exclude-standard; } | sort -u )"
+files="$( { git -C "$WT" diff --name-only HEAD && git -C "$WT" ls-files --others --exclude-standard; } | sort -u )" \
+  || { echo "FAIL git inspection failed (diff/ls-files)"; echo "HYGIENE = FAIL"; exit 2; }
+
 pyfiles="$(printf '%s\n' "$files" | grep -E '\.py$' | grep -v '__pycache__' || true)"
 
 if [ -n "$pyfiles" ]; then
   while IFS= read -r f; do
     [ -z "$f" ] && continue
-    if ! (cd "$WT" && "$PY" -m py_compile "$f" >/dev/null 2>&1); then
-      echo "FAIL py_compile: $f"; fail=1
+    if "$PY" - "$WT/$f" <<'PYEOF'
+import pathlib, sys
+p = sys.argv[1]
+try:
+    compile(pathlib.Path(p).read_bytes(), p, "exec")
+except SyntaxError as exc:
+    print(f"syntax error: {exc}")
+    raise SystemExit(1)
+PYEOF
+    then
+      echo "OK   py_compile(memory): $f"
     else
-      echo "OK   py_compile: $f"
+      echo "FAIL py_compile(memory): $f"; fail=1
     fi
   done <<< "$pyfiles"
 else

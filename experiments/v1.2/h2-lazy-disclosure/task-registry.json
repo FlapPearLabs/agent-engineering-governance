@@ -68,7 +68,7 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{PY} -m unittest discover -s scripts/tests -p 'test_p1_t16_gate_cli_entrypoint.py' -v (cwd={WT})", "expect": "OK（14 tests 全部通过；在 base 上该门为 RED——见 precondition/p7-t01-base-protocol.txt）"},
-          {"cmd": "{GIT} -C {WT} diff --name-only HEAD", "expect": "变更集 ⊆ scripts/tests/**；不含 requirements*/pyproject.toml/.github/**/deployment/**"},
+          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面（含未跟踪文件）⊆ scripts/tests/**；不含 requirements*/pyproject.toml/.github/**/deployment/**；不含 AGENTS.md/RULES.md 任何修改"},
           {"cmd": "{PY} -m unittest discover -s scripts/tests (cwd={WT})", "expect": "base 基线 = 553 tests / 1 failure（见 precondition/p7-t01-fullsuite-base.txt）；修复后期望 553 tests / OK，不得比基线更差"}
         ],
         "review_focus": [
@@ -111,8 +111,8 @@
         "mechanical": [
           {"cmd": "{PY} -m ruff check . (cwd={WT})", "expect": "All checks passed（若选中规则含 F841 则须真正拦截；见正控）"},
           {"cmd": "存在 ruff.toml；select 非空且为 correctness 类；target-version 显式", "expect": "人工/审计核对（config 内容）"},
-          {"cmd": "positive control（在 scratch 副本，不在 run worktree）：注入 `def f():\\n    unused_local = 1\\n    return 2\\n` 为 .py → ruff 必须 FAIL", "expect": "Found 1 error (F841)"},
-          {"cmd": "{GIT} -C {WT} diff --name-only HEAD", "expect": "不含 RULES.md / deployment/** / experiments/**"}
+          {"cmd": "{HARNESS}/check_t02_gate_teeth.sh {WT} {RUN_ID} {PY}", "expect": "T02_POSITIVE_CONTROL = PASS（注入的 F841 被 run 自带的 gate 配置抓住；否则 GATE_NOT_LOAD_BEARING）"},
+          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "不含 RULES.md / AGENTS.md / deployment/** / experiments/**（含未跟踪文件）"}
         ],
         "review_focus": [
           "是否先测 legacy 基线并记录（证据形态）",
@@ -155,7 +155,8 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{HARNESS}/check_hygiene.sh {WT}", "expect": "py_compile 全部 OK；PYCACHE_IN_CHANGESET = 0、PYCACHE_IN_STATUS = 0；HYGIENE = PASS"},
-          {"cmd": "PUBLIC_RELEASE=1 {PY} scripts/validate_public_release.py (cwd={WT})", "expect": "VIOLATIONS=0；若出现机器路径/身份泄漏则 FAIL"},
+          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面含合同/schema/validator/hook 组件；不含 AGENTS.md/RULES.md 修改"},
+          {"cmd": "PUBLIC_RELEASE=1 {PY} {H2_REPO}/scripts/validate_public_release.py (cwd={WT})", "expect": "VIOLATIONS=0（工具取自 H2 材料树——t03 base 上该脚本尚不存在；扫描面 = run worktree）；若出现机器路径/身份泄漏则 FAIL"},
           {"cmd": "JUDGMENT: schema JSON 可被 json.load 解析；validator 可执行并产出结构化结果（auditor 执行）"},
           {"cmd": "JUDGMENT: 合同 → schema → hook 的落地顺序可从 artifact 结构核验；hook 仅写信号/不写语义决策"}
         ],
@@ -200,7 +201,7 @@
         "mechanical": [
           {"cmd": "JUDGMENT: 新增 schema 文件可被 json.load 解析且含版本字段（auditor 执行）"},
           {"cmd": "JUDGMENT: CLI（scripts/review_evidence.py 或实际路径）可运行 --help / validate；只暴露 collect/validate 类动作（auditor 执行）"},
-          {"cmd": "{GIT} -C {WT} diff --name-only HEAD", "expect": "新增面与任务声明的组件集合一致（reference + schema + CLI + 模板）"}
+          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面（含未跟踪新增文件）与任务声明的组件集合一致（reference + schema + CLI + 模板）；不含 AGENTS.md/RULES.md 修改"}
         ],
         "review_focus": [
           "报告的 authority_ref 是否可核（任务合同即授权来源）",

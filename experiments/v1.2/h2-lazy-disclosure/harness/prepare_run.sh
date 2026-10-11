@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # H2 harness — prepare_run.sh <RUN_ID> <ARM>       ARM ∈ {control, variant}
 # Fail-closed: any mismatch aborts with PREPARE_FAIL and a machine-readable reason.
-# Mechanically: creates the run worktree at the task base, asserts target binding (P1),
-# delivers the carrier for the arm with a sha256 receipt (P2), and writes task/contract files.
-# Env: H2_RUNS_ROOT (persistent, non-/tmp) is REQUIRED. PY overrides the python binary.
+# Mechanically: creates the run worktree at the task base (P1), delivers the CURRENT-ERA
+# governance bootstrap for the arm with sha256 receipts (P2), and writes task/contract files.
+#
+# Delivery (v4, same governance era for both arms — the ONLY arm difference is the
+# disclosure strategy; see protocol §2.1 / variant-manifest.json):
+#   BOTH arms : H2_RULES.md  = a placed copy of the CURRENT RULES.md (materials worktree)
+#   CONTROL   : H2_AGENTS.md = a placed copy of the CURRENT AGENTS.md (full-text delivery)
+#   VARIANT   : CODEBUDDY.md = the frozen lean carrier (VARIANT_HASH)
+# Env: H2_RUNS_ROOT (persistent, non-/tmp, absolute) is REQUIRED. PY overrides python.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXP_DIR="$(cd "$HERE/.." && pwd)"
@@ -18,20 +24,28 @@ H2_RUNS_ROOT="${H2_RUNS_ROOT:-}"
 if [ -z "$H2_RUNS_ROOT" ]; then
   echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2
 fi
-# Normalize before matching: trim whitespace, resolve symlinks where possible, case-fold,
-# squash duplicate slashes, strip the trailing slash, and reject empty/"/" or relative roots —
-# so //tmp, /tmp/, /TMP, /private//tmp, ' /tmp', /var/tmp and $TMPDIR shapes cannot bypass the
-# guard. (v2 fixed the //tmp fail-open; v3 adds OS temp roots, whitespace trim and the
-# absolute-path requirement, all from delta-review #2's matrix; controls recorded in
-# precondition/p1-p2-dryrun.txt [9]/[9b]/[9c].)
+# Normalize before matching: trim whitespace, resolve symlinks where possible (incl. the
+# deepest existing ancestor for not-yet-existing paths), case-fold, squash duplicate slashes,
+# strip the trailing slash, and reject empty/"/" or relative roots — so //tmp, /tmp/, /TMP,
+# /private//tmp, ' /tmp', /var/tmp, $TMPDIR and symlinked-parent spellings cannot bypass the
+# guard. (v2 fixed the //tmp fail-open; v3 added OS temp roots + trim; v4 resolves
+# non-existent paths through their deepest existing ancestor; controls in
+# precondition/p1-p2-dryrun.txt [9]/[9b]/[9c]/[10].)
 R_TRIM="$(printf '%s' "$H2_RUNS_ROOT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 case "$R_TRIM" in
   "") echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2 ;;
   /*) ;;
   *) echo "PREPARE_FAIL reason=ROOT_NOT_ABSOLUTE $H2_RUNS_ROOT"; exit 2 ;;
 esac
-NORM="$(cd "$R_TRIM" 2>/dev/null && pwd -P)" || NORM=""
-R_MATCH="${NORM:-$R_TRIM}"
+if [ -d "$R_TRIM" ]; then
+  NORM="$(cd "$R_TRIM" && pwd -P)" || NORM=""
+  R_MATCH="${NORM:-$R_TRIM}"
+else
+  PARENT="$(dirname "$R_TRIM")"
+  while [ "$PARENT" != "/" ] && [ ! -d "$PARENT" ]; do PARENT="$(dirname "$PARENT")"; done
+  PN="$(cd "$PARENT" 2>/dev/null && pwd -P)" || PN=""
+  if [ -n "$PN" ]; then R_MATCH="$PN/$(basename "$R_TRIM")"; else R_MATCH="$R_TRIM"; fi
+fi
 R_LC="$(printf '%s' "$R_MATCH" | tr 'A-Z' 'a-z' | tr -s '/')"
 R_LC="${R_LC%/}"
 case "$R_LC" in
@@ -72,7 +86,7 @@ if t is None:
     print(f"__NO_TASK__ {row['task_id']}"); raise SystemExit(0)
 print(f"{row['task_id']} {t['base_sha']}")
 PYEOF
-)"
+)" || { echo "PREPARE_FAIL reason=RUN_LOOKUP_FAILED"; exit 2; }
   case "$INFO" in __*) echo "PREPARE_FAIL reason=$INFO"; exit 2 ;; esac
   TASK_ID="${INFO%% *}"
   BASE_SHA="${INFO##* }"
@@ -80,73 +94,94 @@ PYEOF
   EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 fi
 if [ -e "$WT" ]; then echo "PREPARE_FAIL reason=WORKTREE_EXISTS $WT"; exit 2; fi
-mkdir -p "$EV"
+if [ -e "$EV" ]; then echo "PREPARE_FAIL reason=EVIDENCE_EXISTS $EV (silent rerun of a run id is forbidden; register a new run id)"; exit 2; fi
+mkdir -p "$EV" || { echo "PREPARE_FAIL reason=MKDIR_EVIDENCE_FAILED $EV"; exit 2; }
 
 git -C "$H2_WT" worktree add "$WT" --detach "$BASE_SHA" >/dev/null 2>&1 \
   || { echo "PREPARE_FAIL reason=WORKTREE_ADD_FAILED base=$BASE_SHA"; exit 2; }
-ACTUAL="$(git -C "$WT" rev-parse HEAD)"
+ACTUAL="$(git -C "$WT" rev-parse HEAD)" || { echo "PREPARE_FAIL reason=HEAD_UNREADABLE"; exit 2; }
 if [ "$ACTUAL" != "$BASE_SHA" ]; then
   echo "PREPARE_FAIL reason=WRONG_BASE expected=$BASE_SHA actual=$ACTUAL"; exit 2
 fi
-git -C "$WT" status --porcelain > "$EV/status-pre.txt"
+git -C "$WT" status --porcelain > "$EV/status-pre.txt" \
+  || { echo "PREPARE_FAIL reason=STATUS_SNAPSHOT_FAILED"; exit 2; }
 
-if [ "$ARM" = "control" ]; then
-  if [ -e "$WT/CODEBUDDY.md" ]; then
-    echo "PREPARE_FAIL reason=TREATMENT_CONTAMINATED codebuddy_present_at_root"; exit 2
+# ---- delivery (v4): same-era placed texts for both arms; carrier for variant ----
+MATERIALS_COMMIT="$(git -C "$H2_WT" rev-parse HEAD)" \
+  || { echo "PREPARE_FAIL reason=MATERIALS_COMMIT_UNREADABLE"; exit 2; }
+SRC_RULES="$H2_WT/RULES.md"
+SRC_AGENTS="$H2_WT/AGENTS.md"
+[ -f "$SRC_RULES" ] || { echo "PREPARE_FAIL reason=SOURCE_RULES_MISSING $SRC_RULES"; exit 2; }
+[ -f "$SRC_AGENTS" ] || { echo "PREPARE_FAIL reason=SOURCE_AGENTS_MISSING $SRC_AGENTS"; exit 2; }
+
+for leftover in H2_RULES.md H2_AGENTS.md CODEBUDDY.md; do
+  if [ -e "$WT/$leftover" ]; then
+    echo "PREPARE_FAIL reason=DELIVERY_SLOT_CONTAMINATED $leftover"; exit 2
   fi
-  AGENTS_BLOB="$(git -C "$WT" rev-parse "$BASE_SHA:AGENTS.md")"
-  RULES_BLOB="$(git -C "$WT" rev-parse "$BASE_SHA:RULES.md")"
-  CARRIER_EXPECTED="canonical_full_text (AGENTS.md@$BASE_SHA + RULES.md@$BASE_SHA)"
-  CARRIER_HASH="agents_blob:$AGENTS_BLOB rules_blob:$RULES_BLOB"
-  CB_PRESENT=false
-else
+done
+
+cp "$SRC_RULES" "$WT/H2_RULES.md" || { echo "PREPARE_FAIL reason=COPY_RULES_FAILED"; exit 2; }
+RULES_HASH="$(shasum -a 256 "$WT/H2_RULES.md" | awk '{print $1}')"
+
+if [ "$ARM" = "variant" ]; then
   VAR_HASH="$("$PY" - "$EXP_DIR/variant-manifest.json" <<'PYEOF'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["freeze"]["VARIANT_HASH"])
 PYEOF
-)"
-  cp "$EXP_DIR/carriers/H2_LEAN_BOOTSTRAP.md" "$WT/CODEBUDDY.md"
+)" || { echo "PREPARE_FAIL reason=MANIFEST_UNREADABLE"; exit 2; }
+  cp "$EXP_DIR/carriers/H2_LEAN_BOOTSTRAP.md" "$WT/CODEBUDDY.md" \
+    || { echo "PREPARE_FAIL reason=COPY_CARRIER_FAILED"; exit 2; }
   GOT="$(shasum -a 256 "$WT/CODEBUDDY.md" | awk '{print $1}')"
   if [ "$GOT" != "$VAR_HASH" ]; then
-    rm -f "$WT/CODEBUDDY.md"
+    rm -f "$WT/CODEBUDDY.md" "$WT/H2_RULES.md"
     echo "PREPARE_FAIL reason=CARRIER_HASH_MISMATCH got=$GOT want=$VAR_HASH"; exit 2
   fi
-  CARRIER_EXPECTED="carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md"
+  CARRIER_EXPECTED="carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md; current RULES.md -> H2_RULES.md"
   CARRIER_HASH="$GOT"
+  AGENTS_HASH=""
   CB_PRESENT=true
+else
+  cp "$SRC_AGENTS" "$WT/H2_AGENTS.md" || { echo "PREPARE_FAIL reason=COPY_AGENTS_FAILED"; exit 2; }
+  AGENTS_HASH="$(shasum -a 256 "$WT/H2_AGENTS.md" | awk '{print $1}')"
+  CARRIER_EXPECTED="current AGENTS.md -> H2_AGENTS.md; current RULES.md -> H2_RULES.md (no carrier)"
+  CARRIER_HASH=""
+  CB_PRESENT=false
 fi
 
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "$PY" - "$EV/receipt.json" "$RUN_ID" "$TASK_ID" "$ARM" "$WT" "$BASE_SHA" "$ACTUAL" \
-        "$CARRIER_EXPECTED" "$CARRIER_HASH" "$CB_PRESENT" "$TS" <<'PYEOF'
+        "$CARRIER_EXPECTED" "$CARRIER_HASH" "$AGENTS_HASH" "$RULES_HASH" \
+        "$MATERIALS_COMMIT" "$CB_PRESENT" "$TS" <<'PYEOF' \
+  || { echo "PREPARE_FAIL reason=RECEIPT_WRITE_FAILED"; exit 2; }
 import json, sys
-(p, rid, tid, arm, wt, base, head, ce, ch, cbp, ts) = sys.argv[1:12]
+(p, rid, tid, arm, wt, base, head, ce, ch, ah, rh, mc, cbp, ts) = sys.argv[1:15]
 json.dump({
     "run_id": rid, "task_id": tid, "arm": arm, "worktree": wt,
     "expected_base": base, "actual_head": head,
     "carrier_expected": ce, "carrier_hash": ch,
-    "codebuddy_present": cbp == "true", "ts": ts, "prepare": "OK",
+    "h2_agents_sha256": ah, "h2_rules_sha256": rh,
+    "materials_commit": mc, "codebuddy_present": cbp == "true", "ts": ts, "prepare": "OK",
 }, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PYEOF
 
-"$PY" - "$REG" "$TASK_ID" > "$EV/task.txt" <<'PYEOF'
+"$PY" - "$REG" "$TASK_ID" > "$EV/task.txt" <<'PYEOF' \
+  || { echo "PREPARE_FAIL reason=TASK_WRITE_FAILED"; exit 2; }
 import json, sys
 reg = json.load(open(sys.argv[1], encoding="utf-8"))
 t = [x for x in reg["tasks"] if x["task_id"] == sys.argv[2]][0]
 sys.stdout.write(t["task_text"] + "\n")
 PYEOF
 
-"$PY" - "$HERE" "$EV" "$WT" "$BASE_SHA" "$ARM" <<'PYEOF'
-import sys
+"$PY" - "$HERE" "$EV" "$WT" "$BASE_SHA" "$ARM" <<'PYEOF' \
+  || { echo "PREPARE_FAIL reason=CONTRACT_WRITE_FAILED"; exit 2; }
+import json, sys
 here, ev, wt, base, arm = sys.argv[1:6]
 tpl = open(f"{here}/worker-brief-template.md", encoding="utf-8").read()
 block = open(f"{here}/arm-blocks/{arm}.md", encoding="utf-8").read()
-import json
 receipt = json.load(open(f"{ev}/receipt.json", encoding="utf-8"))
-rid = receipt["run_id"]
 task = open(f"{ev}/task.txt", encoding="utf-8").read().rstrip("\n")
 out = (tpl
-       .replace("<RUN_ID>", rid)
+       .replace("<RUN_ID>", receipt["run_id"])
        .replace("<TASK_ID>", receipt["task_id"])
        .replace("<BASE_SHA>", base)
        .replace("<RUN_WORKTREE_ABS>", wt)
@@ -160,5 +195,8 @@ PYEOF
 echo "PREPARE_RUN OK run_id=$RUN_ID arm=$ARM task=$TASK_ID base=$BASE_SHA"
 echo "  worktree = $WT"
 echo "  evidence = $EV"
-echo "  carrier  = $CARRIER_EXPECTED"
-echo "  carrier_hash = $CARRIER_HASH"
+echo "  delivery = $CARRIER_EXPECTED"
+echo "  carrier_hash = ${CARRIER_HASH:-n/a}"
+echo "  h2_rules_sha256 = $RULES_HASH"
+echo "  h2_agents_sha256 = ${AGENTS_HASH:-n/a}"
+echo "  materials_commit = $MATERIALS_COMMIT"

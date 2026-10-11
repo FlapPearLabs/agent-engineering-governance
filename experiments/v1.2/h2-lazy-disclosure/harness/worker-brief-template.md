@@ -3,16 +3,17 @@
 你是一个 fresh execution worker（fresh context / fresh episode）。只做本合同规定的事，
 不得阅读本合同之外的实验材料。
 
-## 0. 执行目标（机械前置断言：先做，再说话）
+## 0. 执行目标（S0：机械前置断言 —— 所有动作之前先做这步）
 
 ```text
 WORKTREE（绝对路径）  = <RUN_WORKTREE_ABS>
 EXPECTED_BASE_SHA    = <BASE_SHA>
-第一步：在本 worktree 内运行 `git rev-parse HEAD`，必须逐字等于 EXPECTED_BASE_SHA。
+S0 第一步：在本 worktree 内运行 `git rev-parse HEAD`，必须逐字等于 EXPECTED_BASE_SHA。
   不匹配 → 立即停止，只输出：PREFLIGHT_FAIL uid=<RUN_ID> actual=<sha>；不要做任何别的事。
-第二步：运行 `git status --short` 确认树状态；检查 worktree 根部是否存在 `CODEBUDDY.md`
-  （存在与否由 §2 的投递块说明）。
-断言结果写进报告 §A 的 S4 槽位。
+第二步：运行 `git status --short` 确认树状态；确认 harness 投放文件在位
+  （`H2_RULES.md` 必在；本臂的其余投放物见 §2 投递块）。投放文件是**只读材料**：
+  不得修改、删除或重命名。
+断言结果写进报告 §A 的 S0 槽位。
 ```
 
 ## 1. 任务
@@ -23,7 +24,10 @@ EXPECTED_BASE_SHA    = <BASE_SHA>
 
 合同级通用约束（不改变任务本身）：
 
-- 只修改本 worktree 内的文件；**不得** commit / push / 切换分支 / 改动任何 git ref。
+- 只修改本 worktree 内的文件；**例外（受控产物）**：报告必须写到合同 §4 指定的
+  `REPORT_PATH`，遥测日志必须写在 worktree 根部 `.h2-telemetry.log` —— 这两处是允许的
+  写目标，除此以外不得写 worktree 之外的任何路径。
+- **不得** commit / push / 切换分支 / 改动任何 git ref。
 - 不得联网（WebSearch/WebFetch/外网命令均禁止）。
 - 测试/检查用工作区既有方式运行，记录确切命令与原始结果。
 - 完成任务要求的工作；完成后行为受独立评审与机械验收的核验 —— 不要猜测验收内容，
@@ -33,7 +37,7 @@ EXPECTED_BASE_SHA    = <BASE_SHA>
 
 <BOOTSTRAP_DELIVERY_BLOCK>
 
-（S1–S4 完成后，把 `H2_RECEIPT = ...` 写入报告 §A。）
+（S0–S4 完成后，把 `H2_RECEIPT = ...` 写入报告 §A。）
 
 ## 3. 遥测纪律（必须，事件发生时即时记录）
 
@@ -47,11 +51,11 @@ SKILL <name|none>          <LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE>
 
 - "FULL" = 把该文件全文读入（Read 全文件 / cat 全文件）；grep/find/部分读取只记 GREP 或 PARTIAL。
 - 每条记录必须对应真实发生的动作；**禁止**事后补记、推断或美化。
-- 加载治理性文件（RULES.md / 载体 / references/** / skills/**）时尤其必须记录。
+- 加载治理性文件（`H2_RULES.md` / 载体 / `H2_AGENTS.md` / references/** / skills/**）时尤其必须记录。
 
 ## 4. 报告（完成后写盘）
 
-把报告写到（绝对路径）：`<REPORT_PATH>`
+把报告写到（绝对路径，属 §1 的受控产物例外）：`<REPORT_PATH>`
 使用模板：`<REPORT_TEMPLATE_PATH>`（逐节填写，不得留空、不得改动节结构）。
 
 - §D 的 findings 只描述**任务对象**的缺陷/观察（内容导向）；**不得**描述你自己的加载过程、

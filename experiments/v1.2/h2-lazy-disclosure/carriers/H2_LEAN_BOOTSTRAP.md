@@ -13,21 +13,24 @@
 MODE = H2_LEAN_DISCLOSURE_EXPERIMENT
 ```
 
-## 1. 开工序列（顺序不可换）
+## 1. 开工序列（顺序固定）
 
 ```text
-S1 AUTHORITY   读 RULES.md 全文（B 层不变量；不在注入通道内，必须显式全文读）。
+S0 PREFLIGHT   执行目标核验：本 worktree 的 HEAD 必须等于任务声明的 base SHA（见运行合同）。
+               核验前不得声称任何 repo 状态；不匹配 = 拒绝执行并如实上报。
+S1 AUTHORITY   读 H2_RULES.md 全文（harness 投放的当前 RULES.md 全文副本；B 层不变量）。
 S2 TASK_CLASS  判定本任务风险级 LOW / MEDIUM / HIGH（判据见 §3；判不出 → MEDIUM）。
 S3 LOAD        按 §4 路由表**只**加载与本任务相关的那一层 WARM。不允许"先全读一遍再决定"。
-S4 BASELINE    核验执行目标：本 worktree 的 HEAD 必须等于任务声明的 base SHA。
-               核验前不得声称任何 repo 状态；不匹配 = 拒绝执行并如实上报。
+S4 RECEIPT     输出回执（两臂同构字段）。
 ```
 
-S1–S4 完成后输出一行回执（两臂同构字段）：
+S0–S4 完成后输出一行回执：
 
 ```text
-H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<loaded targets|none> S4:<sha|MISMATCH>
+H2_RECEIPT = S0:<sha|MISMATCH> S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<targets|none> S4:<full|partial|missing>
 ```
+
+（S4 槽 = 载体 `CODEBUDDY.md` 的完整读取状态；S3 槽 = 实际加载的 WARM 目标。）
 
 ## 2. 安全地板 N1–N8（不可删；精简只改变它们写在哪，不删除其中任何一条）
 

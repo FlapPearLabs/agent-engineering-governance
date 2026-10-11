@@ -23,7 +23,7 @@ N0  V1.2 ROOT
 ├── N1  H1 — Bounded Bootstrap / HOT Context                      [CLOSED]
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 │
-├── N2  H2 — Lazy Skill / Progressive Disclosure                  [PLANNED]
+├── N2  H2 — Lazy Skill / Progressive Disclosure                  [ACTIVE]
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]

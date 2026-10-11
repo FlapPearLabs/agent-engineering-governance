@@ -24,11 +24,15 @@ H2-H2（可falsify形态） = 路由可达性是下沉可行性的唯一硬前�
 ## 2. 臂定义（两臂唯一自变量 = 治理/Skill 内容的投递方式）
 
 ```text
-CONTROL_H2  = 当前完整 HOT 治理可达（AGENTS.md 全文 + RULES.md 全文；不额外加资料）
-VARIANT_H2  = 精简 HOT 载体（carriers/H2_LEAN_BOOTSTRAP.md；只保留 map / invariants /
-              routing pointers；AGENTS §3/§4/§5 与 §0 框架细节下沉 WARM）
-              + 任务相关 WARM 按路由加载 + Skill 按 §5 路由处置
+CONTROL_H2  = 当前完整 HOT 治理可达（placed 当前 AGENTS.md 全文 + 当前 RULES.md 全文；不额外加资料）
+VARIANT_H2  = 精简 HOT 载体（carriers/H2_LEAN_BOOTSTRAP.md → placed CODEBUDDY.md；只保留
+              map / invariants / routing pointers；AGENTS §3/§4/§5 与 §0 框架细节下沉 WARM）
+              + placed 当前 RULES.md（与对照臂同版）+ 任务相关 WARM 按路由加载 + Skill 按 §5 处置
 ```
+
+**治理时代同版声明（v4）**：两臂在**所有** run（含 t01–t04 的历史 base）都获得**当前时代**
+的治理文本（由 harness 机械投放的副本）；历史 base 只改变任务的代码状态，不改变治理版本
+—— 消除"变体拿到新政策、对照只有旧政策"的版本混杂（见 `variant-manifest.json#carrier`）。
 
 **WHAT LEFT HOT / REMAINED / MOVED TO WARM**（结构化声明见 `variant-manifest.json`）：
 
@@ -55,16 +59,21 @@ NOT_CARRIED_BY_VARIANT（对照组全读面的一部分）= AGENTS §6–§10 �
 每个 run 的投递由 harness 机械完成（`harness/prepare_run.sh`），不是 prompt 散文：
 
 ```text
+投放前 harness 断言 worktree 根部三个投放槽位（CODEBUDDY.md / H2_RULES.md / H2_AGENTS.md）
+均不存在（存在 ⇒ RUN_INVALID: DELIVERY_SLOT_CONTAMINATED）。
+两臂公共：
+  · H2_RULES.md = 当前 RULES.md 全文副本（源 = materials worktree；receipt 记 sha256 +
+    materials_commit）。
 CONTROL run：
-  · worktree = 任务 base 的独立 detached worktree；根部**不得存在** CODEBUDDY.md
-    （若存在 → RUN_INVALID: TREATMENT_CONTAMINATED）。
-  · 投递面 = worktree 内 canonical 文本（AGENTS.md 全文 + RULES.md 全文）；
-    receipt 记录 `git rev-parse <base>:AGENTS.md` / `:RULES.md` 的 blob sha 与工作区文件 sha256。
+  · H2_AGENTS.md = 当前 AGENTS.md 全文副本（receipt 记 sha256）；
+  · 根部**不得存在** CODEBUDDY.md（存在 ⇒ RUN_INVALID: TREATMENT_CONTAMINATED）。
 VARIANT run：
-  · worktree 同上；harness 把 carriers/H2_LEAN_BOOTSTRAP.md 以 `CODEBUDDY.md` 投放到
-    worktree 根部，并核对 sha256 == variant-manifest.json 的 VARIANT_HASH；
-  · 投递面 = 该载体（其余按载体 §4 路由加载）。
-  · 载体未投放 / 哈希不符 / 静默回落（根部缺失） ⇒ RUN_INVALID: CARRIER_NOT_DELIVERED。
+  · CODEBUDDY.md = carriers/H2_LEAN_BOOTSTRAP.md（sha256 == VARIANT_HASH）；
+  · 根部不得存在 H2_AGENTS.md；载体未投放 / 哈希不符 / 静默回落 ⇒ RUN_INVALID:
+    CARRIER_NOT_DELIVERED。
+collection 侧（collect_run.sh）对上述全部投放物重新核 hash（control 另核 H2_AGENTS.md；
+两臂都核 run 树自带 AGENTS.md/RULES.md 未被改动），任何 FAIL ⇒ 脚本 exit 3（fail-closed），
+run 必须登记 INVALID。
 ```
 
 run 合同（两臂同构，差异只在 `BOOTSTRAP_DELIVERY` 槽位）冻结于
@@ -90,8 +99,11 @@ shapes: FIX{t01×1,t02×1} / HIGH-STATE{t03×2} / HIGH-REVIEW-EVIDENCE{t04×2} /
 N_PER_ARM_TOTAL = 10；N_TOTAL_RUNS = 20
 ```
 
-**执行顺序（冻结）**：block-1 = R01–R12（全部任务的第 1 次：t01C,t01V,t02C,t02V,t03C,t03V,
-t04C,t04V,n01C,n01V,n02C,n02V）；block-2 = R13–R20（t03/t04/n01/n02 各自的第 2 次）。
+**执行顺序（冻结；臂序已对消 —— bot review「Counterbalance the arm execution order」）**：
+同一任务内不固定"先对照后变体"；臂序在任务间交替、且在重复对之间**互换**：
+block-1（每任务第 1 次）＝ t01:C,V；t02:V,C；t03:C,V；t04:V,C；n01:C,V；n02:V,C；
+block-2（t03/t04/n01/n02 第 2 次）＝ t03:V,C；t04:C,V；n01:V,C；n02:C,V。
+即：重复任务的两对臂序相反（C-first ↔ V-first 互换）；不可重复的 t01/t02 在任务间交替。
 两 block 规则完全相同；任何环境中断都按 §8 注册，不得"重跑到好看为止"。
 
 ## 4. 运行机制
@@ -101,10 +113,11 @@ t04C,t04V,n01C,n01V,n02C,n02V）；block-2 = R13–R20（t03/t04/n01/n02 各自�
   1. harness/prepare_run.sh <RUN_ID> <ARM>   → 建 worktree、机械断言、投放载体、写 receipt
   2. fresh worker（独立 subagent，独立 episode；不得复用前一 run 的上下文）
   3. worker 按合同工作 + 就地维护 .h2-telemetry.log（格式见 §6）+ 写报告到指定路径
-  4. harness/collect_run.sh <RUN_ID>         → 捕获 diff/status（非破坏性 git add -A +
-     diff --cached > diff.patch；随后 git reset 取消暂存，绝不 reset --hard）；
-     并复核载体投放完整性（P2 收集侧：carrier-recheck.txt）
-  5. harness/run_acceptance.sh <RUN_ID>      → 机械验收（命令来自 task-registry）
+  4. harness/collect_run.sh <RUN_ID>         → 捕获 diff/status（非破坏性；worker 若有违约
+     commit，则改取 base..worktree 全量 diff），并复核全部投放物完整性 + run 树 AGENTS/RULES
+     未动（carrier-recheck.txt）；任一 FAIL ⇒ exit 3（fail-closed）
+  5. harness/run_acceptance.sh <RUN_ID>      → 机械验收（命令来自 task-registry；EXEC 条目
+     全部执行、任一条 rc≠0 ⇒ 脚本 exit 1）
   6. 独立 auditor（fresh subagent）评审 artifacts（不看 worker 过程叙述中的自辩）
   7. 全部产物落盘（见 §7）；run 登记进 run-registry.md
 ```
@@ -118,7 +131,7 @@ worker 禁止 commit / push / 改 refs；只允许 worktree 内文件改动与�
 | # | 要求 | H2 的机械证明 | 证据位置 |
 |---|---|---|---|
 | P1 | 执行目标机械绑定 | prepare_run.sh 断言 worktree 绝对路径存在 + `git rev-parse HEAD` == base_sha；worker 合同第 0 步再次自检并回报 `S4:<sha|MISMATCH>`；不匹配 = RUN_INVALID | `precondition/p1-p2-dryrun.txt` |
-| P2 | 载体投放断言 | 载体由 prepare_run.sh 机械投放 + sha256 核对 + control 臂断言"根部无 CODEBUDDY.md"；receipt.json 含 CARRIER_EXPECTED/ACTUAL/HASH | `precondition/p1-p2-dryrun.txt` |
+| P2 | 投递断言（v4） | prepare_run.sh 机械投放两臂同版 `H2_RULES.md` +（control: `H2_AGENTS.md` / variant: `CODEBUDDY.md`）并逐项 sha256 核对；receipt 记 materials_commit + 各投放物 hash；collection 再核（FAIL ⇒ exit 3） | `precondition/p1-p2-dryrun.txt` |
 | P3 | 产物持久化 | 全部 run 产物写 `h2-runs/evidence/**`（持久工作区，非 /tmp）与 repo `runs/**`；worktree 位于 `h2-runs/worktrees/**` | protocol §7 + registry |
 | P4 | 报告同构 | 单一模板 `harness/worker-report-template.md`；两臂投递块字段名相同（H2_RECEIPT 等）；抽取评估时对 findings 节做去臂化 | 模板文件 + §6 |
 | P5 | 预注册评分 | 本协议 + `scoring-rubric.md`（含高价值边界、missed-guidance 三合取、结果计算）在首 run 前冻结 | 冻结 commit + hash |
@@ -138,6 +151,7 @@ SKILL <name|none>          <LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE>
 报告 §H 汇总：FILES_FULLY_READ / FILES_PARTIAL_READ / FILES_GREPPED_FOUND /
 ROUTES_USED / SKILLS_LOADED / ESCALATED_LOADS / SKILL_FALLBACK_REPORTED /
 WALL_CLOCK=NOT_OBSERVABLE / TOKEN_USAGE=NOT_OBSERVABLE。
+投放文件（`H2_RULES.md` / `H2_AGENTS.md` / `CODEBUDDY.md`）的读取按同规则记录。
 M3 口径 = **完整读取**（非 grep 命中、非部分读取）；DISCOVERED/PARTIAL/FULLY_LOADED 分记。
 
 ## 7. 产物位置（PART 21）
@@ -167,11 +181,19 @@ task-text mismatch（防走样）。
 
 ```text
 VARIANT_HASH / TASK_SET_HASH / SCORING_HASH / ROUTE_MANIFEST_HASH = 见 variant-manifest.json
-（在 freeze commit 中写入；此后逐 run 的 receipt 记录载体 sha256，必须 == VARIANT_HASH）。
-VARIANT_CHANGED_AFTER_FREEZE = NO 的判定 = ①仓库内冻结文件 hash 未变（material tests 强制）；
-②全部 valid run 的 receipt 载体 sha256 == VARIANT_HASH。
+（在 freeze commit 中写入；此后逐 run 的 receipt 记录全部投放物 sha256 + materials_commit）。
+VARIANT_CHANGED_AFTER_FREEZE = NO 的判定 = ①仓库内冻结文件 hash 未变（material tests 强制，
+测试文件中另有**同值字面量**互为锚定）；②全部 valid run 的 receipt 记录与 freeze 一致
+（variant: carrier sha256 == VARIANT_HASH；control: H2_AGENTS/H2_RULES 与 receipt 一致）。
 若必须修 variant：ROUND_INVALID，已跑 run 全部作废（保留登记），改协议后开新 round。
 ```
+
+**锚定语义（bot review「Anchor freeze hashes outside the mutable freeze set」的处置）**：
+manifest 的四个 hash 与 material tests 中的同值字面量互相钉住 —— 改动任一冻结文件必须同时
+改 manifest 与测试字面量，否则测试红。每个 run 的 receipt 记录 `materials_commit`（投放源
+提交）。冻结面的**最终**锚 = 其进入默认分支的 merge commit（merge 后在 `results.md §8`
+记录）。仓库内任何锚只能提供"单点或漏改会被发现"的强度，不能提供不可篡改；不可篡改性
+的来源是 git 历史 + PR 评审，这里如实区分。
 
 ## 10. PART 22 — 每个 task base 的路由预条件
 

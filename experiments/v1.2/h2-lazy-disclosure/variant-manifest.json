@@ -3,9 +3,9 @@
   "schema_version": 0,
   "note": "H2 freeze record (non-canonical). Freezes the experiment's variable: VARIANT/TASK_SET/SCORING/ROUTE_MANIFEST hashes, the carrier delivery + receipt rule, and the structured WHAT LEFT HOT / REMAINED HOT / MOVED TO WARM declaration. After the first valid run, none of the frozen files may change (VARIANT_CHANGED_AFTER_FREEZE must read NO; enforced by material tests + per-run receipts). This file deliberately does NOT contain its own commit SHA (self-referential values cannot converge); the freeze commit / merge SHA are recorded post-merge in results.md §8 and the TREE_LEDGER closure entry.",
   "freeze": {
-    "VARIANT_HASH": "4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639",
-    "TASK_SET_HASH": "eec3797e6b566f651bcb4c3005f4dfe645c262e868a7de17ed0c04a4eb170205",
-    "SCORING_HASH": "440d00263261ac09ddb706e5b77c219a5c66b336e9e18121a3d6fd196775ded0",
+    "VARIANT_HASH": "9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1",
+    "TASK_SET_HASH": "e36c4cc3aa8ae9faa8e20825ef72218fe860de018567da483ae3b6b04698cfe3",
+    "SCORING_HASH": "7c3f3b7f4eb26cfc75ddac892521b631a2102aff2f41e1bf7b60a7e803701688",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
     "HASHED_FILES": {
@@ -16,11 +16,13 @@
     }
   },
   "carrier": {
+    "delivery_scheme": "v4 — same governance era for both arms; the ONLY arm difference is the disclosure strategy (bot review countermeasures included). All deliveries are placed by harness/prepare_run.sh with sha256 receipts; the run tree's own (base-era) AGENTS.md/RULES.md are NOT the delivery surface.",
+    "common_to_both_arms": "H2_RULES.md = a placed copy of the CURRENT RULES.md (source = the materials worktree); receipt records h2_rules_sha256 + materials_commit.",
+    "control_delivery": "H2_AGENTS.md = a placed copy of the CURRENT AGENTS.md (full-text delivery; receipt records h2_agents_sha256). CODEBUDDY.md must be ABSENT (else RUN_INVALID: TREATMENT_CONTAMINATED).",
     "variant_carrier_path": "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md",
-    "variant_placement": "harness/prepare_run.sh copies it to <run worktree>/CODEBUDDY.md and verifies sha256 == VARIANT_HASH; missing / mismatched / silently absent at delivery time ⇒ RUN_INVALID (CARRIER_NOT_DELIVERED).",
-    "control_delivery": "no placed file; canonical AGENTS.md + RULES.md read in full at the task base; harness asserts that CODEBUDDY.md is ABSENT at the run worktree root (else RUN_INVALID: TREATMENT_CONTAMINATED).",
-    "receipt_fields": ["carrier_expected", "carrier_hash", "codebuddy_present"],
-    "receipt_rule": "For every VALID run: variant runs' carrier hash == VARIANT_HASH; control runs' carrier record == the AGENTS.md/RULES.md blob pair at that base. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt)."
+    "variant_placement": "copied to <run worktree>/CODEBUDDY.md; sha256 verified == VARIANT_HASH; H2_AGENTS.md must be absent.",
+    "receipt_fields": ["carrier_hash", "h2_agents_sha256", "h2_rules_sha256", "materials_commit", "codebuddy_present"],
+    "receipt_rule": "For every VALID run: the placed files' sha256 values must equal the receipt values. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt; any FAIL => exit 3, run must be registered INVALID). The run tree's own AGENTS.md/RULES.md must be untouched (base-relative check at collection)."
   },
   "what_remained_hot_in_variant": [
     "authority chain (A>B>C>D>E>F)",
@@ -55,12 +57,13 @@
   "hot_metrics": {
     "unit": "js_chars (UTF-16 code units; same unit as H1)",
     "measured_by": "h2_hot_inventory.py (with --selftest counterexample checks)",
+    "truncation_model": "char-exact raw.slice(0, 8000) per audit/AS_IS_WORKBUDDY_V3.md:29 (bot-review correction); the H1 line-granular computation is retained as a labeled secondary field for comparability only.",
     "observed_at_freeze_at_H2_base": {
       "CONTROL_HOT_JS_CHARS": 15784,
-      "VARIANT_HOT_JS_CHARS": 6774,
-      "HOT_REDUCTION_PERCENT": "57.1",
+      "VARIANT_HOT_JS_CHARS": 6893,
+      "HOT_REDUCTION_PERCENT": "56.3",
       "VARIANT_FULLY_DELIVERED": true,
-      "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars)"
+      "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars; placed copy H2_RULES.md)"
     },
     "note": "Observed at the H2 base (9494de8e). Historical task bases carry older AGENTS/RULES sizes (per-base values to be recorded in results.md §1 after the runs); N6 projections must not be substituted for these observations (PART 27)."
   }

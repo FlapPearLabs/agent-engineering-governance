@@ -41,17 +41,20 @@ H4_EXECUTED / H5_EXECUTED = NO / NO
 ## 2. 两臂与唯一自变量
 
 ```text
-CONTROL_H2  = 当前完整 HOT 治理可达（AGENTS.md 全文 + RULES.md 全文；AGENTS.md 由工作区根部
-              的同一路径自然存在；不额外加资料、无路由机制）
-VARIANT_H2  = 精简 HOT 载体（carriers/H2_LEAN_BOOTSTRAP.md → 投放到 run worktree 根部的
-              CODEBUDDY.md）+ 任务相关 WARM 按路由加载 + Skill 按 §5 路由处置
+CONTROL_H2  = 当前完整 HOT 治理可达：placed 当前 AGENTS.md 全文（H2_AGENTS.md）+ 当前 RULES.md
+              全文（H2_RULES.md）；不额外加资料、无路由机制
+VARIANT_H2  = 精简 HOT 载体（carriers/H2_LEAN_BOOTSTRAP.md → 投放为 CODEBUDDY.md）+ 同版
+              H2_RULES.md + 任务相关 WARM 按路由加载 + Skill 按 §5 路由处置
 ```
+
+**治理时代同版（v4）**：两臂（含 t01–t04 历史 base）都收到**当前时代**的治理文本副本 ——
+历史 base 只改变任务代码状态，不改变治理版本；唯一自变量 = 披露策略。
 
 - 其余全部相同：同 base、同任务文本、同工具、同验收契约、同评审协议、同模型档位。
 - WHAT LEFT HOT / REMAINED / MOVED TO WARM = `variant-manifest.json` 的结构化声明
   （细节下沉去向：AGENTS §3/§4/§5 与 §0 框架细节 → `references/` 各 owner）。
-- 投递是 **harness 的机械步骤**（P2）：载体 sha256 核对 + control 臂断言根部无 `CODEBUDDY.md`；
-  未投放/哈希不符/静默回落 ⇒ RUN_INVALID（`TREATMENT_CONTAMINATED` / `CARRIER_NOT_DELIVERED`）。
+- 投递是 **harness 的机械步骤**（P2）：逐文件 sha256 核对 + `materials_commit` 记录 +
+  槽位污染断言；交付侧与 collection 侧双重核验（任何 FAIL ⇒ collect exit 3，run 记 INVALID）。
 
 ## 3. 复现（本目录的所有机械部分）
 

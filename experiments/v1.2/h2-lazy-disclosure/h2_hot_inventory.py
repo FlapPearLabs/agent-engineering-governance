@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """H2 HOT-surface inventory + truncation oracle（非 canonical；H2 实验材料）。
 
-与 H1 的 hot_inventory.py 同一计量口径（js_chars / 行粒度截断 / TOKENS=NOT_OBSERVABLE），
-只替换了变体臂的 HOT 载体并显式声明 H2 的口径：
+与 H1 的 hot_inventory.py 同一单位口径（js_chars / TOKENS=NOT_OBSERVABLE），
+但截断语义按 **v2（bot-review 修正）** 建模：
 
-  HOT_JS_CHARS = guidance-head 面之和（MEMORY_POINTER + 臂的 guidance 载体）
-  MANDATORY_FULL_READ = RULES.md（两臂都读全文；单列，不计入 HOT_JS_CHARS 之和）
+  运行时实测（`audit/AS_IS_WORKBUDDY_V3.md:29`）= `raw.slice(0, MAX_GUIDANCE_CHARS)`
+  —— **字符级**前缀（保留跨界行的部分内容），其后整体丢弃。
+  本脚本以该语义为主口径（`visible_js_chars` / `dropped_js_chars`）；
+  H1 的**行粒度**算法保留为标注为 secondary 的对照字段（`line_granular_*`），
+  仅供与 H1 已发布数字对照，不再用于本实验的结论口径。
 
 单位（严格区分，不得互相换算）：LINES / BYTES / JS_CHARS（UTF-16 code units）/
 TOKENS_* = NOT_OBSERVABLE（见 experiments/v1.2/metrics.md）。
@@ -39,7 +42,7 @@ HOT_SURFACES_VARIANT = [
 ]
 
 MANDATORY_READ_CONTROL = ["RULES.md"]
-MANDATORY_READ_VARIANT = ["RULES.md"]  # H2：两臂都读 RULES.md 全文（差异只在 guidance 载体）
+MANDATORY_READ_VARIANT = ["RULES.md"]  # H2：两臂都读同版 RULES.md（差异只在 guidance 载体）
 
 
 def js_chars(text: str) -> int:
@@ -64,22 +67,36 @@ def measure(rel_path: str) -> dict[str, object]:
     }
 
 
-def _visible_js_chars_for(text: str, limit: int) -> int:
-    """逐行累计到 limit 为止，返回实际可见前缀的 js_chars（不含截断行）。"""
+def _char_slice_prefix(text: str, limit: int) -> str:
+    """Primary semantics: `raw.slice(0, limit)` in UTF-16 units.
+
+    Accumulates whole characters; a character whose units would cross the limit is NOT
+    included (the runtime may split an astral pair mid-way; we stop before it — the only
+    divergence is a lone surrogate at the boundary, which no repo file exercises).
+    """
     acc = 0
-    visible = 0
+    out = []
+    for ch in text:
+        u = 2 if ord(ch) > 0xFFFF else 1
+        if acc + u > limit:
+            break
+        acc += u
+        out.append(ch)
+    return "".join(out)
+
+
+def _line_granular_visible_for(text: str, limit: int) -> str:
+    """Secondary (H1 comparability): whole lines only; a line reaching the limit exactly is
+    still dropped whole (H1 arithmetic: prev < limit <= acc ⇒ crossing line dropped)."""
+    acc = 0
+    visible_lines = []
     for line in text.splitlines(keepends=True):
         prev = acc
         acc += js_chars(line)
         if prev < limit <= acc:
-            return visible
-        visible = acc
-    return visible
-
-
-def _dropped_js_chars_for(text: str, limit: int) -> int:
-    """被丢弃的尾部总量 = 总量 - 可见量（行粒度：截断行整行丢弃，其后全丢）。"""
-    return max(0, js_chars(text) - _visible_js_chars_for(text, limit))
+            break
+        visible_lines.append(line)
+    return "".join(visible_lines)
 
 
 def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str, object]:
@@ -87,6 +104,9 @@ def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str,
     if not path.is_file():
         return {"path": rel_path, "exists": False}
     text = path.read_text(encoding="utf-8")
+    visible = _char_slice_prefix(text, limit)
+    lg_visible = _line_granular_visible_for(text, limit)
+
     lines = text.splitlines(keepends=True)
     acc = 0
     cut_line = None
@@ -96,23 +116,23 @@ def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str,
         if prev < limit <= acc:
             cut_line = idx
             break
-    visible = "".join(lines[: cut_line - 1]) if cut_line else "".join(lines)
+    tail = "".join(lines[(cut_line - 1) if cut_line else len(lines):])
     return {
         "path": rel_path,
         "exists": True,
+        "semantics": "char_slice(0, limit) per audit/AS_IS_WORKBUDDY_V3.md; line_granular_* is H1 comparability only",
         "total_lines": len(lines),
         "total_js_chars": js_chars(text),
         "cut_line": cut_line,
-        "visible_lines": (cut_line - 1) if cut_line else len(lines),
         "visible_js_chars": js_chars(visible),
         "dropped_js_chars": max(0, js_chars(text) - js_chars(visible)),
+        "line_granular_visible_js_chars": js_chars(lg_visible),
+        "line_granular_dropped_js_chars": max(0, js_chars(text) - js_chars(lg_visible)),
         "visible_headings": [
             ln.strip() for ln in visible.splitlines() if re.match(r"^#{1,2} ", ln)
         ],
         "truncated_headings": [
-            ln.strip()
-            for ln in "".join(lines[(cut_line - 1) if cut_line else len(lines):]).splitlines()
-            if re.match(r"^#{1,2} ", ln)
+            ln.strip() for ln in tail.splitlines() if re.match(r"^#{1,2} ", ln)
         ],
     }
 
@@ -146,8 +166,9 @@ def inventory() -> dict[str, object]:
             "MAX_GUIDANCE_CHARS": MAX_GUIDANCE_CHARS,
             "GUIDANCE_FILES": GUIDANCE_FILES,
             "source": "deployment/BOOTSTRAP_CONTRACT.md §1 (profile fact, not a cross-version constant)",
-            "note": "H2 delivers both arms' guidance heads in FULL via the run contract; "
-                    "the 8000-char cap is recorded as the canonical-channel context, not as a treatment.",
+            "truncation_model": "char-exact raw.slice(0, MAX) per audit/AS_IS_WORKBUDDY_V3.md:29",
+            "note": "H2 delivers both arms' guidance heads in FULL via placed copies; the "
+                    "8000-char cap is recorded as the canonical-channel context, not as a treatment.",
         },
         "control": control,
         "variant": variant,
@@ -171,7 +192,7 @@ def _pct(base: int, after: int) -> str:
 
 
 def selftest() -> int:
-    """反例自检：截断算术、单位区分、两臂不变式。"""
+    """反例自检：字符级截断语义（v2）、单位区分、两臂不变式。"""
     failures: list[str] = []
 
     # T1 js_chars 与 byte/char 的区分——astral 字符按 2 计
@@ -180,39 +201,37 @@ def selftest() -> int:
     if js_chars("\U0001F600") != 2:
         failures.append("T1b: astral char must count 2 UTF-16 units")
 
-    # T2 行粒度截断算术（合成输入）
+    # T2 字符级截断（v2）：单行 8000 字符必须**完整可见**（bot review 反例）
     one_line = "x" * MAX_GUIDANCE_CHARS
-    if _visible_js_chars_for(one_line, MAX_GUIDANCE_CHARS) != 0:
-        failures.append("T2a: a line landing exactly on the limit is dropped whole")
-    if _dropped_js_chars_for(one_line, MAX_GUIDANCE_CHARS) != MAX_GUIDANCE_CHARS:
-        failures.append("T2b: exact-limit single line must be dropped entirely")
+    if js_chars(_char_slice_prefix(one_line, MAX_GUIDANCE_CHARS)) != MAX_GUIDANCE_CHARS:
+        failures.append("T2a: a single 8000-char line must be delivered in full (char slice)")
+    if js_chars(one_line) - js_chars(_char_slice_prefix(one_line, MAX_GUIDANCE_CHARS)) != 0:
+        failures.append("T2b: exact-limit single line must drop nothing under char slice")
+    # 7999 → 无丢弃
     small = "x" * (MAX_GUIDANCE_CHARS - 1)
-    if _dropped_js_chars_for(small, MAX_GUIDANCE_CHARS) != 0:
+    if js_chars(small) - js_chars(_char_slice_prefix(small, MAX_GUIDANCE_CHARS)) != 0:
         failures.append("T2c: input below the limit must drop nothing")
+    # 多行：visible == limit（纯 ASCII），dropped == total - limit
     body = "x\n" * (MAX_GUIDANCE_CHARS // 2 + 10)
-    total, visible = js_chars(body), _visible_js_chars_for(body, MAX_GUIDANCE_CHARS)
-    if _dropped_js_chars_for(body, MAX_GUIDANCE_CHARS) != max(0, total - visible):
-        failures.append("T2d: dropped must be total - visible for multi-line input")
-    long_line = "x" * (MAX_GUIDANCE_CHARS // 2) + "\n"
-    body = long_line * 4
-    acc, overflow = 0, None
-    for line in body.splitlines(keepends=True):
-        prev = acc
-        acc += js_chars(line)
-        if prev < MAX_GUIDANCE_CHARS <= acc:
-            overflow = acc - MAX_GUIDANCE_CHARS
-            break
-    dropped = _dropped_js_chars_for(body, MAX_GUIDANCE_CHARS)
-    if overflow is None or dropped <= overflow:
-        failures.append(
-            f"T2e: dropped tail ({dropped}) must exceed the cut line's own overflow ({overflow})"
-        )
+    visible_units = js_chars(_char_slice_prefix(body, MAX_GUIDANCE_CHARS))
+    if visible_units != MAX_GUIDANCE_CHARS:
+        failures.append("T2d: char slice must deliver exactly the limit in units (ascii input)")
+    if js_chars(body) - visible_units != max(0, js_chars(body) - MAX_GUIDANCE_CHARS):
+        failures.append("T2e: dropped must equal total - limit under char slice")
+    # astral 边界：一个 2-unit 字符不得被劈开计入
+    pairy = "\U0001F600" * 10  # 20 units
+    got = js_chars(_char_slice_prefix(pairy, 5))  # 5 units → 2 chars = 4 units (5th unit would split)
+    if got != 4:
+        failures.append(f"T2f: astral pair must not be split by the slice (got {got}, want 4)")
+    # secondary（H1 对照）行粒度行为保留
+    if js_chars(_line_granular_visible_for(one_line, MAX_GUIDANCE_CHARS)) != 0:
+        failures.append("T2g: line-granular secondary must still drop the crossing line whole")
 
     inv = inventory()
     ctl = inv["control"]["guidance_delivery"]
     grn = inv["variant"]["guidance_delivery"]
 
-    # T3 control 的 AGENTS.md 截断事实（profile 回归）
+    # T3 control 的 AGENTS.md 截断事实（字符级口径）
     if not ctl.get("exists") or not grn.get("exists"):
         failures.append("T3: control/variant guidance files must exist at their declared paths")
     else:
@@ -220,8 +239,10 @@ def selftest() -> int:
             failures.append("T3a: control AGENTS.md expected to be truncated at 8000")
         if ctl["dropped_js_chars"] <= 0:
             failures.append("T3b: control dropped_js_chars must be > 0")
+        if ctl["visible_js_chars"] != MAX_GUIDANCE_CHARS:
+            failures.append("T3c: control visible_js_chars must equal the char-slice limit")
         if ctl["dropped_js_chars"] != max(0, ctl["total_js_chars"] - ctl["visible_js_chars"]):
-            failures.append("T3c: dropped_js_chars must equal total - visible (file-scoped)")
+            failures.append("T3d: dropped_js_chars must equal total - visible")
 
     # T4 variant 完整投递（不截断）——变体存在的前提
     if not inv["reduction"]["variant_fully_delivered"]:
@@ -237,7 +258,7 @@ def selftest() -> int:
     if int(inv["variant"]["hot_js_chars"]) >= int(inv["control"]["hot_js_chars"]):
         failures.append("T6: variant hot_js_chars must be < control")
 
-    # T7 两臂都强制读 RULES.md（H2 口径）
+    # T7 两臂都强制读同版 RULES.md（H2 口径）
     if inv["variant"]["mandatory_full_read_js_chars"] <= 0:
         failures.append("T7: variant mandatory read (RULES.md) must be present in the metric")
 
@@ -262,7 +283,7 @@ def main() -> int:
         return 0
 
     c, v, r = inv["control"], inv["variant"], inv["reduction"]
-    print("=== H2 HOT inventory (profile: MAX_GUIDANCE_CHARS=8000) ===\n")
+    print("=== H2 HOT inventory (profile: MAX_GUIDANCE_CHARS=8000; char-slice semantics) ===\n")
     for arm, data in (("CONTROL_H2", c), ("VARIANT_H2", v)):
         print(f"[{arm}]")
         for row in data["hot_surfaces"]:
@@ -280,9 +301,9 @@ def main() -> int:
         )
         g = data["guidance_delivery"]
         print(
-            f"   guidance delivery: visible_lines={g.get('visible_lines')}/"
-            f"{g.get('total_lines')} visible_js={g.get('visible_js_chars')} "
-            f"dropped_js={g.get('dropped_js_chars')}"
+            f"   guidance delivery (char-slice): visible_js={g.get('visible_js_chars')} "
+            f"dropped_js={g.get('dropped_js_chars')} cut_line={g.get('cut_line')} "
+            f"[line-granular secondary: visible_js={g.get('line_granular_visible_js_chars')}]"
         )
         for h in g.get("truncated_headings", []):
             print(f"      TRUNCATED SECTION: {h}")
@@ -291,7 +312,7 @@ def main() -> int:
     print("=== reduction ===")
     print(f"   hot js_chars: {r['hot_js_chars_control']} -> {r['hot_js_chars_variant']}"
           f"  ({r['hot_reduction_percent']}%)")
-    print(f"   guidance visible js: {r['guidance_visible_control']} ->"
+    print(f"   guidance visible js (char-slice): {r['guidance_visible_control']} ->"
           f" {r['guidance_visible_variant']}  ({r['guidance_visible_reduction_percent']}%)")
     print(f"   variant fully delivered: {r['variant_fully_delivered']}")
     print(f"   token usage: {inv['token_usage']}")

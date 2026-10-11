@@ -56,8 +56,10 @@ HV8  route/skill retrieval failure 且该失败改变了任务结果
 ```text
 MISSED_GUIDANCE(任务 T) 成立  ⟺ 以下三项同时为真：
   ① 存在一条 high-value finding F（§2 类别之一）：
-        CONTROL 臂在 T 的某次 run 中捕获（finding 进入该 run 报告且审计确认真实）；
-     AND VARIANT 臂在 T 的**全部有效 run** 中均未捕获（含重复 run）。
+        CONTROL 臂在 T 的某次**有效** run 中捕获（finding 进入该 run 报告且审计确认真实）；
+     AND VARIANT 臂在 T **至少存在 1 个有效 run**，且其**全部有效 run** 均未捕获；
+        （若 T 的全部 variant run 为 INVALID/BLOCKED → 本项不成立；此时按 §9 走
+         INSUFFICIENT_EVIDENCE —— 不得把"没有观察"读成"变体漏了"。）
   ② F 的知识位于 **MOVED_TO_WARM 集**：
         = 存在于 CONTROL 投递面（AGENTS.md 全文）或任一 WARM owner，
         但**不在** H2 载体（carriers/H2_LEAN_BOOTSTRAP.md）中。
@@ -123,7 +125,10 @@ UNNECESSARY_LOAD(run) = run 加载的 WARM 内容中，有**明确与任务无�
   (iii) AGENTS §3/§4/§5 与 §0 框架的细节文本    → 载体不含；CONTROL 全文投递有
   (iv)  AGENTS §6–§10 等"控制面全读"文本        → 载体不含；CONTROL 全文投递有
   (v)   双方都未达到的语义                      → 双方同盲
-MOVED_TO_WARM_SET（§3 ② 的判定集） = (iii) ∪ (iv)，且该知识在 WARM owner 或 AGENTS 中确实存在。
+MOVED_TO_WARM_SET（§3 ② 的判定集） = (ii) ∪ (iii) ∪ (iv)，且该知识在上述位置确实存在。
+说明：(ii) **计入** —— "按任务相关性加载正确的 WARM"本身是本文变体的被测机制；
+对照臂捕获、而变体经其路由面仍漏掉可达 WARM 中的知识 = 披露机制失败，正属于本实验
+要测量的代价（bot review「Include WARM-owner findings in missed-guidance scoring」）。
 ```
 
 ## 8. 结果环境变量（不计入评分，但必须记录）
@@ -142,17 +147,29 @@ DISCLOSURE_SAFE 成立需要**同时**满足：
       且变体载体完整投递（不截断）；
   S2  无 additional high-value miss：按 §3 判定，全部任务上 MISSED_GUIDANCE = 0；
   S3  未增加 invalid completion：VARIANT 的 INVALID_COMPLETION 数 ≤ CONTROL；
-  S4  最终正确性不更差：逐任务对 FINAL_CORRECTNESS 比较（VARIANT 不出现 CONTROL 没有的 FAIL；
-      PARTIAL 不新增 §2 类别内的缺口）；
-  S5  WARM/Skill 机制实际工作：M2/M3 有非零真实加载证据 + M6 聚合 ≥ 2/3 适用 run 为 HIT。
+  S4  最终正确性不更差：逐任务把两臂的 FINAL_CORRECTNESS 多重集按序
+      （PASS < PARTIAL < FAIL < BLOCKED）排序后**逐位比较**，VARIANT 不得更差。
+      （例：control {PASS, FAIL} vs variant {FAIL, FAIL} ⇒ S4 不成立 —— 比较的是结果
+      计数分布，不是"是否出现新失败类别"。）
+  S5  WARM/Skill 机制实际工作：M2/M3 有非零真实加载证据 + **VARIANT 臂自身**的 M6 ≥ 2/3
+      适用 run 为 HIT（S5 检验的是变体的懒加载机制；两臂聚合的阈值会被对照臂命中掩盖
+      —— bot review「Require the skill hit threshold in the variant arm」）。
 
 DISCLOSURE_HAS_COST 成立需要：至少 1 条 §3 定义的 MISSED_GUIDANCE。
 INSUFFICIENT_EVIDENCE：valid run 覆盖不足（任一 shape 实际 n/arm < 2 且缺失发生在
   judgment-heavy 任务上）、环境主导（ENV_BLOCKED_RUNS ≥ 4）、或归属歧义（同一 finding 的
   知识位置无法稳定归入 §7 任一类别）时成立。
 
-优先序：MISSED_GUIDANCE 存在 ⇒ DISCLOSURE_HAS_COST（即使其它项全好）；
-         无 MISSED_GUIDANCE 但 S1–S5 有任一项不满足 ⇒ 评估是否 INSUFFICIENT_EVIDENCE，否则不得给 SAFE。
+优先序（每一条 S1–S5 失败都有唯一归宿；bot review「Assign an outcome whenever a safety
+condition fails」）：
+  ① MISSED_GUIDANCE ≥ 1 ⇒ DISCLOSURE_HAS_COST（attribution tag = MISSED_GUIDANCE_MOVED_TEXT）
+  ② 无 ①、但 VARIANT 在 S3/S4 上比 CONTROL 更差（invalid completion 更多，或 correctness
+     分布更差）⇒ DISCLOSURE_HAS_COST（attribution tag ∈ {TREATMENT_ONLY_CORRECTNESS,
+     TREATMENT_ONLY_INVALID_COMPLETION}；与 ① 分开记录）
+  ③ 无 ①②、但 S1 不满足（降幅不足 / 变体被截断）⇒ INSUFFICIENT_EVIDENCE（设计前提未兑现）
+  ④ 无 ①②③、但 S5 不满足（变体自身机制未 demonstrably 工作）⇒ INSUFFICIENT_EVIDENCE
+  ⑤ 全部满足 ⇒ DISCLOSURE_SAFE
+（另：§8 的环境性不充分触发 ⇒ INSUFFICIENT_EVIDENCE。禁止出现"无合法结果"的状态。）
 ```
 
 ## 10. 盲评流程（BLIND_FINDINGS_EVALUATION，尽力而为并如实报告）
