@@ -51,6 +51,7 @@
       "shape": "FIX",
       "risk": "LOW",
       "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+      "scope": {"deny_prefixes": ["deployment/", "experiments/", ".github/", "requirements", "pyproject.toml"], "require_any_in": ["scripts/tests/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t01-low-doc-accuracy (task_shape)",
       "task_text": "在给定 base 上，修复一个「测试断言了本机私有文件存在」导致的环境性假通过。\n只允许改测试与其自建前置条件；不得引入新依赖、不得改 CI 语义。",
       "expected_outcome": {
@@ -68,7 +69,7 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{PY} -m unittest discover -s scripts/tests -p 'test_p1_t16_gate_cli_entrypoint.py' -v (cwd={WT})", "expect": "OK（14 tests 全部通过；在 base 上该门为 RED——见 precondition/p7-t01-base-protocol.txt）"},
-          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面（含未跟踪文件）⊆ scripts/tests/**；不含 requirements*/pyproject.toml/.github/**/deployment/**；不含 AGENTS.md/RULES.md 任何修改"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（禁止前缀 deployment/、experiments/、.github/、requirements*；必须含 scripts/tests/ 下变更；含未跟踪文件）"},
           {"cmd": "{PY} -m unittest discover -s scripts/tests (cwd={WT})", "expect": "base 基线 = 553 tests / 1 failure（见 precondition/p7-t01-fullsuite-base.txt）；修复后期望 553 tests / OK，不得比基线更差"}
         ],
         "review_focus": [
@@ -92,6 +93,7 @@
       "shape": "FIX",
       "risk": "MEDIUM",
       "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
+      "scope": {"deny_prefixes": ["RULES.md", "AGENTS.md", "deployment/", "experiments/"], "require_any_in": ["ruff.toml"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t02-medium-static-gate-adoption (task_shape)",
       "task_text": "在给定 base 上，为本仓采纳一套**最小机械正确性静态门**，并把门配置成\n确定性 baseline（固定 select 集合、显式 target-version）。\n要求：先测 legacy 基线，只修 correctness 类缺陷，不得借机做风格迁移。",
       "expected_outcome": {
@@ -112,7 +114,7 @@
           {"cmd": "{PY} -m ruff check . (cwd={WT})", "expect": "All checks passed（若选中规则含 F841 则须真正拦截；见正控）"},
           {"cmd": "存在 ruff.toml；select 非空且为 correctness 类；target-version 显式", "expect": "人工/审计核对（config 内容）"},
           {"cmd": "{HARNESS}/check_t02_gate_teeth.sh {WT} {RUN_ID} {PY}", "expect": "T02_POSITIVE_CONTROL = PASS（注入的 F841 被 run 自带的 gate 配置抓住；否则 GATE_NOT_LOAD_BEARING）"},
-          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "不含 RULES.md / AGENTS.md / deployment/** / experiments/**（含未跟踪文件）"}
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（不含 RULES.md / AGENTS.md / deployment/** / experiments/**；必须含 ruff.toml；含未跟踪文件）"}
         ],
         "review_focus": [
           "是否先测 legacy 基线并记录（证据形态）",
@@ -136,6 +138,7 @@
       "shape": "HIGH-STATE",
       "risk": "HIGH",
       "base_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+      "scope": {"deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "schemas/", "adapters/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t03-high-continuity-state-contract (task_shape)",
       "task_text": "在给定 base 上，为一个 governed repo 接入跨 agent 状态连续性合同\n（唯一状态索引 + schema + validator + 运行时 hook 参考实现）。\n合同先行：先落合同与 schema，再落 hook；hook 只保证 agent 不忘记写，\n绝不代写语义决策。",
       "expected_outcome": {
@@ -155,8 +158,8 @@
       "acceptance": {
         "mechanical": [
           {"cmd": "{HARNESS}/check_hygiene.sh {WT}", "expect": "py_compile 全部 OK；PYCACHE_IN_CHANGESET = 0、PYCACHE_IN_STATUS = 0；HYGIENE = PASS"},
-          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面含合同/schema/validator/hook 组件；不含 AGENTS.md/RULES.md 修改"},
-          {"cmd": "PUBLIC_RELEASE=1 {PY} {H2_REPO}/scripts/validate_public_release.py (cwd={WT})", "expect": "VIOLATIONS=0（工具取自 H2 材料树——t03 base 上该脚本尚不存在；扫描面 = run worktree）；若出现机器路径/身份泄漏则 FAIL"},
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（合同/schema/validator/hook 组件在 scripts|schemas|adapters 之下；不含 AGENTS.md/RULES.md 修改）"},
+          {"cmd": "{HARNESS}/run_release_scan_on.sh {WT} {PY}", "expect": "VIOLATIONS=0；扫描根 = run worktree（checker 复制进候选后运行）；若出现机器路径/身份泄漏则 FAIL"},
           {"cmd": "JUDGMENT: schema JSON 可被 json.load 解析；validator 可执行并产出结构化结果（auditor 执行）"},
           {"cmd": "JUDGMENT: 合同 → schema → hook 的落地顺序可从 artifact 结构核验；hook 仅写信号/不写语义决策"}
         ],
@@ -182,6 +185,7 @@
       "shape": "HIGH-REVIEW-EVIDENCE",
       "risk": "HIGH",
       "base_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+      "scope": {"deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "references/", "schemas/", "templates/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t04-high-review-evidence-authority (task_shape)",
       "task_text": "在给定 base 上，为「评审证据」建立接口面：canonical reference + 版本化\nschema + 薄 CLI + 占位模板。字段合同先冻结，CLI 只做 collect/validate，\n不得在 CLI 里塞语义裁决。",
       "expected_outcome": {
@@ -201,7 +205,7 @@
         "mechanical": [
           {"cmd": "JUDGMENT: 新增 schema 文件可被 json.load 解析且含版本字段（auditor 执行）"},
           {"cmd": "JUDGMENT: CLI（scripts/review_evidence.py 或实际路径）可运行 --help / validate；只暴露 collect/validate 类动作（auditor 执行）"},
-          {"cmd": "{HARNESS}/list_changes.sh {WT}", "expect": "变更面（含未跟踪新增文件）与任务声明的组件集合一致（reference + schema + CLI + 模板）；不含 AGENTS.md/RULES.md 修改"}
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（reference + schema + CLI + 模板在 scripts|references|schemas|templates 之下；不含 AGENTS.md/RULES.md 修改）"}
         ],
         "review_focus": [
           "报告的 authority_ref 是否可核（任务合同即授权来源）",
@@ -225,6 +229,7 @@
       "shape": "REVIEW-REPAIR",
       "risk": "HIGH",
       "base_sha": "0a180fee4dca9800df1691990293adb083458226",
+      "scope": {"deny_prefixes": [], "require_any_in": null, "max_files": 0},
       "source": "new real task; base = PR #50 final head (= second parent of merge 8b6b15d7553b6d59a5c1355c6fc88192a9251c65)",
       "task_text": "在给定 base 上，对 experiments/v1.2/route-reachability/ 切片（validate_routes.py、routes.json、README.md 与该切片自身的测试）做**对抗性评审**：\n枚举 (a) fail-closed 违规 —— 机制在恶意/畸形输入下没有按承诺失败、或错误地给出 VALID；\n(b) 声明-现实不符 —— README/manifest 对机制能力的陈述与代码实际行为不一致。\n每条 finding 需附最小复现（命令/构造物）或可核验的对照。\n不得修改被审对象；产出 = findings 报告。",
       "expected_outcome": {
@@ -244,6 +249,7 @@
       },
       "acceptance": {
         "mechanical": [
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（纯评审任务：被审对象零改动，max_files=0）"},
           {"cmd": "findings 报告存在，每条 finding 含：断言 + 最小复现/对照 + 受影响文件", "expect": "结构完整"},
           {"cmd": "抽 1–2 条 finding 的复现命令在 scratch 副本中重放", "expect": "与报告一致（auditor 执行）"}
         ],
@@ -269,6 +275,7 @@
       "shape": "DIAGNOSIS-SKILL",
       "risk": "MEDIUM",
       "base_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
+      "scope": {"deny_prefixes": [], "require_any_in": null, "max_files": 0},
       "source": "new real task; base = H2 fork point (= origin/main at H2 start); target = ISSUE #45 / failure-mechanism-map F-010",
       "task_text": "在给定 base 上，对仓内已登记的缺陷 #45 / F-010（“静态门可被静默掏空”）做**独立诊断**：\n(a) 在 worktree 内以最小步骤复现：注入一个真实 F841 缺陷 → 完好配置下 gate 拦截；单行清空 select 后同一缺陷不可见；\n(b) 定位机制根因：为什么现有治理检查（35 项自检 / CI 接线检查）全部保持绿色；\n(c) 给出修复方向建议（比较 ≥2 个候选机制）。\n不得实施修复（非目标：不改 ruff.toml 语义、不落新 gate、不改 canonical）。\n完成后必须把 worktree 恢复到初始状态（字节级）。",
       "expected_outcome": {
@@ -289,6 +296,7 @@
       },
       "acceptance": {
         "mechanical": [
+          {"cmd": "{HARNESS}/check_scope.sh {WT} {TASK_ID}", "expect": "SCOPE = PASS（诊断任务须完整还原：净改动为 0，max_files=0）"},
           {"cmd": "JUDGMENT: auditor 在 scratch 副本重放 worker 报告的最小复现命令（A/B 两状态至少各一条）"},
           {"cmd": "{HARNESS}/check_restore.sh {RUN_ID}", "expect": "STATUS_RESTORED = YES；RUFF_TOML_RESTORED = YES（字节级还原、无残留）"},
           {"cmd": "JUDGMENT: 报告含：复现步骤 / A-D 观察 / 根因 / ≥2 修复方向候选"}

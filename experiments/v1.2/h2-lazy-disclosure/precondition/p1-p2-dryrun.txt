@@ -186,3 +186,94 @@ TRUE values:
     === RC=1 ===
   (committed entries ran REAL commands — unittest tracebacks present in stdout — which confirms
    the [15] cwd-parsing fix; overall rc=1 confirms the [19] exit-propagation fix.)
+
+--- [11] v5 delivery + full-chain dry-run (bot round-5 countermeasures) ---
+· prepare (symmetric slots; carrier + H2_RULES + H2_WARM bundle):
+  PREPARE_RUN OK run_id=H2-DRYRUN-variant arm=variant task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant
+    evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-variant
+    carrier_kind = variant_lean_v1
+    carrier_hash = c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    h2_rules_sha256 = d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    warm_bundle_sha256 = cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1
+    materials_commit = 1e77b43e587f041f768aa992564082596ff947b4
+    model_tier = default
+  PREPARE_RUN OK run_id=H2-DRYRUN-control arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-control
+    evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-control
+    carrier_kind = control_full_v1
+    carrier_hash = de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    h2_rules_sha256 = d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    warm_bundle_sha256 = cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1
+    materials_commit = 1e77b43e587f041f768aa992564082596ff947b4
+    model_tier = default
+· H2_WARM bundle contents (variant WT):
+    codegraph-grounding.md
+    engineering-memory.md
+    execution-stage.md
+    git-ci-integration.md
+    project-continuity-contract.md
+    project-state-persistence.md
+    review-and-repair-saturation.md
+    skills-and-model-routing.md
+    static-analysis-and-code-intelligence.md
+    ticket-lane.md
+· collect (both arms; full recheck):
+  variant rc=3
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=variant_lean_v1 sha256=c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  control rc=3
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=control_full_v1 sha256=de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+· telemetry-missing negative (must be INVALID, not synthesized):
+  rc=3 (expect 3)
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+      -> register this run as INVALID in run-registry.md (delivery/evidence not intact at collection)
+  restored rc=3
+· scope predicate (t01; must FAIL on empty, PASS with a scripts/tests change):
+    CHANGE SURFACE:
+    SCOPE_VIOLATION: REQUIRED_MISSING no changed path under ['scripts/tests/']
+    SCOPE = FAIL
+  empty rc=0 (expect 1)
+    CHANGE SURFACE:
+      scripts/tests/zz_scope_probe.py
+    SCOPE = PASS
+  with-change rc=0 (expect 0)
+· candidate-root R2 scan (wrong-root bug proof):
+    
+  clean rc=0 (expect 0 VIOLATIONS=0)
+  planted-leak rc=1 (expect 1)
+      [LOCAL_IDENTITY/UNIX_USER_HOME] H2-DRYRUN-variant/zz_leak_probe.md:1 :: contact: /Users/<LOCAL_OS_USERNAME>/dev
+    
+
+--- [11a] correction to [11] + collect fix (same session, pre-commit) ---
+· [11] 的 collect rc=3 为真实缺陷（复核块误用 __file__=<stdin> 定位 manifest），已修为显式传参；
+  重跑（rc 正取、不经管道）：
+  variant rc=0
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=variant_lean_v1 sha256=c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    CARRIER_RECHECK(H2_WARM bundle) = OK recomputed=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 expected=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 files=11/11
+    CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = OK
+    TELEMETRY_RECHECK = OK lines=2 well-formed=2
+    COLLECT_RUN OK run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+  control rc=0
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=control_full_v1 sha256=de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    CARRIER_RECHECK(H2_WARM bundle) = OK recomputed=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 expected=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 files=11/11
+    CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = OK
+    TELEMETRY_RECHECK = OK lines=2 well-formed=2
+    COLLECT_RUN OK run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+· telemetry-missing negative (re-demo after fix):
+  rc=3 (expect 3)
+    TELEMETRY_RECHECK = FAIL missing .h2-telemetry.log (must not be synthesized)
+  restored rc=0
+· scope rc 正取:
+  empty rc=1 (expect 1)
+    SCOPE = FAIL
+  with-change rc=0 (expect 0)
+    SCOPE = PASS
+· release-scan clean rc 正取:
+  clean rc=0 (expect 0)
+    

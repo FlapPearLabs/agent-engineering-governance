@@ -91,9 +91,9 @@ def _run_validator(base: str, manifest: Path):
 # neither alone stays silently consistent. The FINAL anchor is the merged commit chain
 # (recorded in results.md section 8).
 EXPECTED_FREEZE_LITERALS = {
-    "VARIANT_HASH": "9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1",
-    "TASK_SET_HASH": "e36c4cc3aa8ae9faa8e20825ef72218fe860de018567da483ae3b6b04698cfe3",
-    "SCORING_HASH": "7c3f3b7f4eb26cfc75ddac892521b631a2102aff2f41e1bf7b60a7e803701688",
+    "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
+    "TASK_SET_HASH": "6a288eb9ca7527064a19b31f9da6f9978403403561ced699ae164b09ef145145",
+    "SCORING_HASH": "43d9f38e17959c9e4cd45b03b4dcd77d185abe510a834a7fc6e4f20568a24719",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
 }
 
@@ -293,6 +293,13 @@ class ArmBlockParity(unittest.TestCase):
             self.assertIn(tok, variant)
         for text in (control, variant):
             self.assertIn("H2_RULES.md", text)
+            self.assertIn("CODEBUDDY.md", text)
+            self.assertIn("H2_WARM", text)
+
+    def test_plan_model_tier_is_uniform(self):
+        plan = json.loads(_read(RUN_PLAN))
+        tiers = {r.get("model_tier") for r in plan}
+        self.assertEqual({"default"}, tiers, "all runs must be frozen to one model tier")
 
     def test_report_template_declares_shared_fields(self):
         tpl = _read(H2 / "harness" / "worker-report-template.md")

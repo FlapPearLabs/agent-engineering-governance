@@ -3,9 +3,9 @@
   "schema_version": 0,
   "note": "H2 freeze record (non-canonical). Freezes the experiment's variable: VARIANT/TASK_SET/SCORING/ROUTE_MANIFEST hashes, the carrier delivery + receipt rule, and the structured WHAT LEFT HOT / REMAINED HOT / MOVED TO WARM declaration. After the first valid run, none of the frozen files may change (VARIANT_CHANGED_AFTER_FREEZE must read NO; enforced by material tests + per-run receipts). This file deliberately does NOT contain its own commit SHA (self-referential values cannot converge); the freeze commit / merge SHA are recorded post-merge in results.md §8 and the TREE_LEDGER closure entry.",
   "freeze": {
-    "VARIANT_HASH": "9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1",
-    "TASK_SET_HASH": "e36c4cc3aa8ae9faa8e20825ef72218fe860de018567da483ae3b6b04698cfe3",
-    "SCORING_HASH": "7c3f3b7f4eb26cfc75ddac892521b631a2102aff2f41e1bf7b60a7e803701688",
+    "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
+    "TASK_SET_HASH": "6a288eb9ca7527064a19b31f9da6f9978403403561ced699ae164b09ef145145",
+    "SCORING_HASH": "43d9f38e17959c9e4cd45b03b4dcd77d185abe510a834a7fc6e4f20568a24719",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
     "HASHED_FILES": {
@@ -16,13 +16,12 @@
     }
   },
   "carrier": {
-    "delivery_scheme": "v4 — same governance era for both arms; the ONLY arm difference is the disclosure strategy (bot review countermeasures included). All deliveries are placed by harness/prepare_run.sh with sha256 receipts; the run tree's own (base-era) AGENTS.md/RULES.md are NOT the delivery surface.",
-    "common_to_both_arms": "H2_RULES.md = a placed copy of the CURRENT RULES.md (source = the materials worktree); receipt records h2_rules_sha256 + materials_commit.",
-    "control_delivery": "H2_AGENTS.md = a placed copy of the CURRENT AGENTS.md (full-text delivery; receipt records h2_agents_sha256). CODEBUDDY.md must be ABSENT (else RUN_INVALID: TREATMENT_CONTAMINATED).",
-    "variant_carrier_path": "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md",
-    "variant_placement": "copied to <run worktree>/CODEBUDDY.md; sha256 verified == VARIANT_HASH; H2_AGENTS.md must be absent.",
-    "receipt_fields": ["carrier_hash", "h2_agents_sha256", "h2_rules_sha256", "materials_commit", "codebuddy_present"],
-    "receipt_rule": "For every VALID run: the placed files' sha256 values must equal the receipt values. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt; any FAIL => exit 3, run must be registered INVALID). The run tree's own AGENTS.md/RULES.md must be untouched (base-relative check at collection)."
+    "delivery_scheme": "v5 — symmetric delivery slots; both arms receive SAME-ERA governance (carrier + RULES + routed WARM owners) from one frozen materials snapshot. The ONLY arm difference remains the disclosure strategy.",
+    "common_to_both_arms": "CODEBUDDY.md in the SAME recognized guidance slot (control: current AGENTS.md verbatim full text + thin header/footer; variant: the frozen lean carrier); H2_RULES.md = placed current RULES.md; H2_WARM/ = placed current-era copies of the routed WARM owners (source list = routes-h2.json S3 destinations, single source).",
+    "control_delivery": "carrier_kind=control_full_v1 (hash recorded at delivery; content = verbatim current AGENTS.md embedded, compose-time assertion).",
+    "variant_delivery": "carrier_kind=variant_lean_v1; sha256 == VARIANT_HASH.",
+    "receipt_fields": ["carrier_kind", "carrier_hash", "h2_rules_sha256", "warm_bundle_sha256", "materials_commit", "model_tier"],
+    "receipt_rule": "For every VALID run: placed-file sha256 values (carrier / H2_RULES / H2_WARM bundle) must equal the receipt values. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt; any FAIL or missing/empty telemetry => exit 3, run must be registered INVALID). The run tree's own AGENTS.md/RULES.md must be untouched (base-relative check at collection)."
   },
   "what_remained_hot_in_variant": [
     "authority chain (A>B>C>D>E>F)",

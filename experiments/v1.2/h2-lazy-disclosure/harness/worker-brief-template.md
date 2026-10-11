@@ -8,11 +8,12 @@
 ```text
 WORKTREE（绝对路径）  = <RUN_WORKTREE_ABS>
 EXPECTED_BASE_SHA    = <BASE_SHA>
+MODEL_TIER           = <MODEL_TIER>（全部 run 冻结为同一档；不得更换，更换即 run invalid）
 S0 第一步：在本 worktree 内运行 `git rev-parse HEAD`，必须逐字等于 EXPECTED_BASE_SHA。
   不匹配 → 立即停止，只输出：PREFLIGHT_FAIL uid=<RUN_ID> actual=<sha>；不要做任何别的事。
-第二步：运行 `git status --short` 确认树状态；确认 harness 投放文件在位
-  （`H2_RULES.md` 必在；本臂的其余投放物见 §2 投递块）。投放文件是**只读材料**：
-  不得修改、删除或重命名。
+第二步：运行 `git status --short` 确认树状态；确认 harness 投放材料在位
+  （`H2_RULES.md` 与 `CODEBUDDY.md` 必在、`H2_WARM/` 目录必在；本臂投递块说明用途）。
+  投放材料是**只读材料**：不得修改、删除或重命名。
 断言结果写进报告 §A 的 S0 槽位。
 ```
 

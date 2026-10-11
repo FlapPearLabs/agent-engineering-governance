@@ -18,7 +18,6 @@ wt, ev = sys.argv[1], sys.argv[2]
 receipt = json.load(open(f"{ev}/receipt.json", encoding="utf-8"))
 base = receipt["expected_base"]
 ROOT_ARTIFACTS = {"CODEBUDDY.md", ".h2-telemetry.log", "H2_RULES.md", "H2_AGENTS.md"}
-
 def run(*a):
     return subprocess.run(a, capture_output=True, text=True)
 
@@ -26,16 +25,15 @@ def norm(lines):
     out = []
     for line in lines:
         s = line.rstrip("\n")
-        m = re.match(r"^.. (.+)$", s)
-        path = m.group(1) if m else s
-        if path in ROOT_ARTIFACTS:  # root-level artifacts only; nested same-names are real changes
+        body = s[3:] if len(s) > 3 else s  # strip porcelain XY+space (incl. '!!' ignored)
+        if body in ROOT_ARTIFACTS or body.startswith("H2_WARM/"):
             continue
         out.append(s)
     return out
 
 failed = False
-prev = norm(open(f"{ev}/status-pre.txt", encoding="utf-8").read().splitlines())
-cur = norm(run("git", "-C", wt, "status", "--porcelain").stdout.splitlines())
+prev = norm(open(f"{ev}/status-pre-ignored.txt", encoding="utf-8").read().splitlines())
+cur = norm(run("git", "-C", wt, "status", "--porcelain", "--ignored").stdout.splitlines())
 restored = (prev == cur)
 print("STATUS_RESTORED =", "YES" if restored else "NO")
 if not restored:

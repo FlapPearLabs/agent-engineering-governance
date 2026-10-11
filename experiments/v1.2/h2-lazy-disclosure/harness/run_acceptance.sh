@@ -49,10 +49,12 @@ while IFS=$'\t' read -r kind cwdflag cmd; do
   fi
   PY_Q="$(printf '%q' "$PY")"; WT_Q="$(printf '%q' "$WT")"
   HARNESS_Q="$(printf '%q' "$HERE")"; H2REPO_Q="$(printf '%q' "$H2_REPO")"
+  RUNID_Q="$(printf '%q' "$RUN_ID")"
   run_cmd="${cmd//\{PY\}/$PY_Q}"
   run_cmd="${run_cmd//\{GIT\}/git}"
   run_cmd="${run_cmd//\{WT\}/$WT_Q}"
-  run_cmd="${run_cmd//\{RUN_ID\}/$RUN_ID}"
+  run_cmd="${run_cmd//\{RUN_ID\}/$RUNID_Q}"
+  run_cmd="${run_cmd//\{TASK_ID\}/$TASK_ID}"
   run_cmd="${run_cmd//\{H2_REPO\}/$H2REPO_Q}"
   run_cmd="${run_cmd//\{HARNESS\}/$HARNESS_Q}"
   if [ "$cwdflag" = "1" ]; then run_cmd="cd $WT_Q && $run_cmd"; fi

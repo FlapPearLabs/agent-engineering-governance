@@ -156,9 +156,10 @@ DISCLOSURE_SAFE 成立需要**同时**满足：
       —— bot review「Require the skill hit threshold in the variant arm」）。
 
 DISCLOSURE_HAS_COST 成立需要：至少 1 条 §3 定义的 MISSED_GUIDANCE。
-INSUFFICIENT_EVIDENCE：valid run 覆盖不足（任一 shape 实际 n/arm < 2 且缺失发生在
-  judgment-heavy 任务上）、环境主导（ENV_BLOCKED_RUNS ≥ 4）、或归属歧义（同一 finding 的
-  知识位置无法稳定归入 §7 任一类别）时成立。
+INSUFFICIENT_EVIDENCE：valid run 覆盖不足 —— 任一 shape 实际 n/arm < 2，**或任一任务的
+  任一臂无有效 run（无法形成配对比较；不再限于 judgment-heavy 任务 —— bot review R5-5）**；
+  或环境主导（§8 的 ENV_BLOCKED_RUNS ≥ 4 等）；或归属歧义（同一 finding 的知识位置无法
+  稳定归入 §7 任一类别）时成立。
 
 优先序（每一条 S1–S5 失败都有唯一归宿；bot review「Assign an outcome whenever a safety
 condition fails」）：

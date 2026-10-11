@@ -13,4 +13,4 @@ fi
 changed="$(git -C "$WT" status --porcelain=v1 --untracked-files=all \
   | sed -E 's/^...//' | sed 's/^.* -> //' | sort -u)" \
   || { echo "LIST_CHANGES_FAIL reason=GIT_INSPECTION_FAILED"; exit 2; }
-printf '%s\n' "$changed" | grep -vE '^(CODEBUDDY\.md|\.h2-telemetry\.log|H2_RULES\.md|H2_AGENTS\.md)$' || true
+printf '%s\n' "$changed" | grep -vE '^(CODEBUDDY\.md|\.h2-telemetry\.log|H2_RULES\.md|H2_AGENTS\.md)$' | grep -v '^H2_WARM/' || true
