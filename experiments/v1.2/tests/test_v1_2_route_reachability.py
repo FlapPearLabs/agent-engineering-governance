@@ -13,8 +13,10 @@ Controls (the N8 mandate lists T1-T7; T6b/T8/T9 close the set):
   T6  declared anchor missing         -> FAIL (ANCHOR_MISSING)
   T6b declared anchor present         -> VALID
   T7  no declared anchor              -> destination-only VALID
-  T8  malformed declarations          -> fail closed, exit 2
+  T8  malformed declarations (12 variants, incl. unknown keys, unhashable
+      surface, trailing-slash destination) -> fail closed, exit 2
   T9  unresolvable base               -> fail closed, exit 4
+  T11 non-blob destination (a dir)    -> FAIL (DESTINATION_NOT_A_FILE)
 
 Plus structural tests that give the manifest a mechanical owner:
 
@@ -52,8 +54,9 @@ RR = ROOT / "experiments" / "v1.2" / "route-reachability"
 MANIFEST = RR / "routes.json"
 VALIDATOR = RR / "validate_routes.py"
 README = RR / "README.md"
-LEAN_CARRIER = ROOT / "experiments" / "v1.2" / "h1-hot-context" / "lean" / "CODEBUDDY.md"
-AGENTS = ROOT / "AGENTS.md"
+# Carrier files are deliberately NOT hard-coded here: each surface's `carrier`
+# field in the manifest is the authority, so a mistyped or repointed carrier is
+# caught by the cross-check (post-merge review finding #5 on PR #50).
 
 BASE_E1DA154 = "e1da1541eb2b11f1e44f972409abde701496f4b6"
 BASE_C08F6F8 = "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3"
@@ -127,6 +130,7 @@ class TestRouteContractControls(SyntheticManifests):
         self.assertEqual(0, code)
         self.assertEqual("ALL_ROUTES_VALID", payload["verdict"])
         self.assertEqual("VALID", payload["routes"][0]["result"])
+        self.assertEqual("blob", payload["routes"][0]["object_type"])
         self.assertTrue(payload["routes"][0]["loadable"])
 
     def test_t2_missing_target_fails(self):
@@ -211,6 +215,28 @@ class TestRouteContractControls(SyntheticManifests):
             },
             "path_traversal": {"routes": [{"route_id": "X1", "destination": "../outside.md"}]},
             "absolute_path": {"routes": [{"route_id": "X1", "destination": "/etc/passwd"}]},
+            # post-merge review findings on PR #50: a typo must fail closed, an
+            # unhashable surface must not crash the validator, and a directory-ish
+            # destination must be rejected before evaluation.
+            "unknown_route_key": {
+                "routes": [
+                    {"route_id": "X1", "destination": "references/ticket-lane.md", "anchro": "typo"}
+                ]
+            },
+            "unhashable_surface": {
+                "surfaces": [{"surface_id": "S1"}],
+                "routes": [
+                    {"route_id": "X1", "surface": ["S1"], "destination": "references/ticket-lane.md"}
+                ],
+            },
+            "trailing_slash_destination": {
+                "routes": [{"route_id": "X1", "destination": "references/"}]
+            },
+            "unknown_top_level_key": {"routes": [], "extra": 1},
+            "unknown_surface_key": {
+                "surfaces": [{"surface_id": "S1", "carrierr": "x"}],
+                "routes": [],
+            },
         }
         for name, body in cases.items():
             with self.subTest(case=name):
@@ -225,6 +251,17 @@ class TestRouteContractControls(SyntheticManifests):
         code, _out, payload = _run_validator(BASE_MAIN, manifest=m)
         self.assertEqual(2, code)
         self.assertEqual("MALFORMED_MANIFEST", payload["verdict"])
+
+    def test_t11_non_blob_destination_is_not_a_route_target(self):
+        """A resolving directory must never be reported VALID (finding #1, PR #50)."""
+        m = self._write({"routes": [{"route_id": "T11", "destination": "references"}]})
+        code, _out, payload = _run_validator(BASE_MAIN, manifest=m)
+        self.assertEqual(1, code)
+        row = payload["routes"][0]
+        self.assertTrue(row["destination_exists"], "the tree object does resolve")
+        self.assertEqual("tree", row["object_type"])
+        self.assertEqual("DESTINATION_NOT_A_FILE", row["result"])
+        self.assertFalse(row["loadable"])
 
     def test_t9_unresolvable_base_fails_closed(self):
         m = self._write({"routes": [{"route_id": "T9", "destination": "references/ticket-lane.md"}]})
@@ -305,12 +342,22 @@ class TestBaseRelativeResults(unittest.TestCase):
 
 
 class TestManifestMatchesItsCarriers(unittest.TestCase):
-    """The manifest's route sets are re-derived from the declared carriers.
+    """The manifest's route sets are re-derived from the carriers IT declares.
 
-    Without this, the manifest could drift from the carriers it claims to
-    summarize -- or silently drop a carrier route (the exact defect class this
-    mechanism exists to catch).
+    The carrier path comes from each surface's own `carrier` field — not from a
+    hard-coded constant — so a manifest that mistypes or repoints a carrier is
+    caught here (post-merge review finding #5 on PR #50). Without this class the
+    manifest could drift from the carriers it claims to summarize — or silently
+    drop a carrier route (the exact defect class this mechanism exists to catch).
     """
+
+    def _surface(self, surface_id: str) -> dict:
+        manifest = json.loads(_read(MANIFEST))
+        matches = [s for s in manifest["surfaces"] if s["surface_id"] == surface_id]
+        self.assertEqual(
+            1, len(matches), f"the manifest must declare surface {surface_id} exactly once"
+        )
+        return matches[0]
 
     def _surface_destinations(self, surface_id: str) -> set[str]:
         return {
@@ -319,13 +366,20 @@ class TestManifestMatchesItsCarriers(unittest.TestCase):
             if route.get("surface") == surface_id
         }
 
-    def test_s1_route_set_equals_lean_carrier_extraction(self):
-        extracted = set(ROUTE_PATH_RE.findall(_read(LEAN_CARRIER)))
-        self.assertEqual(extracted, self._surface_destinations("S1"))
+    def _declared_carrier_extraction(self, surface_id: str) -> set[str]:
+        carrier = ROOT / self._surface(surface_id)["carrier"]
+        self.assertTrue(carrier.exists(), f"declared carrier does not exist: {carrier}")
+        return set(ROUTE_PATH_RE.findall(_read(carrier)))
 
-    def test_s2_route_set_equals_agents_dispatcher_extraction(self):
-        extracted = set(ROUTE_PATH_RE.findall(_read(AGENTS)))
-        self.assertEqual(extracted, self._surface_destinations("S2"))
+    def test_s1_route_set_equals_its_declared_carrier_extraction(self):
+        self.assertEqual(
+            self._declared_carrier_extraction("S1"), self._surface_destinations("S1")
+        )
+
+    def test_s2_route_set_equals_its_declared_carrier_extraction(self):
+        self.assertEqual(
+            self._declared_carrier_extraction("S2"), self._surface_destinations("S2")
+        )
 
     def test_route_ids_are_unique_and_surfaces_are_declared(self):
         manifest = json.loads(_read(MANIFEST))

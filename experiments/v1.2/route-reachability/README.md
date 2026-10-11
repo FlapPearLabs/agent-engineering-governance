@@ -38,10 +38,13 @@ Per declared route, against a **declared base** (a full commit-ish; there is no
 HEAD-only mode):
 
 ```text
-DESTINATION_EXISTS = `git cat-file -e <base>:<destination>` succeeds
-ANCHOR_EXISTS      = only when the route declares an anchor; the anchor is a
-                     literal substring of the destination blob at that base
-LOADABLE           = DESTINATION_EXISTS and (no anchor declared or ANCHOR_EXISTS)
+DESTINATION_EXISTS  = `git cat-file -t <base>:<destination>` resolves
+DESTINATION_IS_FILE = the resolved object is a `blob` — a resolving
+                      directory/gitlink is NOT a route target and is reported
+                      DESTINATION_NOT_A_FILE, never VALID
+ANCHOR_EXISTS       = only when the route declares an anchor; the anchor is a
+                      literal substring of the destination blob at that base
+LOADABLE            = a blob exists and (no anchor declared or ANCHOR_EXISTS)
 ```
 
 `LOADABLE` is a deliberately minimal definition: **the declared text is present at
@@ -78,9 +81,12 @@ Fail-closed by construction — an empty PASS is impossible:
 
 ```text
 exit 0  ALL_ROUTES_VALID     >=1 route declared, all valid
-exit 1  ROUTES_UNSATISFIED   >=1 route failed (DESTINATION_MISSING / ANCHOR_MISSING)
-exit 2  MALFORMED_MANIFEST   schema/field/path-sanity violation; also the usage
-                             error when --base is omitted
+exit 1  ROUTES_UNSATISFIED   >=1 route failed (DESTINATION_MISSING /
+                             DESTINATION_NOT_A_FILE / ANCHOR_MISSING)
+exit 2  MALFORMED_MANIFEST   schema/field/path-sanity violation, INCLUDING unknown
+                             or misspelled keys at any level (a typo fails closed,
+                             it is never silently ignored); also the usage error
+                             when --base is omitted
 exit 3  NO_ROUTES_DECLARED   zero routes is never a pass; H2_PRECONDITION = FAIL
 exit 4  BASE_UNRESOLVABLE    the declared base does not resolve to a commit
 ```
@@ -131,8 +137,9 @@ T5  later base, same target                  -> VALID (both directions of base-r
 T6  declared anchor missing                  -> FAIL (ANCHOR_MISSING)
 T6b declared anchor present                  -> VALID
 T7  no declared anchor                       -> destination-only VALID
-T8  malformed declarations (7 variants)      -> fail closed, exit 2
+T8  malformed declarations (12 variants)     -> fail closed, exit 2
 T9  unresolvable base                        -> fail closed, exit 4
+T11 non-blob destination (a directory)       -> FAIL (DESTINATION_NOT_A_FILE)
 ```
 
 T4 is the control the mandate singles out: if the validator ever returns PASS for
@@ -161,9 +168,10 @@ ZERO_ROUTE_FALSE_PASS      = IMPOSSIBLE（exit 3；H2_PRECONDITION = FAIL）
   mandatory: H2's treatment (progressive disclosure) depends on routes existing,
   so an empty manifest must block, not pass.
 - **EXISTS vs LOADABLE**: existence is a `git` object question and is
-  deterministic. Loadability adds only the literal-anchor condition on top. No
-  stronger claim (readability semantics, agent success) is made, because it is
-  not mechanically checkable here.
+  deterministic; a route target must be a **blob** — a directory that resolves is
+  still a failed route (`DESTINATION_NOT_A_FILE`). Loadability adds only the
+  literal-anchor condition on top. No stronger claim (readability semantics, agent
+  success) is made, because it is not mechanically checkable here.
 
 ## 8. ROUTE SURFACE INVENTORY (and its explicit bounds)
 
@@ -180,7 +188,10 @@ S1  ROUTE_SURFACE_ID = S1
     OPTIONAL_ANCHOR  = none declared
     DECLARED_BASE    = supplied per validation run（本文件矩阵 = e1da154 / c08f6f8 / 6217cc0）
     CURRENT_OWNER    = none（实验材料；此前无任何机械校对者）
-    CURRENT_MACHINE_CHECK = none before this slice —— 这正是 issue #46 测到的缺口
+    CURRENT_MACHINE_CHECK = 路由绑定层：none before this slice —— 这正是 issue #46 测到的缺口。
+                       精确性说明（post-merge 评审修正）：其 12 条目标中 **11 条**在 HEAD
+                       已被 `validate_governance.py` 的 `REQUIRED_FILES` 要求存在（唯一例外
+                       = review-evidence.md）；缺口是 **base-relative** 解析 + 路由↔目标绑定。
     WHY REAL         = 它是 #46 的现场载体：一条路由行真的把 fresh agent 送进了死路径
 
 S2  ROUTE_SURFACE_ID = S2
@@ -191,7 +202,10 @@ S2  ROUTE_SURFACE_ID = S2
     DECLARED_BASE    = supplied per validation run
     CURRENT_OWNER    = （canonical 文件自身；其内部链接由既有 canonical 链接检查覆盖一部分，
                        而路由目标路径不在那个检查面内 —— 见 #46 的覆盖分析）
-    CURRENT_MACHINE_CHECK = none before this slice（部分：既有链接检查只覆盖 md 链接形态 + 固定文件清单）
+    CURRENT_MACHINE_CHECK = **部分**：`validate_governance.py` 的 `REQUIRED_FILES` 在 **HEAD**
+                       要求其全部 10 条目标存在；canonical markdown 链接检查另覆盖指定文件的
+                       md 链接形态。缺口 = **base-relative** 解析 + 路由↔目标绑定 + anchor 检查
+                       （post-merge 评审修正：此前误称"无既有检查"）。
     WHY REAL         = 它是**规则自身声明的**渐进披露机制，不是顺带的文档引用
 ```
 
@@ -274,9 +288,53 @@ python3 experiments/v1.2/route-reachability/validate_routes.py --base <BASE> --j
 python3 -m unittest discover -s experiments/v1.2/tests -v
 ```
 
+## 12. POST-MERGE REVIEW FINDINGS (disposition)
+
+An external automated review (Codex bot) reviewed PR #50 at `87f6f78…` **after
+the merge** and filed five P2 findings against this mechanism. All five were
+verified as real — finding #1 reproduced directly (`cat-file -t <base>:references`
+→ `"tree"`, `cat-file -e` → rc 0), the rest confirmed by inspection — and are
+fixed in this revision:
+
+```text
+#1  validate_routes.py — a destination naming a directory/gitlink made
+    `git cat-file -e` succeed, so a route without an anchor was reported VALID.
+    -> The check now resolves the object type (`cat-file -t`) and requires a
+       `blob`; a resolving non-blob is reported `DESTINATION_NOT_A_FILE`.
+       Control: T11.
+
+#2  validate_routes.py — a misspelled route key (e.g. `anchro`) was silently
+    ignored, quietly degrading an anchored route to destination-only.
+    -> Unknown keys at every level (top level / surfaces / routes) now fail
+       closed as MALFORMED_MANIFEST. Controls: the T8 "unknown_*" variants.
+
+#3  validate_routes.py — an unhashable `surface` value (list/object) raised
+    TypeError instead of the promised MALFORMED verdict.
+    -> Type-checked before set membership; fails closed.
+       Control: T8 "unhashable_surface".
+
+#4  README §8 — the S2 row claimed no existing machine check covers its targets.
+    That was wrong: `validate_governance.py`'s `REQUIRED_FILES` requires all ten
+    at HEAD. Corrected in §8 (same precision note added for S1); S2's
+    contribution is the **base-relative** dimension, not first-time existence.
+
+#5  tests — the manifest↔carrier cross-checks read hard-coded carrier paths
+    instead of each surface's declared `carrier` field, so a mistyped or
+    repointed carrier in the manifest would not have been caught.
+    -> The cross-checks now derive the carrier from the manifest itself.
+```
+
+Why the internal exact-SHA review rounds did not catch these: they audited the
+artifacts' *claims* against the repository, while findings #1–#3 require running
+the validator against a **hostile/broken manifest** — a different attack direction
+("can the mechanism be fooled?" rather than "are the claims true?"). Lesson
+recorded: **the merge gate must read the external review comments on the exact
+SHA — an asynchronous bot review is not covered by internal review rounds**,
+which is why these findings briefly post-dated the merge.
+
 ---
 
 *Provenance: this slice follows the N8 mandate (§0 identity binding: repo
-`FlapPearLabs/agent-engineering-governance`, base `6217cc0…`). No canonical file,
+`FlapPearLabs/agent-engineering-governance`). No canonical file,
 no H3 artifact, and no H2/H4/H5 scope is touched. `tests/` changes are additive
 to the existing experiment material suite.*
