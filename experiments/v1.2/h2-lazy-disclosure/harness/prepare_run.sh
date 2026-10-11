@@ -110,8 +110,11 @@ git -C "$WT" status --porcelain --ignored > "$EV/status-pre-ignored.txt" \
 # ---- delivery v5 (symmetric slots; same-era placed texts; commit-sourced reads) ----
 MATERIALS_COMMIT="$(git -C "$H2_WT" rev-parse HEAD)" \
   || { echo "PREPARE_FAIL reason=MATERIALS_COMMIT_UNREADABLE"; exit 2; }
-if [ -n "$(git -C "$H2_WT" status --porcelain)" ]; then
-  echo "PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit)"; exit 2
+DIRTY="$(git -C "$H2_WT" status --porcelain -- . ':(exclude)experiments/v1.2/h2-lazy-disclosure/runs' ':(exclude).workbuddy')"
+if [ -n "$DIRTY" ]; then
+  echo "PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit; run records under runs/ are exempt)"
+  echo "$DIRTY" | head -5
+  exit 2
 fi
 SRC_RULES="$H2_WT/RULES.md"
 SRC_AGENTS="$H2_WT/AGENTS.md"
