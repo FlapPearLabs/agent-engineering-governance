@@ -19,17 +19,18 @@ if [ -z "$H2_RUNS_ROOT" ]; then
   echo "PREPARE_FAIL reason=H2_RUNS_ROOT_UNSET (must be a persistent, non-/tmp directory)"; exit 2
 fi
 case "$H2_RUNS_ROOT" in
-  /tmp/*|/private/tmp/*|*'/tmp/'*) echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
+  /tmp|/private/tmp|/tmp/*|/private/tmp/*|*'/tmp/'*) echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
 esac
 
-if [ "$RUN_ID" = "H2-DRYRUN" ]; then
-  # P1/P2 self-test path: exercises the SAME worktree/carrier mechanics on task t01
-  # against a scratch location; never counted as a run.
+if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN_ID" = "H2-DRYRUN-variant" ]; then
+  # P1/P2 self-test path: exercises the SAME worktree/carrier mechanics on task t01.
+  # Workspaces live at worktrees/<RUN_ID> + evidence/<RUN_ID> so the generic collect
+  # path (collect_run.sh <RUN_ID>) works on them unchanged. Never counted as a run.
   TASK_ID="t01"
   BASE_SHA="c08f6f8b3bbe57853a56adf3c2847e806bbb60a3"
   REG="$EXP_DIR/task-registry.json"
-  WT="$H2_RUNS_ROOT/scratch/dryrun-$ARM"
-  EV="$H2_RUNS_ROOT/scratch/dryrun-$ARM-ev"
+  WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
+  EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 else
   PLAN="$EXP_DIR/harness/run-plan.json"
   REG="$EXP_DIR/task-registry.json"

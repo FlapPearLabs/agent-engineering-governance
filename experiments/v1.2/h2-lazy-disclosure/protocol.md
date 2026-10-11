@@ -102,7 +102,8 @@ t04C,t04V,n01C,n01V,n02C,n02V）；block-2 = R13–R20（t03/t04/n01/n02 各自�
   2. fresh worker（独立 subagent，独立 episode；不得复用前一 run 的上下文）
   3. worker 按合同工作 + 就地维护 .h2-telemetry.log（格式见 §6）+ 写报告到指定路径
   4. harness/collect_run.sh <RUN_ID>         → 捕获 diff/status（非破坏性 git add -A +
-     diff --cached > diff.patch；随后 git reset 取消暂存，绝不 reset --hard）
+     diff --cached > diff.patch；随后 git reset 取消暂存，绝不 reset --hard）；
+     并复核载体投放完整性（P2 收集侧：carrier-recheck.txt）
   5. harness/run_acceptance.sh <RUN_ID>      → 机械验收（命令来自 task-registry）
   6. 独立 auditor（fresh subagent）评审 artifacts（不看 worker 过程叙述中的自辩）
   7. 全部产物落盘（见 §7）；run 登记进 run-registry.md
@@ -121,7 +122,7 @@ worker 禁止 commit / push / 改 refs；只允许 worktree 内文件改动与�
 | P3 | 产物持久化 | 全部 run 产物写 `h2-runs/evidence/**`（持久工作区，非 /tmp）与 repo `runs/**`；worktree 位于 `h2-runs/worktrees/**` | protocol §7 + registry |
 | P4 | 报告同构 | 单一模板 `harness/worker-report-template.md`；两臂投递块字段名相同（H2_RECEIPT 等）；抽取评估时对 findings 节做去臂化 | 模板文件 + §6 |
 | P5 | 预注册评分 | 本协议 + `scoring-rubric.md`（含高价值边界、missed-guidance 三合取、结果计算）在首 run 前冻结 | 冻结 commit + hash |
-| P6 | 路由可达前置 | 在 H2 base + 6 个 task base 上用 N8 validator 跑 `routes-h2.json`（33 条）；另在 H2 base 复跑 N8 冻结 `routes.json`（22/22）。任何 **H2 载体行** 失败 ⇒ PROTOCOL_NOT_STARTABLE | `precondition/p6-*.txt` |
+| P6 | 路由可达前置 | 在 6 个不同 base 上（H2 base = n02 base = 9494de8；另 5 个为更早的 task base）用 N8 validator 跑 `routes-h2.json`（33 条）；另在 H2 base 复跑 N8 冻结 `routes.json`（22/22）。任何 **H2 载体行** 失败 ⇒ PROTOCOL_NOT_STARTABLE | `precondition/p6-*.txt` |
 | P7 | 门完整性 | 正控四件：t01 适用测试在 base 必红；ruff 注入 F841 必红（(d) 同时是 #45 的承重方向证明）；validate_public_release 注入机器路径必红；validate_governance 注入违规必红。无法证明承重的门 ⇒ 其 PASS 不得计为高置信证据（预先声明：ruff 的**掏空方向**已知不可靠（#45），本实验只用其**注入必红方向**） | `precondition/p7-*.txt` |
 
 ## 6. 遥测（PART 11；三档不得混同）

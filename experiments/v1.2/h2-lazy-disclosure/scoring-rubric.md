@@ -18,7 +18,7 @@ NO POST-HOC RECLASSIFICATION（禁止事后重解释）
 
 ```text
 M1 ROUTE_EXISTENCE_RATE   = 声明路由中、目标在声明 base 上存在的比例（机械）
-                            ← 由 N8 validator 在 6 个 task base + H2 base 上实测（见 routes-h2.json）
+                            ← 由 N8 validator 在 6 个不同 base 上实测（H2 base = n02 base = 9494de8；见 routes-h2.json）
 M2 ROUTE_LOADABLE_RATE    = agent 实际尝试加载的路由中，成功加载的比例（遥测）
 M3 WARM_FILES_LOADED      = **完整读取**（非 grep 命中、非部分读取）的 references/ 与
                             skills/ 文件数；口径 = 只有完整读取计入（协议 §1.3 定义）

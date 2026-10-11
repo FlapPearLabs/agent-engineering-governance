@@ -118,7 +118,7 @@ class RouteManifestIntegrity(unittest.TestCase):
         self.assertTrue(s3, "S3 must be non-empty: zero routes is never a pass")
         self.assertEqual(s3, extracted)
 
-    def test_live_validation_at_all_seven_bases(self):
+    def test_live_validation_at_all_six_bases(self):
         for base, expected_fails in EXPECTED_FAILS_PER_BASE.items():
             rc, payload = _run_validator(base, ROUTES_H2)
             self.assertIsNotNone(payload, f"no payload at {base}")

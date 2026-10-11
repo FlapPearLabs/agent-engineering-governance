@@ -6,7 +6,7 @@
 ## A. Receipt
 
 ```text
-H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<loaded targets|none> S4:<sha|MISMATCH>
+H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<targets|none> S4:<sha|MISMATCH>
 ```
 
 ## B. Outcome

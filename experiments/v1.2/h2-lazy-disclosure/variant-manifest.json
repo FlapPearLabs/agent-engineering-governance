@@ -5,7 +5,7 @@
   "freeze": {
     "VARIANT_HASH": "4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639",
     "TASK_SET_HASH": "eec3797e6b566f651bcb4c3005f4dfe645c262e868a7de17ed0c04a4eb170205",
-    "SCORING_HASH": "c79dc333f293070e084cd064388411d9fc4c909aeddc4798951e0b99477e4586",
+    "SCORING_HASH": "440d00263261ac09ddb706e5b77c219a5c66b336e9e18121a3d6fd196775ded0",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
     "HASHED_FILES": {
@@ -19,8 +19,8 @@
     "variant_carrier_path": "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md",
     "variant_placement": "harness/prepare_run.sh copies it to <run worktree>/CODEBUDDY.md and verifies sha256 == VARIANT_HASH; missing / mismatched / silently absent at delivery time ⇒ RUN_INVALID (CARRIER_NOT_DELIVERED).",
     "control_delivery": "no placed file; canonical AGENTS.md + RULES.md read in full at the task base; harness asserts that CODEBUDDY.md is ABSENT at the run worktree root (else RUN_INVALID: TREATMENT_CONTAMINATED).",
-    "receipt_fields": ["carrier_expected", "carrier_actual_sha256_or_blob_pair", "codebuddy_present"],
-    "receipt_rule": "For every VALID run: variant runs' carrier hash == VARIANT_HASH; control runs' carrier record == the AGENTS.md/RULES.md blob pair at that base. Checked at delivery (prepare_run.sh) and re-read at collection."
+    "receipt_fields": ["carrier_expected", "carrier_hash", "codebuddy_present"],
+    "receipt_rule": "For every VALID run: variant runs' carrier hash == VARIANT_HASH; control runs' carrier record == the AGENTS.md/RULES.md blob pair at that base. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt)."
   },
   "what_remained_hot_in_variant": [
     "authority chain (A>B>C>D>E>F)",
@@ -62,6 +62,6 @@
       "VARIANT_FULLY_DELIVERED": true,
       "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars)"
     },
-    "note": "Observed at the H2 base (9494de8e). Historical task bases carry older AGENTS/RULES sizes (per-base values recorded in results.md §1); N6 projections must not be substituted for these observations (PART 27)."
+    "note": "Observed at the H2 base (9494de8e). Historical task bases carry older AGENTS/RULES sizes (per-base values to be recorded in results.md §1 after the runs); N6 projections must not be substituted for these observations (PART 27)."
   }
 }

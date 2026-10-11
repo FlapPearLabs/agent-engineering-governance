@@ -10,5 +10,7 @@ BOOTSTRAP_DELIVERY = CANONICAL_FULL_TEXT
 完成后把一行回执写入报告 §A：
 
 ```text
-H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<consulted targets|none> S4:<sha|MISMATCH>
+H2_RECEIPT = S1:<read|missing> S2:<LOW|MEDIUM|HIGH> S3:<targets|none> S4:<sha|MISMATCH>
 ```
+
+（S3 槽 = 你实际查阅/加载的治理目标；无则 none。两臂同词表。）

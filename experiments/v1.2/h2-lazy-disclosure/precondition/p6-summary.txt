@@ -1,4 +1,5 @@
-P6 — route precondition at H2 base + all six task bases (validate_routes.py, manifest=routes-h2.json, 33 routes).
+P6 — route precondition at six distinct bases (H2 base = n02 base = 9494de8e; plus five earlier
+task bases). validate_routes.py, manifest=routes-h2.json, 33 routes.
 
 base=c08f6f8b (t01)   declared=33 valid=33 failed=0  verdict=ALL_ROUTES_VALID
 base=015780be (t02)   declared=33 valid=31 failed=2  fails=[LEAN-12, AGENTS-03]  (static-tooling-profiles.md absent at base)

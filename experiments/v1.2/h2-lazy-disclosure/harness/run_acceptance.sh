@@ -21,7 +21,7 @@ PYEOF
 )"
 
 : > "$OUT"
-"$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" <<'PYEOF' > /tmp/h2_accept_entries.txt
+"$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" <<'PYEOF' > "$EV/acceptance-entries.txt"
 import json, sys
 reg = json.load(open(sys.argv[1], encoding="utf-8"))
 t = [x for x in reg["tasks"] if x["task_id"] == sys.argv[2]][0]
@@ -55,5 +55,5 @@ while IFS=$'\t' read -r kind cmd; do
   bash -c "$run_cmd" 2>&1 | tee -a "$OUT"
   rc=${PIPESTATUS[0]}
   printf '\n=== RC=%s ===\n\n' "$rc" >> "$OUT"
-done < /tmp/h2_accept_entries.txt
+done < "$EV/acceptance-entries.txt"
 echo "ACCEPT_RUN DONE run_id=$RUN_ID task=$TASK_ID output=$OUT"
