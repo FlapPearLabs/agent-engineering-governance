@@ -322,3 +322,17 @@ TRUE values:
   · hygiene RUN_ID smoke (dryrun-variant; no py changes):
       HYGIENE = PASS
   · done
+
+--- [13a] correction to [13] (same session, pre-commit; re-applied after an ops incident) ---
+· [13] 的 rollback 用例标签预期 COPY_CARRIER_FAILED，实际先被 **MATERIALS_DIRTY** 拦下：
+  把 carrier 文件移出材料树 = 一个 tracked 文件的删除 → 早置的清洁检查（R8-9 排序的正是
+  这条前置）先触发。结果反而证明了 R8-9 的检查已前置（发生在任何 run-id 分配之前：无
+  worktree、无 evidence 残留；重试 rc=0 也说明无残留阻塞）。
+· 因此 **rollback 代码路径（post-allocation fatal_alloc）在本轮仍只有代码级评审，未被
+  活体触发** —— 如实登记为 UNVERIFIED-LIVE。
+
+--- [13b] ops incident (same session) ---
+· 一次编排命令误写 `cat LOG >> LOG`（自追加）造成 /tmp 日志指数膨胀至 ~37 GB；
+  后台任务已被 TaskStop 终止、文件已删除、磁盘恢复（48 Gi 可用）。未触及仓库状态；
+  该事故同时也截断了 [13a] 的首写（故有本 re-apply）。教训：**禁止对同一文件自追加**；
+  编排脚本写临时日志时必须用独立文件。
