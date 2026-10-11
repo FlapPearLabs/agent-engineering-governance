@@ -187,7 +187,7 @@ VARIANT_HASH / TASK_SET_HASH / SCORING_HASH / ROUTE_MANIFEST_HASH = 见 variant-
 warm_bundle_sha256）+ materials_commit + model_tier）。
 VARIANT_CHANGED_AFTER_FREEZE = NO 的判定 = ①仓库内冻结文件 hash 未变（material tests 强制，
 测试文件中另有**同值字面量**互为锚定）；②全部 valid run 的 receipt 记录与 freeze 一致
-（variant: carrier sha256 == VARIANT_HASH；control: H2_AGENTS/H2_RULES 与 receipt 一致）。
+（control: carrier_hash / H2_RULES / H2_WARM 与 receipt 一致；variant: carrier sha256 == VARIANT_HASH）。
 若必须修 variant：ROUND_INVALID，已跑 run 全部作废（保留登记），改协议后开新 round。
 ```
 

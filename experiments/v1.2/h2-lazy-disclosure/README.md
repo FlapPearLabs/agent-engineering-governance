@@ -41,8 +41,8 @@ H4_EXECUTED / H5_EXECUTED = NO / NO
 ## 2. 两臂与唯一自变量
 
 ```text
-CONTROL_H2  = 当前完整 HOT 治理可达：placed 当前 AGENTS.md 全文（H2_AGENTS.md）+ 当前 RULES.md
-              全文（H2_RULES.md）；不额外加资料、无路由机制
+CONTROL_H2  = 当前完整 HOT 治理可达：placed CODEBUDDY.md（= 当前 AGENTS.md 逐字全文 + 薄头/尾）
+              + 当前 RULES.md 全文（H2_RULES.md）；不额外加资料、无路由机制
 VARIANT_H2  = 精简 HOT 载体（carriers/H2_LEAN_BOOTSTRAP.md → 投放为 CODEBUDDY.md）+ 同版
               H2_RULES.md + 任务相关 WARM 按路由加载 + Skill 按 §5 路由处置
 ```

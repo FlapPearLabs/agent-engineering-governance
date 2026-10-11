@@ -52,7 +52,7 @@ SKILL <name|none>          <LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE>
 
 - "FULL" = 把该文件全文读入（Read 全文件 / cat 全文件）；grep/find/部分读取只记 GREP 或 PARTIAL。
 - 每条记录必须对应真实发生的动作；**禁止**事后补记、推断或美化。
-- 加载治理性文件（`H2_RULES.md` / 载体 / `H2_AGENTS.md` / references/** / skills/**）时尤其必须记录。
+- 加载治理性文件（`H2_RULES.md` / `CODEBUDDY.md` / `H2_WARM/**` 等投放材料）时尤其必须记录。
 
 ## 4. 报告（完成后写盘）
 
