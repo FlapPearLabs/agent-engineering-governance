@@ -74,6 +74,7 @@ if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN
   TASK_ID="t01"
   BASE_SHA="c08f6f8b3bbe57853a56adf3c2847e806bbb60a3"
   MODEL_TIER="default"
+  PLAN_IDX="-1"
   REG="$EXP_DIR/task-registry.json"
   WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
   EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
@@ -103,6 +104,24 @@ PYEOF
   REST="${INFO#* }"
   BASE_SHA="${REST%% *}"
   MODEL_TIER="${REST##* }"
+  # R9-4: enforce the FROZEN plan order — every prior plan row must already be prepared
+  # (evidence receipt exists). Skipping ahead or grouping rows out of order is rejected.
+  ORDER_CHECK="$("$PY" - "$PLAN" "$RUN_ID" "$H2_RUNS_ROOT" <<'PYEOF'
+import json, os, sys
+plan = json.load(open(sys.argv[1], encoding="utf-8"))
+rid, runs_root = sys.argv[2], sys.argv[3]
+idx = [i for i, r in enumerate(plan) if r["run_id"] == rid][0]
+missing = [plan[i]["run_id"] for i in range(idx)
+           if not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "receipt.json"))]
+print(f"{idx} {' '.join(missing)}")
+PYEOF
+)" || { echo "PREPARE_FAIL reason=ORDER_CHECK_FAILED"; exit 2; }
+  PLAN_IDX="${ORDER_CHECK%% *}"
+  MISSING_PREV="${ORDER_CHECK#* }"
+  if [ -n "$MISSING_PREV" ]; then
+    echo "PREPARE_FAIL reason=OUT_OF_ORDER missing_prior_runs=[$MISSING_PREV] (the frozen plan order is the control for time/carryover effects)"
+    exit 2
+  fi
   WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
   EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 fi
@@ -211,10 +230,10 @@ fi
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "$PY" - "$EV/receipt.json" "$RUN_ID" "$TASK_ID" "$ARM" "$WT" "$BASE_SHA" "$ACTUAL" \
         "$CARRIER_KIND" "$CARRIER_HASH" "$RULES_HASH" "$WARM_HASH" \
-        "$MATERIALS_COMMIT" "$MODEL_TIER" "$RUFF_WT_HASH" "$TS" <<'PYEOF' \
+        "$MATERIALS_COMMIT" "$MODEL_TIER" "$RUFF_WT_HASH" "$PLAN_IDX" "$TS" <<'PYEOF' \
   || fatal_alloc "RECEIPT_WRITE_FAILED"
 import json, sys
-(p, rid, tid, arm, wt, base, head, ckind, ch, rh, wh, mc, mt, rth, ts) = sys.argv[1:16]
+(p, rid, tid, arm, wt, base, head, ckind, ch, rh, wh, mc, mt, rth, pidx, ts) = sys.argv[1:17]
 json.dump({
     "run_id": rid, "task_id": tid, "arm": arm, "worktree": wt,
     "expected_base": base, "actual_head": head,
@@ -222,6 +241,7 @@ json.dump({
     "h2_rules_sha256": rh, "warm_bundle_sha256": wh,
     "materials_commit": mc, "model_tier": mt,
     "ruff_toml_worktree_sha256": rth,
+    "plan_index": pidx,
     "codebuddy_present": True, "ts": ts, "prepare": "OK",
 }, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PYEOF

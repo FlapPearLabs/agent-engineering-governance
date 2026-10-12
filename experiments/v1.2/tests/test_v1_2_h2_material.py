@@ -93,8 +93,9 @@ def _run_validator(base: str, manifest: Path):
 EXPECTED_FREEZE_LITERALS = {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "TASK_SET_HASH": "dc007457217f767e50e20633db616c0d424c3dc416b0ff9f87b2b4ce7c5eefd4",
-    "SCORING_HASH": "ebb91da4758755d9109e894898854369ac0ee9f96f446423046d8ed205cb9b50",
+    "SCORING_HASH": "961a49b1f635542bd78990de5ddef8e45899059ba4f993f5025c44bbd915223b",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+    "PROTOCOL_HASH": "e46ac8226cc82ed42222aa743c0de2e34923928c5128274781c3431873e7bc59",
 }
 
 
@@ -124,9 +125,14 @@ class FreezeHashes(unittest.TestCase):
         self.assertEqual(0, proc.returncode, proc.stderr[-800:])
         inv = json.loads(proc.stdout)
         m = json.loads(_read(MANIFEST))["hot_metrics"]["observed_at_freeze_at_H2_base"]
-        self.assertEqual(m["CONTROL_HOT_JS_CHARS"], inv["control"]["hot_js_chars"])
-        self.assertEqual(m["VARIANT_HOT_JS_CHARS"], inv["variant"]["hot_js_chars"])
-        self.assertEqual(m["HOT_REDUCTION_PERCENT"], inv["reduction"]["hot_reduction_percent"])
+        self.assertEqual(m["CONTROL_CARRIER_JS_CHARS"], inv["reduction"]["carrier_js_chars_control"])
+        self.assertEqual(m["VARIANT_CARRIER_JS_CHARS"], inv["reduction"]["carrier_js_chars_variant"])
+        self.assertEqual(m["CARRIER_REDUCTION_PERCENT"], inv["reduction"]["carrier_reduction_percent"])
+
+    def test_protocol_hash_is_frozen(self):
+        freeze = json.loads(_read(MANIFEST))["freeze"]
+        got = hashlib.sha256((H2 / "protocol.md").read_bytes()).hexdigest()
+        self.assertEqual(freeze["PROTOCOL_HASH"], got, "protocol.md changed after freeze")
 
 
 class RouteManifestIntegrity(unittest.TestCase):

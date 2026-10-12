@@ -336,3 +336,11 @@ TRUE values:
   后台任务已被 TaskStop 终止、文件已删除、磁盘恢复（48 Gi 可用）。未触及仓库状态；
   该事故同时也截断了 [13a] 的首写（故有本 re-apply）。教训：**禁止对同一文件自追加**；
   编排脚本写临时日志时必须用独立文件。
+
+--- [14a] fix-up: publish WT bug + corrected R9-1 demo (same session, pre-commit) ---
+· [14] 中 publish 首投 rc=1 的根因：R9-3 编辑在 sanitizer 调用中引用了未定义变量 `$WT`
+  （unbound under set -u），已修复（显式 WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"）；重演后
+  首投 rc=0、reviewed-replacement rc=3（见上方输出）。
+· [14] 的 R9-1 演示构造错误：对"仅存在于 index 的新文件"做 git mv，porcelain 只产生单侧
+  A 条目（源从未在 HEAD 中）——不能触发 R 条目。改用 TRACKED 文件（rename deployment/...）
+  重演：源路径 `deployment/MEMORY_POINTER_CANDIDATE.md` 按 R 条目双侧可见并命中 deny。

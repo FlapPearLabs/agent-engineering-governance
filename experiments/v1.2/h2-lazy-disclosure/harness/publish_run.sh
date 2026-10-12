@@ -10,14 +10,37 @@ PY="${PY:-python3}"
 H2_RUNS_ROOT="${H2_RUNS_ROOT:?set H2_RUNS_ROOT}"
 RUN_ID="${1:?usage: publish_run.sh <RUN_ID>}"
 EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
+WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
 DEST="$EXP_DIR/runs/$RUN_ID"
 [ -d "$EV" ] || { echo "PUBLISH_FAIL reason=NO_EVIDENCE $EV"; exit 2; }
+
+# R9-11: a missing report is an INVALID run — never manufacture a placeholder.
+if [ ! -f "$EV/report.md" ]; then
+  echo "PUBLISH_REFUSED reason=MISSING_REPORT $EV/report.md (protocol: missing report => run INVALID; do not manufacture a placeholder)"
+  exit 2
+fi
+
+# R9-8: once a run is finalized, its artifact set must not be silently replaced.
+if [ -f "$DEST/run.json" ]; then
+  FINALIZED="$("$PY" -c "import json,sys;d=json.load(open(sys.argv[1]));print(d.get('status') or '')" "$DEST/run.json" 2>/dev/null || echo '')"
+  if [ -n "$FINALIZED" ] && [ "$FINALIZED" != "PENDING_REVIEW" ]; then
+    for f in report.md acceptance.txt carrier-recheck.txt telemetry.log; do
+      if [ -f "$EV/$f" ] && [ -f "$DEST/$f" ]; then
+        a="$(shasum -a 256 "$EV/$f" | awk '{print $1}')"
+        b="$(shasum -a 256 "$DEST/$f" | awk '{print $1}')"
+        if [ "$a" != "$b" ]; then
+          echo "PUBLISH_REFUSED reason=REVIEWED_ARTIFACT_REPLACEMENT file=$f (run is finalized; explicitly accept or invalidate first)"
+          exit 3
+        fi
+      fi
+    done
+  fi
+fi
 mkdir -p "$DEST"
 
 for f in report.md acceptance.txt carrier-recheck.txt; do
   if [ -f "$EV/$f" ]; then cp "$EV/$f" "$DEST/$f"; fi
 done
-[ -f "$DEST/report.md" ] || echo "(report.md missing in evidence at publish time)" > "$DEST/report.md"
 [ -f "$EV/telemetry.log" ] && cp "$EV/telemetry.log" "$DEST/telemetry.log" || : > "$DEST/telemetry.log"
 
 "$PY" - "$EV" "$DEST" <<'PYEOF'
@@ -54,10 +77,14 @@ try:
 except FileNotFoundError:
     pass
 acc = open(f"{dest}/acceptance.txt", encoding="utf-8", errors="replace").read()
-# Current marker: "=== RC=<n> (tee=<n>) ==="; legacy marker tolerated (R8-5).
+# Current marker: "=== RC=<n> (tee=<n>) ==="; legacy marker tolerated. BOTH failure channels
+# are preserved (R8-5/R9-10): a zero command rc with a failing tee still records the tee value.
 pairs = [(int(a), int(b)) for a, b in re.findall(r"^=== RC=(-?\d+) \(tee=(-?\d+)\) ===$", acc, re.M)]
 legacy = [int(a) for a in re.findall(r"^=== RC=(-?\d+) ===$", acc, re.M)]
-fails = sorted({rc for rc, tee in pairs if rc != 0 or tee != 0} | {rc for rc in legacy if rc != 0})
+fails = sorted(
+    {x for rc, tee in pairs if (rc != 0 or tee != 0) for x in (rc, tee) if x != 0}
+    | {rc for rc in legacy if rc != 0}
+)
 prev = {}
 if os.path.exists(f"{dest}/run.json"):
     try:
@@ -79,6 +106,7 @@ run = {
     "h2_rules_sha256": receipt.get("h2_rules_sha256"),
     "warm_bundle_sha256": receipt.get("warm_bundle_sha256"),
     "acceptance_nonzero_rcs": fails,
+    "acceptance_statuses": [{"rc": rc, "tee": tee} for rc, tee in pairs],
     "model_observed": prev.get("model_observed") or os.environ.get("WORKER_MODEL", "default"),
     "worker_episode": prev.get("worker_episode") or os.environ.get("WORKER_EPISODE"),
     "auditor_episode": prev.get("auditor_episode") or os.environ.get("AUDITOR_EPISODE"),
@@ -91,17 +119,19 @@ print(f"composed run.json + telemetry.json for {receipt['run_id']}")
 PYEOF
 
 # R2 sanitization pass (placeholders only; must not alter meaning).
-# The current username is read at RUNTIME (id -un) — never hardcoded in this file.
+# Path forms are derived at RUNTIME (runs root / run worktree / evidence / materials worktree)
+# plus user-home identity forms — no hard-coded macOS layout (R9-3).
 CUR_USER="$(id -un)"
-"$PY" - "$DEST" "$CUR_USER" <<'PYEOF'
+MATERIALS_WT="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
+"$PY" - "$DEST" "$CUR_USER" "$H2_RUNS_ROOT" "$WT" "$EV" "$MATERIALS_WT" <<'PYEOF'
 import pathlib, re as _re, sys
 root = pathlib.Path(sys.argv[1])
 user = sys.argv[2]
-# Bounded forms only: path-prefixed literals + a WORD-BOUNDED bare-name regex applied only for
-# logins long enough to be non-corrupting (R8-3: a global replace would rewrite e.g. 'root'
-# inside 'repository root').
-literal_reps = [(f"/Users/{user}/WorkBuddy/agentengineering/h2-runs", "<H2_RUNS_ROOT>"),
-                (f"/Users/{user}/WorkBuddy/agentengineering/v1.2-h2-lazy-disclosure", "<H2_WORKTREE>"),
+runs_root, wt, ev, materials_wt = sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+literal_reps = [(wt, "<RUN_WORKTREE>"),
+                (ev, "<RUN_EVIDENCE>"),
+                (runs_root, "<H2_RUNS_ROOT>"),
+                (materials_wt, "<H2_WORKTREE>"),
                 (f"/Users/{user}/.workbuddy/binaries/python/envs/default/bin/python", "<PY>"),
                 (f"/Users/{user}", "<USER_HOME>")]
 regex_reps = []

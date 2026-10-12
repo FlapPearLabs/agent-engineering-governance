@@ -176,6 +176,11 @@ def inventory() -> dict[str, object]:
             "hot_js_chars_control": control["hot_js_chars"],
             "hot_js_chars_variant": variant["hot_js_chars"],
             "hot_reduction_percent": _pct(control["hot_js_chars"], variant["hot_js_chars"]),
+            "carrier_js_chars_control": int(red.get("total_js_chars", 0)),
+            "carrier_js_chars_variant": int(grn.get("total_js_chars", 0)),
+            "carrier_reduction_percent": _pct(int(red.get("total_js_chars", 0)),
+                                              int(grn.get("total_js_chars", 0))),
+            "carrier_reduction_note": "reduction is computed over the DELIVERED guidance carriers only; the host-injected MEMORY pointer text is not observable per run and is excluded (bot review R9-12)",
             "guidance_visible_control": red_vis,
             "guidance_visible_variant": grn_vis,
             "guidance_visible_reduction_percent": _pct(red_vis, grn_vis),
@@ -261,6 +266,13 @@ def selftest() -> int:
     # T7 两臂都强制读同版 RULES.md（H2 口径）
     if inv["variant"]["mandatory_full_read_js_chars"] <= 0:
         failures.append("T7: variant mandatory read (RULES.md) must be present in the metric")
+
+    # T8 carrier-only reduction is the S1 surface (R9-12) and must clear the 30% floor
+    red = inv["reduction"]
+    if int(red["carrier_js_chars_variant"]) >= int(red["carrier_js_chars_control"]):
+        failures.append("T8: carrier reduction must be negative-sized (variant < control)")
+    if float(red["carrier_reduction_percent"]) < 30.0:
+        failures.append("T8b: carrier reduction must clear the preregistered 30% floor")
 
     for f in failures:
         print(f"FAIL {f}")

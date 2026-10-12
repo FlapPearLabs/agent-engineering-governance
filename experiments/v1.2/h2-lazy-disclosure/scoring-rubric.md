@@ -170,7 +170,9 @@ condition fails」）：
   ③ 无 ①②、但 S1 不满足（降幅不足 / 变体被截断）⇒ INSUFFICIENT_EVIDENCE（设计前提未兑现）
   ④ 无 ①②③、但 S5 不满足（变体自身机制未 demonstrably 工作）⇒ INSUFFICIENT_EVIDENCE
   ⑤ 全部满足 ⇒ DISCLOSURE_SAFE
-（另：§8 的环境性不充分触发 ⇒ INSUFFICIENT_EVIDENCE。禁止出现"无合法结果"的状态。）
+（§8 的环境性/覆盖性不充分：使 SAFE 不可得，但**不推翻**已观察到的 ①/② —— 真实观测仍是
+真实观测；两者并存时结论 = 该观测对应的 HAS_COST，并在结果中注明环境局限（bot review R9-6
+的优先级裁定）。禁止出现"无合法结果"的状态。）
 ```
 
 ## 10. 盲评流程（BLIND_FINDINGS_EVALUATION，尽力而为并如实报告）

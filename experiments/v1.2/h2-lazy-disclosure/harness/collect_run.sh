@@ -26,19 +26,22 @@ HEAD="$(git -C "$WT" rev-parse HEAD)" || fail HEAD_UNREADABLE 2
 WORKER_COMMITTED=NO
 if [ "$HEAD" != "$BASE" ]; then WORKER_COMMITTED=YES; fi
 
-# --- capture (rc-checked; committed changes captured vs base; placed artifacts excluded) ---
-git -C "$WT" add -A || fail CAPTURE_ADD_FAILED
-git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM .h2_scan_tools 2>/dev/null || true
-if [ "$HEAD" != "$BASE" ]; then
-  git -C "$WT" diff --binary "$BASE" -- . ':(exclude)CODEBUDDY.md' ':(exclude)H2_RULES.md' \
-    ':(exclude)H2_WARM' > "$EV/diff.patch" || fail CAPTURE_DIFF_FAILED
-else
-  git -C "$WT" diff --cached --binary > "$EV/diff.patch" || fail CAPTURE_DIFF_FAILED
-fi
+# --- capture (rc-checked; committed changes captured vs base; placed artifacts excluded;
+#     TEMP index so the worker's real index is never mutated — R9-13) ---
+export GIT_INDEX_FILE="$EV/collect.index"
+git -C "$WT" read-tree HEAD || { unset GIT_INDEX_FILE; fail CAPTURE_INDEX_INIT_FAILED; }
+git -C "$WT" add -A || { unset GIT_INDEX_FILE; fail CAPTURE_ADD_FAILED; }
+git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/dev/null || true
+(
+  git -C "$WT" diff --cached --binary || exit 4
+  if [ "$HEAD" != "$BASE" ]; then
+    git -C "$WT" diff --binary "$BASE" "$HEAD" -- . ':!CODEBUDDY.md' ':!H2_RULES.md' ':!H2_WARM' || exit 4
+  fi
+) > "$EV/diff.patch" || { unset GIT_INDEX_FILE; fail CAPTURE_DIFF_FAILED; }
 git -C "$WT" diff --cached --stat > "$EV/diffstat.txt" 2>/dev/null || : > "$EV/diffstat.txt"
+unset GIT_INDEX_FILE
 git -C "$WT" status --porcelain > "$EV/status-after.txt" || fail CAPTURE_STATUS_FAILED
 git -C "$WT" status --porcelain --ignored > "$EV/status-after-ignored.txt" || fail CAPTURE_STATUS_FAILED
-git -C "$WT" reset -q || fail CAPTURE_RESET_FAILED
 
 if [ -f "$WT/.h2-telemetry.log" ]; then cp "$WT/.h2-telemetry.log" "$EV/telemetry.log"
 else : > "$EV/telemetry.log"; fi
@@ -89,14 +92,31 @@ else:
 # 3. WARM bundle (both arms): exact recursive file set + digest over the expected destinations
 routes = json.load(open(routes_manifest, encoding="utf-8"))["routes"]
 dests = sorted({r["destination"] for r in routes if r.get("surface") == "S3"})
-expected = set(dests)
-found = set()
 bundle_root = os.path.join(wt, "H2_WARM")
-for root_dir, _dirs, files in os.walk(bundle_root):
-    for fname in files:
-        found.add(os.path.relpath(os.path.join(root_dir, fname), bundle_root))
-extra = sorted(found - expected)
-missing = sorted(expected - found)
+found = set()
+expected_dirs = set()
+for dest in dests:
+    parts = dest.split("/")
+    for k in range(1, len(parts)):
+        expected_dirs.add("/".join(parts[:k]))
+allowed = set(dests) | expected_dirs
+# Recursive scan that also surfaces unexpected intermediate dirs and SYMLINKED dirs (R9-9).
+stack = [bundle_root]
+while stack:
+    d = stack.pop()
+    for entry in os.scandir(d):
+        rel = os.path.relpath(entry.path, bundle_root)
+        if entry.is_symlink():
+            found.add(rel)
+        elif entry.is_dir(follow_symlinks=False):
+            if rel in expected_dirs:
+                stack.append(entry.path)
+            else:
+                found.add(rel + "/")
+        else:
+            found.add(rel)
+extra = sorted(found - allowed)
+missing = sorted(set(dests) - found)
 lines = []
 for dest in dests:
     fp = os.path.join(wt, "H2_WARM", dest)
@@ -119,7 +139,7 @@ d = subprocess.run(["git", "-C", wt, "diff", "--name-status", "--no-renames",
 report("CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched)", st == "" and d == "",
        "; ".join(x for x in (st, d) if x))
 
-# 5. telemetry present, non-empty, FULL-GRAMMAR valid (no synthesized or truncated evidence)
+# 5. telemetry present, non-empty, FULL-GRAMMAR valid, and targets verified (R9-2/R9-10)
 tel = os.path.join(wt, ".h2-telemetry.log")
 if not os.path.isfile(tel):
     report("TELEMETRY_RECHECK", False, "missing .h2-telemetry.log (must not be synthesized)")
@@ -136,6 +156,23 @@ else:
     report("TELEMETRY_RECHECK",
            bool(reads) and not bad,
            f"lines={len(nonempty)} valid_reads={len(reads)} malformed={len(bad)}")
+    s3ids = {r["route_id"] for r in routes if r.get("surface") == "S3"}
+    s3dests = set(dests)
+    problems = []
+    for ln in nonempty:
+        m = re.match(r"^READ\s+(FULL|PARTIAL|GREP)\s+(\S+)$", ln)
+        if m:
+            p = m.group(2)
+            if p != ".h2-telemetry.log" and not os.path.exists(os.path.join(wt, p)):
+                problems.append(f"READ target missing in worktree: {p}")
+        m = re.match(r"^ROUTE\s+(\S+)\s+(\S+)\s+(LOADED|MISSING|SKIPPED)$", ln)
+        if m:
+            rid, tgt, res = m.groups()
+            if res == "LOADED" and tgt not in s3dests:
+                problems.append(f"ROUTE LOADED for undeclared target: {tgt}")
+            if rid != "n/a" and rid not in s3ids:
+                problems.append(f"ROUTE unknown route id: {rid}")
+    report("TELEMETRY_TARGETS", not problems, "; ".join(problems[:5]))
 
 sys.exit(fail)
 PYEOF

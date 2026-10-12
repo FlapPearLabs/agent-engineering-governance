@@ -21,13 +21,17 @@ wt, tid, runs_root = sys.argv[2], sys.argv[3], sys.argv[4]
 task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
 scope = task.get("scope") or {}
 ARTIFACTS = {"CODEBUDDY.md", ".h2-telemetry.log", "H2_RULES.md", "H2_AGENTS.md"}
-PREFIX_ARTIFACTS = ("H2_WARM/", ".h2_scan_tools/")
+PREFIX_ARTIFACTS = ("H2_WARM/",)  # only the delivered bundle prefix; .h2_scan_tools residue
+# is NOT exempt (R9-7): only the exact temporary scanner file created+removed inside one
+# acceptance step is legitimate, and any leftover must remain visible in the change surface.
 
 def in_artifacts(p):
     return p in ARTIFACTS or p.startswith(PREFIX_ARTIFACTS)
 
 def parse_status_z(stdout_bytes):
-    """Parse `git status --porcelain=v1 -z` (NUL-separated; quote-safe)."""
+    """Parse `git status --porcelain=v1 -z` (NUL-separated; quote-safe). For rename/copy
+    entries, BOTH the destination and the original path are recorded (R9-1: the source side
+    of a staged rename must stay visible to deny predicates)."""
     parts = stdout_bytes.split(b"\x00")
     paths = []
     i = 0
@@ -38,11 +42,14 @@ def parse_status_z(stdout_bytes):
             continue
         text = entry.decode("utf-8", errors="replace")
         xy, path = text[:2], text[3:]
-        if xy[0] in "RC":  # rename/copy: next token is the ORIGINAL path
+        paths.append(path)
+        if xy[0] in "RC" and i + 1 < len(parts):
+            orig = parts[i + 1].decode("utf-8", errors="replace")
+            if orig:
+                paths.append(orig)
             i += 2
         else:
             i += 1
-        paths.append(path)
     return paths
 
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain=v1", "--untracked-files=all", "-z"],

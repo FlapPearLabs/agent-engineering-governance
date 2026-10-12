@@ -5,8 +5,9 @@
   "freeze": {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "TASK_SET_HASH": "dc007457217f767e50e20633db616c0d424c3dc416b0ff9f87b2b4ce7c5eefd4",
-    "SCORING_HASH": "ebb91da4758755d9109e894898854369ac0ee9f96f446423046d8ed205cb9b50",
+    "SCORING_HASH": "961a49b1f635542bd78990de5ddef8e45899059ba4f993f5025c44bbd915223b",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+    "PROTOCOL_HASH": "e46ac8226cc82ed42222aa743c0de2e34923928c5128274781c3431873e7bc59",
     "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
     "HASHED_FILES": {
       "VARIANT_HASH": "carriers/H2_LEAN_BOOTSTRAP.md",
@@ -58,9 +59,10 @@
     "measured_by": "h2_hot_inventory.py (with --selftest counterexample checks)",
     "truncation_model": "char-exact raw.slice(0, 8000) per audit/AS_IS_WORKBUDDY_V3.md:29 (bot-review correction); the H1 line-granular computation is retained as a labeled secondary field for comparability only.",
     "observed_at_freeze_at_H2_base": {
-      "CONTROL_HOT_JS_CHARS": 15784,
-      "VARIANT_HOT_JS_CHARS": 7060,
-      "HOT_REDUCTION_PERCENT": "55.3",
+      "CONTROL_CARRIER_JS_CHARS": 13756,
+      "VARIANT_CARRIER_JS_CHARS": 5032,
+      "CARRIER_REDUCTION_PERCENT": "63.4",
+      "S1_SURFACE_NOTE": "reduction measured over the DELIVERED guidance carriers only; the host-injected MEMORY pointer text is not observable per run and is excluded (bot review R9-12)",
       "VARIANT_FULLY_DELIVERED": true,
       "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars; placed copy H2_RULES.md)"
     },

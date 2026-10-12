@@ -26,7 +26,7 @@ def norm(lines):
     for line in lines:
         s = line.rstrip("\n")
         body = s[3:] if len(s) > 3 else s  # strip porcelain XY+space (incl. '!!' ignored)
-        if body in ROOT_ARTIFACTS or body.startswith(("H2_WARM/", ".h2_scan_tools/")):
+        if body in ROOT_ARTIFACTS or body.startswith("H2_WARM/"):
             continue
         out.append(s)
     return out

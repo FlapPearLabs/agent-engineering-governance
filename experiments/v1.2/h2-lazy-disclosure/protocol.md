@@ -193,6 +193,7 @@ VARIANT_CHANGED_AFTER_FREEZE = NO 的判定 = ①仓库内冻结文件 hash 未�
 `model_tier` 必须一致（时间混杂控制；delivery 源一律读自该 commit 的 git 对象，不读工作树，
 且 prepare 断言材料工作树干净 —— 仅 run 记录目录 `runs/` 与 `.workbuddy/` 豁免）；worker/auditor
 的 episode 身份（agent id）记录于 `runs/<RUN_ID>/run.json`，闭环时机械校验全局唯一、跨臂不重用。
+run 的准备顺序 = 冻结计划顺序（prepare 强制"前序 run 已准备"，跳序/归组即拒绝；R9-4）。
 ```
 
 **锚定语义（bot review「Anchor freeze hashes outside the mutable freeze set」的处置）**：
