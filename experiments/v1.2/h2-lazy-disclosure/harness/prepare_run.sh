@@ -213,15 +213,18 @@ PYEOF
 else
   # control carrier = thin header + current AGENTS.md VERBATIM + thin footer, in the SAME
   # recognized slot as the variant carrier (so runtime guidance selection is symmetric).
-  "$PY" - "$HERE/control-carrier-header.md" "$H2_WT" "$MATERIALS_COMMIT" "$WT/CODEBUDDY.md" <<'PYEOF' \
+  # The header and footer live in files so that h2_hot_inventory.py can measure the EXACT
+  # composed bytes without duplicating the literals (R11-4: the control surface must be the
+  # bytes actually delivered as CODEBUDDY.md, not bare AGENTS.md).
+  "$PY" - "$HERE/control-carrier-header.md" "$HERE/control-carrier-footer.md" "$H2_WT" \
+        "$MATERIALS_COMMIT" "$WT/CODEBUDDY.md" <<'PYEOF' \
     || fatal_alloc "CONTROL_CARRIER_COMPOSE_FAILED"
 import pathlib, subprocess, sys
 header = pathlib.Path(sys.argv[1]).read_bytes()
-agents = subprocess.run(["git", "-C", sys.argv[2], "show", f"{sys.argv[3]}:AGENTS.md"],
+footer = pathlib.Path(sys.argv[2]).read_bytes()
+agents = subprocess.run(["git", "-C", sys.argv[3], "show", f"{sys.argv[4]}:AGENTS.md"],
                         capture_output=True, check=True).stdout
-out_path = pathlib.Path(sys.argv[4])
-footer = ("\n---\n（以上为当前时代 AGENTS.md 的逐字全文，由 harness 投放；配套 B 层不变量副本 = "
-          "H2_RULES.md；治理性 references 读取一律使用 H2_WARM/ 副本。本臂 = 全文投递。）\n").encode()
+out_path = pathlib.Path(sys.argv[5])
 out = header + agents + footer
 assert agents in out, "verbatim AGENTS.md bytes must be embedded"
 out_path.write_bytes(out)

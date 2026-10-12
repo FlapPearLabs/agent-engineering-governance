@@ -17,6 +17,44 @@ if [ ! -d "$WT" ]; then echo "COLLECT_FAIL reason=NO_WORKTREE $WT"; exit 2; fi
 if [ ! -f "$EV/receipt.json" ]; then echo "COLLECT_FAIL reason=NO_RECEIPT $EV"; exit 2; fi
 fail() { echo "COLLECT_FAIL reason=$1"; exit "${2:-4}"; }
 
+# --- R11-5: receipt revalidation -------------------------------------------------
+# receipt.json lives in the evidence dir, which the worker CAN write (it writes report.md
+# there). Trusting it would let a worker rewrite expected_base to a HEAD it committed and
+# adjust the recorded carrier hashes, flipping WORKER_COMMITTED to NO and hiding the commit
+# from every base-relative check below. So the load-bearing fields are re-derived from the
+# FROZEN plan + task registry (which the worker cannot reach) and compared; any divergence
+# invalidates the run before the receipt is used as the root of collection evidence.
+RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$EXP_DIR/harness/run-plan.json" "$EXP_DIR/task-registry.json" "$RUN_ID" <<'PYEOF'
+import json, sys
+receipt = json.load(open(sys.argv[1], encoding="utf-8"))
+plan_path, reg_path, rid = sys.argv[2], sys.argv[3], sys.argv[4]
+problems = []
+if receipt.get("run_id") != rid:
+    problems.append(f"run_id {receipt.get('run_id')!r} != {rid!r}")
+rows = [r for r in json.load(open(plan_path, encoding="utf-8")) if r["run_id"] == rid]
+if len(rows) == 1:
+    reg = {t["task_id"]: t for t in json.load(open(reg_path, encoding="utf-8"))["tasks"]}
+    want_base = reg[rows[0]["task_id"]]["base_sha"]
+    for field, want in (("task_id", rows[0]["task_id"]), ("arm", rows[0]["arm"]),
+                        ("expected_base", want_base)):
+        if receipt.get(field) != want:
+            problems.append(f"{field} {receipt.get(field)!r} != frozen {want!r}")
+    if str(receipt.get("plan_index", "")) != str(
+            [i for i, r in enumerate(json.load(open(plan_path, encoding="utf-8")))
+             if r["run_id"] == rid][0]):
+        problems.append("plan_index does not match the frozen plan position")
+elif str(receipt.get("plan_index", "")) != "-1":
+    # No plan row: only the explicitly registered dry-run ids may legitimately be plan-less.
+    problems.append(f"no frozen plan row for {rid} and plan_index is not -1")
+print("; ".join(problems))
+PYEOF
+)" || RECEIPT_AUTH="RECEIPT_REVALIDATION_FAILED"
+if [ -n "$RECEIPT_AUTH" ]; then
+  echo "COLLECT_FAIL reason=RECEIPT_REVALIDATION $RECEIPT_AUTH"
+  echo "  -> the worker-accessible receipt.json diverges from the frozen plan/registry; register this run as INVALID"
+  exit 3
+fi
+
 BASE="$("$PY" - "$EV/receipt.json" <<'PYEOF'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["expected_base"])
@@ -101,12 +139,18 @@ for dest in dests:
         expected_dirs.add("/".join(parts[:k]))
 allowed = set(dests) | expected_dirs
 # Recursive scan that also surfaces unexpected intermediate dirs and SYMLINKED dirs (R9-9).
+# R11-2: a symlink is an integrity failure wherever it appears — INCLUDING at an expected
+# destination name. Recording the expected relative path would keep extra/missing empty while
+# isfile()/open() follow the link, so a same-byte external file would pass the digest check.
+# Symlinks are therefore collected separately and always fail the bundle.
 stack = [bundle_root]
+symlinked = set()
 while stack:
     d = stack.pop()
     for entry in os.scandir(d):
         rel = os.path.relpath(entry.path, bundle_root)
         if entry.is_symlink():
+            symlinked.add(rel)
             found.add(rel)
         elif entry.is_dir(follow_symlinks=False):
             if rel in expected_dirs:
@@ -120,15 +164,18 @@ missing = sorted(set(dests) - found)
 lines = []
 for dest in dests:
     fp = os.path.join(wt, "H2_WARM", dest)
-    if not os.path.isfile(fp):
+    if os.path.islink(fp):
+        lines.append(f"{dest} SYMLINK")
+    elif not os.path.isfile(fp):
         lines.append(f"{dest} MISSING")
     else:
         lines.append(f"{dest} {sha(fp)}")
 want = receipt["warm_bundle_sha256"]
 got = hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
 report("CARRIER_RECHECK(H2_WARM bundle)",
-       not extra and not missing and got == want,
-       f"recomputed={got} expected={want} files={len(found)}/{len(dests)} extra={extra} missing={missing}")
+       not extra and not missing and not symlinked and got == want,
+       f"recomputed={got} expected={want} files={len(found)}/{len(dests)} "
+       f"extra={extra} missing={missing} symlinks={sorted(symlinked)}")
 
 # 4. run tree's own canonical texts untouched (worktree status AND base-relative, incl. commits — R8-2)
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain", "--", "AGENTS.md", "RULES.md"],

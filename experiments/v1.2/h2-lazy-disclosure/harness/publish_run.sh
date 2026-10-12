@@ -52,12 +52,20 @@ if [ -n "$PLAN_IDX" ] && [ "$PLAN_IDX" != "-1" ]; then
   if [ -z "${WORKER_EPISODE:-}" ]; then
     echo "PUBLISH_REFUSED reason=MISSING_WORKER_EPISODE"; exit 2
   fi
-  DUP="$("$PY" - "$EXP_DIR/runs" "$RUN_ID" "${WORKER_EPISODE}" "${AUDITOR_EPISODE:-}" <<'PYEOF'
+  if [ -z "${AUDITOR_EPISODE:-}" ]; then
+    echo "PUBLISH_REFUSED reason=MISSING_AUDITOR_EPISODE (independent review requires an auditor identity distinct from the worker)"; exit 2
+  fi
+  # R11-3: uniqueness is GLOBAL across roles, not per-role. Compare each supplied identity
+  # against BOTH roles stored by prior runs AND against the other identity of this run, so an
+  # auditor cannot reuse a worker episode (or vice versa) from this or any earlier run.
+  DUP="$("$PY" - "$EXP_DIR/runs" "$RUN_ID" "${WORKER_EPISODE}" "${AUDITOR_EPISODE}" <<'PYEOF'
 import json, os, sys
 runs_dir, self_id, wep, aep = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 dups = []
+if wep == aep:
+    dups.append(f"within-run:worker==auditor({wep})")
 if os.path.isdir(runs_dir):
-    for name in os.listdir(runs_dir):
+    for name in sorted(os.listdir(runs_dir)):
         if name == self_id:
             continue
         p = os.path.join(runs_dir, name, "run.json")
@@ -67,10 +75,12 @@ if os.path.isdir(runs_dir):
             d = json.load(open(p, encoding="utf-8"))
         except Exception:
             continue
-        if d.get("worker_episode") and d["worker_episode"] == wep:
-            dups.append(f"worker:{name}")
-        if aep and d.get("auditor_episode") and d["auditor_episode"] == aep:
-            dups.append(f"auditor:{name}")
+        stored_w, stored_a = d.get("worker_episode"), d.get("auditor_episode")
+        # every stored identity is compared against BOTH supplied identities
+        if stored_w and stored_w in (wep, aep):
+            dups.append(f"{name}:stored_worker={stored_w}")
+        if stored_a and stored_a in (wep, aep):
+            dups.append(f"{name}:stored_auditor={stored_a}")
 print(" ".join(dups))
 PYEOF
 )"

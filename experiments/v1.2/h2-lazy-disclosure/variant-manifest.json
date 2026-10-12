@@ -59,10 +59,11 @@
     "measured_by": "h2_hot_inventory.py (with --selftest counterexample checks)",
     "truncation_model": "char-exact raw.slice(0, 8000) per audit/AS_IS_WORKBUDDY_V3.md:29 (bot-review correction); the H1 line-granular computation is retained as a labeled secondary field for comparability only.",
     "observed_at_freeze_at_H2_base": {
-      "CONTROL_CARRIER_JS_CHARS": 13756,
+      "CONTROL_CARRIER_JS_CHARS": 14136,
       "VARIANT_CARRIER_JS_CHARS": 5032,
-      "CARRIER_REDUCTION_PERCENT": "63.4",
-      "S1_SURFACE_NOTE": "reduction measured over the DELIVERED guidance carriers only; the host-injected MEMORY pointer text is not observable per run and is excluded (bot review R9-12)",
+      "CARRIER_REDUCTION_PERCENT": "64.4",
+      "S1_SURFACE_NOTE": "reduction measured over the DELIVERED guidance carriers only; the host-injected MEMORY pointer text is not observable per run and is excluded (bot review R9-12). The control carrier is the COMPOSED bytes actually delivered as CODEBUDDY.md = control-carrier-header.md + AGENTS.md (verbatim) + control-carrier-footer.md, measured from the same files prepare_run.sh composes (bot review R11-4); HOT arm totals additionally include deployment/MEMORY_POINTER_CANDIDATE.md (CONTROL 16164 / VARIANT 7060 = 56.3%).",
+      "CONTROL_CARRIER_COMPOSITION": "harness/control-carrier-header.md + AGENTS.md + harness/control-carrier-footer.md (single source: the same two wrapper files prepare_run.sh composes; no duplicated literals)",
       "VARIANT_FULLY_DELIVERED": true,
       "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars; placed copy H2_RULES.md)"
     },

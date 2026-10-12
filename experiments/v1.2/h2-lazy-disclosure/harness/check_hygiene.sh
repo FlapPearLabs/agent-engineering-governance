@@ -39,6 +39,14 @@ pyfiles="$(printf '%s\n' "$files" | grep -E '\.py$' | grep -v '__pycache__' || t
 if [ -n "$pyfiles" ]; then
   while IFS= read -r f; do
     [ -z "$f" ] && continue
+    # R11-7: base-relative enumeration lists the OLD path of a committed delete/rename, so the
+    # path may legitimately no longer exist in the final worktree. There is no Python source
+    # at that path to compile -> SKIP, never FAIL. Dangling symlinks are skipped the same way
+    # (no readable source); a readable one is still compiled.
+    if [ ! -e "$WT/$f" ] || [ -d "$WT/$f" ]; then
+      echo "SKIP py_compile (not a file in the final worktree): $f"
+      continue
+    fi
     if "$PY" - "$WT/$f" <<'PYEOF'
 import pathlib, sys
 p = sys.argv[1]

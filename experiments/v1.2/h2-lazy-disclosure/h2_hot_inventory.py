@@ -28,17 +28,28 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+H2_DIR = Path(__file__).resolve().parent
+HARNESS = H2_DIR / "harness"
 
 MAX_GUIDANCE_CHARS = 8000  # profile 事实（BOOTSTRAP_CONTRACT §1；非跨版本常数）
 GUIDANCE_FILES = ["CODEBUDDY.md", ".codebuddy/CODEBUDDY.md", "AGENTS.md"]
 
+# R11-4: the control arm does NOT receive bare AGENTS.md — prepare_run.sh delivers
+# control-carrier-header.md + AGENTS.md (verbatim) + control-carrier-footer.md AS
+# CODEBUDDY.md. The measured control surface must therefore be those composed bytes;
+# the wrapper files are read from the same paths preparation uses, so the two can
+# never drift (no duplicated literals).
+CONTROL_CARRIER_PARTS = [
+    HARNESS / "control-carrier-header.md",
+    REPO_ROOT / "AGENTS.md",
+    HARNESS / "control-carrier-footer.md",
+]
+
 HOT_SURFACES_CONTROL = [
     ("MEMORY_POINTER", "deployment/MEMORY_POINTER_CANDIDATE.md"),
-    ("GUIDANCE_HEAD", "AGENTS.md"),
 ]
 HOT_SURFACES_VARIANT = [
     ("MEMORY_POINTER", "deployment/MEMORY_POINTER_CANDIDATE.md"),
-    ("GUIDANCE_HEAD", "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"),
 ]
 
 MANDATORY_READ_CONTROL = ["RULES.md"]
@@ -103,7 +114,13 @@ def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str,
     path = REPO_ROOT / rel_path
     if not path.is_file():
         return {"path": rel_path, "exists": False}
-    text = path.read_text(encoding="utf-8")
+    return guidance_prefix_bytes(path.read_text(encoding="utf-8"), rel_path, limit)
+
+
+def guidance_prefix_bytes(text: str, label: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str, object]:
+    """Truncation arithmetic over already-loaded text (R11-4: the control arm's delivered
+    carrier is a COMPOSITION, so the measurement must accept composed bytes, not only a
+    single repo-relative file)."""
     visible = _char_slice_prefix(text, limit)
     lg_visible = _line_granular_visible_for(text, limit)
 
@@ -118,7 +135,7 @@ def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str,
             break
     tail = "".join(lines[(cut_line - 1) if cut_line else len(lines):])
     return {
-        "path": rel_path,
+        "path": label,
         "exists": True,
         "semantics": "char_slice(0, limit) per audit/AS_IS_WORKBUDDY_V3.md; line_granular_* is H1 comparability only",
         "total_lines": len(lines),
@@ -137,10 +154,45 @@ def guidance_prefix(rel_path: str, limit: int = MAX_GUIDANCE_CHARS) -> dict[str,
     }
 
 
-def summarize(name: str, surfaces: list[tuple[str, str]], mandatory: list[str]) -> dict:
+def control_carrier_bytes() -> str | None:
+    """The exact bytes prepare_run.sh writes to CODEBUDDY.md for the control arm."""
+    try:
+        blobs = [p.read_bytes() for p in CONTROL_CARRIER_PARTS]
+    except OSError:
+        return None
+    return b"".join(blobs).decode("utf-8")
+
+
+def summarize(
+    name: str,
+    surfaces: list[tuple[str, str]],
+    mandatory: list[str],
+    guidance_text: str | None,
+    guidance_label: str,
+) -> dict:
     rows = [measure(p) for _, p in surfaces]
-    guidance = guidance_prefix(dict(surfaces)["GUIDANCE_HEAD"])
+    if guidance_text is None:
+        guidance = {"path": guidance_label, "exists": False}
+        carrier_js = 0
+    else:
+        guidance = guidance_prefix_bytes(guidance_text, guidance_label)
+        carrier_js = int(guidance["total_js_chars"])
     mandatory_rows = [measure(p) for p in mandatory]
+    # The guidance carrier IS part of the HOT surface in both arms; it is listed separately in
+    # guidance_delivery (with its truncation arithmetic) but counted in the arm totals, so
+    # hot_js_chars keeps its original meaning (R11-4 changed the control BYTES, not the metric).
+    carrier_row = {
+        "path": guidance_label,
+        "exists": guidance_text is not None,
+        "lines": int(guidance.get("total_lines", 0)),
+        "bytes": len(guidance_text.encode("utf-8")) if guidance_text is not None else 0,
+        "js_chars": carrier_js,
+        "truncated_at_8000": carrier_js > MAX_GUIDANCE_CHARS,
+        "budget_capped_js_chars": min(carrier_js, MAX_GUIDANCE_CHARS),
+        "tokens": "NOT_OBSERVABLE",
+        "composition": "header + AGENTS.md(verbatim) + footer" if guidance_text is not None else None,
+    }
+    rows = rows + [carrier_row]
     return {
         "arm": name,
         "hot_surfaces": rows,
@@ -155,8 +207,18 @@ def summarize(name: str, surfaces: list[tuple[str, str]], mandatory: list[str]) 
 
 
 def inventory() -> dict[str, object]:
-    control = summarize("CONTROL_H2", HOT_SURFACES_CONTROL, MANDATORY_READ_CONTROL)
-    variant = summarize("VARIANT_H2", HOT_SURFACES_VARIANT, MANDATORY_READ_VARIANT)
+    ctl_carrier = control_carrier_bytes()
+    ctl_label = " + ".join(
+        str(p.relative_to(REPO_ROOT)) if p.is_relative_to(REPO_ROOT) else str(p)
+        for p in CONTROL_CARRIER_PARTS
+    )
+    var_label = "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"
+    var_path = REPO_ROOT / var_label
+    var_text = var_path.read_text(encoding="utf-8") if var_path.is_file() else None
+    control = summarize("CONTROL_H2", HOT_SURFACES_CONTROL, MANDATORY_READ_CONTROL,
+                        ctl_carrier, ctl_label)
+    variant = summarize("VARIANT_H2", HOT_SURFACES_VARIANT, MANDATORY_READ_VARIANT,
+                        var_text, var_label)
     red = control["guidance_delivery"]
     grn = variant["guidance_delivery"]
     red_vis = int(red.get("visible_js_chars", 0))
@@ -273,6 +335,26 @@ def selftest() -> int:
         failures.append("T8: carrier reduction must be negative-sized (variant < control)")
     if float(red["carrier_reduction_percent"]) < 30.0:
         failures.append("T8b: carrier reduction must clear the preregistered 30% floor")
+
+    # T9 (R11-4): the measured control surface is the COMPOSED carrier actually delivered as
+    # CODEBUDDY.md — it must contain the verbatim AGENTS.md bytes plus BOTH wrapper parts, and
+    # its js_chars must equal their exact sum. A bare-AGENTS measurement would fail here.
+    ctl_text = control_carrier_bytes()
+    if ctl_text is None:
+        failures.append("T9a: control carrier composition must be readable")
+    else:
+        parts = [p.read_bytes() for p in CONTROL_CARRIER_PARTS]
+        if ctl_text.encode("utf-8") != b"".join(parts):
+            failures.append("T9b: composed control carrier must equal header+AGENTS+footer bytes")
+        agents_bytes = (REPO_ROOT / "AGENTS.md").read_bytes()
+        if agents_bytes not in ctl_text.encode("utf-8"):
+            failures.append("T9c: composed control carrier must embed AGENTS.md verbatim")
+        if js_chars(ctl_text) != sum(
+            js_chars(part.read_text(encoding="utf-8")) for part in CONTROL_CARRIER_PARTS
+        ):
+            failures.append("T9d: composed carrier js_chars must equal the sum of its parts")
+        if js_chars(ctl_text) <= js_chars((REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")):
+            failures.append("T9e: composed carrier must be strictly larger than bare AGENTS.md")
 
     for f in failures:
         print(f"FAIL {f}")
