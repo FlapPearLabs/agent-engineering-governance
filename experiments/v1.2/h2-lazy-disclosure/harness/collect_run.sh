@@ -105,11 +105,19 @@ else : > "$EV/telemetry.log"; fi
 RECHECK="$EV/carrier-recheck.txt"
 RFAIL=0
 {
-  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$EXP_DIR/routes-h2.json" <<'PYEOF'
-import hashlib, json, os, re, subprocess, sys
+  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$EXP_DIR/routes-h2.json" "$EXP_DIR/harness/read_surface.py" \
+          "$(git -C "$EXP_DIR" rev-parse --show-toplevel)" <<'PYEOF'
+import hashlib, importlib.util, json, os, re, subprocess, sys
 receipt = json.load(open(sys.argv[1], encoding="utf-8"))
 wt, ev = sys.argv[2], sys.argv[3]
 routes_manifest = sys.argv[4]
+# single source of truth for the read surface (shared with the regression suite)
+_spec = importlib.util.spec_from_file_location("read_surface", sys.argv[5])
+rs = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(rs)
+# the frozen materials tree root is passed explicitly: it is NOT an ancestor of the run
+# worktree (separate checkouts), so it can never be inferred from the worktree path.
+materials_root = sys.argv[6]
 fail = 0
 
 def sha(path):
@@ -218,11 +226,6 @@ else:
     s3dests = set(dests)
     problems = []
     for ln in nonempty:
-        m = re.match(r"^READ\s+(FULL|PARTIAL|GREP)\s+(\S+)$", ln)
-        if m:
-            p = m.group(2)
-            if p != ".h2-telemetry.log" and not os.path.exists(os.path.join(wt, p)):
-                problems.append(f"READ target missing in worktree: {p}")
         m = re.match(r"^ROUTE\s+(\S+)\s+(\S+)\s+(LOADED|MISSING|SKIPPED)$", ln)
         if m:
             rid, tgt, res = m.groups()
@@ -230,7 +233,25 @@ else:
                 problems.append(f"ROUTE LOADED for undeclared target: {tgt}")
             if rid != "n/a" and rid not in s3ids:
                 problems.append(f"ROUTE unknown route id: {rid}")
+    # READ targets are classified by the shared read-surface module: the task worktree and
+    # THIS run's evidence dir are allowed; the materials root, the other arm's carrier, a
+    # sibling run's evidence and any non-canonicalizable path are refused with a reason.
+    problems.extend(rs.classify_telemetry(nonempty, wt, ev, materials_root))
     report("TELEMETRY_TARGETS", not problems, "; ".join(problems[:5]))
+
+# 6. per-run report-template binding still holds at collection (PART 6). A worker that edits
+#    its own copy must not be able to keep a run VALID against a template it changed.
+src_h = receipt.get("report_template_source_sha256")
+run_h = receipt.get("report_template_run_sha256")
+tpl = os.path.join(ev, "worker-report-template.md")
+if not src_h or not run_h:
+    report("TEMPLATE_BINDING", False, "receipt lacks report_template_*_sha256 (harness predates the repair)")
+elif os.path.islink(tpl) or not os.path.isfile(tpl):
+    report("TEMPLATE_BINDING", False, "per-run template missing or is a symlink")
+else:
+    got = sha(tpl)
+    report("TEMPLATE_BINDING", src_h == run_h == got,
+           f"source={src_h[:12]} receipt_copy={run_h[:12]} at_collect={got[:12]}")
 
 sys.exit(fail)
 PYEOF

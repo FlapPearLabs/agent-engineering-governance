@@ -88,7 +88,13 @@ if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN
   WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
   EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 else
-  PLAN="$EXP_DIR/harness/run-plan.json"
+  # Round 2 uses its own frozen plan (new run identities H2-R2-R01..R20); the Round-1 plan
+  # file stays frozen as part of the Round-1 record and is never repurposed. The override is
+  # explicit so a run cannot silently pick up the wrong plan.
+  PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan.json}"
+  if [ ! -f "$PLAN" ]; then
+    echo "PREPARE_FAIL reason=PLAN_FILE_MISSING $PLAN"; exit 2
+  fi
   REG="$EXP_DIR/task-registry.json"
   INFO="$("$PY" - "$PLAN" "$REG" "$RUN_ID" "$ARM" <<'PYEOF'
 import json, sys
@@ -289,8 +295,30 @@ PYEOF
 
 "$PY" - "$HERE" "$EV" "$WT" "$BASE_SHA" "$ARM" "$MODEL_TIER" <<'PYEOF' \
   || fatal_alloc "CONTRACT_WRITE_FAILED"
-import json, sys
+import hashlib, json, pathlib, subprocess, sys
 here, ev, wt, base, arm, model_tier = sys.argv[1:7]
+evp = pathlib.Path(ev)
+
+# ---- read-boundary repair (PART 6) ----------------------------------------------
+# The worker is allowed to read its own worktree and its OWN evidence dir, and nothing else.
+# The report template used to live in the materials tree, so a contract-compliant read of it
+# was rejected by TELEMETRY_TARGETS: the harness invalidated its own compliant worker.
+# Fix = place an exact-byte copy in the run's evidence dir and point the contract there.
+# The source is read from the MATERIALS COMMIT object (never the working tree), and the copy
+# is admitted only when the hashes are equal.
+src = subprocess.run(
+    ["git", "-C", here, "show", f"{json.load(open(evp / 'receipt.json', encoding='utf-8'))['materials_commit']}:"
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"],
+    capture_output=True, check=True).stdout
+run_tpl = evp / "worker-report-template.md"
+run_tpl.write_bytes(src)
+src_hash = hashlib.sha256(src).hexdigest()
+run_hash = hashlib.sha256(run_tpl.read_bytes()).hexdigest()
+if src_hash != run_hash:
+    sys.exit(f"TEMPLATE_HASH_MISMATCH source={src_hash} copy={run_hash}")
+if run_tpl.is_symlink() or not run_tpl.is_file():
+    sys.exit("TEMPLATE_COPY_NOT_A_PLAIN_FILE")
+
 tpl = open(f"{here}/worker-brief-template.md", encoding="utf-8").read()
 block = open(f"{here}/arm-blocks/{arm}.md", encoding="utf-8").read()
 receipt = json.load(open(f"{ev}/receipt.json", encoding="utf-8"))
@@ -303,9 +331,18 @@ out = (tpl
        .replace("<TASK_TEXT>", task)
        .replace("<MODEL_TIER>", model_tier)
        .replace("<REPORT_PATH>", f"{ev}/report.md")
-       .replace("<REPORT_TEMPLATE_PATH>", f"{here}/worker-report-template.md")
+       .replace("<REPORT_TEMPLATE_PATH>", f"{ev}/worker-report-template.md")
        .replace("<BOOTSTRAP_DELIVERY_BLOCK>", block))
 open(f"{ev}/contract.md", "w", encoding="utf-8").write(out)
+
+# record both hashes on the receipt so the binding is auditable, not just asserted once
+rp = evp / "receipt.json"
+data = json.loads(rp.read_text(encoding="utf-8"))
+data["report_template_source_sha256"] = src_hash
+data["report_template_run_sha256"] = run_hash
+data["report_template_run_path"] = str(run_tpl)
+rp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+print(f"template bound: source={src_hash[:12]} copy={run_hash[:12]} -> {run_tpl.name}")
 PYEOF
 
 echo "PREPARE_RUN OK run_id=$RUN_ID arm=$ARM task=$TASK_ID base=$BASE_SHA"

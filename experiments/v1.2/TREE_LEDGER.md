@@ -463,8 +463,12 @@ GIT_LOCATION =
 ```text
 TREE_NODES_TOTAL = 19
 CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
-CURRENT_NODE_STATUS = ACTIVE（freeze 已产出：协议/载体/任务集/评分/路由 manifest 冻结，
-                     P1–P7 逐项落实；runs 待 freeze 进默认分支后执行）
+CURRENT_NODE_STATUS = ACTIVE / ROUND_2_READY（freeze 已产出并已 merge 进默认分支；
+                     Round 1 已关闭为 INVALID，harness 读边界缺陷已修并独立评审，
+                     Round 2 已重新冻结待运行；**本轮未执行任何 Round 2 实跑**）
+  子状态：H2_ROUND_1 = CLOSED / INVALID（GLOBAL_HARNESS_CONTRACT_DEFECT；VALID_RUNS=0）
+          H2_HARNESS_REPAIR = CLOSED（report-template 读边界矛盾已修，treatment 未变）
+          H2_ROUND_2 = FROZEN / READY_TO_RUN（身份 H2-R2-R01..R20，实跑 0）
   · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（6 个不同 base 复验：S3 11/11 VALID；
     N8 冻结面 22/22）；② N6.5 §0 的 P1–P7 = 已落实 ✅（precondition/ 证据）
 NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）

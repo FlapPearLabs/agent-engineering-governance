@@ -7,6 +7,18 @@
 > **臂序对消**（bot review 处置）：同一任务内不固定"先对照后变体"；重复对之间 C/V 次序
 > **互换**，不可重复的 t01/t02 在任务间交替 —— 消除"臂与时刻"完全相关的时间混杂。
 
+> **ROUND-1 STATUS（后验登记，2026-10-12）**：本表的 20 行是 **Round 1** 的冻结计划，
+> 已随 Round 1 关闭而**整体作废（VOID）** —— Round 1 在第 1 个实跑即被 harness 判 INVALID，
+> 根因 = `GLOBAL_HARNESS_CONTRACT_DEFECT`（合同要求读 materials 树里的报告模板，而遥测校验
+> 只接受 worktree 内路径 ⇒ **合规的 worker 被自己的 harness 判废**）。
+> `VALID_RUNS = 0` / `INVALID_RUNS = 1` / `H2_RESULT = NOT_PRODUCED`
+> （状态 = `EXPERIMENT_NOT_VALIDLY_STARTED`，**不是** `INSUFFICIENT_EVIDENCE` —— 后者留给
+> 有效执行但证据不足的情形）。R01 证据见 `runs/H2-R1-R01/`（占位符脱敏，无本机路径），
+> 结案记录见 `round-1-closure.md`。
+> **Round 2 使用全新身份 `H2-R2-R01..R20`**（见 `harness/run-plan-r2.json` 与
+> `round-2-freeze.json`）；本表行号/身份**永不复用**。
+
+
 ## 1. 冻结的 run 计划（N_TOTAL = 20；arm 映射即本表）
 
 | # | RUN_ID | TASK | ARM | REP | BLOCK | STATUS | 记录文件 |

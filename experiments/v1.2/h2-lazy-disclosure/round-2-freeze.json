@@ -1,0 +1,43 @@
+{
+  "round_id": "H2-R2",
+  "status": "FROZEN / READY_TO_RUN",
+  "predecessor_round": {
+    "round_id": "H2-R1",
+    "status": "CLOSED / INVALID",
+    "invalid_reason": "GLOBAL_HARNESS_CONTRACT_DEFECT",
+    "valid_runs": 0,
+    "invalid_runs": 1
+  },
+  "real_runs_executed": 0,
+  "materials_commit_r2": "RECORDED_AFTER_MERGE (this file must not contain its own commit SHA)",
+  "freeze": {
+    "VARIANT_HASH_R2": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
+    "TASK_SET_HASH_R2": "ad614c8ef392ed62359aa0db94fd37aded70c0796d798048185aa7cf7904397c",
+    "SCORING_HASH_R2": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
+    "ROUTE_MANIFEST_HASH_R2": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+    "PROTOCOL_HASH_R2": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
+    "RUN_PLAN_HASH_R2": "ca13fbe004f654c3f12ac11f18e5b7d807014a8da3011f1d1995530189c1f1f2",
+    "HASH_UNIT": "sha256 over file bytes"
+  },
+  "round1_comparison": {
+    "TASK_SET_CHANGED": "NO",
+    "SCORING_CHANGED": "NO",
+    "ROUTE_SET_CHANGED": "NO",
+    "TREATMENT_CHANGED": "NO",
+    "HARNESS_CHANGED": "YES",
+    "evidence": "Mechanical per-file hash comparison against 5ab500e: task-registry, scoring-rubric, routes-h2, protocol, run plan, variant carrier and BOTH arm blocks are byte-identical. Changed: prepare_run.sh, collect_run.sh, worker-brief-template.md (arm-symmetric: the diff lies entirely outside the <BOOTSTRAP_DELIVERY_BLOCK> placeholder that carries the per-arm disclosure instruction) plus new read_surface.py and its test.",
+    "affects_experiment_treatment": "NO"
+  },
+  "run_identity": {
+    "round1_ids": "H2-R01..H2-R20 (frozen, retained, never reused)",
+    "round2_ids": "H2-R2-R01..H2-R2-R20",
+    "id_reuse": "FORBIDDEN — mechanically asserted disjoint at freeze time"
+  },
+  "harness_delta_since_round_1": [
+    "per-run report template copied byte-exact from the frozen materials commit into the run evidence dir; SOURCE_TEMPLATE_HASH == RUN_TEMPLATE_HASH enforced at prepare and re-verified at collect (TEMPLATE_BINDING)",
+    "telemetry READ targets classified by harness/read_surface.py: allowed = task worktree + this run's evidence dir; materials root, cross-arm carrier, sibling run evidence and non-canonicalizable ('...') paths are refused with stable reason tokens",
+    "worker brief states the read boundary and a single deterministic path base",
+    "prepare_run.sh accepts H2_PLAN_FILE so Round 2 uses its own plan file"
+  ],
+  "execution_gate": "H2-R2 REAL RUNS MUST NOT BE EXECUTED until the operator issues a new mandate."
+}

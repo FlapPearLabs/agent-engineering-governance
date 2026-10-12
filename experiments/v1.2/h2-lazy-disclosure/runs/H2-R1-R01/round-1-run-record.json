@@ -1,0 +1,30 @@
+{
+  "round_id": "H2-R1",
+  "run_id": "H2-R1-R01",
+  "round1_run_id_at_execution": "H2-R01",
+  "status": "INVALID",
+  "invalid_reason": "GLOBAL_HARNESS_CONTRACT_DEFECT",
+  "worker_correctness": "NOT_THE_CAUSE",
+  "arm": "control",
+  "task_id": "t01",
+  "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "materials_commit": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+  "worker_receipt": "S0:c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 S1:read S2:LOW S3:none S4:full",
+  "offending_read_event": [
+    "READ  FULL  h2-materials/.../worker-report-template.md"
+  ],
+  "offending_event_machine_path_leaked": false,
+  "collection_verdict": "COLLECT_RUN INVALID (delivery/evidence recheck FAIL)",
+  "failing_check": "TELEMETRY_TARGETS",
+  "failing_detail": "READ target missing in worktree: <H2_MATERIALS_WT>/experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md  [abbreviated by the worker as 'h2-materials/.../worker-report-template.md']",
+  "artifacts_preserved": [
+    "receipt.json",
+    "telemetry.log",
+    "report.md",
+    "collect-summary.txt",
+    "carrier-recheck.txt",
+    "diffstat.txt",
+    "status-after.txt"
+  ],
+  "note": "Paths are placeholder-redacted; no machine-local absolute path is disclosed. The worker abbreviated the path with '...', which is itself PART 8 defect (d)."
+}

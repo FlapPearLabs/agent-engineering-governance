@@ -386,3 +386,41 @@ TRUE values:
   must come from a clean frozen commit.
 · Gates after the round-11 fixes: ruff check . clean; 134 material tests OK; inventory
   selftest PASS (0 failures); public-release VIOLATIONS=0; governance 35/35.
+
+--- [17] read-boundary repair battery (Round-1 defect; tests-first, red -> green) ---
+· ROOT CAUSE: the contract told the worker to read <REPORT_TEMPLATE_PATH>, which resolved into
+  the FROZEN MATERIALS TREE, while TELEMETRY_TARGETS required every READ target to resolve
+  inside the run worktree. A contract-COMPLIANT worker was therefore rejected by its own
+  harness. Global by nature: it would have invalidated every Round-1 run.
+· TESTS FIRST (PART 15/17): the inline predicate was extracted, behaviour-preserving, into
+  harness/read_surface.py, then experiments/v1.2/tests/test_v1_2_h2_read_surface.py was written
+  against that real module and run BEFORE the fix. RED = 21 tests / 14 failures, including the
+  regression test itself and a symlink-laundering case that the old code allowed (ALLOWED).
+  After the fix: 21 tests OK. Both sides of the red/green are real code paths.
+  No control uses unittest.TestCase.run() (it CAPTURES assertion failures instead of raising).
+· POSITIVE CONTROL (real prepared run): template located at the frozen materials commit,
+  copied byte-exact into the run evidence dir, SOURCE_TEMPLATE_HASH ==
+  RUN_TEMPLATE_HASH == 540cd07c6123..., contract points at the COPY and no longer mentions the
+  materials-tree path, compliant telemetry (incl. reading its own template copy) collects
+  rc=0, TEMPLATE_BINDING = OK (source == receipt copy == at_collect).
+· NC1 materials-root direct read      -> rc=3, reason MATERIALS_ROOT_READ.   TRIGGERED=YES
+· NC2 cross-arm carrier read           -> rc=3, reason CROSS_ARM_READ.        TRIGGERED=YES
+· NC3 per-run template 1-byte tamper   -> rc=3, TEMPLATE_BINDING FAIL (at_collect hash differs)
+· NC4 abbreviated '...' path (the exact Round-1 offending shape) -> rc=3, NON_CANONICAL_PATH
+· NC5 sibling-run evidence read        -> rc=3, reason OTHER_RUN_EVIDENCE_READ. TRIGGERED=YES
+· EXTRA symlinked per-run template     -> rc=3, "missing or is a symlink".   TRIGGERED=YES
+· EXTRA template restored after edit   -> rc=0, binding still holds (hash-based, not path-based)
+· Fixture note: the first NC5 fixture created a DIRECTORY named worker-report-template.md; the
+  control still triggered on the intended path-shape branch. The fixture was corrected.
+· TREATMENT INVARIANCE (PART 12), per-file hash vs 5ab500e:
+  task-registry / scoring-rubric / routes-h2 / protocol / run-plan / variant carrier /
+  arm-blocks/control.md / arm-blocks/variant.md  = ALL UNCHANGED.
+  worker-brief-template.md CHANGED but the diff is purely additive and lies ENTIRELY outside
+  the <BOOTSTRAP_DELIVERY_BLOCK> placeholder that carries the per-arm disclosure instruction,
+  so the change is arm-symmetric. => AFFECTS_EXPERIMENT_TREATMENT = NO (proven, not asserted).
+· LOCAL GATE = the exact workflow commands read from .github/workflows/governance-ci.yml
+  (compileall / ruff check . / validate_governance / validate_public_release x3 / scripts tests
+  / t16 entrypoint / zcode / workbuddy) rather than an approximation. Scripts-suite (32) and
+  zcode (23) failures in this sandbox are pre-existing and environment-caused; they reproduce
+  on the unmodified base. NOTE: experiments/v1.2/tests is NOT in CI at all — the H2 material
+  suite is a local-only gate.

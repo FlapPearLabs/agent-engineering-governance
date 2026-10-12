@@ -1,0 +1,11 @@
+READ  FULL  H2_RULES.md
+READ  FULL  CODEBUDDY.md
+READ  GREP  scripts/tests
+READ  GREP  scripts/tests
+READ  GREP  adapters/zcode/tests
+READ  FULL  h2-materials/.../worker-report-template.md
+READ  PARTIAL  scripts/tests/test_p1_t16_gate_cli_entrypoint.py
+READ  FULL  .gitignore
+READ  PARTIAL  scripts/validate_governance.py
+SKILL none  NONE
+ROUTE n/a  codegraph-grounding.md  SKIPPED
