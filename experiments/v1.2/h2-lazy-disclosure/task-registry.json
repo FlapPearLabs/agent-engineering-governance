@@ -51,7 +51,7 @@
       "shape": "FIX",
       "risk": "LOW",
       "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
-      "scope": {"deny_prefixes": ["deployment/", "experiments/", ".github/", "requirements", "pyproject.toml"], "require_any_in": ["scripts/tests/"], "max_files": null},
+      "scope": {"allow_prefixes": ["scripts/tests/"], "deny_prefixes": ["deployment/", "experiments/", ".github/", "requirements", "pyproject.toml"], "require_any_in": ["scripts/tests/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t01-low-doc-accuracy (task_shape)",
       "task_text": "在给定 base 上，修复一个「测试断言了本机私有文件存在」导致的环境性假通过。\n只允许改测试与其自建前置条件；不得引入新依赖、不得改 CI 语义。",
       "expected_outcome": {
@@ -93,7 +93,7 @@
       "shape": "FIX",
       "risk": "MEDIUM",
       "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
-      "scope": {"deny_prefixes": ["RULES.md", "AGENTS.md", "deployment/", "experiments/"], "require_any_in": ["ruff.toml"], "max_files": null},
+      "scope": {"allow_prefixes": ["scripts/", "ruff.toml", "requirements-dev.txt", ".github/"], "deny_prefixes": ["RULES.md", "AGENTS.md", "deployment/", "experiments/"], "require_any_in": ["ruff.toml"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t02-medium-static-gate-adoption (task_shape)",
       "task_text": "在给定 base 上，为本仓采纳一套**最小机械正确性静态门**，并把门配置成\n确定性 baseline（固定 select 集合、显式 target-version）。\n要求：先测 legacy 基线，只修 correctness 类缺陷，不得借机做风格迁移。",
       "expected_outcome": {
@@ -138,7 +138,7 @@
       "shape": "HIGH-STATE",
       "risk": "HIGH",
       "base_sha": "af4df6ae706394db5f9dec313993312392aeb516",
-      "scope": {"deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "schemas/", "adapters/"], "max_files": null},
+      "scope": {"allow_prefixes": ["scripts/", "schemas/", "adapters/", "templates/"], "deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "schemas/", "adapters/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t03-high-continuity-state-contract (task_shape)",
       "task_text": "在给定 base 上，为一个 governed repo 接入跨 agent 状态连续性合同\n（唯一状态索引 + schema + validator + 运行时 hook 参考实现）。\n合同先行：先落合同与 schema，再落 hook；hook 只保证 agent 不忘记写，\n绝不代写语义决策。",
       "expected_outcome": {
@@ -185,7 +185,7 @@
       "shape": "HIGH-REVIEW-EVIDENCE",
       "risk": "HIGH",
       "base_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
-      "scope": {"deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "references/", "schemas/", "templates/"], "max_files": null},
+      "scope": {"allow_prefixes": ["scripts/", "references/", "schemas/", "templates/"], "deny_prefixes": ["AGENTS.md", "RULES.md", "deployment/", "experiments/"], "require_any_in": ["scripts/", "references/", "schemas/", "templates/"], "max_files": null},
       "source": "verbatim: experiments/v1.2/h1-hot-context/tasks.yaml#t04-high-review-evidence-authority (task_shape)",
       "task_text": "在给定 base 上，为「评审证据」建立接口面：canonical reference + 版本化\nschema + 薄 CLI + 占位模板。字段合同先冻结，CLI 只做 collect/validate，\n不得在 CLI 里塞语义裁决。",
       "expected_outcome": {

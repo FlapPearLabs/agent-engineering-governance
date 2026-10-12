@@ -33,10 +33,10 @@ git -C "$WT" read-tree HEAD || { unset GIT_INDEX_FILE; fail CAPTURE_INDEX_INIT_F
 git -C "$WT" add -A || { unset GIT_INDEX_FILE; fail CAPTURE_ADD_FAILED; }
 git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/dev/null || true
 (
-  git -C "$WT" diff --cached --binary || exit 4
   if [ "$HEAD" != "$BASE" ]; then
     git -C "$WT" diff --binary "$BASE" "$HEAD" -- . ':!CODEBUDDY.md' ':!H2_RULES.md' ':!H2_WARM' || exit 4
   fi
+  git -C "$WT" diff --cached --binary || exit 4
 ) > "$EV/diff.patch" || { unset GIT_INDEX_FILE; fail CAPTURE_DIFF_FAILED; }
 git -C "$WT" diff --cached --stat > "$EV/diffstat.txt" 2>/dev/null || : > "$EV/diffstat.txt"
 unset GIT_INDEX_FILE

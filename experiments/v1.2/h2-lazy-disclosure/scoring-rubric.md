@@ -143,7 +143,9 @@ REPLICATION_STATUS    = 每 shape 的实际 n/arm（目标 2；不足时逐 shap
 
 ```text
 DISCLOSURE_SAFE 成立需要**同时**满足：
-  S1  HOT 体量实质下降：OBSERVED 降幅 ≥ 30%（HOT_JS_CHARS，H2 base 口径）
+  S1  HOT 体量实质下降：OBSERVED **carrier 面**降幅 ≥ 30%（CONTROL/VARIANT 交付载体的
+      js_chars；宿主注入的 MEMORY 文本不可观测、明确排除 —— 见 variant-manifest#hot_metrics、
+      h2_hot_inventory selftest T8；bot review R10-4 的口径对齐）；
       且变体载体完整投递（不截断）；
   S2  无 additional high-value miss：按 §3 判定，全部任务上 MISSED_GUIDANCE = 0；
   S3  未增加 invalid completion：VARIANT 的 INVALID_COMPLETION 数 ≤ CONTROL；

@@ -87,6 +87,11 @@ print("CHANGE SURFACE:")
 for p in paths:
     print("  " + p)
 viol = []
+allow = scope.get("allow_prefixes")
+if allow is not None:
+    for p in paths:
+        if not p.startswith(tuple(allow)):
+            viol.append(f"PATH_OUTSIDE_ALLOWED {p!r} (allow_prefixes={allow})")
 for p in paths:
     for pre in scope.get("deny_prefixes", []) or []:
         if p.startswith(pre):

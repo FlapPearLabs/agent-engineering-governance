@@ -38,6 +38,47 @@ if [ -f "$DEST/run.json" ]; then
 fi
 mkdir -p "$DEST"
 
+# R10-8 + R10-3: real runs require launcher-provided model evidence matching the frozen tier,
+# and non-null, globally unique episode identities per role (dry-runs are exempt: plan_index -1).
+PLAN_IDX="$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('plan_index',''))" "$EV/receipt.json" 2>/dev/null || echo '')"
+if [ -n "$PLAN_IDX" ] && [ "$PLAN_IDX" != "-1" ]; then
+  TIER="$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('model_tier',''))" "$EV/receipt.json" 2>/dev/null || echo '')"
+  if [ -z "${WORKER_MODEL:-}" ]; then
+    echo "PUBLISH_REFUSED reason=MISSING_MODEL_EVIDENCE (set WORKER_MODEL to the observed dispatch tier)"; exit 2
+  fi
+  if [ "$WORKER_MODEL" != "$TIER" ]; then
+    echo "PUBLISH_REFUSED reason=MODEL_MISMATCH observed=$WORKER_MODEL tier=$TIER"; exit 2
+  fi
+  if [ -z "${WORKER_EPISODE:-}" ]; then
+    echo "PUBLISH_REFUSED reason=MISSING_WORKER_EPISODE"; exit 2
+  fi
+  DUP="$("$PY" - "$EXP_DIR/runs" "$RUN_ID" "${WORKER_EPISODE}" "${AUDITOR_EPISODE:-}" <<'PYEOF'
+import json, os, sys
+runs_dir, self_id, wep, aep = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+dups = []
+if os.path.isdir(runs_dir):
+    for name in os.listdir(runs_dir):
+        if name == self_id:
+            continue
+        p = os.path.join(runs_dir, name, "run.json")
+        if not os.path.isfile(p):
+            continue
+        try:
+            d = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        if d.get("worker_episode") and d["worker_episode"] == wep:
+            dups.append(f"worker:{name}")
+        if aep and d.get("auditor_episode") and d["auditor_episode"] == aep:
+            dups.append(f"auditor:{name}")
+print(" ".join(dups))
+PYEOF
+)"
+  if [ -n "$DUP" ]; then
+    echo "PUBLISH_REFUSED reason=EPISODE_REUSE [$DUP]"; exit 3
+  fi
+fi
+
 for f in report.md acceptance.txt carrier-recheck.txt; do
   if [ -f "$EV/$f" ]; then cp "$EV/$f" "$DEST/$f"; fi
 done

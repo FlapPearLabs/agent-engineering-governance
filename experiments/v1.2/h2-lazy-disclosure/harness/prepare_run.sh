@@ -40,10 +40,19 @@ if [ -d "$R_TRIM" ]; then
   NORM="$(cd "$R_TRIM" && pwd -P)" || NORM=""
   R_MATCH="${NORM:-$R_TRIM}"
 else
-  PARENT="$(dirname "$R_TRIM")"
-  while [ "$PARENT" != "/" ] && [ ! -d "$PARENT" ]; do PARENT="$(dirname "$PARENT")"; done
-  PN="$(cd "$PARENT" 2>/dev/null && pwd -P)" || PN=""
-  if [ -n "$PN" ]; then R_MATCH="$PN/$(basename "$R_TRIM")"; else R_MATCH="$R_TRIM"; fi
+  # Lexically normalize the FULL unresolved path (incl. '..' segments), then resolve the
+  # deepest existing ancestor for symlinks and re-append the remainder (R10-6).
+  R_MATCH="$("$PY" - "$R_TRIM" <<'PYEOF'
+import os, sys
+p = os.path.normpath(sys.argv[1])
+anc = p
+while not os.path.isdir(anc) and os.path.dirname(anc) != anc:
+    anc = os.path.dirname(anc)
+real = os.path.realpath(anc)
+rest = os.path.relpath(p, anc)
+print(p if rest == os.curdir else os.path.normpath(os.path.join(real, rest)))
+PYEOF
+)" || R_MATCH="$R_TRIM"
 fi
 R_LC="$(printf '%s' "$R_MATCH" | tr 'A-Z' 'a-z' | tr -s '/')"
 R_LC="${R_LC%/}"
@@ -104,22 +113,43 @@ PYEOF
   REST="${INFO#* }"
   BASE_SHA="${REST%% *}"
   MODEL_TIER="${REST##* }"
-  # R9-4: enforce the FROZEN plan order — every prior plan row must already be prepared
-  # (evidence receipt exists). Skipping ahead or grouping rows out of order is rejected.
-  ORDER_CHECK="$("$PY" - "$PLAN" "$RUN_ID" "$H2_RUNS_ROOT" <<'PYEOF'
+  # R9-4/R10-2: enforce the FROZEN plan order — every prior plan row must have reached a
+  # RECORDED TERMINAL state (prepared AND collected: collect-summary.txt exists). The frozen
+  # counterbalancing controls execution-time carryover, so preparation/execution must not
+  # outrun the plan.
+  ORDER_CHECK="$("$PY" - "$PLAN" "$RUN_ID" "$H2_RUNS_ROOT" "$MATERIALS_COMMIT" <<'PYEOF'
 import json, os, sys
 plan = json.load(open(sys.argv[1], encoding="utf-8"))
-rid, runs_root = sys.argv[2], sys.argv[3]
+rid, runs_root, commit = sys.argv[2], sys.argv[3], sys.argv[4]
 idx = [i for i, r in enumerate(plan) if r["run_id"] == rid][0]
-missing = [plan[i]["run_id"] for i in range(idx)
-           if not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "receipt.json"))]
-print(f"{idx} {' '.join(missing)}")
+not_collected = [plan[i]["run_id"] for i in range(idx)
+                 if not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "collect-summary.txt"))]
+# R10-1: bind every run to ONE materials commit — compare against every existing real receipt.
+mismatch = []
+evroot = os.path.join(runs_root, "evidence")
+if os.path.isdir(evroot):
+    for name in os.listdir(evroot):
+        rp = os.path.join(evroot, name, "receipt.json")
+        if os.path.isfile(rp):
+            try:
+                mc = json.load(open(rp, encoding="utf-8")).get("materials_commit")
+            except Exception:
+                continue
+            if mc and mc != commit and name.startswith("H2-R"):
+                mismatch.append(f"{name}:{mc[:10]}")
+print(f"{idx} {' '.join(not_collected)} MISMATCH={' '.join(mismatch) or 'none'}")
 PYEOF
 )" || { echo "PREPARE_FAIL reason=ORDER_CHECK_FAILED"; exit 2; }
   PLAN_IDX="${ORDER_CHECK%% *}"
-  MISSING_PREV="${ORDER_CHECK#* }"
+  REST2="${ORDER_CHECK#* }"
+  MISSING_PREV="${REST2%% *}"
+  MAT_MISMATCH="${REST2#*MISMATCH=}"
   if [ -n "$MISSING_PREV" ]; then
-    echo "PREPARE_FAIL reason=OUT_OF_ORDER missing_prior_runs=[$MISSING_PREV] (the frozen plan order is the control for time/carryover effects)"
+    echo "PREPARE_FAIL reason=OUT_OF_ORDER missing_terminal_prior_runs=[$MISSING_PREV] (the frozen plan order is the control for time/carryover effects)"
+    exit 2
+  fi
+  if [ "$MAT_MISMATCH" != "none" ]; then
+    echo "PREPARE_FAIL reason=MATERIALS_ADVANCED prior_runs=[$MAT_MISMATCH] current=$MATERIALS_COMMIT (all runs must use ONE frozen materials snapshot)"
     exit 2
   fi
   WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
