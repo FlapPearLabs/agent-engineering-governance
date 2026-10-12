@@ -344,3 +344,45 @@ TRUE values:
 · [14] 的 R9-1 演示构造错误：对"仅存在于 index 的新文件"做 git mv，porcelain 只产生单侧
   A 条目（源从未在 HEAD 中）——不能触发 R 条目。改用 TRACKED 文件（rename deployment/...）
   重演：源路径 `deployment/MEMORY_POINTER_CANDIDATE.md` 按 R 条目双侧可见并命中 deny。
+
+--- [16] round-11 fix battery (each fix: adversarial case FAILS, clean case PASSES) ---
+· R11-1 test: stale duplicate PROTOCOL_HASH literal removed (dict literal kept only the
+  last value). This was the sole CI failure: `ruff check .` reported F601 at line 99.
+  Local reproduction of the CI gate: `ruff check .` -> All checks passed.
+· R11-2 collect (WARM symlink): a real prepared run whose expected WARM destination
+  references/ticket-lane.md was replaced by a symlink to an EXTERNAL file with IDENTICAL
+  bytes. Before the fix this passed (extra/missing empty, isfile/open follow the link, digest
+  matched). After: CARRIER_RECHECK(H2_WARM bundle) = FAIL ... symlinks=['references/
+  ticket-lane.md'], collect rc=3 (run INVALID); intact bundle -> OK 11/11, rc=0.
+· R11-3 publish (cross-role episode reuse), real publish_run.sh end-to-end on a temp copy:
+  clean distinct identities -> PUBLISH_RUN OK (rc=0);
+  auditor reuses a prior run's WORKER episode -> PUBLISH_REFUSED EPISODE_REUSE (rc=3);
+  worker reuses a prior run's AUDITOR episode -> refused (rc=3);
+  auditor == worker within the run -> refused (rc=3);
+  missing auditor episode -> PUBLISH_REFUSED MISSING_AUDITOR_EPISODE (rc=2).
+· R11-4 inventory (composed control carrier): composed = header + AGENTS.md + footer,
+  equal_to_concat=True; verbatim AGENTS embedding holds; measured control carrier
+  14136 js_chars = 13756 (bare AGENTS) + 380 (wrapper) => the reduction now describes the
+  surface actually delivered. Manifest pins 14136 == live output. Selftest T9a-T9e added.
+· R11-5 collect (receipt revalidation), real plan run H2-R01:
+  clean -> rc=0. Worker commits inside its worktree, then rewrites receipt.expected_base to
+  that commit -> COLLECT_FAIL RECEIPT_REVALIDATION (expected_base 'f0cdda5e...' != frozen
+  'c08f6f8b...'), rc=3, and ZERO WORKER_COMMITTED lines leaked (the commit can no longer be
+  hidden). Wrong arm -> refused; wrong task_id -> refused; restored receipt -> rc=0.
+  CORRECTION FOUND BY THIS BATTERY: the first cut validated only plan-row receipts and let
+  plan-less (dry-run) receipts through unvalidated — a dry-run receipt with a rewritten
+  expected_base still collected clean. Fixed in a follow-up commit; the plan-less branch now
+  re-derives task/base from the frozen registry and requires plan_index == -1.
+· R11-6 test (registry columns): real table matches the frozen plan; a tampered ARM cell and
+  a tampered REP cell are both rejected with a tuple diff.
+  NOTE: an earlier battery run reported "NOT DETECTED" — the battery called
+  TestCase.run(), which CAPTURES assertion failures instead of raising. The test was correct;
+  the control now calls the test method directly.
+· R11-7 hygiene (deleted .py): a committed delete leaves the old path in base-relative
+  enumeration; result SKIP py_compile (not a file in the final worktree): doomed.py ->
+  HYGIENE = PASS rc=0, while a real syntax error in an existing file still FAILS rc=1.
+· Incidental positive control: while the R11-5 tightening was uncommitted, prepare_run.sh
+  refused the battery with PREPARE_FAIL reason=MATERIALS_DIRTY, confirming delivery sources
+  must come from a clean frozen commit.
+· Gates after the round-11 fixes: ruff check . clean; 134 material tests OK; inventory
+  selftest PASS (0 failures); public-release VIOLATIONS=0; governance 35/35.
