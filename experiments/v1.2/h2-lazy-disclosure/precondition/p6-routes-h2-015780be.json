@@ -1,0 +1,342 @@
+{
+  "base": "015780be7a3f863c05509b437e4e586b4f388794",
+  "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
+  "manifest": "experiments/v1.2/h2-lazy-disclosure/routes-h2.json",
+  "routes_declared": 33,
+  "routes_valid": 31,
+  "routes_failed": 2,
+  "verdict": "ROUTES_UNSATISFIED",
+  "h2_precondition": "FAIL",
+  "routes": [
+    {
+      "route_id": "LEAN-01",
+      "destination": "references/project-state-persistence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-02",
+      "destination": "references/project-continuity-contract.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-03",
+      "destination": "references/execution-stage.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-04",
+      "destination": "references/git-ci-integration.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-05",
+      "destination": "references/static-analysis-and-code-intelligence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-06",
+      "destination": "references/review-and-repair-saturation.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-07",
+      "destination": "references/review-evidence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-08",
+      "destination": "references/ticket-lane.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-09",
+      "destination": "references/codegraph-grounding.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-10",
+      "destination": "references/skills-and-model-routing.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-11",
+      "destination": "references/engineering-memory.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "LEAN-12",
+      "destination": "references/static-tooling-profiles.md",
+      "anchor": null,
+      "destination_exists": false,
+      "object_type": null,
+      "anchor_exists": null,
+      "loadable": false,
+      "result": "DESTINATION_MISSING"
+    },
+    {
+      "route_id": "AGENTS-01",
+      "destination": "references/skills-and-model-routing.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-02",
+      "destination": "references/static-analysis-and-code-intelligence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-03",
+      "destination": "references/static-tooling-profiles.md",
+      "anchor": null,
+      "destination_exists": false,
+      "object_type": null,
+      "anchor_exists": null,
+      "loadable": false,
+      "result": "DESTINATION_MISSING"
+    },
+    {
+      "route_id": "AGENTS-04",
+      "destination": "references/ticket-lane.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-05",
+      "destination": "references/git-ci-integration.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-06",
+      "destination": "references/execution-stage.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-07",
+      "destination": "references/codegraph-grounding.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-08",
+      "destination": "references/review-and-repair-saturation.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-09",
+      "destination": "references/project-state-persistence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "AGENTS-10",
+      "destination": "references/project-continuity-contract.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-01",
+      "destination": "references/ticket-lane.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-02",
+      "destination": "references/execution-stage.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-03",
+      "destination": "references/codegraph-grounding.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-04",
+      "destination": "references/project-continuity-contract.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-05",
+      "destination": "references/project-state-persistence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-06",
+      "destination": "references/review-and-repair-saturation.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-07",
+      "destination": "references/git-ci-integration.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-08",
+      "destination": "references/static-analysis-and-code-intelligence.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-09",
+      "destination": "references/engineering-memory.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-10",
+      "destination": "references/skills-and-model-routing.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    },
+    {
+      "route_id": "H2-11",
+      "destination": "skills/README.md",
+      "anchor": null,
+      "destination_exists": true,
+      "object_type": "blob",
+      "anchor_exists": null,
+      "loadable": true,
+      "result": "VALID"
+    }
+  ]
+}

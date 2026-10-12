@@ -1,0 +1,6 @@
+AssertionError: False is not true : precondition: the gitignored local profile exists
+
+----------------------------------------------------------------------
+Ran 553 tests in 27.406s
+
+FAILED (failures=1)

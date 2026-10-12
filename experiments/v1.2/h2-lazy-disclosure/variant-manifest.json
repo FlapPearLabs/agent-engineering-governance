@@ -1,0 +1,73 @@
+{
+  "manifest_id": "v1.2-h2-variant-manifest",
+  "schema_version": 0,
+  "note": "H2 freeze record (non-canonical). Freezes the experiment's variable: VARIANT/TASK_SET/SCORING/ROUTE_MANIFEST hashes, the carrier delivery + receipt rule, and the structured WHAT LEFT HOT / REMAINED HOT / MOVED TO WARM declaration. After the first valid run, none of the frozen files may change (VARIANT_CHANGED_AFTER_FREEZE must read NO; enforced by material tests + per-run receipts). This file deliberately does NOT contain its own commit SHA (self-referential values cannot converge); the freeze commit / merge SHA are recorded post-merge in results.md §8 and the TREE_LEDGER closure entry.",
+  "freeze": {
+    "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
+    "TASK_SET_HASH": "ad614c8ef392ed62359aa0db94fd37aded70c0796d798048185aa7cf7904397c",
+    "SCORING_HASH": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
+    "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+    "PROTOCOL_HASH": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
+    "HASH_UNIT": "sha256 over file bytes (shasum -a 256)",
+    "HASHED_FILES": {
+      "VARIANT_HASH": "carriers/H2_LEAN_BOOTSTRAP.md",
+      "TASK_SET_HASH": "task-registry.json",
+      "SCORING_HASH": "scoring-rubric.md",
+      "ROUTE_MANIFEST_HASH": "routes-h2.json"
+    }
+  },
+  "carrier": {
+    "delivery_scheme": "v5 — symmetric delivery slots; both arms receive SAME-ERA governance (carrier + RULES + routed WARM owners) from one frozen materials snapshot. The ONLY arm difference remains the disclosure strategy.",
+    "common_to_both_arms": "CODEBUDDY.md in the SAME recognized guidance slot (control: current AGENTS.md verbatim full text + thin header/footer; variant: the frozen lean carrier); H2_RULES.md = placed current RULES.md; H2_WARM/ = placed current-era copies of the routed WARM owners (source list = routes-h2.json S3 destinations, single source).",
+    "control_delivery": "carrier_kind=control_full_v1 (hash recorded at delivery; content = verbatim current AGENTS.md embedded, compose-time assertion).",
+    "variant_delivery": "carrier_kind=variant_lean_v1; sha256 == VARIANT_HASH.",
+    "receipt_fields": ["carrier_kind", "carrier_hash", "h2_rules_sha256", "warm_bundle_sha256", "materials_commit", "model_tier"],
+    "receipt_rule": "For every VALID run: placed-file sha256 values (carrier / H2_RULES / H2_WARM bundle) must equal the receipt values. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt; any FAIL or missing/empty telemetry => exit 3, run must be registered INVALID). The run tree's own AGENTS.md/RULES.md must be untouched (base-relative check at collection)."
+  },
+  "what_remained_hot_in_variant": [
+    "authority chain (A>B>C>D>E>F)",
+    "evidence routing table",
+    "risk-tier skeleton (LOW/MEDIUM/HIGH -> review strength)",
+    "the prohibition set kept in the carrier (LOW must not trigger ESCALATION; no 'gate configured before baseline measured'; no gate-state collapse; SELF_REVIEW != INDEPENDENT_REVIEW when the gate exists)",
+    "safety floor N1-N8 (with the single partial mechanical replacement registered for N6)",
+    "routing table itself (pointers only)",
+    "stop conditions; mechanical gate list (COLD)"
+  ],
+  "what_left_hot": [
+    "AGENTS §3 ticket-lane lifecycle detail text",
+    "AGENTS §4 seam-first decomposition gate detail text",
+    "AGENTS §5 codegraph three-mode detail text",
+    "AGENTS §0 static-gate-framework / defect-to-gate framework detail text",
+    "AGENTS §6-§10 full text (CONTROL reads them; the variant does not carry them; their operative owners are the WARM references + RULES.md)",
+    "the full lifecycle/risk tables as expanded text (only the skeleton + prohibitions remain)"
+  ],
+  "what_moved_to_warm": [
+    {"detail": "ticket lifecycle / DAG detail", "warm_owner": "references/ticket-lane.md"},
+    {"detail": "stage grouping / decomposition gate sequence", "warm_owner": "references/execution-stage.md"},
+    {"detail": "codegraph three modes / lifecycle detail", "warm_owner": "references/codegraph-grounding.md"},
+    {"detail": "state continuity contract detail", "warm_owner": "references/project-continuity-contract.md"},
+    {"detail": "state persistence / restore / flush detail", "warm_owner": "references/project-state-persistence.md"},
+    {"detail": "review / repair budget / saturation detail", "warm_owner": "references/review-and-repair-saturation.md"},
+    {"detail": "CI integration detail", "warm_owner": "references/git-ci-integration.md"},
+    {"detail": "static-gate framework / defect-to-gate detail", "warm_owner": "references/static-analysis-and-code-intelligence.md"},
+    {"detail": "memory / learning-loop detail", "warm_owner": "references/engineering-memory.md"},
+    {"detail": "skill routing detail", "warm_owner": "references/skills-and-model-routing.md"}
+  ],
+  "not_carried_by_variant_note": "AGENTS §6-§10 and the §0 framework BODY are delivered to CONTROL (full-text arm) but not carried by the variant carrier; their operative content lives at the WARM owners above + RULES.md. The attribution taxonomy for missed-guidance judgments is frozen in scoring-rubric.md §7 (categories i-v).",
+  "hot_metrics": {
+    "unit": "js_chars (UTF-16 code units; same unit as H1)",
+    "measured_by": "h2_hot_inventory.py (with --selftest counterexample checks)",
+    "truncation_model": "char-exact raw.slice(0, 8000) per audit/AS_IS_WORKBUDDY_V3.md:29 (bot-review correction); the H1 line-granular computation is retained as a labeled secondary field for comparability only.",
+    "observed_at_freeze_at_H2_base": {
+      "CONTROL_CARRIER_JS_CHARS": 14136,
+      "VARIANT_CARRIER_JS_CHARS": 5032,
+      "CARRIER_REDUCTION_PERCENT": "64.4",
+      "S1_SURFACE_NOTE": "reduction measured over the DELIVERED guidance carriers only; the host-injected MEMORY pointer text is not observable per run and is excluded (bot review R9-12). The control carrier is the COMPOSED bytes actually delivered as CODEBUDDY.md = control-carrier-header.md + AGENTS.md (verbatim) + control-carrier-footer.md, measured from the same files prepare_run.sh composes (bot review R11-4); HOT arm totals additionally include deployment/MEMORY_POINTER_CANDIDATE.md (CONTROL 16164 / VARIANT 7060 = 56.3%).",
+      "CONTROL_CARRIER_COMPOSITION": "harness/control-carrier-header.md + AGENTS.md + harness/control-carrier-footer.md (single source: the same two wrapper files prepare_run.sh composes; no duplicated literals)",
+      "VARIANT_FULLY_DELIVERED": true,
+      "MANDATORY_FULL_READ_BOTH_ARMS": "RULES.md (6843 js_chars; placed copy H2_RULES.md)"
+    },
+    "recompute_note": "Regenerated after the v5 carrier edit (bot review R6-8 caught the stale 6893/56.3 from the v4 era); a material test now pins manifest hot numbers == live h2_hot_inventory.py output.",
+    "note": "Observed at the H2 base (9494de8e). Historical task bases carry older AGENTS/RULES sizes (per-base values to be recorded in results.md §1 after the runs); N6 projections must not be substituted for these observations (PART 27)."
+  }
+}

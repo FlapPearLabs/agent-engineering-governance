@@ -100,7 +100,10 @@ fixture body = 固定字面量，声明无主机路径/登录名/端口
 - `validate_governance.py` 34/34；`unittest discover -s scripts/tests` 553 tests OK
 - `validate_public_release.py` VIOLATIONS=0（text_scanned=88, 86 deduped）
 - `--selftest` 51/51
-- diff 扫描无 `songshiyao` / `/Users/` / `/tmp/h1-runs` 泄漏
+- diff 扫描无 `<LOCAL_OS_USERNAME>` / `/Users/` / `/tmp/h1-runs` 泄漏
+  [R2-REDACTION 2026-10-12] 本行原以字面形式写出本机登录名；已替换为占位符。
+  该字面泄漏是 scanner 对"裸登录名"的盲区实例——另开 issue 记录该盲区；
+  原始行保留于 git 历史（历史不改写，修复走 append-only 提交）。
 
 ## 约束遵守（worker 自述 + 编排者核验）
 

@@ -1,0 +1,17 @@
+P6 — route precondition at six distinct bases (H2 base = n02 base = 9494de8e; plus five earlier
+task bases). validate_routes.py, manifest=routes-h2.json, 33 routes.
+
+base=c08f6f8b (t01)   declared=33 valid=33 failed=0  verdict=ALL_ROUTES_VALID
+base=015780be (t02)   declared=33 valid=31 failed=2  fails=[LEAN-12, AGENTS-03]  (static-tooling-profiles.md absent at base)
+base=af4df6ae (t03)   declared=33 valid=30 failed=3  fails=[LEAN-07, LEAN-12, AGENTS-03]
+base=e1da1541 (t04)   declared=33 valid=30 failed=3  fails=[LEAN-07, LEAN-12, AGENTS-03]
+base=0a180fee (n01)   declared=33 valid=33 failed=0  verdict=ALL_ROUTES_VALID
+base=9494de8e (n02/H2) declared=33 valid=33 failed=0 verdict=ALL_ROUTES_VALID
+
+S3 (H2 载体自身行, 11 条): 在全部六个 base 上均为 VALID —— H2 载体行无悬空（base-universal 设计）。
+S1/S2 的悬空行 = N8 已冻结记录的历史事实（e1da154/af4df6a 上 LEAN-07/LEAN-12/AGENTS-03；
+015780b 上 LEAN-12/AGENTS-03），不属于 H2 载体行 ⇒ 分类 HISTORICAL_BASE_ROUTE_UNSATISFIED
+（N8-already-recorded），不构成 H2 预条件失败（protocol §10）。
+
+另：N8 冻结 manifest 在 H2 base 复验 = 22/22 ALL_ROUTES_VALID（README §10 第 1 步）。
+原始 JSON 输出：p6-routes-h2-<base8>.json ×6 + p6-n8-frozen-9494de8.json

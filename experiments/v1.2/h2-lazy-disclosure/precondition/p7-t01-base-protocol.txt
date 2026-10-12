@@ -1,0 +1,31 @@
+# [R2-REDACTION] machine paths / real local identity replaced with placeholders
+# before public commit (validate_public_release pattern UNIX_USER_HOME). The original
+# unredacted outputs remain in the local evidence dir. Probe strings are sanitized;
+# the injected probe was constructed to match the scanner on purpose.
+
+test_p1_t09_probe_the_real_entrypoint_executes_the_budget_check (test_p1_t16_gate_cli_entrypoint.RealCommandEntrypointTests.test_p1_t09_probe_the_real_entrypoint_executes_the_budget_check)
+SEAM: the consuming validator really runs the P1-T09 budget check. ... ok
+test_silent_noop_exit_zero_with_empty_output_cannot_open_the_gate (test_p1_t16_gate_cli_entrypoint.RealCommandEntrypointTests.test_silent_noop_exit_zero_with_empty_output_cannot_open_the_gate)
+CE-08 / D5: exit 0 with nothing is CONSUMER_UNSATISFIED, not PASS. ... ok
+test_the_argv_launcher_really_reaches_a_real_entrypoint (test_p1_t16_gate_cli_entrypoint.RealCommandEntrypointTests.test_the_argv_launcher_really_reaches_a_real_entrypoint)
+The launcher is not a stub: argv reaches a real CLI and returns. ... ok
+test_unignored_violation_on_candidate_surface_still_fails (test_p1_t16_gate_cli_entrypoint.RealCommandEntrypointTests.test_unignored_violation_on_candidate_surface_still_fails)
+The surface is not under-scanned: a TIER-A leak in an UNIGNORED ... ok
+
+======================================================================
+FAIL: test_gitignored_local_profile_stays_out_of_candidate_surface (test_p1_t16_gate_cli_entrypoint.RealCommandEntrypointTests.test_gitignored_local_profile_stays_out_of_candidate_surface)
+A gitignored local-only profile stays out of the scratch surface.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<H2_RUNS_ROOT>/scratch/t01probe/scripts/tests/test_p1_t16_gate_cli_entrypoint.py", line 512, in test_gitignored_local_profile_stays_out_of_candidate_surface
+    self.assertTrue((ROOT / local_rel).exists(),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "precondition: the gitignored local profile exists")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : precondition: the gitignored local profile exists
+
+----------------------------------------------------------------------
+Ran 14 tests in 6.208s
+
+FAILED (failures=1)
+T01_PROBE_RC=1

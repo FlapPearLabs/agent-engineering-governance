@@ -1,0 +1,388 @@
+# [R2-REDACTION] machine paths / real local identity replaced with placeholders before public commit.
+# The original unredacted outputs remain in the local evidence dir.
+
+### P1/P2 DRY-RUN — harness prepare/collect (H2-DRYRUN-* ids; never counted as runs) ###
+# Regenerated post-review: dry-run worktrees now live at worktrees/<RUN_ID> so the generic
+# collect path applies unchanged; carrier re-check at collection added (P2 collection side).
+
+--- [1] variant arm (positive: carrier placed + hash verified) ---
+PREPARE_RUN OK run_id=H2-DRYRUN-variant arm=variant task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant
+  evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-variant
+  carrier  = carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md
+  carrier_hash = 4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639
+rc=0
+
+--- [2] control arm (positive: no carrier file) ---
+PREPARE_RUN OK run_id=H2-DRYRUN-control arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-control
+  evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-control
+  carrier  = canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)
+  carrier_hash = agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41
+rc=0
+
+--- [3] carrier slot states ---
+4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639  <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant/CODEBUDDY.md
+ls: <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-control/CODEBUDDY.md: No such file or directory
+--- [4] collect + carrier re-check (both arms) ---
+CARRIER_RECHECK = OK (variant, sha256=4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639)
+COLLECT_RUN OK run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+  diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  telemetry_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  diffstat:
+rc=0
+variant recheck: CARRIER_RECHECK = OK (variant, sha256=4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639)
+COLLECT_RUN OK run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+  diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  telemetry_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  diffstat:
+rc=0
+control recheck: CARRIER_RECHECK = OK (control, no carrier file)
+
+--- [5] carrier tamper negative: append a byte → collect MUST flag FAIL ---
+tampered recheck: CARRIER_RECHECK = FAIL (variant sha256=869ac73e7ac68aa6d285ea06b565e9212d4d4b8d5ece7ca8830472b417e1350b != 4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639) — RUN_INVALID candidate
+restored recheck: CARRIER_RECHECK = OK (variant, sha256=4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639)
+
+--- [6] volatile-root guard (must reject exactly /tmp and /private/tmp) ---
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp
+rc=2
+PREPARE_FAIL reason=VOLATILE_ROOT /private/tmp
+rc=2
+
+--- [7] refusal negatives ---
+PREPARE_FAIL reason=WORKTREE_EXISTS <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant
+rc=2 (expect 2 WORKTREE_EXISTS)
+PREPARE_FAIL reason=__ARM_MISMATCH__ row_arm=control
+rc=2 (expect 2 ARM_MISMATCH)
+PREPARE_FAIL reason=__NO_RUN_ROW__
+rc=2 (expect 2 NO_RUN_ROW)
+
+--- [8] receipts ---
+{
+  "run_id": "H2-DRYRUN-variant",
+  "task_id": "t01",
+  "arm": "variant",
+  "worktree": "<H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant",
+  "expected_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "actual_head": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "carrier_expected": "carriers/H2_LEAN_BOOTSTRAP.md -> CODEBUDDY.md",
+  "carrier_hash": "4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639",
+  "codebuddy_present": true,
+  "ts": "2026-10-11T16:56:05Z",
+  "prepare": "OK"
+}
+{
+  "run_id": "H2-DRYRUN-control",
+  "task_id": "t01",
+  "arm": "control",
+  "worktree": "<H2_RUNS_ROOT>/worktrees/H2-DRYRUN-control",
+  "expected_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "actual_head": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "carrier_expected": "canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)",
+  "carrier_hash": "agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41",
+  "codebuddy_present": false,
+  "ts": "2026-10-11T16:56:05Z",
+  "prepare": "OK"
+}
+--- [9] post-delta-review addendum (728e9b0 review; fixes before merge) ---
+· volatile-root guard now normalizes (resolve symlinks + case-fold) before matching:
+PREPARE_RUN OK run_id=H2-DRYRUN-control arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  worktree = //tmp/worktrees/H2-DRYRUN-control
+  evidence = //tmp/evidence/H2-DRYRUN-control
+  carrier  = canonical_full_text (AGENTS.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 + RULES.md@c08f6f8b3bbe57853a56adf3c2847e806bbb60a3)
+  carrier_hash = agents_blob:28181a125ac2404a3130e0131d6e19490846432b rules_blob:806db2bcadc7b80182e382d4cde79285f8ff3e41
+  rc=0 (//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (/tmp/)
+PREPARE_FAIL reason=VOLATILE_ROOT /private//tmp
+  rc=2 (/private//tmp)
+· collect_run.sh now exits 3 when carrier recheck FAILs (evidence still captured):
+  tamper rc=3
+CARRIER_RECHECK = FAIL (variant sha256=869ac73e7ac68aa6d285ea06b565e9212d4d4b8d5ece7ca8830472b417e1350b != 4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639) — RUN_INVALID candidate
+COLLECT_RUN INVALID (carrier recheck FAIL) run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  diff_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 telemetry_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (evidence captured)
+  -> register this run as INVALID in run-registry.md (carrier not intact at collection)
+  restored rc=0
+CARRIER_RECHECK = OK (variant, sha256=4e4966d56fc3d4ef9a28d815dcfce38ac21b8a62c3720946b68af47d0a2d2639)
+
+--- [9b] correction to [9] (pre-merge): v1 guard FAILED OPEN on //tmp (rc=0; a worktree
+was created under //tmp and removed immediately: git worktree remove --force, rm -rf /private/tmp/evidence/H2-DRYRUN-control).
+ROOT CAUSE (measured): on this platform, cd //tmp && pwd -P returns //private/tmp (leading //
+preserved); v1 matched nothing and accepted. Guard v2: squash duplicate slashes + strip trailing
+slash + reject empty/root. Rerun (all must reject rc=2):
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp
+  rc=2 (//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (/tmp/)
+PREPARE_FAIL reason=VOLATILE_ROOT /private//tmp
+  rc=2 (/private//tmp)
+PREPARE_FAIL reason=VOLATILE_ROOT /TMP
+  rc=2 (/TMP)
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp/
+  rc=2 (//tmp/)
+Valid root still accepted:
+PREPARE_FAIL reason=__NO_RUN_ROW__
+  rc=2 (valid root, expect 2 NO_RUN_ROW — guard not triggered)
+
+--- [9c] guard v3 (delta-review #2 P3s): OS temp roots + whitespace trim + absolute requirement ---
+PREPARE_FAIL reason=VOLATILE_ROOT /var/tmp
+  rc=2 (root='/var/tmp')
+PREPARE_FAIL reason=VOLATILE_ROOT <$TMPDIR>   [machine-session path abbreviated for R2]
+  rc=2 (root='<$TMPDIR>')
+PREPARE_FAIL reason=VOLATILE_ROOT  /tmp
+  rc=2 (root=' /tmp')
+PREPARE_FAIL reason=ROOT_NOT_ABSOLUTE h2-runs
+  rc=2 (root='h2-runs')
+PREPARE_FAIL reason=VOLATILE_ROOT //tmp
+  rc=2 (root='//tmp')
+PREPARE_FAIL reason=VOLATILE_ROOT /tmp/
+  rc=2 (root='/tmp/')
+Valid root still passes the guard:
+PREPARE_FAIL reason=__NO_RUN_ROW__
+  rc=2 (expect 2 NO_RUN_ROW)
+No residue under /tmp, /var/tmp, $TMPDIR or the repo:
+  none
+ M experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh
+ M experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt
+
+--- [10] v4 delivery + full-chain dry-run (bot-review countermeasures) ---
+· prepare receipts:
+  variant: "carrier_hash":"9afb0d2d07229767fdc28155d807bd9abeb324b7510927e7eaaa2c7a4954d6d1","h2_rules_sha256":"d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d","materials_commit":"2a1a4e78ed5f1597921251ccd2aea469f252f684",
+  control: "h2_agents_sha256":"aab6392a1058cc0f14260356c0bbe9776a9242b1d8740e84ef642c2b03c5c760","h2_rules_sha256":"d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d","materials_commit":"2a1a4e78ed5f1597921251ccd2aea469f252f684",
+· collect (both arms; multi-line recheck):
+  variant rc=0
+  control rc=0
+· tamper negatives:
+  variant carrier tamper rc=3 (2 FAIL line(s))
+  restored rc=0
+  control run-tree AGENTS tamper rc=3 (2 FAIL line(s))
+  restored rc=0
+· symlinked-parent guard [13]:
+PREPARE_FAIL reason=VOLATILE_ROOT <H2_RUNS_ROOT>/scratch/tmplink/new-root
+  rc=2 (expect 2 VOLATILE_ROOT)
+· t02 gate-teeth control [12] (positive: intact config must catch F841):
+    No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+    T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run's own gate config)
+  positive rc=0
+· t02 gate-teeth negative (hollowed config must be caught as GATE_NOT_LOAD_BEARING):
+    All checks passed!
+    T02_POSITIVE_CONTROL = FAIL (injected F841 NOT caught; rc=0) — GATE_NOT_LOAD_BEARING
+  negative rc=0
+· acceptance on unfixed base (expected red; verifies [15] parsing + [19] exit propagation):
+  acceptance rc=1 (expect 1)
+    RC=1 count: 0
+· hygiene + list_changes on dryrun:
+    HYGIENE = PASS
+
+--- [10a] correction to [10] (same session, pre-commit): displayed rc values in [10] for the t02
+gate-teeth controls were pipeline-contaminated (captured tail/sed rc instead of the script rc);
+and the acceptance stdout lacks the in-file markers, so 'RC=1 count: 0' was a capture artifact.
+TRUE values:
+  t02 gate-teeth positive rc=0 (T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run...)
+  t02 gate-teeth negative rc=1 (T02_POSITIVE_CONTROL = FAIL (injected F841 NOT caught; rc=0) — GATE_NOT_LOAD_BEA...)
+  acceptance overall rc=1 (expected on the unfixed base); acceptance.txt RC lines:
+    === RC=1 ===
+    === RC=0 ===
+    === RC=1 ===
+  (committed entries ran REAL commands — unittest tracebacks present in stdout — which confirms
+   the [15] cwd-parsing fix; overall rc=1 confirms the [19] exit-propagation fix.)
+
+--- [11] v5 delivery + full-chain dry-run (bot round-5 countermeasures) ---
+· prepare (symmetric slots; carrier + H2_RULES + H2_WARM bundle):
+  PREPARE_RUN OK run_id=H2-DRYRUN-variant arm=variant task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-variant
+    evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-variant
+    carrier_kind = variant_lean_v1
+    carrier_hash = c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    h2_rules_sha256 = d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    warm_bundle_sha256 = cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1
+    materials_commit = 1e77b43e587f041f768aa992564082596ff947b4
+    model_tier = default
+  PREPARE_RUN OK run_id=H2-DRYRUN-control arm=control task=t01 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+    worktree = <H2_RUNS_ROOT>/worktrees/H2-DRYRUN-control
+    evidence = <H2_RUNS_ROOT>/evidence/H2-DRYRUN-control
+    carrier_kind = control_full_v1
+    carrier_hash = de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    h2_rules_sha256 = d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    warm_bundle_sha256 = cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1
+    materials_commit = 1e77b43e587f041f768aa992564082596ff947b4
+    model_tier = default
+· H2_WARM bundle contents (variant WT):
+    codegraph-grounding.md
+    engineering-memory.md
+    execution-stage.md
+    git-ci-integration.md
+    project-continuity-contract.md
+    project-state-persistence.md
+    review-and-repair-saturation.md
+    skills-and-model-routing.md
+    static-analysis-and-code-intelligence.md
+    ticket-lane.md
+· collect (both arms; full recheck):
+  variant rc=3
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=variant_lean_v1 sha256=c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+  control rc=3
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=control_full_v1 sha256=de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+· telemetry-missing negative (must be INVALID, not synthesized):
+  rc=3 (expect 3)
+    COLLECT_RUN INVALID (delivery/evidence recheck FAIL) run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3
+      -> register this run as INVALID in run-registry.md (delivery/evidence not intact at collection)
+  restored rc=3
+· scope predicate (t01; must FAIL on empty, PASS with a scripts/tests change):
+    CHANGE SURFACE:
+    SCOPE_VIOLATION: REQUIRED_MISSING no changed path under ['scripts/tests/']
+    SCOPE = FAIL
+  empty rc=0 (expect 1)
+    CHANGE SURFACE:
+      scripts/tests/zz_scope_probe.py
+    SCOPE = PASS
+  with-change rc=0 (expect 0)
+· candidate-root R2 scan (wrong-root bug proof):
+    
+  clean rc=0 (expect 0 VIOLATIONS=0)
+  planted-leak rc=1 (expect 1)
+      [LOCAL_IDENTITY/UNIX_USER_HOME] H2-DRYRUN-variant/zz_leak_probe.md:1 :: contact: /Users/<LOCAL_OS_USERNAME>/dev
+    
+
+--- [11a] correction to [11] + collect fix (same session, pre-commit) ---
+· [11] 的 collect rc=3 为真实缺陷（复核块误用 __file__=<stdin> 定位 manifest），已修为显式传参；
+  重跑（rc 正取、不经管道）：
+  variant rc=0
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=variant_lean_v1 sha256=c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    CARRIER_RECHECK(H2_WARM bundle) = OK recomputed=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 expected=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 files=11/11
+    CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = OK
+    TELEMETRY_RECHECK = OK lines=2 well-formed=2
+    COLLECT_RUN OK run_id=H2-DRYRUN-variant head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+  control rc=0
+    CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=control_full_v1 sha256=de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+    CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+    CARRIER_RECHECK(H2_WARM bundle) = OK recomputed=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 expected=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 files=11/11
+    CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = OK
+    TELEMETRY_RECHECK = OK lines=2 well-formed=2
+    COLLECT_RUN OK run_id=H2-DRYRUN-control head=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 base=c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 worker_committed=NO
+· telemetry-missing negative (re-demo after fix):
+  rc=3 (expect 3)
+    TELEMETRY_RECHECK = FAIL missing .h2-telemetry.log (must not be synthesized)
+  restored rc=0
+· scope rc 正取:
+  empty rc=1 (expect 1)
+    SCOPE = FAIL
+  with-change rc=0 (expect 0)
+    SCOPE = PASS
+· release-scan clean rc 正取:
+  clean rc=0 (expect 0)
+    
+
+--- [12a] corrections to [12] (same session, pre-commit) ---
+· [12] 的 candidate-root scan planted 用例曾得 rc=2 的原因：一次被 SIGTERM 截断的电池遗留了
+  空 .h2_scan_tools/ 目录，触发当时脚本的占用即拒绝守卫（fail-closed 正确，但把残留变成伪失败）。
+  处置：脚本改为先清理再放置（入口 rm -rf + 事后 rm -rf）；清理后用同一 planted 用例复演：
+  rc=1、VIOLATIONS=1、泄漏行按 **相对 run worktree 路径** 报告（无父目录前缀）——扫描根确证为候选：
+    ### CURRENT_TREE_SCAN
+    MODE=PUBLIC
+    CURRENT_TREE_SCOPE enum=git_ls_files_cached_others_exclude_standard refs=0 objects=0 blobs=103 text_scanned=103 skipped_binary=0 skipped_oversize=0 skipped_unreadable=0 surfaces_index=87 surfaces_worktree=103 deduped_paths=87 eol_only_dedup=0 size_cap_bytes=2097152
+    VIOLATIONS=1
+      [LOCAL_IDENTITY/UNIX_USER_HOME] zz_leak_probe.md:1 :: contact: /Users/<LOCAL_OS_USERNAME>/dev
+    
+· dirty-probe 残留（MATERIALS_DIRTY 用例在 worktree 创建之后触发）：已 git worktree remove --force
+  移除注册 + 清空目录（记录于本文件；#[12] 的 rc=2 MATERIALS_DIRTY 结论不受影响）。
+
+--- [13] R8 battery outputs ---
+  [experiment/v1.2-h2-lazy-disclosure da1cd4c] experiments(v1.2): H2 freeze — disposition of bot review round 8 (9 findings: 4xP1 + 5xP2)
+   9 files changed, 119 insertions(+), 57 deletions(-)
+  da1cd4c experiments(v1.2): H2 freeze — disposition of bot review round 8 (9 findings: 4xP1 + 5xP2)
+  --- [13] R8 battery ---
+  · acceptance fix demo (t01 dryrun; must run entries, no unbound crash; rc=1 on unfixed base):
+    acceptance rc=1 (expect 1)
+      RC markers: 3
+      === RC=1 (tee=0) ===
+      === RC=1 (tee=0) ===
+      === RC=1 (tee=0) ===
+  · collect committed-AGENTS negative (R8-2):
+    rc=3 (expect 3)
+      CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = FAIL M	AGENTS.md
+  ?? .h2-telemetry.log
+  ?? CODEBUDDY.md
+  ?? H2_RULES.md
+    restored rc=0
+  · prepare rollback demo (R8-9): broken carrier source -> COPY_CARRIER_FAILED + rollback
+  PREPARE_FAIL reason=MATERIALS_DIRTY (delivery sources must come from a clean, frozen commit; run records under runs/ are exempt)
+   D experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md
+    rc=2 (expect 2)
+    worktree after rollback: ls: <H2_RUNS_ROOT>/scratch/rb-root/worktrees/H2-DRYRUN-variant: No such file or directoryREMOVED-OK
+    failed evidence: ls: <H2_RUNS_ROOT>/scratch/rb-root/evidence/H2-DRYRUN-variant.failed-*: No such file or directory
+    retry with carrier restored:
+    retry rc=0 (expect 0)
+  [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":106,"threshold":50,"scope":"turn","targets":["<H2_RUNS_ROOT>/scratch/rb-root"],"targetCount":1}
+  · hygiene RUN_ID smoke (dryrun-variant; no py changes):
+      HYGIENE = PASS
+  · done
+
+--- [13a] correction to [13] (same session, pre-commit; re-applied after an ops incident) ---
+· [13] 的 rollback 用例标签预期 COPY_CARRIER_FAILED，实际先被 **MATERIALS_DIRTY** 拦下：
+  把 carrier 文件移出材料树 = 一个 tracked 文件的删除 → 早置的清洁检查（R8-9 排序的正是
+  这条前置）先触发。结果反而证明了 R8-9 的检查已前置（发生在任何 run-id 分配之前：无
+  worktree、无 evidence 残留；重试 rc=0 也说明无残留阻塞）。
+· 因此 **rollback 代码路径（post-allocation fatal_alloc）在本轮仍只有代码级评审，未被
+  活体触发** —— 如实登记为 UNVERIFIED-LIVE。
+
+--- [13b] ops incident (same session) ---
+· 一次编排命令误写 `cat LOG >> LOG`（自追加）造成 /tmp 日志指数膨胀至 ~37 GB；
+  后台任务已被 TaskStop 终止、文件已删除、磁盘恢复（48 Gi 可用）。未触及仓库状态；
+  该事故同时也截断了 [13a] 的首写（故有本 re-apply）。教训：**禁止对同一文件自追加**；
+  编排脚本写临时日志时必须用独立文件。
+
+--- [14a] fix-up: publish WT bug + corrected R9-1 demo (same session, pre-commit) ---
+· [14] 中 publish 首投 rc=1 的根因：R9-3 编辑在 sanitizer 调用中引用了未定义变量 `$WT`
+  （unbound under set -u），已修复（显式 WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"）；重演后
+  首投 rc=0、reviewed-replacement rc=3（见上方输出）。
+· [14] 的 R9-1 演示构造错误：对"仅存在于 index 的新文件"做 git mv，porcelain 只产生单侧
+  A 条目（源从未在 HEAD 中）——不能触发 R 条目。改用 TRACKED 文件（rename deployment/...）
+  重演：源路径 `deployment/MEMORY_POINTER_CANDIDATE.md` 按 R 条目双侧可见并命中 deny。
+
+--- [16] round-11 fix battery (each fix: adversarial case FAILS, clean case PASSES) ---
+· R11-1 test: stale duplicate PROTOCOL_HASH literal removed (dict literal kept only the
+  last value). This was the sole CI failure: `ruff check .` reported F601 at line 99.
+  Local reproduction of the CI gate: `ruff check .` -> All checks passed.
+· R11-2 collect (WARM symlink): a real prepared run whose expected WARM destination
+  references/ticket-lane.md was replaced by a symlink to an EXTERNAL file with IDENTICAL
+  bytes. Before the fix this passed (extra/missing empty, isfile/open follow the link, digest
+  matched). After: CARRIER_RECHECK(H2_WARM bundle) = FAIL ... symlinks=['references/
+  ticket-lane.md'], collect rc=3 (run INVALID); intact bundle -> OK 11/11, rc=0.
+· R11-3 publish (cross-role episode reuse), real publish_run.sh end-to-end on a temp copy:
+  clean distinct identities -> PUBLISH_RUN OK (rc=0);
+  auditor reuses a prior run's WORKER episode -> PUBLISH_REFUSED EPISODE_REUSE (rc=3);
+  worker reuses a prior run's AUDITOR episode -> refused (rc=3);
+  auditor == worker within the run -> refused (rc=3);
+  missing auditor episode -> PUBLISH_REFUSED MISSING_AUDITOR_EPISODE (rc=2).
+· R11-4 inventory (composed control carrier): composed = header + AGENTS.md + footer,
+  equal_to_concat=True; verbatim AGENTS embedding holds; measured control carrier
+  14136 js_chars = 13756 (bare AGENTS) + 380 (wrapper) => the reduction now describes the
+  surface actually delivered. Manifest pins 14136 == live output. Selftest T9a-T9e added.
+· R11-5 collect (receipt revalidation), real plan run H2-R01:
+  clean -> rc=0. Worker commits inside its worktree, then rewrites receipt.expected_base to
+  that commit -> COLLECT_FAIL RECEIPT_REVALIDATION (expected_base 'f0cdda5e...' != frozen
+  'c08f6f8b...'), rc=3, and ZERO WORKER_COMMITTED lines leaked (the commit can no longer be
+  hidden). Wrong arm -> refused; wrong task_id -> refused; restored receipt -> rc=0.
+  CORRECTION FOUND BY THIS BATTERY: the first cut validated only plan-row receipts and let
+  plan-less (dry-run) receipts through unvalidated — a dry-run receipt with a rewritten
+  expected_base still collected clean. Fixed in a follow-up commit; the plan-less branch now
+  re-derives task/base from the frozen registry and requires plan_index == -1.
+· R11-6 test (registry columns): real table matches the frozen plan; a tampered ARM cell and
+  a tampered REP cell are both rejected with a tuple diff.
+  NOTE: an earlier battery run reported "NOT DETECTED" — the battery called
+  TestCase.run(), which CAPTURES assertion failures instead of raising. The test was correct;
+  the control now calls the test method directly.
+· R11-7 hygiene (deleted .py): a committed delete leaves the old path in base-relative
+  enumeration; result SKIP py_compile (not a file in the final worktree): doomed.py ->
+  HYGIENE = PASS rc=0, while a real syntax error in an existing file still FAILS rc=1.
+· Incidental positive control: while the R11-5 tightening was uncommitted, prepare_run.sh
+  refused the battery with PREPARE_FAIL reason=MATERIALS_DIRTY, confirming delivery sources
+  must come from a clean frozen commit.
+· Gates after the round-11 fixes: ruff check . clean; 134 material tests OK; inventory
+  selftest PASS (0 failures); public-release VIOLATIONS=0; governance 35/35.
