@@ -28,24 +28,35 @@ RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$EXP_DIR/harness/run-plan.json" "$EX
 import json, sys
 receipt = json.load(open(sys.argv[1], encoding="utf-8"))
 plan_path, reg_path, rid = sys.argv[2], sys.argv[3], sys.argv[4]
+plan = json.load(open(plan_path, encoding="utf-8"))
+reg = {t["task_id"]: t for t in json.load(open(reg_path, encoding="utf-8"))["tasks"]}
 problems = []
 if receipt.get("run_id") != rid:
     problems.append(f"run_id {receipt.get('run_id')!r} != {rid!r}")
-rows = [r for r in json.load(open(plan_path, encoding="utf-8")) if r["run_id"] == rid]
+rows = [r for r in plan if r["run_id"] == rid]
 if len(rows) == 1:
-    reg = {t["task_id"]: t for t in json.load(open(reg_path, encoding="utf-8"))["tasks"]}
-    want_base = reg[rows[0]["task_id"]]["base_sha"]
-    for field, want in (("task_id", rows[0]["task_id"]), ("arm", rows[0]["arm"]),
-                        ("expected_base", want_base)):
+    row = rows[0]
+    idx = plan.index(row)
+    for field, want in (("task_id", row["task_id"]), ("arm", row["arm"]),
+                        ("expected_base", reg[row["task_id"]]["base_sha"])):
         if receipt.get(field) != want:
             problems.append(f"{field} {receipt.get(field)!r} != frozen {want!r}")
-    if str(receipt.get("plan_index", "")) != str(
-            [i for i, r in enumerate(json.load(open(plan_path, encoding="utf-8")))
-             if r["run_id"] == rid][0]):
-        problems.append("plan_index does not match the frozen plan position")
-elif str(receipt.get("plan_index", "")) != "-1":
-    # No plan row: only the explicitly registered dry-run ids may legitimately be plan-less.
-    problems.append(f"no frozen plan row for {rid} and plan_index is not -1")
+    if str(receipt.get("plan_index", "")) != str(idx):
+        problems.append(f"plan_index {receipt.get('plan_index')!r} != frozen position {idx}")
+elif len(rows) > 1:
+    problems.append(f"frozen plan contains {len(rows)} rows for {rid}")
+else:
+    # No plan row (the registered dry-run ids): there is no arm/order to check, but the
+    # base and task are still re-derivable from the FROZEN registry, so the receipt is not
+    # left unvalidated — a plan-less receipt must still name a real task at its frozen base.
+    tid = receipt.get("task_id")
+    if tid not in reg:
+        problems.append(f"task_id {tid!r} is not in the frozen task registry")
+    elif receipt.get("expected_base") != reg[tid]["base_sha"]:
+        problems.append(
+            f"expected_base {receipt.get('expected_base')!r} != frozen {reg[tid]['base_sha']!r}")
+    if str(receipt.get("plan_index", "")) != "-1":
+        problems.append(f"plan_index {receipt.get('plan_index')!r} must be -1 without a plan row")
 print("; ".join(problems))
 PYEOF
 )" || RECEIPT_AUTH="RECEIPT_REVALIDATION_FAILED"
