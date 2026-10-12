@@ -169,7 +169,9 @@ mkdir -p "$EV" || { echo "PREPARE_FAIL reason=MKDIR_EVIDENCE_FAILED $EV"; exit 2
 # worktree and move the (partial) evidence aside, so the frozen run id can be re-prepared
 # after the operator fixes the problem without tripping the EXISTS guards forever.
 alloc_rollback() {
-  git -C "$H2_WT" worktree remove --force "$WT" >/dev/null 2>&1 || true
+  # The run worktree is an INDEPENDENT repository (not a linked worktree), so it is removed
+  # directly; `git worktree remove` does not apply to it.
+  rm -rf "$WT" >/dev/null 2>&1 || true
   mv "$EV" "$EV.failed-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
 }
 fatal_alloc() {
@@ -178,8 +180,21 @@ fatal_alloc() {
   exit 2
 }
 
-git -C "$H2_WT" worktree add "$WT" --detach "$BASE_SHA" >/dev/null 2>&1 \
-  || fatal_alloc "WORKTREE_ADD_FAILED base=$BASE_SHA"
+# The run worktree is created as an INDEPENDENT, depth-1 repository rather than as a linked
+# worktree of the materials checkout. A linked worktree shares the object database, so a
+# worker could run `git show <materials_commit>:...` and read the protocol, the task registry
+# (which carries the oracle), the scoring rubric and the OTHER arm's carrier — none of which
+# is a filesystem path, so no path allowlist can observe it, and the commit SHA is published
+# in the worker's own receipt. A depth-1 independent repo contains only the task base, so
+# every other object is absent and the oracle is unreachable.
+git init -q "$WT" || fatal_alloc "WORKTREE_INIT_FAILED"
+git -C "$WT" fetch -q --depth=1 "file://$H2_WT" "$BASE_SHA" \
+  || fatal_alloc "WORKTREE_FETCH_FAILED base=$BASE_SHA (independent shallow repo)"
+git -C "$WT" checkout -q --detach FETCH_HEAD || fatal_alloc "WORKTREE_CHECKOUT_FAILED"
+# Prove the isolation rather than assuming it: the materials-era commit must be unreachable.
+if git -C "$WT" cat-file -e "$MATERIALS_COMMIT^{commit}" 2>/dev/null; then
+  fatal_alloc "ODB_NOT_ISOLATED (the materials commit is present in the run worktree)"
+fi
 ACTUAL="$(git -C "$WT" rev-parse HEAD)" || fatal_alloc "HEAD_UNREADABLE"
 if [ "$ACTUAL" != "$BASE_SHA" ]; then
   fatal_alloc "WRONG_BASE expected=$BASE_SHA actual=$ACTUAL"

@@ -16,7 +16,9 @@
   "offending_event_machine_path_leaked": false,
   "collection_verdict": "COLLECT_RUN INVALID (delivery/evidence recheck FAIL)",
   "failing_check": "TELEMETRY_TARGETS",
-  "failing_detail": "READ target missing in worktree: <H2_MATERIALS_WT>/experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md  [abbreviated by the worker as 'h2-materials/.../worker-report-template.md']",
+  "failing_detail": "TELEMETRY_TARGETS = FAIL READ target missing in worktree: h2-materials/.../worker-report-template.md",
+  "failing_detail_is_verbatim": true,
+  "failing_detail_note": "Quoted VERBATIM from runs/H2-R1-R01/carrier-recheck.txt. The worker abbreviated the path with '...', so the harness echoed the abbreviation; an earlier draft of this record expanded it into a full materials-tree path, which the harness never emitted. Raw evidence is not restated in a nicer form than it was recorded.",
   "artifacts_preserved": [
     "receipt.json",
     "telemetry.log",

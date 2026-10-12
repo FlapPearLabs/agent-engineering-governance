@@ -24,7 +24,15 @@ fail() { echo "COLLECT_FAIL reason=$1"; exit "${2:-4}"; }
 # from every base-relative check below. So the load-bearing fields are re-derived from the
 # FROZEN plan + task registry (which the worker cannot reach) and compared; any divergence
 # invalidates the run before the receipt is used as the root of collection evidence.
-RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$EXP_DIR/harness/run-plan.json" "$EXP_DIR/task-registry.json" "$RUN_ID" <<'PYEOF'
+# The plan file is selected the SAME way prepare selected it. If the two disagree, a Round-2
+# run prepared against run-plan-r2.json would be validated against the Round-1 plan and every
+# run would fail revalidation -- a harness defect of exactly the kind this repair exists to
+# remove (adversarial review B1).
+RECEIPT_PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan.json}"
+if [ ! -f "$RECEIPT_PLAN" ]; then
+  echo "COLLECT_FAIL reason=PLAN_FILE_MISSING $RECEIPT_PLAN"; exit 2
+fi
+RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$RECEIPT_PLAN" "$EXP_DIR/task-registry.json" "$RUN_ID" <<'PYEOF'
 import json, sys
 receipt = json.load(open(sys.argv[1], encoding="utf-8"))
 plan_path, reg_path, rid = sys.argv[2], sys.argv[3], sys.argv[4]
@@ -239,19 +247,28 @@ else:
     problems.extend(rs.classify_telemetry(nonempty, wt, ev, materials_root))
     report("TELEMETRY_TARGETS", not problems, "; ".join(problems[:5]))
 
-# 6. per-run report-template binding still holds at collection (PART 6). A worker that edits
-#    its own copy must not be able to keep a run VALID against a template it changed.
+# 6. per-run report-template binding still holds at collection (PART 6 / adversarial B3).
+#    The receipt is worker-writable, so trusting its recorded source hash would let the check
+#    satisfy ITSELF (edit the template, edit both receipt fields, collect reports OK). The
+#    source is therefore re-read from the frozen materials COMMIT here and compared three-way:
+#    frozen source bytes == what prepare recorded == what is on disk at collection.
+TPL_REL="experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+tpl = os.path.join(ev, "worker-report-template.md")
 src_h = receipt.get("report_template_source_sha256")
 run_h = receipt.get("report_template_run_sha256")
-tpl = os.path.join(ev, "worker-report-template.md")
-if not src_h or not run_h:
-    report("TEMPLATE_BINDING", False, "receipt lacks report_template_*_sha256 (harness predates the repair)")
+# materials_root is argv[6] — the frozen checkout, passed explicitly because it is NOT an
+# ancestor of the run worktree and cannot be derived from any path inside the runs root.
+frozen = subprocess.run(["git", "-C", materials_root, "show", f"{receipt['materials_commit']}:{TPL_REL}"],
+                        capture_output=True)
+if frozen.returncode != 0:
+    report("TEMPLATE_BINDING", False, "cannot re-read the template from the frozen materials commit")
 elif os.path.islink(tpl) or not os.path.isfile(tpl):
     report("TEMPLATE_BINDING", False, "per-run template missing or is a symlink")
 else:
+    frozen_h = hashlib.sha256(frozen.stdout).hexdigest()
     got = sha(tpl)
-    report("TEMPLATE_BINDING", src_h == run_h == got,
-           f"source={src_h[:12]} receipt_copy={run_h[:12]} at_collect={got[:12]}")
+    report("TEMPLATE_BINDING", frozen_h == run_h == got,
+           f"frozen_source={frozen_h[:12]} receipt_copy={run_h[:12]} at_collect={got[:12]}")
 
 sys.exit(fail)
 PYEOF

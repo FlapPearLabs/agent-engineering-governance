@@ -167,6 +167,19 @@ class NegativeControls(ReadSurfaceFixture):
     def test_missing_file_inside_worktree_rejected(self):
         self._expect("does-not-exist.md", "OUTSIDE_ALLOWED_SURFACE")
 
+    def test_prefix_confusion_sibling_directory_is_rejected(self):
+        """Adversarial review NB4: replacing the component-wise containment test with a naive
+        string-prefix test would pass the whole suite, so the distinction must be pinned.
+        A sibling directory whose name merely STARTS WITH the evidence dir name is outside."""
+        evil = self.tmp / "evidence" / f"{self.ev.name}-evil"
+        evil.mkdir(parents=True, exist_ok=True)
+        (evil / "worker-report-template.md").write_text("sibling\n", encoding="utf-8")
+        verdict, reason = rs.classify_read_target(
+            str(evil / "worker-report-template.md"), self.wt, self.ev, self.mat
+        )
+        self.assertEqual(verdict, "REJECTED")
+        self.assertIn(reason, rs.REJECT_REASONS)
+
 
 class TraversalAndSymlinkControls(ReadSurfaceFixture):
     """Path-normalisation bypasses must fail closed."""

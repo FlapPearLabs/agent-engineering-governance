@@ -1,6 +1,6 @@
 {
   "round_id": "H2-R2",
-  "status": "FROZEN / READY_TO_RUN",
+  "status": "FROZEN / PENDING_FRESH_REVIEW",
   "predecessor_round": {
     "round_id": "H2-R1",
     "status": "CLOSED / INVALID",
@@ -39,5 +39,14 @@
     "worker brief states the read boundary and a single deterministic path base",
     "prepare_run.sh accepts H2_PLAN_FILE so Round 2 uses its own plan file"
   ],
-  "execution_gate": "H2-R2 REAL RUNS MUST NOT BE EXECUTED until the operator issues a new mandate."
+  "execution_gate": "NO Round-2 run may execute. Two further gates are open: (1) the adversarial review that returned CHANGES_REQUIRED on the pre-blocker-fix SHA is STALE and a fresh independent review of the current SHA is required; (2) the repair PR must be merged with all-green CI. Round 2 becomes READY_TO_RUN only after both.",
+  "review_state": {
+    "adversarial_review_verdict": "CHANGES_REQUIRED (on the pre-blocker-fix SHA — now STALE)",
+    "blockers_found": [
+      "B1: collect_run.sh did not honour H2_PLAN_FILE, so every Round-2 run would have failed receipt revalidation against the Round-1 plan (verified fixed: rc=0 with the Round-2 plan; the mismatch direction is fail-closed, never permissive)",
+      "B2: the run worktree was a LINKED WORKTREE of the materials checkout and therefore shared its object database, so `git show <materials_commit>:<path>` read the protocol, the task registry (which carries the oracle), the scoring rubric and the OTHER arm's carrier without producing any filesystem path for the allowlist to see. The run worktree is now an INDEPENDENT depth-1 repository; all seven probed reads (including the historical fix commit the contract forbids finding) return BLOCKED.",
+      "B3: TEMPLATE_BINDING was self-satisfying because both compared hashes came from the worker-writable receipt. The source is now re-read from the frozen materials COMMIT at collection and compared three-way; the edit-template-and-rewrite-receipt bypass is now rejected."
+    ],
+    "operator_requirement": "H2_PLAN_FILE must be passed to prepare AND collect for the same run. If it differs, collection refuses (fail-closed) with an explicit mismatch message; it never silently validates against the wrong plan."
+  }
 }
