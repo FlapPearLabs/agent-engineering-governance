@@ -5,9 +5,25 @@
 # (2) count __pycache__ / *.pyc entries in the change set and status.
 # Fails closed if the worktree is not a git worktree or any git inspection fails ([5]).
 set -uo pipefail
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+# Command-scope pins, set AFTER the caller's environment (overwriting any caller-provided
+# GIT_CONFIG_* / GIT_ATTR_*): hooks cannot execute, fsmonitor is off, status never hides
+# untracked entries, and the global attribute/exclude layers are neutralised. These hold
+# independently of the metadata guard (fresh review on 61bfbac, P0/P1 — all three vectors
+# verified empirically against the unpinned behaviour).
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+export GIT_CONFIG_COUNT=5
+export GIT_CONFIG_KEY_0=core.hooksPath            GIT_CONFIG_VALUE_0=/dev/null
+export GIT_CONFIG_KEY_1=core.fsmonitor            GIT_CONFIG_VALUE_1=false
+export GIT_CONFIG_KEY_2=status.showUntrackedFiles GIT_CONFIG_VALUE_2=all
+export GIT_CONFIG_KEY_3=core.attributesFile       GIT_CONFIG_VALUE_3=/dev/null
+export GIT_CONFIG_KEY_4=core.excludesFile         GIT_CONFIG_VALUE_4=/dev/null
+export GIT_ATTR_NOSYSTEM=1
 PY="${PY:-python3}"
 WT="${1:?usage: check_hygiene.sh <WORKTREE> [RUN_ID]}"
 RUN_ID="${2:-}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+EXP_DIR="$(cd "$HERE/.." && pwd)"
 fail=0
 
 if ! git -C "$WT" rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -15,24 +31,85 @@ if ! git -C "$WT" rev-parse --show-toplevel >/dev/null 2>&1; then
   echo "HYGIENE = FAIL"
   exit 2
 fi
-
-# Committed changes must also count: when RUN_ID is given, enumerate from the receipt's base
-# (with --no-renames so both sides of a committed rename are visible) — R8-6/R8-7.
-BASE_FROM_RECEIPT=""
-if [ -n "$RUN_ID" ] && [ -n "${H2_RUNS_ROOT:-}" ]; then
-  RP="$H2_RUNS_ROOT/evidence/$RUN_ID/receipt.json"
-  if [ -f "$RP" ]; then
-    BASE_FROM_RECEIPT="$("$PY" - "$RP" <<'PYEOF'
-import json, sys
-print(json.load(open(sys.argv[1], encoding="utf-8"))["expected_base"])
-PYEOF
-)" || BASE_FROM_RECEIPT=""
-  fi
+# refuse a worktree whose own git metadata was used to hide changes (fresh review 9c5f059, P0)
+GM="$(bash "$HERE/check_git_metadata.sh" "$WT")"; _gmrc=$?
+if [ "$_gmrc" -eq 2 ]; then
+  echo "FAIL reason=WORKTREE_GIT_METADATA_UNREADABLE"; echo "HYGIENE = FAIL"; exit 2
+fi
+if [ "$_gmrc" -ne 0 ]; then
+  echo "FAIL reason=WORKTREE_GIT_METADATA_TAMPERED [$GM]"; echo "HYGIENE = FAIL"; exit 2
 fi
 
-files="$( { git -C "$WT" diff --name-only HEAD && git -C "$WT" ls-files --others --exclude-standard \
-  && { [ -n "$BASE_FROM_RECEIPT" ] && git -C "$WT" diff --name-only --no-renames "$BASE_FROM_RECEIPT" || true; }; } | sort -u )" \
-  || { echo "FAIL git inspection failed (diff/ls-files)"; echo "HYGIENE = FAIL"; exit 2; }
+# Committed changes must also count: when RUN_ID is given, enumerate from the FROZEN base derived
+# from the plan + registry (with --no-renames so both sides of a committed rename are visible) —
+# R8-6/R8-7. The receipt is NOT consulted: it is worker-writable, and reading expected_base from
+# it let a worker aim the enumeration at its own HEAD, hiding committed changes entirely (fresh
+# adversarial review on 9f8e4ee, P0).
+BASE=""
+if [ -n "$RUN_ID" ]; then
+  FROZEN="$("$PY" "$HERE/frozen_run_facts.py" "$EXP_DIR" "$RUN_ID")"
+  _frc=$?
+  if [ "$_frc" -ne 0 ]; then
+    echo "FAIL frozen facts unavailable (rc=$_frc); refusing rather than trusting the receipt"
+    echo "HYGIENE = FAIL"
+    exit 2
+  fi
+  BASE="$(printf '%s' "$FROZEN" | cut -f2)"
+fi
+
+# The change set is enumerated with git's OWN report, INCLUDING ignored files
+# (--ignored=matching): pycache/pyc residue is usually ignored, and a plain `ls-files
+# --exclude-standard` made it invisible to both counters (fresh review on 9c5f059, P2). The
+# base-relative diff is rc-checked: a failed diff must refuse, not silently yield an empty set.
+FILES="$("$PY" - "$WT" "$BASE" <<'PYEOF'
+import subprocess, sys
+wt, base = sys.argv[1], sys.argv[2]
+
+def run(*a):
+    return subprocess.run(a, capture_output=True)
+
+
+st = run("git", "-C", wt, "status", "--porcelain=v1", "--untracked-files=all",
+         "--ignored=matching", "-z")
+if st.returncode != 0:
+    print("__GIT_FAIL__ status"); raise SystemExit(0)
+status_paths = set()
+parts = st.stdout.split(b"\x00")
+i = 0
+while i < len(parts):
+    entry = parts[i]
+    if not entry:
+        i += 1
+        continue
+    text = entry.decode("utf-8", errors="replace")
+    xy, path = text[:2], text[3:]
+    status_paths.add(path)
+    if xy and xy[0] in "RC" and i + 1 < len(parts):
+        orig = parts[i + 1].decode("utf-8", errors="replace")
+        if orig:
+            status_paths.add(orig)
+        i += 2
+    else:
+        i += 1
+
+committed_paths = set()
+if base:
+    d = run("git", "-C", wt, "diff", "--name-only", "--no-renames", base)
+    if d.returncode != 0:
+        print("__GIT_FAIL__ base"); raise SystemExit(0)
+    committed_paths = {p for p in d.stdout.decode("utf-8", errors="replace").splitlines() if p}
+
+for p in sorted(status_paths):
+    print("S\t" + p)
+for p in sorted(committed_paths - status_paths):
+    print("C\t" + p)
+PYEOF
+)" || { echo "FAIL git inspection failed"; echo "HYGIENE = FAIL"; exit 2; }
+case "$FILES" in
+  __GIT_FAIL__*) echo "FAIL git inspection failed or FROZEN_BASE_UNREADABLE (refusing)"; echo "HYGIENE = FAIL"; exit 2 ;;
+esac
+files="$(printf '%s\n' "$FILES" | cut -f2 | sed '/^$/d' | sort -u)"
+status_files="$(printf '%s\n' "$FILES" | awk -F'\t' '$1=="S"{print $2}')"
 
 pyfiles="$(printf '%s\n' "$files" | grep -E '\.py$' | grep -v '__pycache__' || true)"
 
@@ -67,7 +144,7 @@ else
 fi
 
 pyc_count="$(printf '%s\n' "$files" | grep -cE '__pycache__|\.pyc$' || true)"
-status_pyc="$(git -C "$WT" status --porcelain | grep -cE '__pycache__|\.pyc$' || true)"
+status_pyc="$(printf '%s\n' "$status_files" | grep -cE '__pycache__|\.pyc$' || true)"
 echo "PYCACHE_IN_CHANGESET = $pyc_count"
 echo "PYCACHE_IN_STATUS    = $status_pyc"
 if [ "$pyc_count" != "0" ] || [ "$status_pyc" != "0" ]; then

@@ -573,3 +573,212 @@ TRUE values:
   reproduce on the base; t16 OK; workbuddy adapter OK; public-release VIOLATIONS=0 + commit
   metadata canonical + selftest 51/51; experiments tests OK (read-surface 35, registry suite,
   material suite); inventory selftest PASS; 10 harness scripts syntax-clean.
+
+--- [21] fresh adversarial review on 9f8e4ee (2 x P0 + 3 x P1 + 3 x P2) + round-6 repair battery ---
+CORRECTION OF [20]: the [20] trust-root audit was scoped to collect_run.sh only, and its
+"WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0" did NOT cover the ACCEPTANCE scripts. The fresh
+review falsified that reading on 9f8e4ee: check_scope.sh / check_hygiene.sh took `base` from
+EV/receipt.json (worker-writable) and check_restore.sh took base + a ruff hash + a status
+snapshot the same way. The corrected statement is at the end of this entry.
+
+· P0-1/P0-2 acceptance trust roots (fixed; fix load-bearing in BOTH directions):
+  new harness/frozen_run_facts.py derives (task_id, base_sha, arm, plan_index) from the FROZEN
+  plan + registry AND binds the plan to its COMMITTED bytes (git show HEAD:<rel> == working file).
+  check_scope / check_hygiene / check_restore now use it; check_restore additionally compares
+  ruff.toml against the BASE BLOB (raw or CRLF-normalized) instead of a recorded receipt hash, and
+  its status-restore expectation is stated directly (normalized status must be empty) because the
+  old comparison file (EV/status-pre-ignored.txt) was written by NOTHING and was worker-creatable.
+  Controls: scope POSITIVE pass; the review's attack (commit a denied path + rewrite
+  receipt.expected_base to the worker's own HEAD) -> rc=1 DENIED_PREFIX via the frozen base;
+  MUTANT (scope base from receipt, committed) -> rc=0 BYPASS REPRODUCED; restored -> rc=1 again.
+  task-id arg mismatching the frozen row -> SCOPE_FAIL TASK_ID_DOES_NOT_MATCH_FROZEN_ROW;
+  plan-less id -> SCOPE_FAIL NO_FROZEN_ROW. restore: clean PASS; untracked residue -> NO with the
+  residue listed; ruff tamper -> NO (no receipt shortcut); restored -> PASS.
+  hygiene: committed force-added __pycache__ => PYCACHE_IN_CHANGESET = 1 + FAIL; committed broken
+  .py => FAIL py_compile; cleanup => PASS.
+· P1-1 publish identity gates (fixed): real-plan-run status now comes from PLAN MEMBERSHIP (not
+  receipt plan_index), and receipt plan_index must EQUAL the frozen position. Controls:
+  plan_index removed -> rc=3 PLAN_INDEX_MISMATCH; plan_index=-1 -> rc=3; correct index +
+  Round-1 invalid episode (workbuddy-agent-8c1a4d7e2f94b60) -> rc=3
+  EPISODE_REUSE [INVALID_EPISODE_REUSE:H2-R1-R01:...] — the review's exact bypass now blocked.
+· P1-2 publish artifact copies (fixed): every copy rc-checked; the staged set
+  (report.md acceptance.txt carrier-recheck.txt telemetry.log telemetry.json run.json) verified as
+  regular non-symlink files before promotion. Control: chmod 000 report.md -> rc=3
+  ARTIFACT_COPY_FAILED, DEST absent (the old code printed PUBLISH_RUN OK with no report.md).
+· P1-3 collect plan authority (fixed): the working-tree plan must byte-equal the version committed
+  at the materials HEAD, mirroring prepare. Control: edit plan arm + freeze pin in lockstep and
+  sync the receipt -> rc=2 PLAN_AUTHORITY_FAIL (working-tree differs from the frozen commit);
+  MUTANT (binding stripped) -> rc=0 COLLECT_RUN OK BYPASS REPRODUCED; restored -> binding fires.
+  Battery note: the post-restore sanity printed rc=3 because the receipt BACKUP used for the
+  restore was itself contaminated by the aborted first attempt (its receipt3.bak carried
+  arm=variant from that run) — the harness correctly rejected a receipt inconsistent with the
+  frozen plan; the clean path is proven by C1 rc=0 on this same code.
+· P2-2 registry suite (fixed): the number of tables WITH DATA ROWS is pinned to 2 and the record
+  file column is bound. Controls (corrected driver — REGISTRY must be a Path; the first driver
+  passed a str and every test ERRORED, i.e. the first "DETECTED" reading was vacuous): appended
+  conflicting table -> failures=1 (test_exactly_two_registry_tables_with_expected_sizes);
+  appended all-VALID copy -> failures=1 (same); record column rewritten -> failures=1
+  (test_record_file_column_is_bound); real registry -> failures=0 errors=0 (the driver printed
+  its summary label "MISSED (BAD)" for this row because the label logic treats zero findings as a
+  miss — a DRIVER LABEL artifact; the numbers are the evidence).
+· P3 fixes: template SOURCE claim now participates (tamper -> rc=3 with deadbeef shown);
+  collect temp index uses mktemp (unpredictable) and is removed on success and in fail();
+  STAGE creation moved AFTER every preflight/identity gate — the review-adjacent battery exposed
+  that refusals after the old creation point left *.staging.* residue (7 dirs observed); now every
+  refusal path asserts residue=0. Post-sanitize /Users/ scan -> rc=3 UNSANITIZED_HOST_PATH.
+  GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR unset at collect/publish/check-script entry.
+· P2-1 (materials_commit == live HEAD) ACCEPTED with rationale: the value cannot be frozen
+  per-run without trusting a worker-writable store; binding to the live HEAD is the strongest
+  available anchor, the direction is fail-closed, and a WORKER cannot learn the live HEAD (no ODB
+  path, no .git leak — re-verified). An operator advancing the snapshot mid-round violates the
+  one-snapshot-per-round invariant and is refused by prepare (MATERIALS_ADVANCED).
+· P2-3 (episodes recorded only on published runs) OPEN DEBT, not silently claimed fixed: an
+  INVALID run that is never published leaves no episode record, so a later reuse of that episode
+  would not be caught mechanically. Enforcement point defined: the INVALID-registration step must
+  write runs/<id>/round-record.json with the episode, mirroring the preserved Round-1 record;
+  mechanizing it belongs to the next harness revision (no protocol change is made here).
+· TRUST-ROOT AUDIT (corrected, acceptance path): collect_run.sh receipt fields are all validated
+  against the frozen plan/registry or re-derived from the frozen materials commit and used as
+  claims only; the three acceptance scripts now derive their judgment base from the frozen
+  helper; publish records receipt fields but makes no acceptance decision from them and requires
+  collect evidence. WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0 on the collect + acceptance path,
+  with the P2-1 caveat documented (not hidden).
+
+--- [22] fresh adversarial review on 9c5f059 (1 x P0 + 1 x P1 + 4 x P2) + round-7 battery ---
+CORRECTION OF [21] (third scope correction): [21] closed the RECEIPT as a trust root but the
+judgement BASE of the three acceptance scripts — the worktree's own git view — was still the
+worker's to manipulate, because a run worktree is an independent repo and .git/ sits inside the
+worker's write surface. The fresh review constructed all of:
+  * `git update-index --assume-unchanged <tracked denied path>` + edit -> SCOPE = PASS;
+  * same flag on a tracked .py + syntax corruption        -> HYGIENE = PASS;
+  * same flag + edited tracked files                      -> STATUS_RESTORED = YES;
+  * `.git/info/exclude` entry                             -> untracked denied files vanish from
+    the change surface AND from collect's captured diff;
+  * `.git/info/attributes` + a `filter.<x>.clean` in `.git/config` -> even `git add` records the
+    FROZEN bytes, so the captured diff hides the change entirely.
+· P0-1 fix: new harness/check_git_metadata.sh refuses a worktree whose git metadata was used to
+  hide changes — index flags (assume-unchanged/skip-worktree), local `filter.*`/`core.excludesFile`/
+  `core.attributesFile` config, and substantive .git/info/{exclude,attributes}. collect_run.sh and
+  all three acceptance scripts call it before judging; all four also run with
+  GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM=/dev/null so the global/system config layer is out of scope.
+  Controls on a REAL prepared run: each construction above -> GIT_METADATA = TAMPERED with
+  scope/restore/hygiene refusing (rc=2) and collect INVALID (rc=3); cleaned -> guard OK and the
+  honest paths green (scope PASS / hygiene PASS / restore PASS / collect rc=0).
+· P1-2 fix: publish's collect gate no longer trusts worker-writable evidence files. A successful
+  collect writes a collect-ok MARKER outside the evidence dir (H2_RUNS_ROOT/collect-ok/<id>.json)
+  binding collect-summary.txt and carrier-recheck.txt by hash; publish verifies marker + hashes.
+  Controls: marker removed (the review's fake-collect construction) -> rc=2 NO_COLLECT_EVIDENCE;
+  edit carrier-recheck after collect -> rc=3 COLLECT_EVIDENCE_MISMATCH.
+· P2-3 fix: publish's plan lookup no longer folds "0 rows" and ">1 rows" into the dry-run
+  exemption. Duplicate rows -> rc=2 PLAN_DUPLICATE_ROWS (matching frozen_run_facts rc=3 and
+  collect's fail-closed); any id that is neither a plan row nor a registered H2-DRYRUN id ->
+  rc=2 UNKNOWN_RUN_ID.
+· P2-4 fix: the scope and hygiene enumerations now include IGNORED entries
+  (--ignored=matching), so pycache/pyc residue and files hidden behind an exclude edit remain
+  visible. Control: an ignored deployment/__pycache__/mod.pyc -> hygiene FAIL (PYCACHE=1) and
+  scope FAIL (DENIED_PREFIX) — previously invisible to both.
+· P2-5 fix: the base-relative diffs are rc-checked (a failed diff refuses as
+  FROZEN_BASE_UNREADABLE instead of silently yielding an empty commit set), and
+  frozen_run_facts.py now binds task-registry.json to its committed bytes as well (the base_sha
+  is only as trustworthy as the file it comes from).
+· P2-6 fix: frozen_run_facts realpath-resolves paths before the repo-relative comparison (reaching
+  the harness through a symlink — macOS /tmp, /var, a symlinked workspace — no longer fails a
+  legitimate call; control: symlinked EXP_DIR -> rc=0), and validates the arm against
+  {control, variant} (arm=banana -> rc=3).
+· Removed as VACUOUS (review's own list): the tautological merge-base ancestor check in collect
+  (equal to the equality check just performed); the unreachable `[ -L ]` half of publish's staged
+  artifact loop (cp dereferences). Added: a publish EXIT/INT/TERM trap cleaning the stage (an
+  interrupt previously left *.staging.<pid>); collect's telemetry copy is rc-checked.
+· Registry suite, fourth fraud class (the review's): a table line whose first cell is NOT a digit
+  was invisible to every test; header labels participated in no assertion; physically swapping the
+  two tables passed; a whole-file substring test accepted the episode hidden in an HTML comment.
+  Fixes: exact table-line count (2 x 22), header-label assertions, table ORDER bound (first = R1),
+  comments stripped before the episode check. Controls: FRAUD4/5/6 all DETECTED by the intended
+  tests.
+· Documented trade-offs (not silently claimed fixed): the /Users/ post-sanitize refusal is
+  fail-closed and could consume a run whose report legitimately quotes a foreign /Users path
+  (P3, accepted); the collect-ok marker is contract-adjacent (a same-UID adversary that leaves the
+  worktree+evidence surface can still forge it — the sandbox boundary, stated not hidden); no
+  `set -e`/pipefail was added to collect/publish (no exploit found; changing it now would alter
+  long-standing capture semantics).
+· SECOND SCOPE CORRECTION — see [23]: this round's guard was a BLACKLIST and missed
+  .git/hooks (a planted post-index-change hook executes during collect's `git add` —
+  verified), `status.showUntrackedFiles` (restore read a hidden-untracked status —
+  verified) and `includeIf` (invisible to the old regex — verified); and the marker
+  bound only 2 of the 6 inputs publish consumes. Round 8 closes all four. The
+  trust-root sentence below is SUPERSEDED by [23].
+· CORRECTED TRUST-ROOT STATEMENT: on the collect + acceptance path, (a) receipt fields are
+  validated or re-derived, (b) the acceptance judgement base is the frozen commit-bound plan +
+  registry, and (c) the judgement SUBJECT is guarded against git-metadata manipulation. The
+  remaining worker-writable inputs are the judged FILES themselves (which is the measurement) and,
+  outside the contract surface, the same-UID sandbox boundary.
+
+--- [22] addendum (same round, before any external review of this SHA) ---
+· the guard additionally refuses three same-family vectors found while reviewing its own scope:
+  a `gitdir:` redirect (the worktree's .git must BE the resolved git dir — a `.git` file moving
+  the git dir elsewhere would relocate the info/* files the guard inspects), local `core.worktree`
+  (redirects which work tree git inspects), and local `include.path` config (an included file can
+  smuggle filter definitions). Controls re-run on a fresh prepared run: each vector -> TAMPERED;
+  honest guard OK and the full honest chain (scope/hygiene/restore/collect + marker) green.
+
+--- [23] fresh adversarial review on 61bfbac (reviewer could NOT execute — env degraded) + round-8
+        battery: every static finding independently verified and closed ---
+The review of 61bfbac returned CHANGES_REQUIRED but its environment returned 137/SIGTERM for every
+command, so every finding was source-reading only. Each one was therefore verified HERE, by
+construction, before being acted on. Three were REAL and are now closed; the rest are fixed or
+documented.
+
+· VERIFIED V1 — .git/hooks: a planted `.git/hooks/post-index-change` RUNS during `git add`
+  (reproduced in a scratch repo: hook fired). collect's `git add -A` would therefore execute
+  worker code inside the operator process. Fix: (a) guard refuses any non-.sample hook file;
+  (b) all six scripts export GIT_CONFIG_COUNT pins (core.hooksPath=/dev/null, core.fsmonitor=false,
+  status.showUntrackedFiles=all, core.attributesFile=/dev/null, core.excludesFile=/dev/null) +
+  GIT_ATTR_NOSYSTEM=1 AFTER the caller's environment, overwriting caller-provided GIT_CONFIG_*.
+  Controls: planted hook -> guard TAMPERED (hooks(1)); collect rc=3; hook did NOT fire during
+  collect; a raw `git add` WITH the pins did not fire it either.
+· VERIFIED V2 — status.showUntrackedFiles=no hid untracked files from `status --porcelain
+  --ignored` (reproduced), and check_restore had no `-u` override. Fix: guard config regex now
+  includes `status.`; restore adds explicit --untracked-files=all; the pins force
+  showUntrackedFiles=all for every judgement command. Controls: config planted -> guard TAMPERED
+  (local_config(status.showuntrackedfiles)); with the pins the same command shows the file
+  (visible_with_pins=1).
+· VERIFIED V3 — includeIf was invisible to the old `^include\.` regex (reproduced: --get-regexp
+  returns empty, --list shows includeif.*). Fix: the guard matches `config --local --list`
+  case-insensitively for `^(filter\.|include|core\.(worktree|excludesfile|attributesfile|
+  hookspath|fsmonitor|quotepath|sparsecheckout)|status\.)`. Control: planted includeIf -> guard
+  TAMPERED (local_config(includeif.…)).
+· FIXED (static-only finding, code-verified) — the collect-ok marker bound only 2 of the 6 inputs
+  publish consumes. It now binds telemetry.log, report.md and acceptance.txt as well; publish
+  refuses UNBOUND (file appeared after collection) and MISMATCH (file changed), and REFUSES an
+  acceptance.txt with no `=== RC=` marker (a marker-less file previously parsed to an all-green
+  `acceptance_nonzero_rcs = []` — worst-input-must-not-pass). Controls: edit report after collect
+  -> MISMATCH:report.md; edit acceptance -> MISMATCH:acceptance.txt; marker-less acceptance
+  recorded by a REAL collect -> ACCEPTANCE_MARKERS_MISSING; honest publish rc=0 with the six-file
+  record.
+· FIXED — check_scope's `--name-status -z` parser skipped any path token spelling a status letter
+  (a committed file literally named "A" vanished). Parsing is now by PARITY (strict
+  STATUS\0path\0 under --no-renames; multi-char status = fail-closed anomaly). Control: committed
+  root file "A" -> SCOPE_VIOLATION PATH_OUTSIDE_ALLOWED 'A' (seen).
+· FIXED — registry: a GFM row WITHOUT a leading pipe renders as a table row but was invisible to
+  every test. test_no_unpinned_table_lines now also asserts no line contains a pipe unless it IS
+  a table line. Control: appended bare row -> failures=1 (intended test).
+· REMOVED as vacuous, per the same review: nothing further (the round-7 removals stand).
+· STILL DOCUMENTED, NOT FIXED (stated so the record is honest): the same-UID sandbox boundary
+  (a worker that leaves the worktree+evidence contract surface can still forge markers or edit
+  scripts — no cryptographic separation exists in this harness); the /Users/ refusal may consume a
+  run whose report legitimately quotes a foreign /Users path (fail-closed by choice).
+· INFRASTRUCTURE DEFECT FOUND WHILE PUSHING (not a harness defect): rounds 6-8 squashed their
+  final commits onto 61dcf99 each time, which turned the already-pushed 9f8e4ee into a SIBLING of
+  the local history. Every push of rounds 6-8 was therefore rejected as NON-FAST-FORWARD (the
+  retry loops reported it as network failure; `git ls-remote` showed the remote frozen at 9f8e4ee
+  and `git merge-base --is-ancestor 9f8e4ee HEAD` returned 1). Fix: the final commit is rebuilt
+  with `git reset --soft 9f8e4ee` (tree preserved) so the push is a genuine fast-forward; no
+  force-push, no history rewrite of any pushed ref.
+· CORRECTED TRUST-ROOT STATEMENT (supersedes [22]): on the collect + acceptance path, (a) receipt
+  fields are validated against or re-derived from frozen commit-bound sources; (b) the judgement
+  BASE is the frozen plan+registry; (c) the judgement SUBJECT is guarded against git-metadata
+  manipulation (flags, hooks, filters, includes, excludes, gitdir/work-tree redirects, replace
+  refs); (d) pins force the judgement commands' parameters regardless of caller config or env;
+  (e) every input publish consumes is bound to the successful collect that produced it. The
+  worker's legitimate write surface remains the judged FILES themselves (that is the measurement)
+  plus, outside the contract boundary, the same-UID sandbox caveat above.

@@ -15,6 +15,7 @@ Authorities bound here:
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -70,10 +71,77 @@ class RegistryStructure(unittest.TestCase):
         self.tables = _tables(self.text)
 
     def test_exactly_two_registry_tables_with_expected_sizes(self):
-        sized = [(i, len(_data_rows(t))) for i, t in enumerate(self.tables)]
-        counts = [n for _, n in sized]
-        self.assertIn(len(self.plan1), counts, f"no table has {len(self.plan1)} rows: {sized}")
-        self.assertIn(len(self.plan2), counts, f"no table has {len(self.plan2)} rows: {sized}")
+        # fresh adversarial review on 9f8e4ee (P2): the old assertion ("some table has N rows")
+        # tolerated an APPENDED third table — an adversarially relabeled copy sitting behind the
+        # canonical one passed the whole suite. The number of tables WITH DATA ROWS is now
+        # pinned, and the sizes must be in registry order (Round 1 first).
+        data_tables = [t for t in self.tables if _data_rows(t)]
+        self.assertEqual(
+            len(data_tables), 2,
+            f"the registry must contain exactly two run tables with data rows, "
+            f"found {len(data_tables)}",
+        )
+        counts = [len(_data_rows(t)) for t in data_tables]
+        self.assertEqual(counts, [len(self.plan1), len(self.plan2)],
+                         "table sizes must be (Round 1, Round 2) in that order")
+
+    def test_record_file_column_is_bound(self):
+        """fresh adversarial review on 9f8e4ee (P2): the 记录文件 column was unbound — rewriting
+        it to any path kept every count and every other column valid. Bind it to the run's own
+        directory (Round 2) / the closure-recorded values (Round 1)."""
+        rows2 = self._rows_for(self.plan2)
+        self.assertIsNotNone(rows2, "no table matches run-plan-r2.json row-for-row")
+        for cells, plan in zip(rows2, self.plan2):
+            self.assertEqual(cells[7], f"runs/{plan['run_id']}/",
+                             f"Round 2 record path for {plan['run_id']} must be its own directory")
+        rows1 = self._rows_for(self.plan1)
+        self.assertIsNotNone(rows1, "no table matches run-plan.json row-for-row")
+        for cells, plan in zip(rows1, self.plan1):
+            want = "runs/H2-R1-R01/" if plan["run_id"] == "H2-R01" else "(never executed)"
+            self.assertEqual(cells[7], want,
+                             f"Round 1 record cell for {plan['run_id']} disagrees with the closure")
+
+    def test_no_unpinned_table_lines(self):
+        """fresh adversarial review on 9c5f059 (P3): _data_rows() only accepts rows whose first
+        cell is a DIGIT, so a row inserted with a non-numeric first cell (e.g. `| + | H2-R2-R21
+        | ... VALID ...`) was invisible to every test. Pin the exact number of table lines the
+        registry may contain: 2 tables x (header + separator + 20 data rows).
+
+        fresh review on 61bfbac (P3): GFM also renders a row WITHOUT a leading pipe, which the
+        startswith("|") count cannot see. Pin that too: any line containing a pipe must BE a
+        table line."""
+        table_lines = [ln for ln in self.text.splitlines() if ln.strip().startswith("|")]
+        expected = 2 * (2 + len(self.plan1))
+        self.assertEqual(
+            len(table_lines), expected,
+            f"the registry must contain exactly {expected} table lines "
+            f"(2 tables x (header + separator + 20 rows)); found {len(table_lines)}",
+        )
+        bare = [ln for ln in self.text.splitlines()
+                if "|" in ln and not ln.strip().startswith("|")]
+        self.assertEqual(
+            bare, [],
+            f"lines containing a pipe must be table lines (GFM renders bare rows but the "
+            f"parser cannot see them): {bare[:2]}",
+        )
+
+    def test_table_headers_are_labelled(self):
+        """fresh review on 9c5f059 (P3): the header rows participate in NO assertion, so swapping
+        the ARM and TASK labels passed. Pin both headers."""
+        headers = [t[0] for t in self.tables if t and not _data_rows(t)]
+        self.assertEqual(len(headers), 2, f"expected two header rows, found {len(headers)}")
+        for h in headers:
+            self.assertEqual(h, ["#", "RUN_ID", "TASK", "ARM", "REP", "BLOCK", "STATUS", "记录文件"])
+
+    def test_first_table_is_round1_second_is_round2(self):
+        """fresh review on 9c5f059 (VACUOUS): the size pin cannot distinguish the tables (both
+        have 20 rows), so physically swapping them was undetected. Bind the order."""
+        data_tables = [t for t in self.tables if _data_rows(t)]
+        self.assertEqual(len(data_tables), 2)
+        self.assertEqual(_data_rows(data_tables[0])[0][1], "H2-R01",
+                         "the FIRST table must be Round 1")
+        self.assertEqual(_data_rows(data_tables[1])[0][1], "H2-R2-R01",
+                         "the SECOND table must be Round 2")
 
     def _rows_for(self, plan):
         """Find the table whose rows match this plan's (run_id, task, arm, rep, block) tuples.
@@ -181,8 +249,11 @@ class RegistryBindsToClosureAndInvalidRecord(unittest.TestCase):
         ep = (rec.get("episode") or {}).get("worker_episode")
         self.assertTrue(ep, "the invalid run must preserve its episode identity")
         # the registry must carry the same episode so a consumer reading only the registry can
-        # still refuse a Round-2 reuse of it
-        self.assertIn(ep, _read(REGISTRY))
+        # still refuse a Round-2 reuse of it. fresh review on 9c5f059 (P3): a whole-file
+        # substring test is satisfied by text hidden in an HTML comment (invisible when
+        # rendered), so comments are stripped before the check.
+        registry_visible = re.sub(r"<!--.*?-->", "", _read(REGISTRY), flags=re.S)
+        self.assertIn(ep, registry_visible)
 
     def test_arm_assignment_matches_between_plan_and_registry(self):
         """The registry is the human-readable authority for arm assignment; a transposed arm

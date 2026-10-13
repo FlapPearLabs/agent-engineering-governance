@@ -6,6 +6,24 @@
 # well-formed telemetry); exits 3 on ANY failure (fail-closed: the run must be registered
 # INVALID). Never uses `reset --hard`; only `git reset` (mixed) to unstage.
 set -u
+# Fresh adversarial review on 9f8e4ee (P3): `git -C <path> rev-parse` resolves the repository
+# through GIT_DIR/GIT_WORK_TREE from the environment; a wrapper that exported either would
+# silently redirect every path resolution below. The harness controls its own environment.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR
+# global/system git config must not influence judgement or capture (fresh review on 9c5f059)
+# Command-scope pins, set AFTER the caller's environment (overwriting any caller-provided
+# GIT_CONFIG_* / GIT_ATTR_*): hooks cannot execute, fsmonitor is off, status never hides
+# untracked entries, and the global attribute/exclude layers are neutralised. These hold
+# independently of the metadata guard (fresh review on 61bfbac, P0/P1 — all three vectors
+# verified empirically against the unpinned behaviour).
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+export GIT_CONFIG_COUNT=5
+export GIT_CONFIG_KEY_0=core.hooksPath            GIT_CONFIG_VALUE_0=/dev/null
+export GIT_CONFIG_KEY_1=core.fsmonitor            GIT_CONFIG_VALUE_1=false
+export GIT_CONFIG_KEY_2=status.showUntrackedFiles GIT_CONFIG_VALUE_2=all
+export GIT_CONFIG_KEY_3=core.attributesFile       GIT_CONFIG_VALUE_3=/dev/null
+export GIT_CONFIG_KEY_4=core.excludesFile         GIT_CONFIG_VALUE_4=/dev/null
+export GIT_ATTR_NOSYSTEM=1
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXP_DIR="$(cd "$HERE/.." && pwd)"
 PY="${PY:-python3}"
@@ -15,7 +33,19 @@ WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
 EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 if [ ! -d "$WT" ]; then echo "COLLECT_FAIL reason=NO_WORKTREE $WT"; exit 2; fi
 if [ ! -f "$EV/receipt.json" ]; then echo "COLLECT_FAIL reason=NO_RECEIPT $EV"; exit 2; fi
-fail() { echo "COLLECT_FAIL reason=$1"; exit "${2:-4}"; }
+fail() { [ -n "${IDX_FILE:-}" ] && rm -f "$IDX_FILE"; echo "COLLECT_FAIL reason=$1"; exit "${2:-4}"; }
+
+# Judgement-base integrity (fresh review on 9c5f059, P0): the capture below reads the worktree's
+# OWN git view, and .git/ is inside the worker's write surface — assume-unchanged / skip-worktree
+# flags, a clean filter, or an info/exclude edit make that view lie. Such a run is INVALID rather
+# than judged on a doctored surface.
+GM="$(bash "$HERE/check_git_metadata.sh" "$WT")"; _gmrc=$?
+if [ "$_gmrc" -eq 2 ]; then
+  echo "COLLECT_FAIL reason=WORKTREE_GIT_METADATA_UNREADABLE"; exit 3
+fi
+if [ "$_gmrc" -ne 0 ]; then
+  echo "COLLECT_FAIL reason=WORKTREE_GIT_METADATA_TAMPERED [$GM]"; exit 3
+fi
 
 # --- R11-5: receipt revalidation -------------------------------------------------
 # receipt.json lives in the evidence dir, which the worker CAN write (it writes report.md
@@ -42,6 +72,23 @@ PYEOF
 _got_ph="$(shasum -a 256 "$RECEIPT_PLAN" | awk '{print $1}')"
 if [ "$_got_ph" != "$_want_ph" ]; then
   echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL RUN_PLAN_HASH_R2 frozen=$_want_ph actual=$_got_ph"; exit 2
+fi
+# Fresh adversarial review on 9f8e4ee (P1): the hash pin above lives in the SAME working tree as
+# the plan, so editing the plan AND the round-2-freeze pin in lockstep satisfies it while still
+# substituting a different order. The plan must also equal the version committed at the materials
+# checkout's HEAD — the same binding prepare_run.sh applies.
+_live_head="$(git -C "$EXP_DIR" rev-parse HEAD 2>/dev/null)" || { echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL (materials HEAD unreadable)"; exit 2; }
+_plan_rel="experiments/v1.2/h2-lazy-disclosure/harness/run-plan-r2.json"
+if git -C "$EXP_DIR" cat-file -e "$_live_head:$_plan_rel" 2>/dev/null; then
+  _frozen_ph="$(git -C "$EXP_DIR" show "$_live_head:$_plan_rel" | shasum -a 256 | awk '{print $1}')"
+  if [ "$_frozen_ph" != "$_got_ph" ]; then
+    echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL (working-tree plan differs from the frozen commit)"
+    echo "  frozen_commit = $_frozen_ph"
+    echo "  working_tree  = $_got_ph"
+    exit 2
+  fi
+else
+  echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL (run-plan-r2.json is absent from the materials HEAD commit)"; exit 2
 fi
 RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$RECEIPT_PLAN" "$EXP_DIR/task-registry.json" "$RUN_ID" <<'PYEOF'
 import json, sys
@@ -96,7 +143,11 @@ if [ "$HEAD" != "$BASE" ]; then WORKER_COMMITTED=YES; fi
 
 # --- capture (rc-checked; committed changes captured vs base; placed artifacts excluded;
 #     TEMP index so the worker's real index is never mutated — R9-13) ---
-export GIT_INDEX_FILE="$EV/collect.index"
+# Fresh adversarial review on 9f8e4ee (P3): the index path was a FIXED name inside the
+# worker-writable evidence dir, so a symlink planted at that name would redirect the index
+# writes; the name is now unpredictable (mktemp) and the file is removed on every exit path.
+IDX_FILE="$(mktemp "$EV/collect.index.XXXXXX")" || fail CAPTURE_INDEX_CREATE_FAILED 2
+export GIT_INDEX_FILE="$IDX_FILE"
 git -C "$WT" read-tree HEAD || { unset GIT_INDEX_FILE; fail CAPTURE_INDEX_INIT_FAILED; }
 git -C "$WT" add -A || { unset GIT_INDEX_FILE; fail CAPTURE_ADD_FAILED; }
 git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/dev/null || true
@@ -108,11 +159,15 @@ git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/d
 ) > "$EV/diff.patch" || { unset GIT_INDEX_FILE; fail CAPTURE_DIFF_FAILED; }
 git -C "$WT" diff --cached --stat > "$EV/diffstat.txt" 2>/dev/null || : > "$EV/diffstat.txt"
 unset GIT_INDEX_FILE
+rm -f "$IDX_FILE"
 git -C "$WT" status --porcelain > "$EV/status-after.txt" || fail CAPTURE_STATUS_FAILED
 git -C "$WT" status --porcelain --ignored > "$EV/status-after-ignored.txt" || fail CAPTURE_STATUS_FAILED
 
-if [ -f "$WT/.h2-telemetry.log" ]; then cp "$WT/.h2-telemetry.log" "$EV/telemetry.log"
-else : > "$EV/telemetry.log"; fi
+if [ -f "$WT/.h2-telemetry.log" ]; then
+  cp "$WT/.h2-telemetry.log" "$EV/telemetry.log" || fail TELEMETRY_COPY_FAILED
+else
+  : > "$EV/telemetry.log"
+fi
 {
   echo "run_id=$RUN_ID"
   echo "head=$HEAD"
@@ -148,12 +203,6 @@ _live = subprocess.run(["git", "-C", materials_root, "rev-parse", "HEAD"],
 if _live != mc:
     print(f"TEMPLATE_BINDING = FAIL materials_commit {mc[:12]} != live materials HEAD "
           f"{_live[:12] or 'UNREADABLE'} (the receipt may not select which harness validates the run)")
-    raise SystemExit(1)
-_anc = subprocess.run(["git", "-C", materials_root, "merge-base", "--is-ancestor", mc, "HEAD"],
-                      capture_output=True)
-if _anc.returncode != 0:
-    print(f"TEMPLATE_BINDING = FAIL materials_commit {mc[:12]} is not an ancestor of the live "
-          f"materials HEAD")
     raise SystemExit(1)
 
 def _from_commit(relpath, label):
@@ -412,8 +461,12 @@ elif os.path.islink(tpl) or not os.path.isfile(tpl):
 else:
     frozen_h = hashlib.sha256(frozen.stdout).hexdigest()
     got = sha(tpl)
-    report("TEMPLATE_BINDING", frozen_h == run_h == got,
-           f"frozen_source={frozen_h[:12]} receipt_copy={run_h[:12]} at_collect={got[:12]}")
+    # src_h is the receipt's record of the SOURCE bytes; comparing it too makes the receipt's
+    # claim part of the verdict instead of an unused field (fresh adversarial review: it was
+    # recorded but never read — a claim that participates in nothing is not a check).
+    report("TEMPLATE_BINDING", frozen_h == src_h == run_h == got,
+           f"frozen_source={frozen_h[:12]} receipt_source_claim={(src_h or '')[:12]} "
+           f"receipt_copy={run_h[:12]} at_collect={got[:12]}")
 
 sys.exit(fail)
 PYEOF
@@ -428,6 +481,28 @@ if [ "$RFAIL" -ne 0 ]; then
   echo "  -> register this run as INVALID in run-registry.md (delivery/evidence not intact at collection)"
   exit 3
 fi
+# collect-ok marker (fresh review on 9c5f059, P1): publish must be able to verify that a COLLECT
+# of this run's CURRENT evidence actually succeeded, instead of trusting files the worker can
+# write. The marker lives OUTSIDE the evidence dir and binds, by hash, the two files publish
+# consumes — a hand-written collect-summary/carrier-recheck cannot pass it.
+mkdir -p "$H2_RUNS_ROOT/collect-ok" || fail COLLECT_MARKER_DIR_FAILED
+SUM_SHA="$(shasum -a 256 "$EV/collect-summary.txt" | awk '{print $1}')"
+REC_SHA="$(shasum -a 256 "$EV/carrier-recheck.txt" | awk '{print $1}')"
+# the marker binds EVERY file publish consumes/verifies, so nothing in the evidence dir can be
+# swapped after collection (fresh review on 61bfbac, P1-4: report/acceptance/telemetry were
+# unbound and replaceable between collect and publish)
+REPORT_SHA=""; [ -f "$EV/report.md" ] && REPORT_SHA="$(shasum -a 256 "$EV/report.md" | awk '{print $1}')"
+ACC_SHA=""; [ -f "$EV/acceptance.txt" ] && ACC_SHA="$(shasum -a 256 "$EV/acceptance.txt" | awk '{print $1}')"
+"$PY" - "$H2_RUNS_ROOT/collect-ok/$RUN_ID.json" "$RUN_ID" "$SUM_SHA" "$REC_SHA" "$DIFF_SHA" \
+        "$TEL_SHA" "$REPORT_SHA" "$ACC_SHA" <<'PYEOF' \
+  || fail COLLECT_MARKER_WRITE_FAILED
+import json, sys
+p, rid, s, r, d, t, rp, ac = sys.argv[1:9]
+json.dump({"run_id": rid, "collect": "OK", "summary_sha256": s, "recheck_sha256": r,
+           "diff_sha256": d, "telemetry_sha256": t, "report_sha256": rp,
+           "acceptance_sha256": ac}, open(p, "w", encoding="utf-8"), indent=2,
+          ensure_ascii=False)
+PYEOF
 echo "COLLECT_RUN OK run_id=$RUN_ID head=$HEAD base=$BASE worker_committed=$WORKER_COMMITTED"
 echo "  diff_sha256=$DIFF_SHA"
 echo "  telemetry_sha256=$TEL_SHA"
