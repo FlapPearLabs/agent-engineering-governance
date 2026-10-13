@@ -126,7 +126,7 @@ MATERIALS_ROOT="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
 TPL_REL_ROUTES="routes-h2.json"
 RFAIL=0
 {
-  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$MATERIALS_ROOT" "$TPL_REL_ROUTES" <<'PYEOF'
+  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$MATERIALS_ROOT" "$TPL_REL_ROUTES" "$RECEIPT_PLAN" <<'PYEOF'
 import hashlib, importlib.util, json, os, re, subprocess, sys, types
 receipt = json.load(open(sys.argv[1], encoding="utf-8"))
 wt, ev = sys.argv[2], sys.argv[3]
@@ -200,18 +200,57 @@ def _frozen_bytes(relpath):
         _frozen_cache[relpath] = _from_commit(relpath, relpath.split("/")[-1])
     return _frozen_cache[relpath]
 
+def _frozen_bytes_or_none(relpath):
+    """Total variant of _frozen_bytes for use inside the expected-carrier composition: a read
+    failure yields None (the caller reports an UNREADABLE expected value) instead of aborting
+    the whole recheck with SystemExit."""
+    proc = subprocess.run(["git", "-C", materials_root, "show", f"{mc}:{relpath}"],
+                          capture_output=True)
+    return None if proc.returncode != 0 else proc.stdout
+
+# ---- expected carrier KIND, derived from the FROZEN ARM (never from the receipt) -------------
+# Codex finding on 61dcf99 (P1): the expected carrier was selected by receipt["carrier_kind"],
+# which is worker-writable and is NOT covered by receipt revalidation (that checks `arm`).
+# For a control run, swapping CODEBUDDY.md for the frozen VARIANT carrier and rewriting
+# carrier_kind + carrier_hash made every recheck pass, so a control observation could actually
+# receive the variant intervention — the independent variable would silently invert. The kind is
+# therefore derived from the plan row's arm, which RECEIPT_AUTH has already validated against the
+# frozen plan; the receipt value survives only as a CLAIM.
+_ARM_KINDS = {"control": "control_full_v1", "variant": "variant_lean_v1"}
+_plan = json.load(open(sys.argv[6], encoding="utf-8"))
+_rows = [r for r in _plan if r["run_id"] == receipt.get("run_id")]
+if len(_rows) == 1:
+    expected_kind = _ARM_KINDS.get(_rows[0]["arm"])
+    kind_source = f"frozen plan arm={_rows[0]['arm']}"
+else:
+    # plan-less dry-run: no frozen arm exists, so the receipt's own arm is the only mapping
+    # input and the resulting check is a consistency check, not an independence check. Dry-runs
+    # carry no experimental standing; every real run has a frozen plan row.
+    expected_kind = _ARM_KINDS.get(receipt.get("arm"))
+    kind_source = f"receipt arm claim={receipt.get('arm')} (plan-less dry-run)"
+
 def frozen_carrier_sha():
-    """Expected control carrier = header + AGENTS.md(verbatim, at the run base) + footer, all
-    read from the frozen materials commit — the same composition prepare_run.sh performs."""
-    if receipt.get("carrier_kind") == "variant_lean_v1":
-        return hashlib.sha256(_frozen_bytes(f"{H2REL}/carriers/H2_LEAN_BOOTSTRAP.md")).hexdigest()
-    try:
-        header = _frozen_bytes(f"{H2REL}/harness/control-carrier-header.md")
-        footer = _frozen_bytes(f"{H2REL}/harness/control-carrier-footer.md")
-        agents = subprocess.run(["git", "-C", materials_root, "show",
-                                 f"{receipt['expected_base']}:AGENTS.md"],
-                                capture_output=True, check=True).stdout
-    except Exception:
+    """Expected carrier = the FROZEN ARM's carrier, composed from the frozen materials commit —
+    exactly what prepare_run.sh delivers (header + AGENTS.md@MATERIALS_COMMIT verbatim + footer
+    for control; the lean bootstrap for variant).
+
+    The expected KIND is not read from the receipt (see the derivation above): that field is
+    worker-writable, and deriving from it let a control run be handed the VARIANT carrier while
+    every hash check still passed because the claim was rewritten to match.
+    """
+    if expected_kind == "variant_lean_v1":
+        blob = _frozen_bytes_or_none(f"{H2REL}/carriers/H2_LEAN_BOOTSTRAP.md")
+        return None if blob is None else hashlib.sha256(blob).hexdigest()
+    if expected_kind != "control_full_v1":
+        return None
+    header = _frozen_bytes_or_none(f"{H2REL}/harness/control-carrier-header.md")
+    footer = _frozen_bytes_or_none(f"{H2REL}/harness/control-carrier-footer.md")
+    # Codex finding on 61dcf99 (P1): this must read AGENTS.md at the FROZEN MATERIALS COMMIT,
+    # matching prepare_run.sh. Composing from the historical task base instead made every
+    # untouched control run over t01-t04 fail (those AGENTS.md revisions differ from the
+    # materials-era one), consuming valid runs as INVALID.
+    agents = _frozen_bytes_or_none("AGENTS.md")
+    if header is None or footer is None or agents is None:
         return None
     return hashlib.sha256(header + agents + footer).hexdigest()
 
@@ -238,9 +277,13 @@ if not os.path.exists(p):
     report("CARRIER_RECHECK(CODEBUDDY.md carrier)", False, "carrier missing at collection")
 else:
     actual = sha(p)
-    ok = (FROZEN_CARRIER == actual) and (receipt.get("carrier_hash") == actual)
+    kind_ok = receipt.get("carrier_kind") == expected_kind
+    ok = (kind_ok and FROZEN_CARRIER is not None
+          and FROZEN_CARRIER == actual and receipt.get("carrier_hash") == actual)
     report("CARRIER_RECHECK(CODEBUDDY.md carrier)", ok,
-           f"kind={receipt.get('carrier_kind')} frozen={(FROZEN_CARRIER or 'UNREADABLE')[:12]} "
+           f"expected_kind={expected_kind} (from {kind_source}) "
+           f"claimed_kind={receipt.get('carrier_kind')} "
+           f"frozen={(FROZEN_CARRIER or 'UNREADABLE')[:12]} "
            f"claimed={(receipt.get('carrier_hash') or '')[:12]} actual={actual[:12]}")
 
 # 2. rules copy (both arms)

@@ -206,6 +206,16 @@ run = {
 json.dump(run, open(f"{dest}/run.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 print(f"composed run.json + telemetry.json for {receipt['run_id']}")
 PYEOF
+COMP_RC=$?
+if [ "$COMP_RC" -ne 0 ]; then
+  # Codex finding on 61dcf99 (P1): this step is not rc-checked, so a composition error (missing
+  # acceptance.txt, malformed receipt, ...) still fell through to promotion: the finalized
+  # destination was replaced by the PARTIAL stage, the backup was deleted and the script printed
+  # PUBLISH_RUN OK. Refuse, discard the stage, and leave DEST exactly as it was.
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=COMPOSITION_FAILED rc=$COMP_RC (staged artifacts discarded; DEST unchanged)"
+  exit 3
+fi
 
 # R2 sanitization pass (placeholders only; must not alter meaning).
 # Path forms are derived at RUNTIME (runs root / run worktree / evidence / materials worktree)

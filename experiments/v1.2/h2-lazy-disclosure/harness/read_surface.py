@@ -66,7 +66,8 @@ def _is_within(path: Path, root: Path) -> bool:
     return True
 
 
-def _boundary_reason(resolved: Path, wt: Path, ev: Path, mat: Path) -> str | None:
+def _boundary_reason(resolved: Path, wt: Path, ev: Path, mat: Path,
+                     allow_dir: bool = False) -> str | None:
     """Classify an ALREADY-RESOLVED path against the boundary roots.
 
     Resolution happens first so that a symlink cannot launder a forbidden destination: the
@@ -82,11 +83,17 @@ def _boundary_reason(resolved: Path, wt: Path, ev: Path, mat: Path) -> str | Non
     verdict correct in both layouts, because the resolved path of a worktree symlink pointing
     INTO the materials tree still fails both allowed-root tests and lands on the materials
     branch.
+
+    `allow_dir` is set only for GREP events: a search legitimately targets a DIRECTORY
+    (`READ GREP scripts/tests`, exactly as the preserved Round-1 telemetry records), while
+    FULL/PARTIAL reads still require a regular file.
     """
     if _is_within(resolved, ev):
         return None
     if _is_within(resolved, wt):
-        return None if resolved.is_file() else "OUTSIDE_ALLOWED_SURFACE"
+        if resolved.is_file() or (allow_dir and resolved.is_dir()):
+            return None
+        return "OUTSIDE_ALLOWED_SURFACE"
     if _is_within(resolved, mat):
         rel = resolved.relative_to(mat).parts
         return "CROSS_ARM_READ" if "carriers" in rel else "MATERIALS_ROOT_READ"
@@ -106,11 +113,18 @@ def classify_read_target(
     evidence_dir: str | os.PathLike,
     materials_root: str | os.PathLike,
     telemetry_name: str = ".h2-telemetry.log",
+    read_kind: str | None = None,
 ) -> tuple[str, str]:
-    """Classify one READ target. Returns (ALLOWED, "OK") or ("REJECTED", <stable reason>)."""
+    """Classify one READ target. Returns (ALLOWED, "OK") or ("REJECTED", <stable reason>).
+
+    `read_kind` is the telemetry kind (FULL | PARTIAL | GREP). Only GREP may target an existing
+    directory; FULL and PARTIAL still require a regular file. The default (None) keeps the
+    strict file-only behaviour, so every pre-existing caller stays correct.
+    """
     wt = Path(worktree).resolve()
     ev = Path(evidence_dir).resolve()
     mat = Path(materials_root).resolve()
+    allow_dir = read_kind == "GREP"
 
     if target == telemetry_name:
         return (ALLOWED, "OK")
@@ -137,13 +151,15 @@ def classify_read_target(
 
     # ---- repo-relative inside the task worktree ----
     resolved = (wt / p).resolve()
-    reason = _boundary_reason(resolved, wt, ev, mat)
+    reason = _boundary_reason(resolved, wt, ev, mat, allow_dir=allow_dir)
     if reason is not None:
         return ("REJECTED", reason)
     if _is_within(resolved, ev):
         # reached the evidence dir by traversal instead of the stable namespace
         return ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE")
-    return (ALLOWED, "OK") if resolved.is_file() else ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
+    if resolved.is_file() or (allow_dir and resolved.is_dir()):
+        return (ALLOWED, "OK")
+    return ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
 
 
 _READ_RE = re.compile(r"^READ\s+(FULL|PARTIAL|GREP)\s+(\S+)$")
@@ -161,8 +177,9 @@ def classify_telemetry(
         m = _READ_RE.match(raw.strip())
         if not m:
             continue
-        target = m.group(2)
-        verdict, reason = classify_read_target(target, worktree, evidence_dir, materials_root)
+        kind, target = m.group(1), m.group(2)
+        verdict, reason = classify_read_target(target, worktree, evidence_dir, materials_root,
+                                               read_kind=kind)
         if verdict != ALLOWED:
             problems.append(f"READ target rejected ({reason}): {target}")
     return problems

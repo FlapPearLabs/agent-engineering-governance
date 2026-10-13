@@ -507,3 +507,69 @@ TRUE values:
 · Both findings are P1, so the merge gate is closed and the candidate was NOT merged. Any new
   commit also makes every prior review STALE, so a fresh Codex review of the new SHA is required
   before the gate can reopen.
+
+--- [20] Codex review on 61dcf99 (4 x P1) + round-5 repair battery ---
+· F19 carrier-kind selection trusted the receipt. The expected carrier was chosen by
+  receipt["carrier_kind"] — worker-writable, and receipt revalidation checks `arm` but not the
+  kind — so a control run could be handed the VARIANT carrier with the claim rewritten to match
+  and every hash check would pass, silently inverting the independent variable. The expected kind
+  is now derived from the plan row's arm (already frozen-validated); receipt kind is a CLAIM.
+  CONTROL (fixed): kind-swap attack -> rc=3, expected_kind=control_full_v1 (from frozen plan
+  arm=control) claimed_kind=variant_lean_v1 frozen=de5d1bb7e3ce claimed=actual=c5c8261591d7.
+  MUTATION: with the kind derivation reverted to the receipt (committed mutant), the SAME attack
+  -> rc=0 "COLLECT_RUN OK" — the reviewer's bypass reproduced exactly, so the predicate is
+  load-bearing (TARGET_PREDICATE_REACHED, MUTANT_SURVIVED=NO).
+· F20 publish composition rc was unchecked. A composition error (e.g. missing acceptance.txt)
+  still fell through to promotion: the finalized DEST was replaced by the PARTIAL stage, the
+  backup deleted, and PUBLISH_RUN OK printed. Now rc-checked: discard the stage, leave DEST as-is.
+  S4: preflight PASSES, staging composition FAILS -> rc=3 COMPOSITION_FAILED, DEST hash
+  unchanged (before==after), staging residue 0.
+  MUTATION: with the rc check stripped from the fixture copy, the same failure -> rc=0
+  PUBLISH_RUN OK, sentinel LOST, no run.json => the old fail-open reproduced; the control
+  catches it.
+· F21 the frozen control-carrier recomputation read AGENTS.md at the historical task base.
+  prepare_run.sh composes from MATERIALS_COMMIT, and those revisions differ for t01-t04, so an
+  UNTOUCHED control run was rejected: frozen=e00d281d800c claimed=actual=de5d1bb7e3ce — exactly
+  the numbers the review predicted. Now read at the frozen materials commit, matching prepare.
+  CONTROL (fixed): clean collect rc=0, frozen==claimed==actual=de5d1bb7e3ce.
+  MUTATION: with the base-era read restored (same committed mutant), a clean control run ->
+  rc=3 with the review's exact frozen=e00d... claimed=actual=de5d... signature.
+· F22 GREP rejected directory targets. The preserved Round-1 telemetry contains
+  "READ GREP scripts/tests" and "READ GREP adapters/zcode/tests" — both DIRECTORIES — and the
+  classifier required a regular file, so a valid worker that searched a directory (or .) was
+  invalidated at collection. classify_read_target now takes the read kind: GREP may target an
+  existing directory; FULL/PARTIAL still require a regular file; the default (no kind) keeps the
+  strict behaviour so pre-existing callers are unchanged.
+  MUTATION: removing the directory allowance fails 3 tests; restored passes. The real B-run
+  telemetry (which includes both preserved GREP-directory lines AND "READ GREP .") collects rc=0.
+· F16/F17 rechecks: DH1/DH2/DH3 (tamper + receipt rewritten to match) all rc=3 with
+  frozen != claimed == actual; plan authority still refuses a one-row R20-only copy and a
+  byte-identical copy at a non-canonical path (PLAN_AUTHORITY_FAIL).
+· N4 recheck: forged materials_commit -> rc=3 (receipt may not select which harness validates the
+  run); restored -> rc=0. The earlier rc=3-after-restore was BATTERY DAMAGE (the DH3 WARM tamper
+  was not restored because `git checkout -- H2_WARM` cannot restore PLACED delivery files), not a
+  code defect; re-proved cleanly on a fresh root: forge -> 3, restore -> 0.
+· S2/S3/S5: S2 non-git checkout -> rc=2 EMPTY_SANITIZER_SOURCE, DEST never created; S3 existing
+  DEST + sentinel + preflight failure -> rc=2, recursive DEST hash UNCHANGED; S5 clean publish ->
+  rc=0, complete record (acceptance.txt carrier-recheck.txt report.md run.json telemetry.json
+  telemetry.log), staging residue 0, prev residue 0, host paths in the published record 0.
+· Battery process notes (recorded because they invalidated two control attempts): (a) the first
+  mutant window ran against a STALE probe root — the workspace bulk-delete shim blocked removal of
+  the 154-file probe tree, prepare then refused with MATERIALS_ADVANCED and the "attack" collected
+  against a mismatched receipt (rc=3 for the wrong reason); re-proved on a fresh root. Deletion
+  works by moving the tree OUT of the workspace first. (b) A battery run attempted to clear
+  [19]'s dangling concern by re-running the restore check, which exposed the WARM-restore damage.
+  Neither is a harness defect; both are recorded so the controls that DID reach their predicates
+  can be told apart from the ones that did not.
+· TRUST-ROOT AUDIT (narrow, H2 acceptance path): every receipt field consumed by collect_run.sh
+  is either validated against the frozen plan/registry (run_id, task_id, arm, expected_base,
+  plan_index, materials_commit) or re-derived from the frozen materials commit and used only as a
+  CLAIM (carrier_kind, carrier_hash, h2_rules_sha256, warm_bundle_sha256,
+  report_template_source/run_sha256). Publish records receipt fields into run.json but they are
+  validated upstream by collect; publish makes no acceptance decision from them.
+  WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0.
+· LOCAL GATE = the exact workflow commands: compileall PASS; ruff clean; governance 35/35;
+  scripts/tests 32 failures and adapters/zcode 23 errors are PRE-EXISTING sandbox failures that
+  reproduce on the base; t16 OK; workbuddy adapter OK; public-release VIOLATIONS=0 + commit
+  metadata canonical + selftest 51/51; experiments tests OK (read-surface 35, registry suite,
+  material suite); inventory selftest PASS; 10 harness scripts syntax-clean.

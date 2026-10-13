@@ -338,6 +338,56 @@ class NestedRunsRootLayout(unittest.TestCase):
         self.assertEqual(reason, "MATERIALS_ROOT_READ")
 
 
+class GrepDirectoryTargets(ReadSurfaceFixture):
+    """Codex finding on 61dcf99 (P1): GREP events legitimately target DIRECTORIES — the preserved
+    Round-1 telemetry records `READ GREP scripts/tests` and `READ GREP adapters/zcode/tests` — but
+    the classifier required a regular file, so an otherwise valid worker that searched a
+    directory (or `.`) was invalidated at collection."""
+
+    def setUp(self):
+        super().setUp()
+        for d in ("scripts/tests", "adapters/zcode/tests"):
+            (self.wt / d).mkdir(parents=True, exist_ok=True)
+        (self.wt / "scripts" / "tests" / "test_x.py").write_text("x\n", encoding="utf-8")
+
+    def _classify(self, target, kind):
+        return rs.classify_read_target(target, self.wt, self.ev, self.mat, read_kind=kind)
+
+    def test_grep_of_worktree_directory_is_allowed(self):
+        self.assertEqual(self._classify("scripts/tests", "GREP"), (rs.ALLOWED, "OK"))
+
+    def test_grep_of_worktree_root_dot_is_allowed(self):
+        self.assertEqual(self._classify(".", "GREP"), (rs.ALLOWED, "OK"))
+
+    def test_full_of_directory_is_still_refused(self):
+        self.assertEqual(self._classify("scripts/tests", "FULL"),
+                         ("REJECTED", "OUTSIDE_ALLOWED_SURFACE"))
+
+    def test_partial_of_directory_is_still_refused(self):
+        self.assertEqual(self._classify("scripts/tests", "PARTIAL"),
+                         ("REJECTED", "OUTSIDE_ALLOWED_SURFACE"))
+
+    def test_grep_of_nonexistent_directory_is_refused(self):
+        self.assertEqual(self._classify("scripts/nope", "GREP"),
+                         ("REJECTED", "OUTSIDE_ALLOWED_SURFACE"))
+
+    def test_grep_directory_must_not_escape_the_boundary(self):
+        """The directory allowance must not open the materials tree."""
+        verdict, reason = self._classify("../../materials/carriers", "GREP")
+        self.assertEqual(verdict, "REJECTED")
+        self.assertEqual(reason, "CROSS_ARM_READ")
+
+    def test_default_kind_keeps_strict_file_requirement(self):
+        """The read_kind kwarg is additive: a caller that passes nothing keeps the old strict
+        behaviour, so every pre-existing call site stays correct."""
+        self.assertEqual(rs.classify_read_target("scripts/tests", self.wt, self.ev, self.mat),
+                         ("REJECTED", "OUTSIDE_ALLOWED_SURFACE"))
+
+    def test_telemetry_batch_accepts_the_preserved_round1_grep_lines(self):
+        lines = ["READ GREP scripts/tests", "READ GREP adapters/zcode/tests"]
+        self.assertEqual(rs.classify_telemetry(lines, self.wt, self.ev, self.mat), [])
+
+
 class InvariantTests(unittest.TestCase):
     def test_reason_tokens_are_stable(self):
         for token in (
