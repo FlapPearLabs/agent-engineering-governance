@@ -1,3 +1,9 @@
+<!-- TASK_ID_ANNOTATION: the receipt and run record give the executed task as `t01`;
+     the worker wrote the run id `H2-R01` into the report's TASK_ID field. The task
+     identity is t01 (receipt + task registry agree); the report field is a
+     transcription error by the worker. Any aggregation MUST key on the receipt's
+     task_id, not on this report's TASK_ID field, or the run is attributed to a
+     nonexistent task named H2-R01. -->
 # H2 RUN REPORT — H2-R01
 
 ## A. Receipt

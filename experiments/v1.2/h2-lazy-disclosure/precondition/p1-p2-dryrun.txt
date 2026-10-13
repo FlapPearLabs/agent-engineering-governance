@@ -424,3 +424,57 @@ TRUE values:
   zcode (23) failures in this sandbox are pre-existing and environment-caused; they reproduce
   on the unmodified base. NOTE: experiments/v1.2/tests is NOT in CI at all — the H2 material
   suite is a local-only gate.
+
+--- [18] PR #55 Codex findings + PART 7/8 recovery battery ---
+· F55-N1 whitespace root: prepare_run.sh now refuses UNSUPPORTED_RUN_ROOT_WHITESPACE before any
+  allocation. FIRST PROOF WAS VACUOUS: the probe used "/tmp/h2 runs", which trips VOLATILE_ROOT
+  first, so the whitespace predicate was never reached. Re-proved with a NON-volatile whitespace
+  root AND with the mutant COMMITTED (so MATERIALS_DIRTY could not stand in for the guard):
+  mutant -> passes the whitespace check and fails later at WORKTREE_CHECKOUT_FAILED;
+  fixed -> UNSUPPORTED_RUN_ROOT_WHITESPACE.
+· F55-N2 symlink test: the previous test passed the bare relative name, which resolves against
+  the WORKTREE, so it rejected a nonexistent worktree file and never touched the symlink. Now the
+  real link path is passed and the EXACT reason asserted. Removing resolve() from the classifier
+  fails 9 tests.
+· F55-N3 FETCH_HEAD: --no-write-fetch-head + checkout --detach $BASE_SHA + a scan that refuses
+  SOURCE_PATH_LEAK. NOTE: the first cut of this fix was a REGRESSION caught by the POSITIVE
+  control -- with the flag, FETCH_HEAD is never written, so "checkout FETCH_HEAD" failed and a
+  whitespace-free root reported WORKTREE_CHECKOUT_FAILED. Only running the positive path exposed
+  it.
+· 4245354606 evidence surface too broad: RUN_EVIDENCE/ namespace + an explicit 3-file allowlist
+  (contract.md, worker-report-template.md, report.md); receipt.json / task.txt are refused.
+· 4245354597 host paths in telemetry: absolute paths are now REFUSED outright (HOST_PATH_NOT_ALLOWED)
+  rather than allowed-then-sanitized; the log is collected into a published artifact, so the
+  spelling must be host-free at the source. This also closes the old os.path.join prefix hole,
+  whose actual behaviour is recorded in round-1-closure.md.
+· 4245354610 collector binding: read_surface.py AND routes-h2.json are now loaded from the
+  receipt's frozen materials commit, so a permissive later checkout cannot make evidence pass
+  that the frozen harness would reject.
+· 4245354590 plan propagation: collect honours H2_PLAN_FILE like prepare; mismatch is fail-closed;
+  MATERIALS_ADVANCED scan is scoped to the selected round so a retained runs root no longer
+  refuses a correct preparation.
+· PART 7 registry: two authoritative tables. R1 = 1 INVALID + 19 CANCELLED_ROUND_INVALID (zero
+  PLANNED rows remain); R2 = 20 FROZEN_NOT_EXECUTED. New suite test_v1_2_h2_run_registry.py binds
+  the tables to run-plan.json / run-plan-r2.json / round-1-closure.md / the invalid-run record
+  with COMPLETE ORDERED TUPLES. Four mutations all bite: R2 row -> PLANNED; R1 arm transposed;
+  R2 id colliding with R1; episode identity removed. The pre-existing row-shape test was retired
+  (superseded, not weakened) because it could not survive a second table.
+· PART 8 invalid-episode gate: an INVALID run is NOT a nonexistent run. publish_run.sh now also
+  reads preserved invalid-run records, so Round 2 cannot reuse the Round-1 executor context.
+  Controls (real publish_run.sh): POSITIVE fresh -> rc=0; R1-invalid episode as WORKER -> rc=3
+  EPISODE_REUSE; as AUDITOR -> rc=3; prior-R2 worker -> rc=3; prior-R2 auditor -> rc=3;
+  worker==auditor -> rc=3; MISSING identity -> rc=2 (fail-closed).
+· CONTROL CAUGHT A LATENT FAIL-OPEN: the sanitizer derived MATERIALS_WT from git; outside a git
+  worktree that resolves to the EMPTY string, and str.replace("", X) inserts X between EVERY
+  character -- silently corrupting every published artifact. Now PUBLISH_REFUSED
+  EMPTY_SANITIZER_SOURCE, AND the refusal propagates as exit 3 (the first cut returned rc=0 over
+  a rejected sanitization, because the python exit code was not checked -- a fail-open on the
+  very path that protects published artifacts).
+· PART 10 treatment invariance vs 5ab500e: task set / scoring / routes / protocol / R1 run plan /
+  variant carrier / BOTH arm blocks all UNCHANGED. Changed: prepare_run, collect_run, publish_run,
+  worker-brief-template. The brief diff touches ZERO lines mentioning the per-arm
+  BOOTSTRAP_DELIVERY block => arm-symmetric => AFFECTS_EXPERIMENT_TREATMENT = NO.
+· PART 11 local gate: compileall OK; ruff clean; governance 35/35; public-release clean + 51/51
+  selftest; t16 OK; workbuddy adapter OK; material suites OK; inventory selftest PASS;
+  10 harness scripts syntax-clean. scripts/tests (32) and adapters/zcode (23) remain pre-existing
+  sandbox failures that reproduce on the base.

@@ -58,6 +58,9 @@ if [ -n "$PLAN_IDX" ] && [ "$PLAN_IDX" != "-1" ]; then
   # R11-3: uniqueness is GLOBAL across roles, not per-role. Compare each supplied identity
   # against BOTH roles stored by prior runs AND against the other identity of this run, so an
   # auditor cannot reuse a worker episode (or vice versa) from this or any earlier run.
+  # PART 8: an INVALID run is NOT a nonexistent run. The Round-1 attempt executed a real
+  # episode but produced no run.json, so scanning only published run.json files would let
+  # Round 2 silently reuse that executor context. Preserved invalid-run records are scanned too.
   DUP="$("$PY" - "$EXP_DIR/runs" "$RUN_ID" "${WORKER_EPISODE}" "${AUDITOR_EPISODE}" <<'PYEOF'
 import json, os, sys
 runs_dir, self_id, wep, aep = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -68,19 +71,36 @@ if os.path.isdir(runs_dir):
     for name in sorted(os.listdir(runs_dir)):
         if name == self_id:
             continue
-        p = os.path.join(runs_dir, name, "run.json")
-        if not os.path.isfile(p):
+        d = os.path.join(runs_dir, name)
+        if not os.path.isdir(d):
             continue
-        try:
-            d = json.load(open(p, encoding="utf-8"))
-        except Exception:
-            continue
-        stored_w, stored_a = d.get("worker_episode"), d.get("auditor_episode")
-        # every stored identity is compared against BOTH supplied identities
-        if stored_w and stored_w in (wep, aep):
-            dups.append(f"{name}:stored_worker={stored_w}")
-        if stored_a and stored_a in (wep, aep):
-            dups.append(f"{name}:stored_auditor={stored_a}")
+        # (a) published runs
+        p = os.path.join(d, "run.json")
+        if os.path.isfile(p):
+            try:
+                rec = json.load(open(p, encoding="utf-8"))
+            except Exception:
+                rec = None
+            if rec:
+                sw, sa = rec.get("worker_episode"), rec.get("auditor_episode")
+                if sw and sw in (wep, aep):
+                    dups.append(f"{name}:stored_worker={sw}")
+                if sa and sa in (wep, aep):
+                    dups.append(f"{name}:stored_auditor={sa}")
+        # (b) preserved INVALID runs (no run.json by construction)
+        q = os.path.join(d, "round-1-run-record.json")
+        if os.path.isfile(q):
+            try:
+                inv = json.load(open(q, encoding="utf-8"))
+            except Exception:
+                inv = None
+            if inv:
+                ep = (inv.get("episode") or {}).get("worker_episode")
+                role = (inv.get("episode") or {}).get("auditor_episode")
+                if ep and ep in (wep, aep):
+                    dups.append(f"INVALID_EPISODE_REUSE:{inv.get('run_id')}:{ep}")
+                if role and role in (wep, aep):
+                    dups.append(f"INVALID_EPISODE_REUSE:{inv.get('run_id')}:{role}")
 print(" ".join(dups))
 PYEOF
 )"
@@ -185,6 +205,17 @@ literal_reps = [(wt, "<RUN_WORKTREE>"),
                 (materials_wt, "<H2_WORKTREE>"),
                 (f"/Users/{user}/.workbuddy/binaries/python/envs/default/bin/python", "<PY>"),
                 (f"/Users/{user}", "<USER_HOME>")]
+# An EMPTY replacement source is catastrophic, not cosmetic: str.replace("", X) inserts X
+# between every character, silently corrupting every published artifact. This is reachable when
+# the harness is invoked from a directory that is not a git worktree (git rev-parse then yields
+# an empty string). Refuse instead of publishing a mangled record.
+empty = [name for name, val in (("run_worktree", wt), ("run_evidence", ev),
+                                ("runs_root", runs_root), ("materials_worktree", materials_wt),
+                                ("user_home", f"/Users/{user}")) if not val]
+if empty:
+    print(f"PUBLISH_REFUSED reason=EMPTY_SANITIZER_SOURCE {empty} "
+          f"(a replacement source resolved to an empty string; refusing to write corrupt artifacts)")
+    raise SystemExit(2)
 regex_reps = []
 if len(user) >= 8:
     regex_reps.append((_re.compile(r"(?<![A-Za-z0-9._-])" + _re.escape(user) + r"(?![A-Za-z0-9._-])"),
@@ -206,4 +237,12 @@ for p in sorted(root.rglob("*")):
         changed.append(p.name)
 print("sanitized:", changed or "nothing-needed")
 PYEOF
+SAN_RC=$?
+if [ "$SAN_RC" -ne 0 ]; then
+  # The sanitizer refuses rather than writing a mangled record; that refusal must reach the
+  # caller. Without this the script would print PUBLISH_RUN OK and exit 0 over a rejected
+  # sanitization — a fail-open on the exact path that protects published artifacts.
+  echo "PUBLISH_REFUSED reason=SANITIZATION_FAILED rc=$SAN_RC (artifacts in $DEST may be incomplete; do NOT treat this run as published)"
+  exit 3
+fi
 echo "PUBLISH_RUN OK run_id=$RUN_ID dest=$DEST"

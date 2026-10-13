@@ -55,11 +55,17 @@ ROUTE <route_id|n/a>       <target>       <LOADED|MISSING|SKIPPED>
 SKILL <name|none>          <LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE>
 ```
 
-- 路径基准（**唯一确定**，机器可校验）：worktree 内的文件写 **repo-relative 路径**
-  （如 `CODEBUDDY.md`、`scripts/tests/x.py`）；你 evidence 目录内的文件（合同、报告模板）
-  写**绝对路径**。
+- 路径基准（**唯一确定**，机器可校验，**且不得含宿主绝对路径**）：
+  - worktree 内的文件写 **repo-relative 路径**（如 `CODEBUDDY.md`、`scripts/tests/x.py`）；
+  - 你 evidence 目录内的文件写**稳定命名空间**：`RUN_EVIDENCE/<文件名>`
+    （如 `RUN_EVIDENCE/contract.md`、`RUN_EVIDENCE/worker-report-template.md`）。
+  - **绝对路径一律不合格**：遥测日志会被收集进 run 记录并发布，写入真实宿主路径违反本仓
+    公开数据政策；且旧校验里 `os.path.join(worktree, "/abs")` 会丢弃 worktree 前缀，使绝对
+    路径可绕过边界 —— 现已直接拒绝该形式。
 - **禁止缩写**：不得出现 `...` / `~` / 相对猜测。缩放只允许出现在给人看的展示层，
   机器可读事件里必须是可解析的确定路径。含 `...` 的事件会被判为不合格。
+- evidence 命名空间**只接受** `contract.md` / `worker-report-template.md` / `report.md`
+  三个文件名；`receipt.json`、`task.txt` 等不在允许面内。
 - "FULL" = 把该文件全文读入（Read 全文件 / cat 全文件）；grep/find/部分读取只记 GREP 或 PARTIAL。
 - 每条记录必须对应真实发生的动作；**禁止**事后补记、推断或美化。
 - 加载治理性文件（`H2_RULES.md` / `CODEBUDDY.md` / `H2_WARM/**` 等投放材料）时尤其必须记录。

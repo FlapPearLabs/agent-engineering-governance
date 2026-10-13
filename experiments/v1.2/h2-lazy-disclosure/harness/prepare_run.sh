@@ -63,6 +63,19 @@ case "$R_LC" in
   /var/folders|/private/var/folders|/var/folders/*|/private/var/folders/*)
     echo "PREPARE_FAIL reason=VOLATILE_ROOT $H2_RUNS_ROOT"; exit 2 ;;
 esac
+# N1: reject whitespace-bearing roots BEFORE any run allocation. The telemetry grammar is
+# `READ <kind> <\S+>`; if the runs root (or any ancestor) contains a space, the evidence
+# namespace and any absolute spelling become unrepresentable, so a contract-compliant run would
+# be invalidated by the collector. Refusing up front is the fail-closed choice; no escaping DSL
+# is introduced for an experiment harness.
+case "$R_LC" in
+  *[[:space:]]*)
+    echo "PREPARE_FAIL reason=UNSUPPORTED_RUN_ROOT_WHITESPACE root='$R_TRIM'"
+    echo "  (telemetry tokens are whitespace-delimited; a root containing whitespace cannot be"
+    echo "   represented in a machine-readable READ event — use a whitespace-free runs root)"
+    exit 2 ;;
+esac
+
 H2_RUNS_ROOT="$R_TRIM"
 
 # ---- materials validation FIRST, before any run-id allocation (R8-9) ----
@@ -130,18 +143,24 @@ rid, runs_root, commit = sys.argv[2], sys.argv[3], sys.argv[4]
 idx = [i for i, r in enumerate(plan) if r["run_id"] == rid][0]
 not_collected = [plan[i]["run_id"] for i in range(idx)
                  if not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "collect-summary.txt"))]
-# R10-1: bind every run to ONE materials commit — compare against every existing real receipt.
+# R10-1: bind every run of THIS ROUND to ONE materials commit. The scan is scoped to the run
+# ids named by the selected plan: a retained runs root also holds the previous round's
+# receipts, and comparing those against this round's materials commit would refuse a correct
+# preparation (Codex finding on 7ba6361).
+round_ids = {r["run_id"] for r in plan}
 mismatch = []
 evroot = os.path.join(runs_root, "evidence")
 if os.path.isdir(evroot):
-    for name in os.listdir(evroot):
+    for name in sorted(os.listdir(evroot)):
+        if name not in round_ids:
+            continue
         rp = os.path.join(evroot, name, "receipt.json")
         if os.path.isfile(rp):
             try:
                 mc = json.load(open(rp, encoding="utf-8")).get("materials_commit")
             except Exception:
                 continue
-            if mc and mc != commit and name.startswith("H2-R"):
+            if mc and mc != commit:
                 mismatch.append(f"{name}:{mc[:10]}")
 print(f"{idx} {' '.join(not_collected)} MISMATCH={' '.join(mismatch) or 'none'}")
 PYEOF
@@ -188,12 +207,31 @@ fatal_alloc() {
 # in the worker's own receipt. A depth-1 independent repo contains only the task base, so
 # every other object is absent and the oracle is unreachable.
 git init -q "$WT" || fatal_alloc "WORKTREE_INIT_FAILED"
-git -C "$WT" fetch -q --depth=1 "file://$H2_WT" "$BASE_SHA" \
-  || fatal_alloc "WORKTREE_FETCH_FAILED base=$BASE_SHA (independent shallow repo)"
-git -C "$WT" checkout -q --detach FETCH_HEAD || fatal_alloc "WORKTREE_CHECKOUT_FAILED"
+# N3: --no-write-fetch-head. Without it git records "of file://<materials checkout>" in
+# .git/FETCH_HEAD, which sits inside the worker's allowed read surface; the worker could recover
+# the materials checkout path from it and then read the protocol, the oracle-bearing task
+# registry or the opposite-arm carrier directly, defeating the object-database isolation.
+# The checkout then detaches at BASE_SHA (the object the fetch just delivered) rather than at
+# FETCH_HEAD, which --no-write-fetch-head deliberately does not create.
+if ! git -C "$WT" fetch -q --depth=1 --no-write-fetch-head "file://$H2_WT" "$BASE_SHA" 2>/dev/null; then
+  # older git without the flag: fall back, then scrub the file so the path is not recoverable
+  git -C "$WT" fetch -q --depth=1 "file://$H2_WT" "$BASE_SHA" \
+    || fatal_alloc "WORKTREE_FETCH_FAILED base=$BASE_SHA (independent shallow repo)"
+  rm -f "$WT/.git/FETCH_HEAD"
+fi
+git -C "$WT" checkout -q --detach "$BASE_SHA" || fatal_alloc "WORKTREE_CHECKOUT_FAILED base=$BASE_SHA"
 # Prove the isolation rather than assuming it: the materials-era commit must be unreachable.
 if git -C "$WT" cat-file -e "$MATERIALS_COMMIT^{commit}" 2>/dev/null; then
   fatal_alloc "ODB_NOT_ISOLATED (the materials commit is present in the run worktree)"
+fi
+# ...and the materials CHECKOUT PATH must not be recoverable from any git metadata the worker
+# can read. This is a scan, not an assumption: a future git change that re-adds the URL would
+# otherwise silently reopen the leak.
+if grep -rIl -e "$H2_WT" -e "file://" "$WT/.git" 2>/dev/null | grep -q .; then
+  # .git/config legitimately records the remote for this repo; check every OTHER file too
+  if grep -rIl -e "$H2_WT" "$WT/.git" 2>/dev/null | grep -qv '\.git/config$'; then
+    fatal_alloc "SOURCE_PATH_LEAK (the materials checkout path is recoverable from .git metadata)"
+  fi
 fi
 ACTUAL="$(git -C "$WT" rev-parse HEAD)" || fatal_alloc "HEAD_UNREADABLE"
 if [ "$ACTUAL" != "$BASE_SHA" ]; then

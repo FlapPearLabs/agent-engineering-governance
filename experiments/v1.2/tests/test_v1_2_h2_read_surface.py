@@ -72,6 +72,11 @@ class ReadSurfaceFixture(unittest.TestCase):
         # the per-run copies prepare_run.sh is REQUIRED to place
         (self.ev / "contract.md").write_text("run contract\n", encoding="utf-8")
         (self.ev / "worker-report-template.md").write_text("report template\n", encoding="utf-8")
+        (self.ev / "report.md").write_text("worker report\n", encoding="utf-8")
+        # present but NOT on the allowlist: the enforced surface must be narrower than the
+        # directory, otherwise receipt.json / task.txt become readable and un-logged
+        (self.ev / "receipt.json").write_text("{}\n", encoding="utf-8")
+        (self.ev / "task.txt").write_text("task\n", encoding="utf-8")
         (self.other_ev / "worker-report-template.md").write_text("other run\n", encoding="utf-8")
 
     def tearDown(self):
@@ -93,22 +98,26 @@ class PositiveControl(ReadSurfaceFixture):
                 self.assertEqual((verdict, reason), (rs.ALLOWED, "OK"))
 
     def test_read_of_own_evidence_run_contract_is_allowed(self):
-        verdict, reason = self.classify(str(self.ev / "contract.md"))
+        verdict, reason = self.classify("RUN_EVIDENCE/contract.md")
         self.assertEqual((verdict, reason), (rs.ALLOWED, "OK"))
 
     def test_REGRESSION_contract_compliant_template_read_is_allowed(self):
         """The Round-1 defect: the worker reads the report template that prepare placed in
         its OWN evidence dir. Under the Round-1 predicate this was rejected."""
-        verdict, reason = self.classify(str(self.ev / "worker-report-template.md"))
+        verdict, reason = self.classify("RUN_EVIDENCE/worker-report-template.md")
         self.assertEqual(
             (verdict, reason),
             (rs.ALLOWED, "OK"),
             "a contract-compliant read of the run's own report template must be accepted",
         )
 
-    def test_absolute_path_to_own_evidence_template_is_allowed(self):
+    def test_absolute_path_is_refused_even_for_own_evidence(self):
+        """Codex finding (7ba6361): the old predicate used os.path.join(worktree, target),
+        which DISCARDS the worktree prefix for an absolute target, so any existing absolute
+        path passed; and a host path in this log is published, which the public-data policy
+        forbids. The form is now refused outright."""
         verdict, reason = self.classify(str(self.ev / "worker-report-template.md"))
-        self.assertEqual((verdict, reason), (rs.ALLOWED, "OK"))
+        self.assertEqual((verdict, reason), ("REJECTED", "HOST_PATH_NOT_ALLOWED"))
 
     def test_bare_name_has_a_determinate_base(self):
         """A bare relative path resolves against the task worktree ONLY. It must never be
@@ -117,6 +126,27 @@ class PositiveControl(ReadSurfaceFixture):
         verdict, reason = self.classify("worker-report-template.md")
         self.assertEqual(verdict, "REJECTED")
         self.assertEqual(reason, "OUTSIDE_ALLOWED_SURFACE")
+
+    def test_evidence_namespace_rejects_non_allowlisted_file(self):
+        """Codex finding (7ba6361, read_surface.py:83): the branch accepted EVERY regular
+        file under the evidence dir, so receipt.json / task.txt were readable. The surface
+        must be narrower than the directory."""
+        for name in ("receipt.json", "task.txt", "carrier-recheck.txt"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self.classify(f"RUN_EVIDENCE/{name}"),
+                    ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE"),
+                )
+
+    def test_evidence_namespace_rejects_traversal_and_subdirs(self):
+        self.assertEqual(
+            self.classify("RUN_EVIDENCE/../materials/protocol.md"),
+            ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE"),
+        )
+        self.assertEqual(
+            self.classify("RUN_EVIDENCE/sub/contract.md"),
+            ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE"),
+        )
 
 
 class NegativeControls(ReadSurfaceFixture):
@@ -128,16 +158,17 @@ class NegativeControls(ReadSurfaceFixture):
         self.assertEqual(got, reason, f"wrong rejection reason for {target!r}")
 
     def test_NC1_materials_root_read_rejected(self):
-        self._expect(str(self.mat / "protocol.md"), "MATERIALS_ROOT_READ")
+        # realistic vector: relative traversal out of the worktree into the materials tree
+        self._expect("../../materials/protocol.md", "MATERIALS_ROOT_READ")
 
     def test_NC1b_materials_warm_owner_read_rejected(self):
         """A routed WARM owner must be read from the run's H2_WARM copy, not the materials
         tree — otherwise the WARM copy the experiment measures is bypassed."""
-        self._expect(str(self.mat / "references" / "ticket-lane.md"), "MATERIALS_ROOT_READ")
+        self._expect("../../materials/references/ticket-lane.md", "MATERIALS_ROOT_READ")
 
     def test_NC2_cross_arm_carrier_read_rejected(self):
         self._expect(
-            str(self.mat / "carriers" / "H2_LEAN_BOOTSTRAP.md"), "CROSS_ARM_READ"
+            "../../materials/carriers/H2_LEAN_BOOTSTRAP.md", "CROSS_ARM_READ"
         )
 
     def test_NC4_unverifiable_abbreviated_path_rejected(self):
@@ -156,13 +187,13 @@ class NegativeControls(ReadSurfaceFixture):
 
     def test_NC5_other_run_evidence_read_rejected(self):
         self._expect(
-            str(self.other_ev / "worker-report-template.md"), "OTHER_RUN_EVIDENCE_READ"
+            "../../evidence/H2-R2-R02/worker-report-template.md", "OTHER_RUN_EVIDENCE_READ"
         )
 
     def test_outside_any_allowed_surface_rejected(self):
-        verdict, reason = self.classify("/etc/hosts")
+        verdict, reason = self.classify("../../elsewhere/hosts")
         self.assertEqual(verdict, "REJECTED")
-        self.assertIn(reason, rs.REJECT_REASONS)
+        self.assertEqual(reason, "OUTSIDE_ALLOWED_SURFACE")
 
     def test_missing_file_inside_worktree_rejected(self):
         self._expect("does-not-exist.md", "OUTSIDE_ALLOWED_SURFACE")
@@ -174,20 +205,27 @@ class NegativeControls(ReadSurfaceFixture):
         evil = self.tmp / "evidence" / f"{self.ev.name}-evil"
         evil.mkdir(parents=True, exist_ok=True)
         (evil / "worker-report-template.md").write_text("sibling\n", encoding="utf-8")
+        # repo-relative traversal, consistent with every other negative control: an ABSOLUTE
+        # path would be refused earlier as HOST_PATH_NOT_ALLOWED and would never reach the
+        # containment logic this test is about.
         verdict, reason = rs.classify_read_target(
-            str(evil / "worker-report-template.md"), self.wt, self.ev, self.mat
+            f"../../evidence/{self.ev.name}-evil/worker-report-template.md",
+            self.wt, self.ev, self.mat,
         )
         self.assertEqual(verdict, "REJECTED")
-        self.assertIn(reason, rs.REJECT_REASONS)
+        # EXACT reason: a sibling evidence dir is not "inside" this run's dir. A prefix test
+        # would classify it as inside, and would then still reject it for the wrong reason,
+        # which an assertIn(reason, REJECT_REASONS) would happily accept.
+        self.assertEqual(reason, "OTHER_RUN_EVIDENCE_READ")
 
 
 class TraversalAndSymlinkControls(ReadSurfaceFixture):
     """Path-normalisation bypasses must fail closed."""
 
     def test_relative_traversal_out_of_worktree_rejected(self):
-        verdict, reason = self.classify("../materials/protocol.md")
+        verdict, reason = self.classify("../../materials/protocol.md")
         self.assertEqual(verdict, "REJECTED")
-        self.assertIn(reason, rs.REJECT_REASONS)
+        self.assertEqual(reason, "MATERIALS_ROOT_READ")
 
     def test_symlink_inside_worktree_pointing_into_materials_rejected(self):
         link = self.wt / "shortcut.md"
@@ -199,7 +237,7 @@ class TraversalAndSymlinkControls(ReadSurfaceFixture):
             "shortcut.md", self.wt, self.ev, self.mat
         )
         self.assertEqual(verdict, "REJECTED", "a symlink must not launder a materials read")
-        self.assertIn(reason, rs.REJECT_REASONS)
+        self.assertEqual(reason, "MATERIALS_ROOT_READ")
 
     def test_symlinked_template_in_own_evidence_rejected(self):
         """The per-run template must be a real file, not a link to the materials tree."""
@@ -208,11 +246,26 @@ class TraversalAndSymlinkControls(ReadSurfaceFixture):
             link.symlink_to(self.mat / "references" / "ticket-lane.md")
         except OSError:
             self.skipTest("symlink creation unavailable")
+        # F55-N2: the previous version passed only the relative name, which resolves against
+        # the WORKTREE, so it merely rejected a nonexistent worktree file and never touched
+        # the symlink. The real link path must be passed, and the reason asserted exactly.
+        self.assertTrue(link.is_symlink(), "fixture must be a real symlink")
         verdict, reason = rs.classify_read_target(
-            "linked-template.md", self.wt, self.ev, self.mat
+            "RUN_EVIDENCE/linked-template.md", self.wt, self.ev, self.mat
         )
         self.assertEqual(verdict, "REJECTED")
-        self.assertIn(reason, rs.REJECT_REASONS)
+        self.assertEqual(
+            reason, "UNKNOWN_EVIDENCE_NAMESPACE",
+            "a non-allowlisted evidence name must be refused on the name itself",
+        )
+        # and the namespace that IS allowlisted must still refuse a link pointing at materials
+        (self.ev / "contract.md").unlink()
+        (self.ev / "contract.md").symlink_to(self.mat / "protocol.md")
+        verdict, reason = rs.classify_read_target(
+            "RUN_EVIDENCE/contract.md", self.wt, self.ev, self.mat
+        )
+        self.assertEqual(verdict, "REJECTED")
+        self.assertEqual(reason, "MATERIALS_ROOT_READ")
 
 
 class TelemetryIntegration(ReadSurfaceFixture):
@@ -222,15 +275,15 @@ class TelemetryIntegration(ReadSurfaceFixture):
         lines = [
             "READ FULL H2_RULES.md",
             "READ FULL CODEBUDDY.md",
-            f"READ FULL {self.ev / 'worker-report-template.md'}",
+            "READ FULL RUN_EVIDENCE/worker-report-template.md",
             "ROUTE n/a  codegraph-grounding.md  SKIPPED",
         ]
         self.assertEqual(rs.classify_telemetry(lines, self.wt, self.ev, self.mat), [])
 
     def test_batch_reports_each_violation_with_its_reason(self):
         lines = [
-            f"READ FULL {self.ev / 'worker-report-template.md'}",
-            f"READ FULL {self.mat / 'protocol.md'}",
+            "READ FULL RUN_EVIDENCE/worker-report-template.md",
+            "READ FULL ../../materials/protocol.md",
         ]
         problems = rs.classify_telemetry(lines, self.wt, self.ev, self.mat)
         self.assertEqual(len(problems), 1, problems)

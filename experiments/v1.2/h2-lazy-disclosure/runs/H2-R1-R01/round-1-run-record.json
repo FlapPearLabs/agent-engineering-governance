@@ -28,5 +28,18 @@
     "diffstat.txt",
     "status-after.txt"
   ],
-  "note": "Paths are placeholder-redacted; no machine-local absolute path is disclosed. The worker abbreviated the path with '...', which is itself PART 8 defect (d)."
+  "note": "Paths are placeholder-redacted; no machine-local absolute path is disclosed. The worker abbreviated the path with '...', which is itself PART 8 defect (d).",
+  "round_invalid_primary_cause": "GLOBAL_HARNESS_CONTRACT_DEFECT",
+  "worker_had_independent_contract_violation": true,
+  "worker_contract_violation_detail": {
+    "what": "the frozen run contract permitted writes only inside the task worktree plus the report path; the preserved worker report records that the worker created and modified /tmp copies for two verification experiments",
+    "evidence": "runs/H2-R1-R01/report.md (worker report, 'verification experiment' sections)",
+    "effect_on_round": "NOT REQUIRED to establish the round invalidity: the harness defect is independently sufficient. The violation is recorded rather than erased, because 'the worker was fully contract-compliant' would be false.",
+    "not_swept_into": "It is NOT counted as the cause, and NOT used to excuse the harness defect."
+  },
+  "episode": {
+    "worker_episode": "workbuddy-agent-8c1a4d7e2f94b60",
+    "auditor_episode": null,
+    "note": "The Round-1 attempt was a real executed episode. An INVALID run is not a nonexistent run: its identity is preserved so the global reuse check can refuse it in Round 2. Recorded from the orchestration record of that session; the harness could not have captured it because no run.json was produced."
+  }
 }

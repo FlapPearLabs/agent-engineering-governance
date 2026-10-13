@@ -23,20 +23,36 @@ rejected by the harness before any cell could be scored. Asserting `INSUFFICIENT
 here would falsely imply that a valid experiment ran and came back weak. The correct state is
 that the experiment never validly started.
 
-## Root cause (PART 4)
+## Root cause (PART 4) — stated against the code that actually ran
 
-```text
-CONTRACT says        : the worker should read <REPORT_TEMPLATE_PATH>
-REPORT_TEMPLATE_PATH : resolved into the FROZEN MATERIALS TREE
-TELEMETRY validator  : READ targets must resolve inside the run worktree
-therefore            : a CONTRACT-COMPLIANT worker is REJECTED by the harness
+The pre-repair collector did **not** categorically forbid targets outside the worktree. Its
+predicate was:
+
+```python
+if p != ".h2-telemetry.log" and not os.path.exists(os.path.join(wt, p)):
+    problems.append(...)
 ```
 
-The worker's only "violation" was obeying the contract. This is a **global harness contract
-defect**, not a worker error, not a task error, not an arm effect, and not a
-progressive-disclosure cost. It was discovered on the first run, but it is global by nature:
-it would have invalidated **every** run of Round 1, and it was invisible to every gate until a
-real worker executed the contract.
+`os.path.join(wt, "/abs/path")` **discards** the worktree prefix, so an existing ABSOLUTE path
+outside the worktree would have passed. The enforcement property must not be attributed to the
+old validator that it did not have.
+
+What was actually observed, and what it really means:
+
+```text
+observed failure       = the worker emitted an ABBREVIATED, non-resolvable telemetry path
+                         ("h2-materials/.../worker-report-template.md"), which exists neither
+                         relative to the worktree nor as written, so the exists() check failed
+underlying defect      = the contract REQUIRED a read of a file that had NO valid
+                         mechanically-accepted telemetry spelling at all: the template lived in
+                         the materials tree, the grammar had no host-path or namespace form for
+                         it, and the validator only accepted worktree-relative targets
+```
+
+So the contradiction is between the CONTRACT and the ACCEPTED SET, not between the contract and
+a strict outside-worktree ban. This distinction matters for the repair: the fix had to add a
+canonical spelling (a stable `RUN_EVIDENCE/<file>` namespace) and close the absolute-path hole
+that the old `os.path.join` predicate left open — not merely "reject paths outside the worktree".
 
 ## What is explicitly NOT concluded
 

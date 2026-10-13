@@ -111,21 +111,39 @@ else : > "$EV/telemetry.log"; fi
 
 # --- delivery + evidence re-check at collection (fail-closed) ---
 RECHECK="$EV/carrier-recheck.txt"
+MATERIALS_ROOT="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
+TPL_REL_ROUTES="routes-h2.json"
 RFAIL=0
 {
-  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$EXP_DIR/routes-h2.json" "$EXP_DIR/harness/read_surface.py" \
-          "$(git -C "$EXP_DIR" rev-parse --show-toplevel)" <<'PYEOF'
-import hashlib, importlib.util, json, os, re, subprocess, sys
+  "$PY" - "$EV/receipt.json" "$WT" "$EV" "$MATERIALS_ROOT" "$TPL_REL_ROUTES" <<'PYEOF'
+import hashlib, importlib.util, json, os, re, subprocess, sys, types
 receipt = json.load(open(sys.argv[1], encoding="utf-8"))
 wt, ev = sys.argv[2], sys.argv[3]
-routes_manifest = sys.argv[4]
-# single source of truth for the read surface (shared with the regression suite)
-_spec = importlib.util.spec_from_file_location("read_surface", sys.argv[5])
-rs = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(rs)
-# the frozen materials tree root is passed explicitly: it is NOT an ancestor of the run
-# worktree (separate checkouts), so it can never be inferred from the worktree path.
-materials_root = sys.argv[6]
+materials_root = sys.argv[4]
+# Codex finding (7ba6361): the collector must be evaluated with the HARNESS THAT WAS FROZEN for
+# this run, not with whatever happens to be in the checkout now. read_surface.py and
+# routes-h2.json are therefore loaded from the receipt's independently revalidated materials
+# commit; if the checkout has advanced, a more permissive later read-boundary must not be able
+# to make evidence pass that the frozen harness would reject.
+mc = receipt["materials_commit"]
+
+def _from_commit(relpath, label):
+    proc = subprocess.run(["git", "-C", materials_root, "show", f"{mc}:{relpath}"],
+                          capture_output=True)
+    if proc.returncode != 0:
+        print(f"TEMPLATE_BINDING = FAIL cannot load {label} from the frozen materials commit")
+        raise SystemExit(1)
+    return proc.stdout
+
+routes_manifest = _from_commit("experiments/v1.2/h2-lazy-disclosure/routes-h2.json",
+                               "routes-h2.json")
+rs_src = _from_commit("experiments/v1.2/h2-lazy-disclosure/harness/read_surface.py",
+                      "read_surface.py")
+rs = types.ModuleType("read_surface_from_frozen_commit")
+rs.__dict__["__file__"] = f"<frozen:{mc}:read_surface.py>"
+exec(compile(rs_src.decode("utf-8"), "<frozen read_surface.py>", "exec"), rs.__dict__)
+
+routes = json.loads(routes_manifest.decode("utf-8"))["routes"]
 fail = 0
 
 def sha(path):
@@ -155,7 +173,7 @@ else:
     report("CARRIER_RECHECK(H2_RULES.md)", False, "missing at collection")
 
 # 3. WARM bundle (both arms): exact recursive file set + digest over the expected destinations
-routes = json.load(open(routes_manifest, encoding="utf-8"))["routes"]
+routes = json.loads(routes_manifest.decode("utf-8"))["routes"]
 dests = sorted({r["destination"] for r in routes if r.get("surface") == "S3"})
 bundle_root = os.path.join(wt, "H2_WARM")
 found = set()
@@ -256,7 +274,7 @@ TPL_REL="experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
 tpl = os.path.join(ev, "worker-report-template.md")
 src_h = receipt.get("report_template_source_sha256")
 run_h = receipt.get("report_template_run_sha256")
-# materials_root is argv[6] — the frozen checkout, passed explicitly because it is NOT an
+# materials_root is argv[4] — the frozen checkout, passed explicitly because it is NOT an
 # ancestor of the run worktree and cannot be derived from any path inside the runs root.
 frozen = subprocess.run(["git", "-C", materials_root, "show", f"{receipt['materials_commit']}:{TPL_REL}"],
                         capture_output=True)

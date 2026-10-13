@@ -286,35 +286,11 @@ class RunPlanConsistency(unittest.TestCase):
             "t01/t02 (single-rep) must alternate their first arm across tasks",
         )
 
-    def test_run_registry_md_rows_match_plan_exactly(self):
-        """R11-6: the registry table IS the human-visible execution authority; a stale or
-        edited row must not be able to assign the wrong task/arm/rep/block while the suite
-        stays green. Compare the COMPLETE ordered tuple of every frozen column (#, RUN_ID,
-        TASK, ARM, REP, BLOCK) against run-plan.json, row for row."""
-        text = _read(RUN_REGISTRY_MD)
-        plan = json.loads(_read(RUN_PLAN))
-        rows = []
-        for line in text.splitlines():
-            line = line.strip()
-            if not line.startswith("|"):
-                continue
-            cells = [c.strip() for c in line.strip("|").split("|")]
-            if len(cells) < 6 or not cells[0].isdigit():
-                continue  # header / separator
-            rows.append(cells)
-        self.assertEqual(
-            len(rows), len(plan),
-            f"run-registry.md has {len(rows)} data rows but the frozen plan has {len(plan)}",
-        )
-        for cells, want in zip(rows, plan):
-            num, rid, task, arm, rep, block = cells[:6]
-            got = (int(num), rid, task, arm, int(rep), int(block))
-            expect = (
-                plan.index(want) + 1, want["run_id"], want["task_id"],
-                want["arm"], int(want["rep"]), int(want["block"]),
-            )
-            self.assertEqual(got, expect, f"run-registry.md row {num} disagrees with the frozen plan")
-
+    # The registry now has TWO authoritative tables (Round 1 terminal + Round 2 frozen).
+    # Full row-for-row comparison, terminal-state checks and cross-round id disjointness live
+    # in experiments/v1.2/tests/test_v1_2_h2_run_registry.py, which asserts strictly more
+    # than the row-shape test that used to sit here (and which could not survive a second
+    # table). Retired rather than weakened.
     def test_run_ids_appear_in_run_registry_md(self):
         text = _read(RUN_REGISTRY_MD)
         plan = json.loads(_read(RUN_PLAN))

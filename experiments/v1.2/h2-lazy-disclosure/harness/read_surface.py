@@ -1,43 +1,93 @@
 #!/usr/bin/env python3
 """H2 harness — read-surface classification for telemetry READ events (single source of truth).
 
-Extracted from collect_run.sh's inline TELEMETRY_TARGETS predicate. Initially a
-BEHAVIOUR-PRESERVING extraction (worktree-only), which is what reproduces the Round-1
-defect: a contract-compliant worker that reads the report template placed in the run's own
-evidence dir is rejected, because the template used to live in the materials tree.
+Extracted from collect_run.sh's inline TELEMETRY_TARGETS predicate. Introduced by the Round-1
+repair: the old predicate accepted only worktree-relative targets, so a contract-compliant
+worker that read the report template was rejected by its own harness.
 
-MINIMUM NECESSARY READ SURFACE (PART 7): a worker may read
-  * inside its own task worktree, and
-  * the current run's own evidence directory (its contract, its report template copy).
-Nothing else. In particular the materials tree root is NOT readable: it also holds the
-protocol, the task registry, the scoring rubric and BOTH arm carriers, so an open
-materials root would allow cross-arm contamination and destroy the H2 independent variable.
+CANONICAL PATH SPELLINGS (deterministic by construction, and free of host layout)
+-------------------------------------------------------------------------------------
+1. A file in the task worktree is recorded REPO-RELATIVE:            `CODEBUDDY.md`
+2. A file in this run's evidence directory is recorded through a    `RUN_EVIDENCE/contract.md`
+   STABLE NAMESPACE (never a host path).
+Absolute paths are REFUSED. A telemetry log is collected into the run record and published, so
+an absolute path would write a real host path into a committed artifact — which the repository's
+public-data policy forbids. It would also silently defeat the old predicate's join() behaviour:
+`os.path.join(worktree, "/abs/path")` discards the worktree prefix, so any existing absolute
+path used to pass. Refusing the form outright removes that whole class.
 
-Verdicts are (verdict, reason) pairs; reasons are stable machine tokens so tests and the
-precondition evidence can assert on them.
+MINIMUM NECESSARY READ SURFACE (PART 7)
+---------------------------------------
+Allowed: the task worktree, plus this run's evidence directory — and within the latter only the
+specific files the contract designates. The materials tree root is NOT readable: it also holds
+the protocol, the task registry (which carries the oracle), the scoring rubric and BOTH arm
+carriers, so an open materials root would permit cross-arm contamination and void the H2
+independent variable.
+
+Verdicts are (verdict, reason) pairs; the reason tokens are stable machine strings so tests and
+the precondition evidence can assert on them.
 """
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 ALLOWED = "ALLOWED"
 
+# Stable namespace prefix for evidence-directory files. Deliberately not a path: it carries no
+# host layout and is resolved against THIS run's evidence dir by the collector.
+EVIDENCE_NS = "RUN_EVIDENCE/"
+
+# The only evidence-directory files a worker may legitimately read. The contract designates its
+# own contract and its report-template copy; its own report is readable for self-consistency.
+# `receipt.json`, `task.txt` and collector outputs are deliberately absent: allowing the whole
+# directory would make the enforced surface broader than the declared minimum.
+EVIDENCE_ALLOWLIST = ("contract.md", "worker-report-template.md", "report.md")
+
 REJECT_REASONS = (
-    "NON_CANONICAL_PATH",       # contains an ellipsis / cannot be resolved to a real file
-    "MATERIALS_ROOT_READ",      # inside the frozen materials tree (protocol/carriers/registry)
-    "CROSS_ARM_READ",           # the OTHER arm's carrier
-    "OTHER_RUN_EVIDENCE_READ",  # a sibling run's evidence directory
-    "OUTSIDE_ALLOWED_SURFACE",  # anywhere else
+    "NON_CANONICAL_PATH",           # ellipsis / whitespace padding / empty
+    "HOST_PATH_NOT_ALLOWED",        # absolute path: leaks host layout into a published artifact
+    "UNKNOWN_EVIDENCE_NAMESPACE",   # RUN_EVIDENCE/... naming a file that is not on the allowlist
+    "MATERIALS_ROOT_READ",          # inside the frozen materials tree (protocol/carriers/registry)
+    "CROSS_ARM_READ",               # the OTHER arm's carrier
+    "OTHER_RUN_EVIDENCE_READ",      # a sibling run's evidence directory
+    "OUTSIDE_ALLOWED_SURFACE",      # anywhere else, or a path that does not exist
 )
 
 
 def _is_within(path: Path, root: Path) -> bool:
+    """Component-wise containment. A string-prefix test would let a sibling directory whose
+    name merely starts with the root's name pass; that mutation is pinned by a test."""
     try:
         path.relative_to(root)
     except ValueError:
         return False
     return True
+
+
+def _boundary_reason(resolved: Path, wt: Path, ev: Path, mat: Path) -> str | None:
+    """Classify an ALREADY-RESOLVED path against the boundary roots.
+
+    Resolution happens first so that a symlink cannot launder a forbidden destination: the
+    verdict always describes where the bytes actually live, never where the name pointed.
+    Shared by both accepted spellings so the two cannot drift.
+    """
+    if _is_within(resolved, mat):
+        rel = resolved.relative_to(mat).parts
+        return "CROSS_ARM_READ" if "carriers" in rel else "MATERIALS_ROOT_READ"
+    if _is_within(resolved, ev):
+        return None
+    if _is_within(resolved, wt):
+        return None if resolved.is_file() else "OUTSIDE_ALLOWED_SURFACE"
+    # a sibling run's evidence directory is recognised by path shape: it is outside the
+    # allowlist, and naming the reason keeps the evidence readable without leaking paths.
+    parts = resolved.parts
+    if "evidence" in parts:
+        idx = parts.index("evidence")
+        if idx + 1 < len(parts) and parts[idx + 1] != ev.name:
+            return "OTHER_RUN_EVIDENCE_READ"
+    return "OUTSIDE_ALLOWED_SURFACE"
 
 
 def classify_read_target(
@@ -47,14 +97,7 @@ def classify_read_target(
     materials_root: str | os.PathLike,
     telemetry_name: str = ".h2-telemetry.log",
 ) -> tuple[str, str]:
-    """Classify one READ target. Returns (ALLOWED, "OK") or ("REJECTED", <stable reason>).
-
-    The allowed surface is deliberately the MINIMUM NECESSARY one (PART 7): the task
-    worktree plus this run's own evidence directory. The materials tree root is never
-    readable — it also holds the protocol, the task registry, the scoring rubric and BOTH
-    arm carriers, so opening it would allow cross-arm contamination and void the H2
-    independent variable.
-    """
+    """Classify one READ target. Returns (ALLOWED, "OK") or ("REJECTED", <stable reason>)."""
     wt = Path(worktree).resolve()
     ev = Path(evidence_dir).resolve()
     mat = Path(materials_root).resolve()
@@ -62,40 +105,38 @@ def classify_read_target(
     if target == telemetry_name:
         return (ALLOWED, "OK")
 
-    # PART 8: a machine-readable path must be canonicalizable. An abbreviated path such as
-    # "h2-materials/.../worker-report-template.md" cannot be verified against anything, so it
-    # is rejected rather than pattern-matched into looking legitimate.
-    if "..." in target or target.strip() != target or not target.strip():
+    if not target.strip() or target.strip() != target or "..." in target:
         return ("REJECTED", "NON_CANONICAL_PATH")
 
     p = Path(target)
-    # Deterministic base (PART 8): a bare relative path resolves against the TASK WORKTREE
-    # only. A file in this run's evidence directory has no worktree-relative spelling, so it
-    # must be logged as an absolute path — resolving one bare name against two different
-    # roots would make the recorded event ambiguous, and publish_run.sh rewrites the absolute
-    # form to a placeholder at publication so no local path leaks either way.
-    # resolve() follows symlinks, so a link inside the worktree cannot launder a materials
-    # read; existence is checked on the RESOLVED path.
-    resolved = p.resolve() if p.is_absolute() else (wt / p).resolve()
+    if p.is_absolute():
+        return ("REJECTED", "HOST_PATH_NOT_ALLOWED")
 
-    # most specific verdict first, so the recorded reason is diagnostic rather than generic
+    # ---- evidence namespace (host-free, allowlisted by file name) ----
+    if target.startswith(EVIDENCE_NS):
+        name = target[len(EVIDENCE_NS):]
+        if name not in EVIDENCE_ALLOWLIST or "/" in name:
+            return ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE")
+        resolved = (ev / name).resolve()
+        reason = _boundary_reason(resolved, wt, ev, mat)
+        if reason is not None:
+            # an ALLOWLISTED name that is a symlink into the materials tree lands here, and is
+            # reported with the real boundary reason rather than a generic miss
+            return ("REJECTED", reason)
+        return (ALLOWED, "OK") if resolved.is_file() else ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
+
+    # ---- repo-relative inside the task worktree ----
+    resolved = (wt / p).resolve()
+    reason = _boundary_reason(resolved, wt, ev, mat)
+    if reason is not None:
+        return ("REJECTED", reason)
     if _is_within(resolved, ev):
-        return (ALLOWED, "OK") if resolved.is_file() else ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
-    if _is_within(resolved, mat):
-        if "carriers" in resolved.relative_to(mat).parts:
-            return ("REJECTED", "CROSS_ARM_READ")
-        return ("REJECTED", "MATERIALS_ROOT_READ")
-    if _is_within(resolved, wt):
-        return (ALLOWED, "OK") if resolved.is_file() else ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
+        # reached the evidence dir by traversal instead of the stable namespace
+        return ("REJECTED", "UNKNOWN_EVIDENCE_NAMESPACE")
+    return (ALLOWED, "OK") if resolved.is_file() else ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
 
-    # a sibling run's evidence directory is recognised by path shape: it is outside the
-    # allowlist, and naming the reason keeps the evidence readable without leaking paths.
-    parts = resolved.parts
-    if "evidence" in parts:
-        idx = parts.index("evidence")
-        if idx + 1 < len(parts) and parts[idx + 1] != ev.name:
-            return ("REJECTED", "OTHER_RUN_EVIDENCE_READ")
-    return ("REJECTED", "OUTSIDE_ALLOWED_SURFACE")
+
+_READ_RE = re.compile(r"^READ\s+(FULL|PARTIAL|GREP)\s+(\S+)$")
 
 
 def classify_telemetry(
@@ -104,19 +145,14 @@ def classify_telemetry(
     evidence_dir: str | os.PathLike,
     materials_root: str | os.PathLike,
 ) -> list[str]:
-    """Return a list of problem strings for every disallowed READ target in the log."""
-    import re
-
+    """Return one problem string per disallowed READ target in the log."""
     problems: list[str] = []
     for raw in lines:
-        ln = raw.strip()
-        m = re.match(r"^READ\s+(FULL|PARTIAL|GREP)\s+(\S+)$", ln)
+        m = _READ_RE.match(raw.strip())
         if not m:
             continue
         target = m.group(2)
-        verdict, reason = classify_read_target(
-            target, worktree, evidence_dir, materials_root
-        )
+        verdict, reason = classify_read_target(target, worktree, evidence_dir, materials_root)
         if verdict != ALLOWED:
             problems.append(f"READ target rejected ({reason}): {target}")
     return problems
