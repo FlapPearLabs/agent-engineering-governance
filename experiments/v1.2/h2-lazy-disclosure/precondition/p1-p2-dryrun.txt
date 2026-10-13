@@ -782,3 +782,49 @@ documented.
   (e) every input publish consumes is bound to the successful collect that produced it. The
   worker's legitimate write surface remains the judged FILES themselves (that is the measurement)
   plus, outside the contract boundary, the same-UID sandbox caveat above.
+
+--- [24] fresh adversarial review on d2c9b99 (EXECUTING; 1 x P0 + 1 x P1 + 2 x P2) + round-9 ---
+This review round could run commands and DEMONSTRATED every finding end-to-end (acceptance PASS,
+COLLECT_RUN OK with a 0-byte diff.patch, PUBLISH_RUN OK — all over a fabricated change surface).
+Each was independently reproduced here before the fix, and each fix carries its own control.
+
+· P0 — replace refs: the guard only read the LOOSE refs/replace directory; `git pack-refs --all`
+  moves a replace ref into packed-refs, after which `git replace` substituted the FROZEN BASE
+  OBJECT itself (the base blob resolved to attacker content; ruff.toml tamper undetected). Fixes:
+  (a) the guard enumerates via `git replace -l` (covers packed; run with GIT_NO_REPLACE_OBJECTS
+  temporarily unset so listing always sees them); (b) EVERY judgement command exports
+  GIT_NO_REPLACE_OBJECTS=1, so even an unseen replace ref cannot substitute objects. Controls:
+  loose replace -> TAMPERED (replace_refs(1)); after `git pack-refs --all` -> STILL TAMPERED;
+  belt demonstrated (with a replace present, the pinned command reads the TRUE blob 5e1a8244…
+  while the unpinned one does not); delete -> OK.
+· P1 — GIT_CONFIG_PARAMETERS is honoured AFTER the GIT_CONFIG_COUNT pins and no script cleared it:
+  one exported variable restored core.hooksPath and the planted post-index-change hook FIRED
+  during a real collect step (the reviewer's PWNED reproduction; raw vector re-confirmed here).
+  Fix: STRUCTURAL env sanitization — every one of the six scripts re-execs itself under `env -i`
+  (PATH/HOME/LANG/TERM + the run's own variables) unless a sanitization marker is present AND no
+  GIT_* variable remains in the environment (so forging the marker while injecting GIT_* simply
+  re-sanitizes). Controls: with PARAMETERS set (and with marker forged + PARAMETERS set) the hook
+  does NOT fire and the scripts run honestly; the raw vector still fires, showing the vector was
+  real. The re-exec pass-list preserves H2_RUNS_ROOT, PY and the operator's WORKER_MODEL /
+  WORKER_EPISODE / AUDITOR_EPISODE. CAUGHT BY THIS ROUND'S OWN POSITIVE CONTROL: the first pass
+  list dropped those three, which made publish report MISSING_MODEL_EVIDENCE on the honest path —
+  a regression of exactly the kind the positive controls exist to catch; fixed and re-verified
+  (full honest chain green, publish rc=0).
+· P2 — the guard's config listing was fail-open: a failed read (e.g. GIT_CONFIG pointing elsewhere
+  producing "only one config file at a time") was silently treated as "no local config". Fix:
+  the listing is rc-checked (failure -> config_unreadable, TAMPERED); and the env sanitization
+  removes GIT_CONFIG before the guard's own reads. Control: GIT_CONFIG set + a real filter in
+  .git/config -> TAMPERED via the real config; clean worktree + GIT_CONFIG -> OK.
+· P2 — publish's ACCEPTANCE_MARKERS_MISSING regex was unanchored while the composer's is
+  anchored: `=== RC=7 (tee=1) === trailing junk` passed the gate but parsed to an all-green
+  record. Fix: the assertion uses the composer's exact formats
+  (`^=== RC=-?[0-9]+( \(tee=-?[0-9]+\))? ===$`). Controls: trailing-junk -> rc=3; good modern
+  marker -> rc=0; legacy `=== RC=3 ===` still parses to [3].
+· Remaining known boundary (stated, not hidden): a caller that wholly controls the process
+  environment (PATH hijack, loader injection) can still subvert any in-process tool — no
+  cryptographic separation exists at the same UID. The structural sanitization closes the entire
+  demonstrated GIT_*/env-config class; the enforcement points for experimental validity remain
+  operator-run collect (env sanitized there too) and independent review.
+· Also noted: [23]'s claim that the guard covers "refs/replace" was written before this review
+  showed packed refs evade the directory scan; the corrected statement is above ([23] kept
+  unedited as the record of what was believed then).

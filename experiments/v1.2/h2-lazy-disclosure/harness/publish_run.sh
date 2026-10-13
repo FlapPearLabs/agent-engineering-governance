@@ -3,6 +3,24 @@
 # Copies a run's durable evidence into the repo-tracked runs/<RUN_ID>/ record (R2-sanitized):
 #   report.md, acceptance.txt, carrier-recheck.txt, telemetry.log -> telemetry.json, run.json
 # Safe to re-run (idempotent overwrite); refuses to publish when the evidence dir is absent.
+# ---------------------------------------------------------------------------------------------
+# STRUCTURAL ENV SANITIZATION (fresh review on d2c9b99, P1-1/P2-1): the caller's environment is
+# re-created from scratch (env -i) before ANY git invocation, so the whole GIT_* injection class
+# — GIT_CONFIG_PARAMETERS (applied AFTER the GIT_CONFIG_COUNT pins and previously honoured),
+# GIT_CONFIG, GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY/alternates, namespaces —
+# cannot reach the judgement commands. The branch is taken when the marker is absent OR when any
+# GIT_* variable is still present (so forging the marker while injecting GIT_* re-sanitizes
+# anyway). A caller that fully controls the process environment (PATH hijack, loader injection)
+# remains the documented same-UID boundary; the enforcement points are operator-run collect and
+# independent review.
+if [ "${H2_ENV_SANITIZED:-}" != "1" ] || env | grep -q '^GIT_'; then
+  exec env -i PATH="$PATH" HOME="$HOME" LANG="${LANG:-C}" LC_ALL="${LC_ALL:-C}" \
+       TERM="${TERM:-dumb}" H2_ENV_SANITIZED=1 PY="${PY:-}" \
+       H2_RUNS_ROOT="${H2_RUNS_ROOT:-}" \
+       WORKER_MODEL="${WORKER_MODEL:-}" WORKER_EPISODE="${WORKER_EPISODE:-}" \
+       AUDITOR_EPISODE="${AUDITOR_EPISODE:-}" bash "$0" "$@"
+fi
+
 set -u
 # Fresh adversarial review on 9f8e4ee (P3): `git -C <path>` resolves through GIT_DIR/GIT_WORK_TREE
 # from the environment; clear them so path resolution cannot be redirected by a wrapper.
@@ -20,6 +38,11 @@ export GIT_CONFIG_KEY_2=status.showUntrackedFiles GIT_CONFIG_VALUE_2=all
 export GIT_CONFIG_KEY_3=core.attributesFile       GIT_CONFIG_VALUE_3=/dev/null
 export GIT_CONFIG_KEY_4=core.excludesFile         GIT_CONFIG_VALUE_4=/dev/null
 export GIT_ATTR_NOSYSTEM=1
+# replacement objects (git replace) are disabled for EVERY judgement command: even a replace ref
+# that the metadata guard failed to see cannot substitute the commits these commands compare
+# (fresh review on d2c9b99, P0 — pack-refs hid a replace ref from the guard and made the base
+# object itself resolve to attacker content).
+export GIT_NO_REPLACE_OBJECTS=1
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXP_DIR="$(cd "$HERE/.." && pwd)"
 PY="${PY:-python3}"
@@ -152,7 +175,7 @@ case "$EVID" in
 esac
 # worst-input-must-not-pass (fresh review on 61bfbac, P1-4): an acceptance file with NO RC marker
 # parsed to `fails = []` and was recorded as an all-green acceptance.
-if ! grep -qE '^=== RC=-?[0-9]+' "$EV/acceptance.txt"; then
+if ! grep -qE '^=== RC=-?[0-9]+( \(tee=-?[0-9]+\))? ===$' "$EV/acceptance.txt"; then
   echo "PUBLISH_REFUSED reason=ACCEPTANCE_MARKERS_MISSING (acceptance.txt contains no '=== RC=' marker; refusing to record it as a passing acceptance)"
   exit 3
 fi

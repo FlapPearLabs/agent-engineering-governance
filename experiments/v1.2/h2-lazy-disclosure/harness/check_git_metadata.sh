@@ -12,6 +12,24 @@
 #
 # Output: one line `GIT_METADATA = OK` or `GIT_METADATA = TAMPERED (<reasons>)`.
 # Exit:   0 = OK, 1 = tampered, 2 = unreadable worktree (fail-closed: callers must refuse).
+# ---------------------------------------------------------------------------------------------
+# STRUCTURAL ENV SANITIZATION (fresh review on d2c9b99, P1-1/P2-1): the caller's environment is
+# re-created from scratch (env -i) before ANY git invocation, so the whole GIT_* injection class
+# — GIT_CONFIG_PARAMETERS (applied AFTER the GIT_CONFIG_COUNT pins and previously honoured),
+# GIT_CONFIG, GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY/alternates, namespaces —
+# cannot reach the judgement commands. The branch is taken when the marker is absent OR when any
+# GIT_* variable is still present (so forging the marker while injecting GIT_* re-sanitizes
+# anyway). A caller that fully controls the process environment (PATH hijack, loader injection)
+# remains the documented same-UID boundary; the enforcement points are operator-run collect and
+# independent review.
+if [ "${H2_ENV_SANITIZED:-}" != "1" ] || env | grep -q '^GIT_'; then
+  exec env -i PATH="$PATH" HOME="$HOME" LANG="${LANG:-C}" LC_ALL="${LC_ALL:-C}" \
+       TERM="${TERM:-dumb}" H2_ENV_SANITIZED=1 PY="${PY:-}" \
+       H2_RUNS_ROOT="${H2_RUNS_ROOT:-}" \
+       WORKER_MODEL="${WORKER_MODEL:-}" WORKER_EPISODE="${WORKER_EPISODE:-}" \
+       AUDITOR_EPISODE="${AUDITOR_EPISODE:-}" bash "$0" "$@"
+fi
+
 set -u
 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
 # Command-scope pins, set AFTER the caller's environment (overwriting any caller-provided
@@ -27,6 +45,11 @@ export GIT_CONFIG_KEY_2=status.showUntrackedFiles GIT_CONFIG_VALUE_2=all
 export GIT_CONFIG_KEY_3=core.attributesFile       GIT_CONFIG_VALUE_3=/dev/null
 export GIT_CONFIG_KEY_4=core.excludesFile         GIT_CONFIG_VALUE_4=/dev/null
 export GIT_ATTR_NOSYSTEM=1
+# replacement objects (git replace) are disabled for EVERY judgement command: even a replace ref
+# that the metadata guard failed to see cannot substitute the commits these commands compare
+# (fresh review on d2c9b99, P0 — pack-refs hid a replace ref from the guard and made the base
+# object itself resolve to attacker content).
+export GIT_NO_REPLACE_OBJECTS=1
 WT="${1:?usage: check_git_metadata.sh <WORKTREE>}"
 
 if ! git -C "$WT" rev-parse --git-dir >/dev/null 2>&1; then
@@ -73,24 +96,31 @@ if [ -d "$GD_REAL/hooks" ]; then
   fi
 fi
 
-# 3. object-graph rewriting: `git replace` refs and info/grafts change what HEAD/commits MEAN
-#    without touching the worktree, so status/diff would compare against substituted trees.
-if [ -d "$GD_REAL/refs/replace" ]; then
-  rp="$(find "$GD_REAL/refs/replace" -maxdepth 1 -type f 2>/dev/null | head -1 || true)"
-  [ -n "$rp" ] && reasons="$reasons refs_replace"
-fi
+# 3. object-graph rewriting: `git replace` refs (LOOSE **or PACKED** — `git pack-refs` moves them
+#    into packed-refs, so the old directory-only check was blind; fresh review on d2c9b99, P0)
+#    and info/grafts change what HEAD/commits MEAN without touching the worktree.
+rp="$(env -u GIT_NO_REPLACE_OBJECTS git -C "$WT" replace -l 2>/dev/null | head -2 || true)"
+[ -n "$rp" ] && reasons="$reasons replace_refs($(printf '%s\n' "$rp" | wc -l | tr -d ' '))"
 [ -s "$GD_REAL/info/grafts" ] && reasons="$reasons info_grafts"
 
 # 4. local config: filters, includes (include.path AND includeIf.*), work-tree/exclude/attribute
 #    redirection, hook/fsmonitor overrides, status filtering, path quoting, sparse checkout.
 #    Matched case-insensitively over `config --local --list` because --get-regexp with an
 #    anchored pattern MISSES includeIf (verified empirically) and key casing varies.
-loc="$(git -C "$WT" config --local --list 2>/dev/null \
-       | grep -iE '^(filter\.|include|core\.(worktree|excludesfile|attributesfile|hookspath|fsmonitor|quotepath|sparsecheckout)|status\.)' \
-       | head -3 || true)"
-if [ -n "$loc" ]; then
-  key="$(printf '%s\n' "$loc" | head -1 | cut -d'=' -f1)"
-  reasons="$reasons local_config($key)"
+#    The listing is rc-checked: a FAILED read (e.g. GIT_CONFIG pointing elsewhere, causing
+#    "only one config file at a time") previously read as "no local config" — fail-open
+#    (fresh review on d2c9b99, P2).
+_list="$(git -C "$WT" config --local --list 2>/dev/null)"; _lrc=$?
+if [ "$_lrc" -ne 0 ]; then
+  reasons="$reasons config_unreadable(rc=$_lrc)"
+else
+  loc="$(printf '%s\n' "$_list" \
+         | grep -iE '^(filter\.|include|core\.(worktree|excludesfile|attributesfile|hookspath|fsmonitor|quotepath|sparsecheckout)|status\.)' \
+         | head -3 || true)"
+  if [ -n "$loc" ]; then
+    key="$(printf '%s\n' "$loc" | head -1 | cut -d'=' -f1)"
+    reasons="$reasons local_config($key)"
+  fi
 fi
 
 # 3. per-repo info/exclude or info/attributes with substantive content
