@@ -139,7 +139,7 @@ if base:
     head = subprocess.run(["git", "-C", wt, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     if head != base:
         # --no-renames: a committed rename must expose BOTH sides (source delete + dest add) — R8-7
-        d = subprocess.run(["git", "-C", wt, "diff", "--name-status", "--no-renames", "-z", base],
+        d = subprocess.run(["git", "-C", wt, "diff", "--no-ext-diff", "--name-status", "--no-renames", "-z", base],
                            capture_output=True)
         # fresh review on 9c5f059 (P2): an unchecked rc turned a FAILED diff (bad base object,
         # broken config) into an EMPTY committed-change set — silently hiding every commit.

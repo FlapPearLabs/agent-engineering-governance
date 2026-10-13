@@ -117,7 +117,7 @@ while i < len(parts):
 
 committed_paths = set()
 if base:
-    d = run("git", "-C", wt, "diff", "--name-only", "--no-renames", base)
+    d = run("git", "-C", wt, "diff", "--no-ext-diff", "--name-only", "--no-renames", base)
     if d.returncode != 0:
         print("__GIT_FAIL__ base"); raise SystemExit(0)
     committed_paths = {p for p in d.stdout.decode("utf-8", errors="replace").splitlines() if p}

@@ -96,11 +96,24 @@ if [ -d "$GD_REAL/hooks" ]; then
   fi
 fi
 
+# 2b. worktree-scoped config: `.git/config.worktree` (extensions.worktreeConfig) is a SECOND
+#     local config file the `--local --list` read does not cover — unpinned keys there (fileMode,
+#     diff.external, filters, ...) escaped both detection and the command-scope pins (fresh review
+#     on 57fb787, P1). The harness never enables the extension, so its presence is tampering.
+if [ -f "$GD_REAL/config.worktree" ]; then
+  reasons="$reasons config_worktree"
+fi
+
 # 3. object-graph rewriting: `git replace` refs (LOOSE **or PACKED** — `git pack-refs` moves them
 #    into packed-refs, so the old directory-only check was blind; fresh review on d2c9b99, P0)
 #    and info/grafts change what HEAD/commits MEAN without touching the worktree.
-rp="$(env -u GIT_NO_REPLACE_OBJECTS git -C "$WT" replace -l 2>/dev/null | head -2 || true)"
-[ -n "$rp" ] && reasons="$reasons replace_refs($(printf '%s\n' "$rp" | wc -l | tr -d ' '))"
+_rpl="$(env -u GIT_NO_REPLACE_OBJECTS git -C "$WT" replace -l 2>/dev/null)"; _rrc=$?
+if [ "$_rrc" -ne 0 ]; then
+  reasons="$reasons replace_listing_unreadable(rc=$_rrc)"
+else
+  rp="$(printf '%s\n' "$_rpl" | sed '/^$/d' | head -2 || true)"
+  [ -n "$rp" ] && reasons="$reasons replace_refs($(printf '%s\n' "$rp" | wc -l | tr -d ' '))"
+fi
 [ -s "$GD_REAL/info/grafts" ] && reasons="$reasons info_grafts"
 
 # 4. local config: filters, includes (include.path AND includeIf.*), work-tree/exclude/attribute
@@ -115,7 +128,7 @@ if [ "$_lrc" -ne 0 ]; then
   reasons="$reasons config_unreadable(rc=$_lrc)"
 else
   loc="$(printf '%s\n' "$_list" \
-         | grep -iE '^(filter\.|include|core\.(worktree|excludesfile|attributesfile|hookspath|fsmonitor|quotepath|sparsecheckout)|status\.)' \
+         | grep -iE '^(filter\.|include|core\.(worktree|excludesfile|attributesfile|hookspath|fsmonitor|quotepath|sparsecheckout)|status\.|diff\.|extensions\.)' \
          | head -3 || true)"
   if [ -n "$loc" ]; then
     key="$(printf '%s\n' "$loc" | head -1 | cut -d'=' -f1)"

@@ -153,7 +153,8 @@ if m.get("run_id") != rid or m.get("collect") != "OK":
 # collected must be unchanged; a file that APPEARED after collection is refused as UNBOUND.
 checks = [("collect-summary.txt", "summary_sha256"), ("carrier-recheck.txt", "recheck_sha256"),
           ("telemetry.log", "telemetry_sha256"), ("report.md", "report_sha256"),
-          ("acceptance.txt", "acceptance_sha256")]
+          ("acceptance.txt", "acceptance_sha256"),
+          ("acceptance-operator.txt", "acceptance_operator_sha256")]
 for name, key in checks:
     p = os.path.join(ev, name)
     bound = m.get(key) or ""

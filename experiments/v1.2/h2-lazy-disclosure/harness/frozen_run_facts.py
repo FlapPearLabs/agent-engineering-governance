@@ -56,6 +56,14 @@ def main() -> int:
     if len(sys.argv) != 3:
         print("usage: frozen_run_facts.py <EXP_DIR> <RUN_ID>", file=sys.stderr)
         return 3
+    # fresh review on 57fb787 (P3): direct invocation must not resolve the repo through a
+    # caller-controlled environment (GIT_DIR, config parameter env, replace objects, attributes).
+    for _k in [k for k in list(os.environ) if k.startswith("GIT_")]:
+        os.environ.pop(_k, None)
+    os.environ["GIT_CONFIG_GLOBAL"] = "/dev/null"
+    os.environ["GIT_CONFIG_SYSTEM"] = "/dev/null"
+    os.environ["GIT_NO_REPLACE_OBJECTS"] = "1"
+    os.environ["GIT_ATTR_NOSYSTEM"] = "1"
     exp_real = os.path.realpath(sys.argv[1])
     rid = sys.argv[2]
 

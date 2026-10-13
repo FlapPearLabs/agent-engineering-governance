@@ -828,3 +828,46 @@ Each was independently reproduced here before the fix, and each fix carries its 
 · Also noted: [23]'s claim that the guard covers "refs/replace" was written before this review
   showed packed refs evade the directory scan; the corrected statement is above ([23] kept
   unedited as the record of what was believed then).
+
+--- [25] fresh adversarial review on 57fb787 (EXECUTING; 1 x P0 + 1 x P1 + 1 x P2 + P3s) + round-10 ---
+· P0 diff.external: the guard's config regex omitted `diff.`, and collect's `git diff --binary`
+  (no --no-ext-diff) executed a script named by a LOCAL worktree config key — worker code ran
+  inside the operator's collect process (demonstrated; the diff.patch was blanked and a file was
+  written into the materials checkout). Fixes: guard regex + `diff.`; `--no-ext-diff` on EVERY
+  diff invocation in collect/scope/hygiene. Controls: diff.external planted -> TAMPERED
+  (local_config(diff.external)); collect rc=3; the external script did NOT run; cleaned -> OK.
+· P1 config.worktree: `extensions.worktreeConfig` introduces a SECOND local config file that
+  `--local --list` does not read, so unpinned keys there (core.fileMode demonstrated) escaped both
+  detection and the command-scope pins. Fix: the guard refuses any .git/config.worktree and flags
+  `extensions.` in the listing. Control: planted -> TAMPERED (config_worktree
+  local_config(extensions.worktreeconfig)); cleaned -> OK.
+· P1 (design class) fabricated acceptance: nothing validated the CONTENT of the worker's
+  acceptance.txt, so a 25-byte `=== RC=0 (tee=0) ===` over a dirty scope was recorded as
+  all-green (demonstrated end-to-end). Fix: collect now RE-RUNS the task's mechanical INTEGRITY
+  checks operator-side — the task-registry entries that invoke the harness `check_*` judgement
+  scripts, i.e. exactly the gates the review rounds attacked (task-specific test commands remain
+  worker-attested; they are covered by the independent review of the captured diff). The verdict
+  is recorded to $EV/acceptance-operator.txt, bound into the collect-ok marker (7th hash) and
+  required by publish; any failure invalidates the run. Controls: the reviewer's demo (committed
+  deployment/evil.md + fabricated acceptance) -> collect rc=3 OPERATOR acceptance FAILED with the
+  scope violations listed; honest probe (scope-satisfying change) -> operator acceptance
+  `SCOPE = PASS`, collect rc=0, marker carries acceptance_operator_sha256, publish rc=0.
+· P2 BASH_ENV: a caller can source a file before the script body (BASH_ENV applies to
+  non-interactive bash) and thereby skip the sanitization re-exec; a forged H2_ENV_SANITIZED
+  marker also skips it by construction. Impact is bounded (the operator's collect environment is
+  not worker-controlled; a worker can fabricate its own acceptance anyway — which the operator
+  re-run above now covers), but [24]'s phrase "closes the entire demonstrated GIT_*/env-config
+  class" was stronger than the mechanism. Corrected statement: the sanitization re-exec closes
+  the entire class for every invocation that reaches the script body; a caller who controls the
+  invoking shell cannot be constrained from inside it — that remains the documented same-UID
+  boundary.
+· P3 fixes: `git replace -l` listing is rc-checked; `frozen_run_facts.py` scrubs all GIT_*
+  variables from its own environment and pins config/attributes/replace for DIRECT invocation
+  (previously safe only because its callers sanitize first). P3-3 (alternates/shallow) remains
+  documented static-only: alternates are content-addressed (cannot substitute existing objects)
+  and a failed read is fail-closed.
+· Also CAUGHT BY THIS ROUND'S OWN CONTROLS: the first cut of the operator acceptance referenced
+  an undefined TASK_ID under `set -u`, crashing collect for every run (rc=1) — the honest-chain
+  control failed immediately and the bug was fixed (TASK_ID now comes from the frozen-validated
+  receipt) before any push. This is the second time the positive controls caught a regression the
+  negative controls could not (the first: the re-exec pass-list dropping operator evidence).

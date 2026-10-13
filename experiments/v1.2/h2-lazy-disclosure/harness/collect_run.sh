@@ -160,6 +160,13 @@ import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["expected_base"])
 PYEOF
 )" || fail RECEIPT_READ_FAILED 2
+# task identity for the OPERATOR-side integrity acceptance: the receipt's task_id was already
+# frozen-validated by RECEIPT_AUTH above, so it may be used here as the task selector.
+TASK_ID="$("$PY" - "$EV/receipt.json" <<'PYEOF'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["task_id"])
+PYEOF
+)" || fail RECEIPT_READ_FAILED 2
 HEAD="$(git -C "$WT" rev-parse HEAD)" || fail HEAD_UNREADABLE 2
 WORKER_COMMITTED=NO
 if [ "$HEAD" != "$BASE" ]; then WORKER_COMMITTED=YES; fi
@@ -176,11 +183,11 @@ git -C "$WT" add -A || { unset GIT_INDEX_FILE; fail CAPTURE_ADD_FAILED; }
 git -C "$WT" reset -q -- CODEBUDDY.md .h2-telemetry.log H2_RULES.md H2_WARM 2>/dev/null || true
 (
   if [ "$HEAD" != "$BASE" ]; then
-    git -C "$WT" diff --binary "$BASE" "$HEAD" -- . ':!CODEBUDDY.md' ':!H2_RULES.md' ':!H2_WARM' || exit 4
+    git -C "$WT" diff --no-ext-diff --binary "$BASE" "$HEAD" -- . ':!CODEBUDDY.md' ':!H2_RULES.md' ':!H2_WARM' || exit 4
   fi
-  git -C "$WT" diff --cached --binary || exit 4
+  git -C "$WT" diff --no-ext-diff --cached --binary || exit 4
 ) > "$EV/diff.patch" || { unset GIT_INDEX_FILE; fail CAPTURE_DIFF_FAILED; }
-git -C "$WT" diff --cached --stat > "$EV/diffstat.txt" 2>/dev/null || : > "$EV/diffstat.txt"
+git -C "$WT" diff --no-ext-diff --cached --stat > "$EV/diffstat.txt" 2>/dev/null || : > "$EV/diffstat.txt"
 unset GIT_INDEX_FILE
 rm -f "$IDX_FILE"
 git -C "$WT" status --porcelain > "$EV/status-after.txt" || fail CAPTURE_STATUS_FAILED
@@ -504,6 +511,44 @@ if [ "$RFAIL" -ne 0 ]; then
   echo "  -> register this run as INVALID in run-registry.md (delivery/evidence not intact at collection)"
   exit 3
 fi
+# ---- OPERATOR-SIDE INTEGRITY ACCEPTANCE (fresh review on 57fb787, P1) -----------------------
+# The worker's acceptance.txt is a CLAIM: nothing validated its content, so a 25-byte
+# "=== RC=0 (tee=0) ===" produced an all-green record (demonstrated together with a dirty
+# scope). The operator now RE-RUNS the task's mechanical INTEGRITY checks — the task-registry
+# entries that invoke the harness check_* judgement scripts, i.e. exactly the gates the review
+# rounds attacked — and records the verdict next to the worker's claim; any failure invalidates
+# the run. Task-specific commands (test suites) remain worker-attested and are covered by the
+# independent review of the captured diff.
+OPRC=0
+{
+  echo "=== OPERATOR INTEGRITY ACCEPTANCE run=$RUN_ID task=$TASK_ID ==="
+  "$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$HERE" <<'PYEOF'
+import json, subprocess, sys
+reg_p, tid, wt, rid, here = sys.argv[1:6]
+reg = json.load(open(reg_p, encoding="utf-8"))
+task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
+rc_all = 0
+for e in task["acceptance"]["mechanical"]:
+    cmd = e["cmd"]
+    if not cmd.startswith("{HARNESS}/check_"):
+        continue
+    run = (cmd.replace("{HARNESS}", here).replace("{WT}", wt)
+              .replace("{RUN_ID}", rid).replace("{TASK_ID}", tid))
+    print(f"=== EXEC {run}")
+    r = subprocess.run(["bash", "-c", run], capture_output=True, text=True)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
+    print(f"=== RC={r.returncode} ===")
+    if r.returncode != 0:
+        rc_all = 1
+raise SystemExit(rc_all)
+PYEOF
+} > "$EV/acceptance-operator.txt" 2>&1 || OPRC=1
+if [ "$OPRC" -ne 0 ]; then
+  echo "COLLECT_RUN INVALID (operator integrity acceptance FAILED) run_id=$RUN_ID"
+  echo "  -> see $EV/acceptance-operator.txt; register this run as INVALID"
+  exit 3
+fi
 # collect-ok marker (fresh review on 9c5f059, P1): publish must be able to verify that a COLLECT
 # of this run's CURRENT evidence actually succeeded, instead of trusting files the worker can
 # write. The marker lives OUTSIDE the evidence dir and binds, by hash, the two files publish
@@ -516,15 +561,16 @@ REC_SHA="$(shasum -a 256 "$EV/carrier-recheck.txt" | awk '{print $1}')"
 # unbound and replaceable between collect and publish)
 REPORT_SHA=""; [ -f "$EV/report.md" ] && REPORT_SHA="$(shasum -a 256 "$EV/report.md" | awk '{print $1}')"
 ACC_SHA=""; [ -f "$EV/acceptance.txt" ] && ACC_SHA="$(shasum -a 256 "$EV/acceptance.txt" | awk '{print $1}')"
+OPR_SHA="$(shasum -a 256 "$EV/acceptance-operator.txt" | awk '{print $1}')"
 "$PY" - "$H2_RUNS_ROOT/collect-ok/$RUN_ID.json" "$RUN_ID" "$SUM_SHA" "$REC_SHA" "$DIFF_SHA" \
-        "$TEL_SHA" "$REPORT_SHA" "$ACC_SHA" <<'PYEOF' \
+        "$TEL_SHA" "$REPORT_SHA" "$ACC_SHA" "$OPR_SHA" <<'PYEOF' \
   || fail COLLECT_MARKER_WRITE_FAILED
 import json, sys
-p, rid, s, r, d, t, rp, ac = sys.argv[1:9]
+p, rid, s, r, d, t, rp, ac, op = sys.argv[1:10]
 json.dump({"run_id": rid, "collect": "OK", "summary_sha256": s, "recheck_sha256": r,
            "diff_sha256": d, "telemetry_sha256": t, "report_sha256": rp,
-           "acceptance_sha256": ac}, open(p, "w", encoding="utf-8"), indent=2,
-          ensure_ascii=False)
+           "acceptance_sha256": ac, "acceptance_operator_sha256": op},
+          open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PYEOF
 echo "COLLECT_RUN OK run_id=$RUN_ID head=$HEAD base=$BASE worker_committed=$WORKER_COMMITTED"
 echo "  diff_sha256=$DIFF_SHA"
