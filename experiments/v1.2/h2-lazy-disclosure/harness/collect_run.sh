@@ -126,6 +126,24 @@ materials_root = sys.argv[4]
 # commit; if the checkout has advanced, a more permissive later read-boundary must not be able
 # to make evidence pass that the frozen harness would reject.
 mc = receipt["materials_commit"]
+# Codex finding on 7b9251a (P1): `materials_commit` is itself worker-writable, and the
+# validator is loaded FROM it. A worker could point the field at an older reachable commit
+# whose read_surface.py is more permissive and make a rejected READ pass collection. The
+# value is therefore not trusted: it must equal the materials checkout this collector is
+# actually running against, so the frozen harness is the one the operator froze, not one the
+# worker chose.
+_live = subprocess.run(["git", "-C", materials_root, "rev-parse", "HEAD"],
+                       capture_output=True, text=True).stdout.strip()
+if _live != mc:
+    print(f"TEMPLATE_BINDING = FAIL materials_commit {mc[:12]} != live materials HEAD "
+          f"{_live[:12] or 'UNREADABLE'} (the receipt may not select which harness validates the run)")
+    raise SystemExit(1)
+_anc = subprocess.run(["git", "-C", materials_root, "merge-base", "--is-ancestor", mc, "HEAD"],
+                      capture_output=True)
+if _anc.returncode != 0:
+    print(f"TEMPLATE_BINDING = FAIL materials_commit {mc[:12]} is not an ancestor of the live "
+          f"materials HEAD")
+    raise SystemExit(1)
 
 def _from_commit(relpath, label):
     proc = subprocess.run(["git", "-C", materials_root, "show", f"{mc}:{relpath}"],

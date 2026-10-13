@@ -297,6 +297,47 @@ class TelemetryIntegration(ReadSurfaceFixture):
         self.assertIn("NON_CANONICAL_PATH", problems[0])
 
 
+class NestedRunsRootLayout(unittest.TestCase):
+    """Codex finding on 7b9251a (P1): when H2_RUNS_ROOT lives INSIDE the materials checkout the
+    worktree and evidence dir are descendants of `mat`. Testing `mat` before the explicitly
+    allowed roots made every compliant read classify as MATERIALS_ROOT_READ, so preparation
+    succeeded and collection rejected the run after the worker episode had been spent."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="h2-nested-"))
+        # runs root nested inside the materials checkout, exactly the documented non-/tmp case
+        self.mat = self.tmp / "repo"
+        self.wt = self.mat / ".workbuddy" / "h2-runs" / "worktrees" / "H2-R2-R01"
+        self.ev = self.mat / ".workbuddy" / "h2-runs" / "evidence" / "H2-R2-R01"
+        for d in (self.mat, self.wt, self.ev):
+            d.mkdir(parents=True, exist_ok=True)
+        (self.wt / "CODEBUDDY.md").write_text("carrier\n", encoding="utf-8")
+        (self.ev / "worker-report-template.md").write_text("tpl\n", encoding="utf-8")
+        (self.mat / "protocol.md").write_text("protocol\n", encoding="utf-8")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _c(self, target):
+        return rs.classify_read_target(target, self.wt, self.ev, self.mat)
+
+    def test_compliant_worktree_read_is_allowed_in_nested_layout(self):
+        self.assertEqual(self._c("CODEBUDDY.md"), (rs.ALLOWED, "OK"))
+
+    def test_compliant_evidence_read_is_allowed_in_nested_layout(self):
+        self.assertEqual(self._c("RUN_EVIDENCE/worker-report-template.md"), (rs.ALLOWED, "OK"))
+
+    def test_materials_content_is_still_refused_in_nested_layout(self):
+        """The reorder must not open the materials tree: content OUTSIDE the allowed roots but
+        inside the nested checkout is still refused."""
+        verdict, reason = rs.classify_read_target(
+            "../../../../protocol.md", self.wt, self.ev, self.mat
+        )
+        self.assertEqual(verdict, "REJECTED")
+        self.assertEqual(reason, "MATERIALS_ROOT_READ")
+
+
 class InvariantTests(unittest.TestCase):
     def test_reason_tokens_are_stable(self):
         for token in (
