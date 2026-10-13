@@ -478,3 +478,32 @@ TRUE values:
   selftest; t16 OK; workbuddy adapter OK; material suites OK; inventory selftest PASS;
   10 harness scripts syntax-clean. scripts/tests (32) and adapters/zcode (23) remain pre-existing
   sandbox failures that reproduce on the base.
+
+--- [19] Codex review on 7b9251a (2 x P1) + N4/N5 controls ---
+· N4 [P1] "Bind frozen validator loading to a trusted commit": receipt.json is worker-writable and
+  collect loaded the validator FROM receipt.materials_commit, so a worker could point that field
+  at an older reachable commit whose read_surface.py is more permissive. Real prepared-run probe:
+    A. honest receipt                      -> TEMPLATE_BINDING = OK, COLLECT_RUN OK (rc=0)
+    B. materials_commit forged (92bae0d -> 7ba6361)
+         FIXED   -> rc=3, "materials_commit 7ba6361... != live materials HEAD 92bae0d...",
+                    TARGET_PREDICATE_REACHED = 1
+         MUTANT  -> rc=0, COLLECT_RUN OK   <-- the reviewer's bypass reproduced exactly
+  The mutant arm proves the predicate is load-bearing; the fixed arm proves it fires. A first
+  probe attempt was INVALID and is recorded as such: the fixture worktree was not a git repo, so
+  an earlier HEAD check fired (HEAD_UNREADABLE) and the binding predicate was never reached.
+· N5 [P1] "Reject runs roots nested beneath the materials checkout": with a runs root inside the
+  repo (e.g. the already-ignored .workbuddy/h2-runs) the worktree and evidence dir are DESCENDANTS
+  of the materials root; testing `mat` first made every compliant read classify as
+  MATERIALS_ROOT_READ, so preparation succeeded and collection then rejected the run after the
+  worker episode had been spent. Fixed by ORDER: the explicitly allowed roots are tested before
+  the forbidden one. A worktree symlink into the materials tree still fails both allowed-root
+  tests and lands on the materials branch, so the reorder does not open the tree.
+  Control: restoring the old order fails 2 tests (the nested-layout regression); restored passes.
+  New regression class NestedRunsRootLayout covers compliant worktree read, compliant evidence
+  read, and materials content still refused, all in the nested layout.
+· PROCESS NOTE: the first attempt to record this section used a substring test (`"[19]" in text`)
+  which matched an unrelated pre-existing reference and skipped the append while still reporting
+  success. Evidence anchors must key on the section header, not on a bare marker.
+· Both findings are P1, so the merge gate is closed and the candidate was NOT merged. Any new
+  commit also makes every prior review STALE, so a fresh Codex review of the new SHA is required
+  before the gate can reopen.
