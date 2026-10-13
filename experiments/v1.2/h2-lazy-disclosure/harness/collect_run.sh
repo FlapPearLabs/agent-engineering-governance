@@ -24,13 +24,24 @@ fail() { echo "COLLECT_FAIL reason=$1"; exit "${2:-4}"; }
 # from every base-relative check below. So the load-bearing fields are re-derived from the
 # FROZEN plan + task registry (which the worker cannot reach) and compared; any divergence
 # invalidates the run before the receipt is used as the root of collection evidence.
-# The plan file is selected the SAME way prepare selected it. If the two disagree, a Round-2
-# run prepared against run-plan-r2.json would be validated against the Round-1 plan and every
-# run would fail revalidation -- a harness defect of exactly the kind this repair exists to
-# remove (adversarial review B1).
-RECEIPT_PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan.json}"
+# The plan file is selected the SAME way prepare selected it, and validated against the SAME
+# frozen hash (F17): an unchecked override let a caller point both scripts at an edited copy
+# whose single remaining row became index 0, bypassing the frozen ordering.
+RECEIPT_PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan-r2.json}"
 if [ ! -f "$RECEIPT_PLAN" ]; then
   echo "COLLECT_FAIL reason=PLAN_FILE_MISSING $RECEIPT_PLAN"; exit 2
+fi
+if [ "$RECEIPT_PLAN" != "$EXP_DIR/harness/run-plan-r2.json" ]; then
+  echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL (not the canonical Round 2 plan) $RECEIPT_PLAN"; exit 2
+fi
+_want_ph="$("$PY" - "$EXP_DIR/round-2-freeze.json" <<'PYEOF'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["freeze"]["RUN_PLAN_HASH_R2"])
+PYEOF
+)" || { echo "COLLECT_FAIL reason=RUN_PLAN_HASH_UNREADABLE"; exit 2; }
+_got_ph="$(shasum -a 256 "$RECEIPT_PLAN" | awk '{print $1}')"
+if [ "$_got_ph" != "$_want_ph" ]; then
+  echo "COLLECT_FAIL reason=PLAN_AUTHORITY_FAIL RUN_PLAN_HASH_R2 frozen=$_want_ph actual=$_got_ph"; exit 2
 fi
 RECEIPT_AUTH="$("$PY" - "$EV/receipt.json" "$RECEIPT_PLAN" "$EXP_DIR/task-registry.json" "$RUN_ID" <<'PYEOF'
 import json, sys
@@ -174,19 +185,72 @@ def report(label, ok, detail=""):
     if not ok:
         fail = 1
 
+# 0. FROZEN EXPECTED DELIVERY HASHES (trust-root repair).
+# The receipt is worker-writable, so using receipt["carrier_hash"] / ["h2_rules_sha256"] /
+# ["warm_bundle_sha256"] as the expected values made the delivery checks SELF-CERTIFYING: a
+# worker could edit the delivered bytes, rewrite the matching receipt field, and collect would
+# report OK. The expected values are therefore re-derived here from the independently bound
+# materials commit; the receipt's copy is kept only as a CLAIM and is compared as well, so the
+# three-way identity is frozen == claimed == actual.
+H2REL = "experiments/v1.2/h2-lazy-disclosure"
+_frozen_cache = {}
+
+def _frozen_bytes(relpath):
+    if relpath not in _frozen_cache:
+        _frozen_cache[relpath] = _from_commit(relpath, relpath.split("/")[-1])
+    return _frozen_cache[relpath]
+
+def frozen_carrier_sha():
+    """Expected control carrier = header + AGENTS.md(verbatim, at the run base) + footer, all
+    read from the frozen materials commit — the same composition prepare_run.sh performs."""
+    if receipt.get("carrier_kind") == "variant_lean_v1":
+        return hashlib.sha256(_frozen_bytes(f"{H2REL}/carriers/H2_LEAN_BOOTSTRAP.md")).hexdigest()
+    try:
+        header = _frozen_bytes(f"{H2REL}/harness/control-carrier-header.md")
+        footer = _frozen_bytes(f"{H2REL}/harness/control-carrier-footer.md")
+        agents = subprocess.run(["git", "-C", materials_root, "show",
+                                 f"{receipt['expected_base']}:AGENTS.md"],
+                                capture_output=True, check=True).stdout
+    except Exception:
+        return None
+    return hashlib.sha256(header + agents + footer).hexdigest()
+
+def frozen_rules_sha():
+    return hashlib.sha256(_frozen_bytes("RULES.md")).hexdigest()
+
+def frozen_warm_sha():
+    # derived from the frozen routes manifest itself, not from the `dests` variable, because this
+    # runs before that is bound
+    _dests = sorted({r["destination"] for r in routes if r.get("surface") == "S3"})
+    lines = []
+    for dest in _dests:
+        blob = _frozen_bytes(dest)
+        lines.append(f"{dest} {hashlib.sha256(blob).hexdigest()}")
+    return hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
+
+FROZEN_CARRIER = frozen_carrier_sha()
+FROZEN_RULES = frozen_rules_sha()
+FROZEN_WARM = frozen_warm_sha()
+
 # 1. guidance carrier (both arms; same recognized slot, arm-specific content+hash)
 p = os.path.join(wt, "CODEBUDDY.md")
-if os.path.exists(p):
-    report("CARRIER_RECHECK(CODEBUDDY.md carrier)",
-           sha(p) == receipt["carrier_hash"],
-           f"kind={receipt.get('carrier_kind')} sha256={sha(p)}")
-else:
+if not os.path.exists(p):
     report("CARRIER_RECHECK(CODEBUDDY.md carrier)", False, "carrier missing at collection")
+else:
+    actual = sha(p)
+    ok = (FROZEN_CARRIER == actual) and (receipt.get("carrier_hash") == actual)
+    report("CARRIER_RECHECK(CODEBUDDY.md carrier)", ok,
+           f"kind={receipt.get('carrier_kind')} frozen={(FROZEN_CARRIER or 'UNREADABLE')[:12]} "
+           f"claimed={(receipt.get('carrier_hash') or '')[:12]} actual={actual[:12]}")
 
 # 2. rules copy (both arms)
 p = os.path.join(wt, "H2_RULES.md")
 if os.path.exists(p):
-    report("CARRIER_RECHECK(H2_RULES.md)", sha(p) == receipt["h2_rules_sha256"], f"sha256={sha(p)}")
+    actual = sha(p)
+    report("CARRIER_RECHECK(H2_RULES.md)",
+           FROZEN_RULES == actual and receipt.get("h2_rules_sha256") == actual,
+           f"frozen={FROZEN_RULES[:12]} claimed={(receipt.get('h2_rules_sha256') or '')[:12]} "
+           f"actual={actual[:12]}")
 else:
     report("CARRIER_RECHECK(H2_RULES.md)", False, "missing at collection")
 
@@ -233,12 +297,14 @@ for dest in dests:
         lines.append(f"{dest} MISSING")
     else:
         lines.append(f"{dest} {sha(fp)}")
-want = receipt["warm_bundle_sha256"]
+claim = receipt.get("warm_bundle_sha256")
 got = hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
+# frozen == claimed == actual (F16): the receipt value is a claim, never the root of trust
 report("CARRIER_RECHECK(H2_WARM bundle)",
-       not extra and not missing and not symlinked and got == want,
-       f"recomputed={got} expected={want} files={len(found)}/{len(dests)} "
-       f"extra={extra} missing={missing} symlinks={sorted(symlinked)}")
+       not extra and not missing and not symlinked and FROZEN_WARM == got and claim == got,
+       f"frozen={FROZEN_WARM[:12]} claimed={(claim or '')[:12]} actual={got[:12]} "
+       f"files={len(found)}/{len(dests)} extra={extra} missing={missing} "
+       f"symlinks={sorted(symlinked)}")
 
 # 4. run tree's own canonical texts untouched (worktree status AND base-relative, incl. commits — R8-2)
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain", "--", "AGENTS.md", "RULES.md"],

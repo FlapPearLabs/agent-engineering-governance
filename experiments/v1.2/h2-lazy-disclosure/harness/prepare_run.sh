@@ -101,12 +101,48 @@ if [ "$RUN_ID" = "H2-DRYRUN" ] || [ "$RUN_ID" = "H2-DRYRUN-control" ] || [ "$RUN
   WT="$H2_RUNS_ROOT/worktrees/$RUN_ID"
   EV="$H2_RUNS_ROOT/evidence/$RUN_ID"
 else
-  # Round 2 uses its own frozen plan (new run identities H2-R2-R01..R20); the Round-1 plan
-  # file stays frozen as part of the Round-1 record and is never repurposed. The override is
-  # explicit so a run cannot silently pick up the wrong plan.
-  PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan.json}"
+  # Round 2 uses its own frozen plan (new run identities H2-R2-R01..R20); the Round-1 plan file
+  # stays frozen as part of the Round-1 record and is never repurposed.
+  # F17 [P1, Codex on 09ed257]: an unchecked H2_PLAN_FILE override let a caller point at an
+  # EDITED copy — a one-row copy containing H2-R2-R20 makes that run index 0, bypassing every
+  # prior-run ordering check and silently destroying the frozen counterbalancing order. The
+  # override is therefore no longer trusted: the selected file must be the canonical committed
+  # Round 2 plan AND hash to the frozen RUN_PLAN_HASH_R2. Hash-only would still allow an
+  # identical-bytes file at an arbitrary path to be substituted silently, so both are required.
+  PLAN="${H2_PLAN_FILE:-$EXP_DIR/harness/run-plan-r2.json}"
   if [ ! -f "$PLAN" ]; then
     echo "PREPARE_FAIL reason=PLAN_FILE_MISSING $PLAN"; exit 2
+  fi
+  _canon="$EXP_DIR/harness/run-plan-r2.json"
+  if [ "$PLAN" != "$_canon" ]; then
+    echo "PREPARE_FAIL reason=PLAN_AUTHORITY_FAIL (the selected plan is not the canonical Round 2 plan)
+  selected = $PLAN
+  canonical = $_canon"
+    exit 2
+  fi
+  _want_plan_hash="$("$PY" - "$EXP_DIR/round-2-freeze.json" <<'PYEOF'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["freeze"]["RUN_PLAN_HASH_R2"])
+PYEOF
+)" || { echo "PREPARE_FAIL reason=RUN_PLAN_HASH_UNREADABLE"; exit 2; }
+  _got_plan_hash="$(shasum -a 256 "$PLAN" | awk '{print $1}')"
+  if [ "$_got_plan_hash" != "$_want_plan_hash" ]; then
+    echo "PREPARE_FAIL reason=PLAN_AUTHORITY_FAIL (RUN_PLAN_HASH_R2 mismatch)
+  frozen = $_want_plan_hash
+  actual = $_got_plan_hash"
+    exit 2
+  fi
+  # ...and the bytes must equal the version committed in the frozen materials snapshot, so a
+  # later edit to the working tree cannot re-freeze a different order.
+  if ! git -C "$H2_WT" cat-file -e "$MATERIALS_COMMIT:experiments/v1.2/h2-lazy-disclosure/harness/run-plan-r2.json" 2>/dev/null; then
+    echo "PREPARE_FAIL reason=PLAN_AUTHORITY_FAIL (run-plan-r2.json is absent from the frozen materials commit)"; exit 2
+  fi
+  _frozen_plan_hash="$(git -C "$H2_WT" show "$MATERIALS_COMMIT:experiments/v1.2/h2-lazy-disclosure/harness/run-plan-r2.json" | shasum -a 256 | awk '{print $1}')"
+  if [ "$_frozen_plan_hash" != "$_got_plan_hash" ]; then
+    echo "PREPARE_FAIL reason=PLAN_AUTHORITY_FAIL (working-tree plan differs from the frozen materials commit)
+  frozen_commit = $_frozen_plan_hash
+  working_tree  = $_got_plan_hash"
+    exit 2
   fi
   REG="$EXP_DIR/task-registry.json"
   INFO="$("$PY" - "$PLAN" "$REG" "$RUN_ID" "$ARM" <<'PYEOF'

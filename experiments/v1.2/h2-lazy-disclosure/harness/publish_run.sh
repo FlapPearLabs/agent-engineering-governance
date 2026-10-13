@@ -36,7 +36,24 @@ if [ -f "$DEST/run.json" ]; then
     done
   fi
 fi
-mkdir -p "$DEST"
+# F18 [P1, Codex on 09ed257]: validate every sanitizer input BEFORE creating or modifying DEST.
+# Previously the sanitizer sources were checked last, so a refusal exited nonzero only after the
+# destination had already been written with unsanitized host paths.
+CUR_USER_PRE="$(id -un)"
+MATERIALS_WT_PRE="$(git -C "$EXP_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+_preflight_fail() {
+  echo "PUBLISH_REFUSED reason=$1 ($2)"
+  echo "  DEST_MODIFIED = NO (refused before touching $DEST)"
+  exit 2
+}
+[ -n "$CUR_USER_PRE" ] || _preflight_fail PREFLIGHT_FAILED "empty current user"
+[ -n "$MATERIALS_WT_PRE" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "materials worktree (not a git checkout)"
+[ -n "$H2_RUNS_ROOT" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "runs root"
+[ -n "$WT" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "run worktree"
+[ -n "$EV" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "run evidence"
+# stage, never write DEST directly: an invalid input or a staging failure must leave DEST as it was
+STAGE="$DEST.staging.$$"
+rm -rf "$STAGE"; mkdir -p "$STAGE"
 
 # R10-8 + R10-3: real runs require launcher-provided model evidence matching the frozen tier,
 # and non-null, globally unique episode identities per role (dry-runs are exempt: plan_index -1).
@@ -110,13 +127,14 @@ PYEOF
 fi
 
 for f in report.md acceptance.txt carrier-recheck.txt; do
-  if [ -f "$EV/$f" ]; then cp "$EV/$f" "$DEST/$f"; fi
+  if [ -f "$EV/$f" ]; then cp "$EV/$f" "$STAGE/$f"; fi
 done
-[ -f "$EV/telemetry.log" ] && cp "$EV/telemetry.log" "$DEST/telemetry.log" || : > "$DEST/telemetry.log"
+[ -f "$EV/telemetry.log" ] && cp "$EV/telemetry.log" "$STAGE/telemetry.log" || : > "$STAGE/telemetry.log"
 
-"$PY" - "$EV" "$DEST" <<'PYEOF'
+"$PY" - "$EV" "$STAGE" "$DEST" <<'PYEOF'
 import json, os, re, sys
 ev, dest = sys.argv[1], sys.argv[2]
+prior = sys.argv[3]
 lines = open(f"{ev}/telemetry.log", encoding="utf-8", errors="replace").read().splitlines()
 tel = {"fully_read": [], "partial_read": [], "grepped": [], "routes": [], "skills": [], "other": []}
 for raw in lines:
@@ -157,9 +175,9 @@ fails = sorted(
     | {rc for rc in legacy if rc != 0}
 )
 prev = {}
-if os.path.exists(f"{dest}/run.json"):
+if os.path.exists(f"{prior}/run.json"):
     try:
-        prev = json.load(open(f"{dest}/run.json", encoding="utf-8"))
+        prev = json.load(open(f"{prior}/run.json", encoding="utf-8"))
     except Exception:
         prev = {}
 run = {
@@ -192,9 +210,7 @@ PYEOF
 # R2 sanitization pass (placeholders only; must not alter meaning).
 # Path forms are derived at RUNTIME (runs root / run worktree / evidence / materials worktree)
 # plus user-home identity forms — no hard-coded macOS layout (R9-3).
-CUR_USER="$(id -un)"
-MATERIALS_WT="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
-"$PY" - "$DEST" "$CUR_USER" "$H2_RUNS_ROOT" "$WT" "$EV" "$MATERIALS_WT" <<'PYEOF'
+"$PY" - "$STAGE" "$CUR_USER_PRE" "$H2_RUNS_ROOT" "$WT" "$EV" "$MATERIALS_WT_PRE" <<'PYEOF'
 import pathlib, re as _re, sys
 root = pathlib.Path(sys.argv[1])
 user = sys.argv[2]
@@ -242,7 +258,18 @@ if [ "$SAN_RC" -ne 0 ]; then
   # The sanitizer refuses rather than writing a mangled record; that refusal must reach the
   # caller. Without this the script would print PUBLISH_RUN OK and exit 0 over a rejected
   # sanitization — a fail-open on the exact path that protects published artifacts.
-  echo "PUBLISH_REFUSED reason=SANITIZATION_FAILED rc=$SAN_RC (artifacts in $DEST may be incomplete; do NOT treat this run as published)"
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=SANITIZATION_FAILED rc=$SAN_RC (staged artifacts discarded; DEST unchanged)"
   exit 3
 fi
+# atomic promotion: DEST only ever moves to its final state in one step, so a failure above
+# cannot leave a partially written publication
+rm -rf "$DEST.prev.$$"
+if [ -e "$DEST" ]; then mv "$DEST" "$DEST.prev.$$" || { rm -rf "$STAGE"; echo "PUBLISH_REFUSED reason=PROMOTION_FAILED"; exit 3; }; fi
+if ! mv "$STAGE" "$DEST"; then
+  [ -e "$DEST.prev.$$" ] && mv "$DEST.prev.$$" "$DEST"
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=PROMOTION_FAILED (DEST restored)"; exit 3
+fi
+rm -rf "$DEST.prev.$$"
 echo "PUBLISH_RUN OK run_id=$RUN_ID dest=$DEST"
