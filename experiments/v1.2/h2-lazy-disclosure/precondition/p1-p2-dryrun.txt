@@ -871,3 +871,43 @@ Each was independently reproduced here before the fix, and each fix carries its 
   control failed immediately and the bug was fixed (TASK_ID now comes from the frozen-validated
   receipt) before any push. This is the second time the positive controls caught a regression the
   negative controls could not (the first: the re-exec pass-list dropping operator evidence).
+
+--- [26] fresh adversarial review on 08d8611 (EXECUTING; P0 = NONE + 3 x P1 + 2 x P2 + P3s) + round-11 ---
+FIRST ROUND WITH P0 = NONE: the reviewer confirmed that every previously-disclosed execution vector
+refuses (assume-unchanged/skip-worktree, info/exclude, diff.external, config.worktree+extension,
+includeIf, loose AND packed replace refs, hooks, filters/attributes, commondir — the last of which
+is now also refused by the guard). The remaining findings were real regressions/gaps and are
+closed:
+· P1 {PY} not substituted in the operator re-run: t02's entry `{HARNESS}/check_t02_gate_teeth.sh
+  {WT} {RUN_ID} {PY}` ran with a literal `{PY}` -> rc=127 -> the two t02 runs could never be
+  collected. Fix: the re-run substitutes the FULL placeholder set exactly as run_acceptance.sh
+  ({PY} {GIT} {WT} {RUN_ID} {TASK_ID} {HARNESS} {H2_REPO} + the trailing (cwd={WT}) convention).
+· P1 dry-run collect was broken: check_scope refuses plan-less ids (NO_FROZEN_ROW) and the
+  operator re-run invoked it for every run, so the documented H2-DRYRUN collect from the
+  p1-p2 evidence was no longer reproducible. Fix: dry-run ids SKIP the operator re-run (they have
+  no experiment standing and no plan row); the skip is itself recorded to acceptance-operator.txt
+  and bound like any other verdict. Control: dry-run collect rc=0 with the SKIPPED record.
+· P1 the fabricated-acceptance hole was only half-closed: re-running only check_* scripts left a
+  CLEAN-SCOPE fabrication open (a scope-satisfying trivial file + an all-zero acceptance.txt was
+  collected AND published green while the task was not done). Fix: the re-run now executes the
+  task's FULL mechanical EXEC set, INCLUDING its test commands (t01's unittest entries etc.),
+  with PYTHONDONTWRITEBYTECODE=1; the count of executed entries is recorded
+  (INTEGRITY_CHECKS_RUN) and a task with no executable entry fails closed. Control: the clean-scope
+  fabrication (test_honest_probe.py + all-zero acceptance over an unfixed worktree) -> operator
+  re-run executes 3 entries (both unittest entries RC=1) -> COLLECT INVALID rc=3. This is the
+  reviewer's exact construction, now refused.
+· P2 `--no-ext-diff` was missing on one `git diff --name-status` (the AGENTS/RULES check) while
+  [25] claimed "EVERY diff invocation" — added, and the overstatement corrected here.
+· P2 config.worktree TOCTOU is static-only (a concurrent writer in the guard-to-judgement window);
+  judgement commands pass explicit flags and env pins outrank worktree config — documented, not
+  demonstrated.
+· P3 fixes: plan-less receipts are now restricted to H2-DRYRUN* ids (an unknown run id cannot use
+  the looser branch); the guard refuses .git/commondir (control: bogus commondir -> refused via the
+  unreadable-worktree branch, fail-closed); materials-cleanliness re-check at collect remains a
+  documented same-UID-boundary item (prepare's MATERIALS_DIRTY is the gate).
+· Honest-path note (disclosed): on a REAL run the operator re-run re-executes the task's own test
+  commands against the worker's worktree — post-fix they pass (that IS the task), so the full
+  plan-row green chain could not be exercised by the smoke batteries (an unfixed probe
+  intentionally fails), and it now gets its first end-to-end validation at Round-2 execution. The
+  machinery is verified: entries listed, executed, rcs recorded, count recorded, verdict gates
+  collect.

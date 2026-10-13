@@ -135,9 +135,11 @@ if len(rows) == 1:
 elif len(rows) > 1:
     problems.append(f"frozen plan contains {len(rows)} rows for {rid}")
 else:
-    # No plan row (the registered dry-run ids): there is no arm/order to check, but the
-    # base and task are still re-derivable from the FROZEN registry, so the receipt is not
-    # left unvalidated — a plan-less receipt must still name a real task at its frozen base.
+    # No plan row: fresh review on 08d8611 (P3) — ONLY the registered dry-run ids may be
+    # plan-less. Any other run id without a frozen row is refused outright, so an unknown run
+    # cannot use the looser branch.
+    if not rid.startswith("H2-DRYRUN"):
+        problems.append(f"no frozen plan row for {rid!r} and it is not a registered dry-run id")
     tid = receipt.get("task_id")
     if tid not in reg:
         problems.append(f"task_id {tid!r} is not in the frozen task registry")
@@ -431,7 +433,7 @@ report("CARRIER_RECHECK(H2_WARM bundle)",
 # 4. run tree's own canonical texts untouched (worktree status AND base-relative, incl. commits — R8-2)
 st = subprocess.run(["git", "-C", wt, "status", "--porcelain", "--", "AGENTS.md", "RULES.md"],
                     capture_output=True, text=True).stdout.strip()
-d = subprocess.run(["git", "-C", wt, "diff", "--name-status", "--no-renames",
+d = subprocess.run(["git", "-C", wt, "diff", "--no-ext-diff", "--name-status", "--no-renames",
                     receipt["expected_base"], "--", "AGENTS.md", "RULES.md"],
                    capture_output=True, text=True).stdout.strip()
 report("CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched)", st == "" and d == "",
@@ -520,20 +522,44 @@ fi
 # the run. Task-specific commands (test suites) remain worker-attested and are covered by the
 # independent review of the captured diff.
 OPRC=0
-{
-  echo "=== OPERATOR INTEGRITY ACCEPTANCE run=$RUN_ID task=$TASK_ID ==="
-  "$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$HERE" <<'PYEOF'
+case "$RUN_ID" in
+  H2-DRYRUN*)
+    # Dry-run smoke ids carry no experiment standing and have no frozen plan row; the integrity
+    # re-run (task completion + judgement-base verification) is therefore SKIPPED, and that fact
+    # is recorded and bound like any other operator verdict.
+    { echo "=== OPERATOR INTEGRITY ACCEPTANCE SKIPPED (dry-run id: no experiment standing, no plan row) ==="
+      echo "INTEGRITY_CHECKS_RUN=0"; } > "$EV/acceptance-operator.txt"
+    ;;
+  *)
+    # fresh review on 08d8611 (P1): the re-run must cover the task's FULL mechanical EXEC set —
+    # including its test commands — because re-running only the check_* judgement scripts left a
+    # clean-scope fabrication open (a scope-satisfying trivial file + an all-zero acceptance.txt
+    # was collected and published green while the task was not done). Placeholders are substituted
+    # exactly as run_acceptance.sh does; PYTHONDONTWRITEBYTECODE keeps the re-run from leaving
+    # __pycache__ residue in the worktree.
+    _H2REPO="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
+    {
+      echo "=== OPERATOR INTEGRITY ACCEPTANCE run=$RUN_ID task=$TASK_ID ==="
+      PYTHONDONTWRITEBYTECODE=1 "$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$HERE" "$_H2REPO" "$PY" <<'PYEOF'
 import json, subprocess, sys
-reg_p, tid, wt, rid, here = sys.argv[1:6]
+reg_p, tid, wt, rid, here, h2_repo, py = sys.argv[1:8]
 reg = json.load(open(reg_p, encoding="utf-8"))
 task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
 rc_all = 0
+n = 0
 for e in task["acceptance"]["mechanical"]:
     cmd = e["cmd"]
-    if not cmd.startswith("{HARNESS}/check_"):
-        continue
-    run = (cmd.replace("{HARNESS}", here).replace("{WT}", wt)
-              .replace("{RUN_ID}", rid).replace("{TASK_ID}", tid))
+    if not cmd.startswith(("{PY}", "{GIT}", "{HARNESS}", "PUBLIC_RELEASE=1")):
+        continue                      # prose / JUDGMENT entries are the auditor's job
+    cwd_wt = cmd.endswith("(cwd={WT})")
+    if cwd_wt:
+        cmd = cmd[: -len("(cwd={WT})")].rstrip()
+    run = (cmd.replace("{HARNESS}", here).replace("{WT}", wt).replace("{RUN_ID}", rid)
+              .replace("{TASK_ID}", tid).replace("{H2_REPO}", h2_repo).replace("{PY}", py)
+              .replace("{GIT}", "git"))
+    if cwd_wt:
+        run = f"cd {wt!r} && " + run
+    n += 1
     print(f"=== EXEC {run}")
     r = subprocess.run(["bash", "-c", run], capture_output=True, text=True)
     sys.stdout.write(r.stdout)
@@ -541,9 +567,14 @@ for e in task["acceptance"]["mechanical"]:
     print(f"=== RC={r.returncode} ===")
     if r.returncode != 0:
         rc_all = 1
+print(f"INTEGRITY_CHECKS_RUN={n}")
+if n == 0:
+    rc_all = 1   # a task with no executable entry cannot be verified operator-side
 raise SystemExit(rc_all)
 PYEOF
-} > "$EV/acceptance-operator.txt" 2>&1 || OPRC=1
+    } > "$EV/acceptance-operator.txt" 2>&1 || OPRC=1
+    ;;
+esac
 if [ "$OPRC" -ne 0 ]; then
   echo "COLLECT_RUN INVALID (operator integrity acceptance FAILED) run_id=$RUN_ID"
   echo "  -> see $EV/acceptance-operator.txt; register this run as INVALID"

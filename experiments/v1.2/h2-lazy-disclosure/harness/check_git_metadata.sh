@@ -96,6 +96,12 @@ if [ -d "$GD_REAL/hooks" ]; then
   fi
 fi
 
+# 1c. ${GD}/commondir (fresh review on 08d8611, P3) redirects object/ref storage to a SHARED
+#     directory whose info/exclude and config sit outside everything inspected below.
+if [ -f "$GD_REAL/commondir" ]; then
+  reasons="$reasons git_commondir"
+fi
+
 # 2b. worktree-scoped config: `.git/config.worktree` (extensions.worktreeConfig) is a SECOND
 #     local config file the `--local --list` read does not cover — unpinned keys there (fileMode,
 #     diff.external, filters, ...) escaped both detection and the command-scope pins (fresh review
