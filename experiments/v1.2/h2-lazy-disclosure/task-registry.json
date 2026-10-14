@@ -136,7 +136,11 @@
       "oracle_policy": {
         "pre_existing_tests": "WORKER_EDITABLE_SUBJECT",
         "why": "the task's declared subject IS the failing test (scope=scripts/tests/ only; task_text='only the test and its own preconditions may change'), so its base version is RED by construction and the task is to change it - a frozen anchor would forbid the task itself, demonstrated by refusing the historical honest fix 6d841d5. The discriminating control is the independent review of diff.patch against the historical oracle 6d841d5, NOT a mechanical proxy."
-      }
+      },
+      "eligibility": "NON_ELIGIBLE",
+      "ineligible_reason_token": "NON_ELIGIBLE_COMPATIBILITY_SENTINEL",
+      "ineligible_reason": "NON_ELIGIBLE_COMPATIBILITY_SENTINEL: t01 has no honest green path. The HEAD-era carrier (RULES.md placed as H2_RULES.md, plus the H2_WARM bundle) links to deployment/organization-policy.md and docs/adoption.md, which are ABSENT at t01's frozen base c08f6f8b and PRESENT at HEAD (added by 95667e8). On a PRISTINE prepared worktree with zero worker changes this raises the t16 gate from 1 failure (the real t01 RED) to 4, and the full suite from 1 to 19. Both repairs are refused by the frozen scope: adding the link targets is PATH_OUTSIDE_ALLOWED + DENIED_PREFIX 'deployment/' + REQUIRED_MISSING (SCOPE = FAIL), and editing the delivered carrier is CARRIER_RECHECK (actual != frozen) -> COLLECT_RUN INVALID. The historical honest fix 6d841d5, applied cleanly, still leaves t16 at 4 failures. No work => INVALID, honest work => INVALID. t01 is retained as a COMPATIBILITY SENTINEL: the frozen harness must keep handling it correctly (refusing it, with this reason) rather than dropping it. Evidence: [27]. Rejected repairs, all refused by the operator: (a) deliver base-era carrier bytes (destroys the treatment — the carrier IS the independent variable), (b) widen t01's scope to the carrier (lets the worker edit the treatment and contradicts the hash-pinned CARRIER_RECHECK), (c) rebase t01 onto 0a180fee/9494de8 (changes the task's identity — the RED it exists to fix is a property of c08f6f8b).",
+      "causal_role": "COMPATIBILITY_SENTINEL — the frozen harness must keep handling t01 correctly (refusing it with this reason), not drop it. Contributes NO observation to the H2 result; its two Round-2 rows (H2-R2-R01/R02) retain their ids and their place in the frozen order and are refused mechanically by prepare_run.sh."
     },
     {
       "task_id": "t02",

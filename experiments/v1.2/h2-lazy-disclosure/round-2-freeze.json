@@ -12,12 +12,12 @@
   "materials_commit_r2": "RECORDED_AFTER_MERGE (this file must not contain its own commit SHA)",
   "freeze": {
     "VARIANT_HASH_R2": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "TASK_SET_HASH_R2": "ad614c8ef392ed62359aa0db94fd37aded70c0796d798048185aa7cf7904397c",
+    "TASK_SET_HASH_R2": "d40cecb813f0a60931de8e3a7530a3d8d62ef45985d1f280b12af193d85745ac",
     "SCORING_HASH_R2": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "ROUTE_MANIFEST_HASH_R2": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "PROTOCOL_HASH_R2": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
-    "RUN_PLAN_HASH_R2": "ca13fbe004f654c3f12ac11f18e5b7d807014a8da3011f1d1995530189c1f1f2",
-    "HASH_UNIT": "sha256 over file bytes"
+    "HASH_UNIT": "sha256 over file bytes",
+    "RUN_PLAN_HASH_R2": "DERIVED_NOT_HARDCODED — run: shasum -a 256 experiments/v1.2/h2-lazy-disclosure/harness/run-plan-r2.json (was ca13fbe004f6 before the P0-2 eligibility markers; no check consumes this value, so it is stated as its derivation rather than as a number that silently goes stale)"
   },
   "round1_comparison": {
     "TASK_SET_CHANGED": "NO",

@@ -154,6 +154,15 @@ rows = [r for r in plan if r["run_id"] == rid]
 if len(rows) != 1:
     print("__NO_RUN_ROW__"); raise SystemExit(0)
 row = rows[0]
+# P0-2 disposition (2026-10-14, evidence [27]): a plan row may be marked NON_ELIGIBLE. Such a row
+# keeps its run id and its place in the frozen order — ids are never reused or renumbered — but it
+# must not be prepared, because the task it names has no honest green path and would burn a run
+# id on a guaranteed INVALID record. Refusing HERE (rather than only documenting it) is what makes
+# the marker mechanical: a sentinel that could still be executed would not be a sentinel.
+if row.get("eligibility") == "NON_ELIGIBLE":
+    print(f"__NON_ELIGIBLE__ {row.get('ineligible_reason_token', 'UNSPECIFIED')} "
+          f"causal_role={row.get('causal_role', 'UNSPECIFIED')[:60]}")
+    raise SystemExit(0)
 if row["arm"] != arm:
     print(f"__ARM_MISMATCH__ row_arm={row['arm']}"); raise SystemExit(0)
 tasks = {t["task_id"]: t for t in reg["tasks"]}
