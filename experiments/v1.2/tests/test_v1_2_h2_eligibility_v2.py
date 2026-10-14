@@ -3,27 +3,31 @@
 The schema revision is enforced by experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py,
 not by documentation. These tests exercise the validator END TO END as a subprocess.
 
-Fixtures use REAL revisions from this repository's object database (r03's base and candidate), so
-the LOCAL_REPO_VERIFIED path — the part of the validator that recomputes facts instead of reading
-them — is exercised against the real thing rather than against strings that merely look like SHAs.
+Fixtures are bound to REAL replay-corpus pairs, because the validator now recomputes identity: a
+record must name a corpus case and carry that case's revision pair. The pair used for the
+"accepted" fixtures is r06's, whose delta changes no test file and no validator (so no trigger is
+derived from the diff); the pair used for the derived-trigger tests is r03's, whose delta changes
+four test files and two validators.
 
 The five controls the operator required:
   * TEST 1  a repair task (baseline FAIL -> candidate PASS) is accepted;
   * TEST 2  a regression-guard task (baseline PASS -> mutation FAIL) is accepted, including the
-            fully materialised ADMITTED path, using the protocol's own P7 measurement;
+            fully materialised request path, using the protocol's own P7 measurement;
   * TEST 3  a worker who can reach the test oracle is rejected;
   * TEST 4  a worker who can reach the validator is rejected;
   * TEST 5  a task with no classification is rejected (never a silent pass).
-Plus the boundaries the first adversarial review demanded: revision binding, evidence reachability,
-duplicate ids, malformed records, the exact pending-requirement code, the disclosure-to-authority
-binding, and a test that PINS THE KNOWN LIMIT of this program (declared oracle statuses are not
-recomputed) so the documentation cannot drift back into over-claiming.
+Plus the boundaries two adversarial review rounds demanded — and, ported from the second review,
+the LAUNDERING VARIANTS as permanent regression tests: the review of 5aa079f demonstrated that a
+six-field edit of the shipped r03 record was counted as an admission. Every variant of that attack
+must now be refused.
 
 Run:  python3 -m unittest discover -s experiments/v1.2/tests -v
 """
 
 from __future__ import annotations
 
+import copy
+import importlib.util
 import json
 import subprocess
 import sys
@@ -37,15 +41,20 @@ VALIDATOR = H2 / "harness" / "check_task_class.py"
 CLASSIFICATION = H2 / "task-classification-v2.json"
 REGISTRY = H2 / "task-registry.json"
 
-# REAL revisions present in this repository: r03's base and its direct child.
-LOCAL_BASE = "015780be7a3f863c05509b437e4e586b4f388794"
-LOCAL_CAND = "65113de69bda6802a476eefa033cf00439d49f04"
-# Two revisions this repository does NOT contain (the cross-repository candidate's pair).
+CASE_R06 = "r06-governance-zcode-adapter-reference"
+CASE_R03 = "r03-governance-static-gate-adoption"
+CASE_R01 = "r01-zhihu-t14-async-seam-mismatch"
+# r06's pair: resolves locally, candidate descends from base, and the delta touches neither a test
+# file nor a validator (so no trigger is derived from it).
+BASE_CLEAN = "af4df6ae706394db5f9dec313993312392aeb516"
+CAND_CLEAN = "069f8be26cc04bb4f9bf3428c1e23b310debb984"
+# r03's pair: resolves locally, and the delta touches four test files and two validators.
+BASE_TOUCHED = "015780be7a3f863c05509b437e4e586b4f388794"
+CAND_TOUCHED = "65113de69bda6802a476eefa033cf00439d49f04"
+# r01's pair: does NOT resolve in this repository.
 FOREIGN_BASE = "4b6d182f1388e27ae33820feee1589cb0188d59b"
 FOREIGN_CAND = "fa997c12e4c35fdb9267882747d2b55d13772ae2"
 
-# Evidence sources may be given relative to the classification file's directory or to the
-# repository root; fixtures live in a temporary directory, so they use the repository-root form.
 SOURCE = "experiments/v1.2/h2-lazy-disclosure/precondition/n2-eligibility-measurement.md"
 SOURCE_ALT = "experiments/v1.2/h2-lazy-disclosure/task-classification-v2.json"
 EVIDENCE = [{"claim": "fixture", "measured": "measured facts cited from the persisted N2 report",
@@ -55,12 +64,13 @@ EXTERNAL = {"external_repository": "FlapPearLabs/fixture",
 
 
 def repair_record(**over):
-    """CLASS A shaped on the r01 measurement; local binding, oracle not yet externalised."""
+    """CLASS A on r06's pair; oracle not yet externalised, so the request is not valid."""
     rec = {
         "candidate_id": "fixture-repair",
-        "source_repository": "FlapPearLabs/fixture",
-        "base_sha": LOCAL_BASE,
-        "candidate_sha": LOCAL_CAND,
+        "corpus_case_id": CASE_R06,
+        "source_repository": "FlapPearLabs/agent-engineering-governance",
+        "base_sha": BASE_CLEAN,
+        "candidate_sha": CAND_CLEAN,
         "sha_binding": "LOCAL_REPO_VERIFIED",
         "class": "A_REPAIR",
         "class_considered": [{"class": "A_REPAIR", "verdict": "SHAPE_SATISFIED"}],
@@ -81,12 +91,13 @@ def repair_record(**over):
 
 
 def guard_record(**over):
-    """CLASS B shaped on the protocol's P7 gate probe; fully materialised and admitted."""
+    """CLASS B on r06's pair, fully materialised so it can carry a valid request."""
     rec = {
         "candidate_id": "fixture-guard",
-        "source_repository": "FlapPearLabs/fixture",
-        "base_sha": LOCAL_BASE,
-        "candidate_sha": LOCAL_CAND,
+        "corpus_case_id": CASE_R06,
+        "source_repository": "FlapPearLabs/agent-engineering-governance",
+        "base_sha": BASE_CLEAN,
+        "candidate_sha": CAND_CLEAN,
         "sha_binding": "LOCAL_REPO_VERIFIED",
         "class": "B_REGRESSION_GUARD",
         "class_considered": [{"class": "B_REGRESSION_GUARD", "verdict": "SHAPE_SATISFIED"}],
@@ -99,7 +110,7 @@ def guard_record(**over):
         },
         "reject_triggers": [],
         "pending_requirements": [],
-        "round_admission": {"verdict": "ADMITTED_TO_H2_R2", "reason_codes": ["SHAPE_COMPLETE"]},
+        "round_admission": {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]},
         "evidence": EVIDENCE,
     }
     rec.update(over)
@@ -107,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.1.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.2.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -132,22 +143,21 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertEqual(0, rc, out)
         self.assertIn("TASK_CLASS_VERDICT = PASS", out)
 
-    def test_fully_materialised_repair_task_can_be_admitted(self):
+    def test_fully_materialised_repair_task_can_request(self):
         rec = repair_record()
         rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
         rec["disclosures"]["historical_delta_touched_oracle"] = False
         rec["pending_requirements"] = []
-        rec["round_admission"] = {"verdict": "ADMITTED_TO_H2_R2",
-                                  "reason_codes": ["SHAPE_COMPLETE"]}
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
-        self.assertIn("admitted_to_round=1", out)
+        self.assertIn("valid_requests=1", out)
 
     # --- TEST 2 ------------------------------------------------------------------------------
     def test_regression_guard_baseline_pass_mutation_fail_accepted(self):
         rc, out = run_validator(document(guard_record()), self.tmp)
         self.assertEqual(0, rc, out)
-        self.assertIn("admitted_to_round=1", out)
+        self.assertIn("valid_requests=1", out)
 
     # --- TEST 3 ------------------------------------------------------------------------------
     def test_worker_modifies_test_oracle_rejected(self):
@@ -178,27 +188,82 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertEqual(1, rc, out)
         self.assertIn("an unclassified task is an error, never a silent pass", out)
 
-    def test_unknown_class_rejected(self):
+    def test_unknown_class_does_not_mask_other_defects(self):
+        """The first version returned early on an unknown class, so a record with a dozen problems
+        reported one. Every defect must surface."""
         rec = repair_record()
         rec["class"] = "D_MAYBE"
+        rec["reject_triggers"] = [{"trigger": "NOPE", "reason_code": "x", "detail": ""}]
+        rec["round_admission"] = {"verdict": "REQUEST_VALID"}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("D_MAYBE", out)
+        self.assertIn("unknown trigger code", out)
+        self.assertIn("only ['A_REPAIR', 'B_REGRESSION_GUARD'] may carry a valid request", out)
+        self.assertGreaterEqual(out.count("  ERROR "), 4,
+                                "an unknown class must not mask the record's other defects")
 
-    # --- revision binding: the facts this program recomputes ----------------------------------
-    def test_foreign_pair_cannot_be_admitted(self):
-        """The exact laundering route the first review demonstrated: a record whose revisions
-        cannot be checked here must never reach the aggregate."""
+    # --- identity binding ---------------------------------------------------------------------
+    def test_borrowed_corpus_identity_rejected(self):
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R06
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED   # r03's real pair
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("does not match the corpus case", out)
+
+    def test_unknown_corpus_case_rejected(self):
+        rec = repair_record(corpus_case_id="r99-invented-case")
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("is not a case in", out)
+
+    def test_missing_corpus_case_id_rejected(self):
+        rec = repair_record()
+        del rec["corpus_case_id"]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("corpus_case_id is required", out)
+
+    # --- derived triggers (read from the diff, not declared) ----------------------------------
+    def test_derived_trigger_must_be_declared(self):
         rec = guard_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("DERIVED from the git diff", out)
+        self.assertIn("WORKER_MODIFIES_TEST_ORACLE", out)
+
+    def test_full_externalisation_clears_the_derived_trigger(self):
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rec["externalized_paths"] = [
+            "adapters/zcode/tests/test_project_continuity.py",
+            "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+            "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
+            "scripts/tests/test_review_evidence_contract.py",
+            "scripts/validate_governance.py",
+            "scripts/validate_project_state.py",
+        ]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(0, rc, out)
+
+    # --- out-of-repo pairs --------------------------------------------------------------------
+    def test_foreign_pair_cannot_carry_a_valid_request(self):
+        rec = guard_record()
+        rec["corpus_case_id"] = CASE_R01
         rec["base_sha"], rec["candidate_sha"] = FOREIGN_BASE, FOREIGN_CAND
         rec["sha_binding"] = "EXTERNAL_UNVERIFIABLE_LOCALLY"
         rec.update(EXTERNAL)
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
-        self.assertIn("can never be admitted", out)
+        self.assertIn("locally verifiable revision pair", out)
 
-    def test_external_binding_is_legal_when_not_admitted(self):
+    def test_external_binding_is_legal_when_no_request_is_made(self):
         rec = repair_record()
+        rec["corpus_case_id"] = CASE_R01
         rec["base_sha"], rec["candidate_sha"] = FOREIGN_BASE, FOREIGN_CAND
         rec["sha_binding"] = "EXTERNAL_UNVERIFIABLE_LOCALLY"
         rec.update(EXTERNAL)
@@ -207,6 +272,7 @@ class ValidatorBehaviour(unittest.TestCase):
 
     def test_external_binding_without_verification_rejected(self):
         rec = repair_record()
+        rec["corpus_case_id"] = CASE_R01
         rec["base_sha"], rec["candidate_sha"] = FOREIGN_BASE, FOREIGN_CAND
         rec["sha_binding"] = "EXTERNAL_UNVERIFIABLE_LOCALLY"
         rec["external_repository"] = "FlapPearLabs/fixture"
@@ -215,19 +281,11 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertIn("must record the external verification command", out)
 
     def test_wrong_binding_claim_rejected(self):
-        """Claiming EXTERNAL for revisions this repository DOES contain is an error."""
         rec = repair_record(sha_binding="EXTERNAL_UNVERIFIABLE_LOCALLY")
         rec.update(EXTERNAL)
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("must be LOCAL_REPO_VERIFIED", out)
-
-    def test_non_ancestor_pair_rejected(self):
-        """Recomputed ancestry: 65113de does not descend from 015780be's child."""
-        rec = repair_record(base_sha=LOCAL_CAND, candidate_sha=LOCAL_BASE)
-        rc, out = run_validator(document(rec), self.tmp)
-        self.assertEqual(1, rc, out)
-        self.assertIn("does not descend from", out)
 
     # --- evidence reachability ----------------------------------------------------------------
     def test_unreachable_evidence_rejected(self):
@@ -245,8 +303,6 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- structural robustness ----------------------------------------------------------------
     def test_duplicate_candidate_id_rejected(self):
-        rc, out = run_validator(document(repair_record()), self.tmp)
-        self.assertEqual(0, rc, out)
         rc, out = run_validator(document(repair_record(), repair_record()), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("duplicate candidate_id", out)
@@ -286,13 +342,6 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertEqual(1, rc, out)
         self.assertIn("cannot be FRAMEWORK_FROZEN", out)
 
-    def test_touched_oracle_requires_externalisation_pending(self):
-        rec = repair_record()
-        rec["pending_requirements"] = ["SOMETHING_ELSE: unrelated"]
-        rc, out = run_validator(document(rec), self.tmp)
-        self.assertEqual(1, rc, out)
-        self.assertIn("touched oracle requires", out)
-
     def test_reject_class_without_triggers_rejected(self):
         rec = repair_record()
         rec["class"] = "C_REJECT"
@@ -330,13 +379,13 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertEqual(1, rc, out)
         self.assertIn("needs a reason", out)
 
-    # --- admission is never implicit ----------------------------------------------------------
-    def test_admission_with_pending_requirements_rejected(self):
+    # --- requests are never implicit ----------------------------------------------------------
+    def test_request_with_pending_requirements_rejected(self):
         rec = repair_record()
         rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
         rec["disclosures"]["historical_delta_touched_oracle"] = False
         rec["pending_requirements"] = ["DELIVERY_DELTA_MEASUREMENT: not measured yet"]
-        rec["round_admission"] = {"verdict": "ADMITTED_TO_H2_R2", "reason_codes": ["SHAPE_COMPLETE"]}
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("pending requirements remain", out)
@@ -364,11 +413,10 @@ class ValidatorBehaviour(unittest.TestCase):
         """This test PINS THE LIMIT of the validator, so the documentation cannot drift back into
         claiming more than the program does.
 
-        A record can use real revisions and still DECLARE oracle statuses the validator cannot
-        recompute: it has no way to re-run a candidate's oracle. Such a record is accepted (it is
-        internally consistent and consistent with every fact this repository can check), and that
-        acceptance is NOT a proof that the repair happened. The truth of the statuses is an
-        out-of-band obligation carried by the evidence review.
+        A record can be bound to a real corpus pair and still DECLARE oracle statuses the validator
+        cannot recompute: it has no way to re-run a candidate's oracle. Such a record is accepted as
+        a well-formed REQUEST, and that is not a proof that the repair happened. The grant is the
+        round freeze plus review; this program never grants.
 
         If this test ever starts failing, the boundary moved — update the module docstring, the
         schema's enforcement-surface section, and this test together.
@@ -376,14 +424,148 @@ class ValidatorBehaviour(unittest.TestCase):
         rec = repair_record()
         rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
         rec["disclosures"]["historical_delta_touched_oracle"] = False
-        rec["class_requirements"]["baseline_oracle_status"] = "FAIL"   # declared, not recomputed
-        rec["class_requirements"]["candidate_oracle_status"] = "PASS"  # declared, not recomputed
         rec["pending_requirements"] = []
         rec["round_admission"] = {"verdict": "NOT_ADMITTED",
                                   "reason_codes": ["CLASSIFICATION_ONLY"]}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
-        self.assertIn("oracle statuses are declared, not recomputed", out)
+        self.assertIn("valid request is NOT an admission", out)
+
+
+class LaunderingVariants(unittest.TestCase):
+    """Ported from the second adversarial review, which demonstrated that a six-field edit of the
+    shipped r03 record was counted as an admission. These are now permanent regression tests: the
+    attack must stay refused."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+        doc = json.loads(CLASSIFICATION.read_text(encoding="utf-8"))
+        for rec in doc["records"]:                      # make citations resolvable from anywhere
+            rec["evidence"] = [
+                dict(e, source=["experiments/v1.2/h2-lazy-disclosure/" + s
+                               if not s.startswith("experiments") else s
+                               for s in (e["source"] if isinstance(e["source"], list)
+                                         else [e["source"]])])
+                for e in rec["evidence"]]
+        self.r03 = next(r for r in doc["records"] if r["candidate_id"].startswith("r03"))
+        self.r01 = next(r for r in doc["records"] if r["candidate_id"].startswith("r01"))
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _launder(self, rec):
+        r = copy.deepcopy(rec)
+        r["class"] = "A_REPAIR"
+        r["class_requirements"] = {"baseline_oracle_status": "FAIL",
+                                   "candidate_oracle_status": "PASS",
+                                   "oracle_in_worker_scope": False,
+                                   "oracle_authority": "FRAMEWORK_FROZEN"}
+        r["disclosures"] = {"historical_delta_touched_oracle": False}
+        r["reject_triggers"] = []
+        r["pending_requirements"] = []
+        r["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        r.pop("externalized_paths", None)
+        return r
+
+    def test_v1_the_reviews_exact_edit(self):
+        rc, out = run_validator(document(self._launder(self.r03)), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("DERIVED from the git diff", out)
+
+    def test_v2_borrowed_corpus_identity(self):
+        rec = self._launder(self.r03)
+        rec["corpus_case_id"] = CASE_R06
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("does not match the corpus case", out)
+
+    def test_v3_drop_one_derived_trigger(self):
+        rec = self._launder(self.r03)
+        rec["reject_triggers"] = []
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+
+    def test_v4_partial_externalisation(self):
+        rec = self._launder(self.r03)
+        rec["externalized_paths"] = ["adapters/zcode/tests/test_project_continuity.py"]
+        rec["pending_requirements"] = ["ORACLE_EXTERNALIZATION: partial"]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("DERIVED from the git diff", out)
+
+    def test_v5_degenerate_or_mismatched_pair(self):
+        rec = self._launder(self.r03)
+        rec["base_sha"] = rec["candidate_sha"]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+
+    def test_v6_external_pair_asking_for_a_valid_request(self):
+        rec = self._launder(self.r01)
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("locally verifiable revision pair", out)
+
+
+class GuardUnitChecks(unittest.TestCase):
+    """The ancestry and degeneracy guards are only reachable through a corpus pair that is not
+    ancestor-related (every pair in today's corpus is a direct parent-child). They are still worth
+    keeping, so they are exercised directly against a stubbed repository instead of being deleted
+    as unreachable."""
+
+    def _module(self):
+        spec = importlib.util.spec_from_file_location("ctc_under_test", VALIDATOR)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_under_test"] = module
+        spec.loader.exec_module(module)
+        return module
+
+    class _StubRepo:
+        def __init__(self, ancestor: bool):
+            self._ancestor = ancestor
+            self.root = ROOT
+
+        def has_commit(self, _sha):
+            return True
+
+        def is_ancestor(self, _base, _cand):
+            return self._ancestor
+
+        def changed_paths(self, _base, _cand):
+            return []
+
+    def _record(self, module, base, cand):
+        return {
+            "candidate_id": "guard-check", "corpus_case_id": "synthetic-case",
+            "source_repository": "x", "base_sha": base, "candidate_sha": cand,
+            "sha_binding": "LOCAL_REPO_VERIFIED", "class": "A_REPAIR",
+            "class_considered": [{"class": "A_REPAIR", "verdict": "SHAPE_SATISFIED"}],
+            "class_requirements": {"baseline_oracle_status": "FAIL",
+                                   "candidate_oracle_status": "PASS",
+                                   "oracle_in_worker_scope": False,
+                                   "oracle_authority": "FRAMEWORK_FROZEN"},
+            "disclosures": {"historical_delta_touched_oracle": False},
+            "reject_triggers": [], "pending_requirements": [],
+            "round_admission": {"verdict": "NOT_ADMITTED", "reason_codes": ["X"]},
+            "evidence": [],
+        }
+
+    def test_ancestry_guard_fires(self):
+        module = self._module()
+        base, cand = "a" * 40, "b" * 40
+        corpus = {"synthetic-case": (base, cand)}
+        rec = self._record(module, base, cand)
+        errors = module.check_record(rec, self._StubRepo(ancestor=False), ROOT, corpus)
+        self.assertTrue(any("requires the candidate to descend from the base" in e for e in errors),
+                        errors)
+
+    def test_degeneracy_guard_fires(self):
+        module = self._module()
+        sha = "a" * 40
+        corpus = {"synthetic-case": (sha, sha)}
+        rec = self._record(module, sha, sha)
+        errors = module.check_record(rec, self._StubRepo(ancestor=True), ROOT, corpus)
+        self.assertTrue(any("degenerate" in e for e in errors), errors)
 
 
 class ShippedClassification(unittest.TestCase):
@@ -395,7 +577,7 @@ class ShippedClassification(unittest.TestCase):
         self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
         self.assertIn("TASK_CLASS_VERDICT = PASS", proc.stdout)
 
-    def test_shipped_classification_classes_bindings_and_admission(self):
+    def test_shipped_classification_classes_bindings_and_requests(self):
         doc = json.loads(CLASSIFICATION.read_text(encoding="utf-8"))
         by_id = {r["candidate_id"]: r for r in doc["records"]}
         self.assertEqual(3, len(by_id))
@@ -405,16 +587,18 @@ class ShippedClassification(unittest.TestCase):
         self.assertEqual("A_REPAIR", r01["class"])
         self.assertEqual("C_REJECT", r03["class"])
         self.assertEqual("C_REJECT", r06["class"])
-        # the cross-repository candidate can never be admitted from this repository
         self.assertEqual("EXTERNAL_UNVERIFIABLE_LOCALLY", r01["sha_binding"])
         self.assertEqual("LOCAL_REPO_VERIFIED", r03["sha_binding"])
         self.assertEqual("LOCAL_REPO_VERIFIED", r06["sha_binding"])
+        # no task carries a valid request out of this node
         for rec in (r01, r03, r06):
             self.assertEqual("NOT_ADMITTED", rec["round_admission"]["verdict"])
         codes03 = {t["trigger"] for t in r03["reject_triggers"]}
         codes06 = {t["trigger"] for t in r06["reject_triggers"]}
         self.assertIn("OBSERVATION_COVERAGE_UNPROVEN", codes03)
         self.assertIn("ACCEPTANCE_SURFACE_IN_WORKER_SCOPE", codes03)
+        # r03's delta modifies test files, so the derived trigger must be declared
+        self.assertIn("WORKER_MODIFIES_TEST_ORACLE", codes03)
         self.assertEqual({"OBSERVATION_COVERAGE_UNPROVEN"}, codes06)
 
     def test_v2_rejects_the_registered_task_t02_as_specified(self):
@@ -422,12 +606,10 @@ class ShippedClassification(unittest.TestCase):
 
         Two facts are read from the frozen registry, not asserted here:
           * `ruff.toml` is inside t02's scope prefixes, so the file that decides the linter's
-            verdict is a worker deliverable (ACCEPTANCE_SURFACE_IN_WORKER_SCOPE);
+            verdict is a worker deliverable;
           * the "select is non-empty and correctness-class" requirement is a JUDGMENT entry, i.e.
-            prose, so nothing mechanical pins the rule selection (OBSERVATION_COVERAGE_UNPROVEN
-            for the narrowing direction).
-        A t02-shaped record that claims the admissible class A_REPAIR while carrying those two
-        triggers must be refused. If a future change makes this pass, the schema has been bent.
+            prose, so nothing mechanical pins the rule selection.
+        A t02-shaped record claiming A_REPAIR while carrying those two triggers must be refused.
         """
         reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
         t02 = next(t for t in reg["tasks"] if t["task_id"] == "t02")
@@ -441,7 +623,6 @@ class ShippedClassification(unittest.TestCase):
 
         rec = repair_record()
         rec["candidate_id"] = "t02-as-registered"
-        rec["class"] = "A_REPAIR"
         rec["reject_triggers"] = [
             {"trigger": "ACCEPTANCE_SURFACE_IN_WORKER_SCOPE",
              "reason_code": "VERDICT_PRODUCING_BYTES_ARE_DELIVERABLES",

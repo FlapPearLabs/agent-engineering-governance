@@ -1,6 +1,6 @@
 {
   "schema": "ELIGIBILITY_SCHEMA_V2",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "status": "PROPOSED_NOT_FROZEN",
   "proposed_on": "2026-10-14",
   "proposed_in_node": "N2.1 Eligibility Schema Revision",
@@ -44,6 +44,7 @@
   "records": [
     {
       "candidate_id": "r01-zhihu-t14-async-seam-mismatch",
+      "corpus_case_id": "r01-zhihu-t14-async-seam-mismatch",
       "source_repository": "FlapPearLabs/zhihu-grabber-toolkit",
       "base_sha": "4b6d182f1388e27ae33820feee1589cb0188d59b",
       "candidate_sha": "fa997c12e4c35fdb9267882747d2b55d13772ae2",
@@ -69,10 +70,14 @@
         "oracle_authority": "PENDING_FREEZE_V2"
       },
       "reject_triggers": [],
+      "externalized_paths": [
+        "research-orchestration/test/p1-t14-cross-group-synthesis.test.mjs"
+      ],
       "disclosures": {
         "historical_delta_touched_oracle": true,
         "historical_delta_touched_validator": false,
-        "oracle_externalisation_evidence": "a frozen-oracle cross test was measured: the CANDIDATE version of the test file placed into the BASE tree FAILS (Cannot find module), and passes in the candidate tree — so the externalised oracle does attest the repair"
+        "oracle_externalisation_evidence": "a frozen-oracle cross test was measured: the CANDIDATE version of the test file placed into the BASE tree FAILS (Cannot find module), and passes in the candidate tree — so the externalised oracle does attest the repair",
+        "derived_triggers_note": "the pair does not resolve in this repository, so the DERIVED_TRIGGERS rule cannot run for this record; that is one more reason an externally bound record can never carry a valid request"
       },
       "pending_requirements": [
         "ORACLE_EXTERNALIZATION: the test file must be frozen as a framework artifact and excluded from the worker's scope at H2-R2 Freeze v2 (the historical candidate commit modified it)",
@@ -113,6 +118,7 @@
     },
     {
       "candidate_id": "r03-governance-static-gate-adoption",
+      "corpus_case_id": "r03-governance-static-gate-adoption",
       "source_repository": "FlapPearLabs/agent-engineering-governance",
       "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
       "candidate_sha": "65113de69bda6802a476eefa033cf00439d49f04",
@@ -136,6 +142,11 @@
           "trigger": "WORKER_MODIFIES_VALIDATOR",
           "reason_code": "VALIDATOR_IN_DELTA",
           "detail": "the historical delta modifies scripts/validate_governance.py (its own check count moves 32 -> 34), so that validator cannot serve as an oracle"
+        },
+        {
+          "trigger": "WORKER_MODIFIES_TEST_ORACLE",
+          "reason_code": "TEST_ORACLE_IN_DELTA",
+          "detail": "derived from the pair's changed-file list, not declared by hand: the delta rewrites adapters/zcode/tests/test_project_continuity.py, scripts/tests/test_p1_t12_shared_file_single_writer.py, scripts/tests/test_p1_t17_static_gate_framework_semantics.py and scripts/tests/test_review_evidence_contract.py"
         },
         {
           "trigger": "ACCEPTANCE_SURFACE_IN_WORKER_SCOPE",
@@ -198,6 +209,7 @@
     },
     {
       "candidate_id": "r06-governance-zcode-adapter-reference",
+      "corpus_case_id": "r06-governance-zcode-adapter-reference",
       "source_repository": "FlapPearLabs/agent-engineering-governance",
       "base_sha": "af4df6ae706394db5f9dec313993312392aeb516",
       "candidate_sha": "069f8be26cc04bb4f9bf3428c1e23b310debb984",

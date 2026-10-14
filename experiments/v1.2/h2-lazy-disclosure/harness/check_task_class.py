@@ -11,39 +11,38 @@ The failure it guards against is concrete and already measured twice in this rep
   * a task can PASS because no gate observes the deliverable at all
     (measured: the r06 delta adds eight files while the only era gate stays item-for-item 23/23).
 
-Both are acceptance-shape defects, not worker misbehaviour, so they cannot be caught by reviewing
-a diff.
+WHAT IS RECOMPUTED HERE (never read from the record)
+----------------------------------------------------
+  · IDENTITY: a record must name the replay-corpus case it classifies, and its revision pair must
+    EQUAL the pair `experiments/v1.2/replay/cases.yaml` binds to that case. Without this, a record
+    may borrow a real, local, ancestor-related revision pair from an unrelated case and assert any
+    class it likes — the first fix round left exactly that hole open (demonstrated).
+  · DERIVED TRIGGERS: the changed-file list of that pair is read from the object database, and
+    every changed test file derives WORKER_MODIFIES_TEST_ORACLE while every changed
+    validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR. A record must either DECLARE a
+    derived trigger or list every one of its paths in `externalized_paths` together with an
+    ORACLE_EXTERNALIZATION pending requirement. The delta's file list is a git fact, so this cannot
+    be talked away by editing the record.
+  · ANCESTRY: for a claim of an admissible class, the candidate must descend from the base
+    (`git merge-base --is-ancestor`), and the pair must not be degenerate (base == candidate).
+  · EVIDENCE PATHS: every `evidence[].source` must resolve to an existing file.
+  · The closed vocabularies, the per-class field equalities, the trigger/class consistency, the
+    disclosure-to-authority binding, the C_REJECT "show which class you blocked" rule, the exact
+    pending-code match, and the structural rules (unique ids, required schema_version, malformed
+    records as structured errors).
 
-WHAT THIS PROGRAM DOES **AND DOES NOT** ENFORCE — read this before trusting a PASS
+WHAT IS **NOT** ENFORCED — and why this program does not call its verdict an admission
 -------------------------------------------------------------------------------------
-The first version of this validator judged only the self-consistency of a self-authored JSON file,
-and the adversarial review of commit ea268dd demonstrated the consequence: a hand-written record
-that asserted the right field values was accepted and counted as ADMITTED. That is a real limit, and
-the honest response is to shrink it rather than to deny it:
+The TRUTH of `baseline_oracle_status` / `mutation_oracle_status` is never recomputed: this program
+cannot re-run a candidate's oracle, so a record can still declare statuses that are false. That
+limit is real and is stated rather than papered over, which is why:
 
-  ENFORCED MECHANICALLY (recomputed here, never read from the record):
-    · every declared revision that THIS repository contains is resolved with `git cat-file`, and
-      for an admissible record the candidate must be a DESCENDANT of the base
-      (`git merge-base --is-ancestor`) — a fact about the object database, not a claim;
-    · a record whose revisions are NOT resolvable here is marked EXTERNAL_UNVERIFIABLE_LOCALLY and
-      may NEVER be admitted to the round (an unverifiable-local fact cannot be the basis of
-      admission);
-    · every `evidence[].source` must resolve to a file that exists;
-    · the closed vocabularies, the per-class field equalities, the trigger/class consistency, the
-      disclosure ↔ oracle-authority binding, the C_REJECT "show which class you blocked" rule, and
-      the admission preconditions.
+    this program validates an ADMISSION REQUEST, it never grants an admission.
+    `round_admission.verdict = REQUEST_VALID` means "every fact this repository can check agrees
+    with this record". The grant is the round freeze plus independent review — nothing here.
 
-  NOT ENFORCED — out-of-band obligations, recorded so nobody mistakes a PASS for a proof:
-    · the TRUTH of `baseline_oracle_status` / `mutation_oracle_status` is never recomputed; the
-      validator cannot re-run a candidate's oracle;
-    · whether the oracle really is outside the worker's scope is a claim about a task design that
-      does not exist yet;
-    · therefore a PASS means "this record is internally consistent AND, where the repository can
-      check it, consistent with the repository". It is not a substitute for the evidence review,
-      which is why every record must cite files that exist.
-
-Exit code 0 iff no rule is violated. A legitimately rejected record (C_REJECT with valid triggers)
-is a PASS for this validator — it judges CONSISTENCY AND ADMISSIBILITY, not admission.
+A PASS therefore means "internally consistent AND consistent with every fact this repository can
+recompute". It is not a statement that the work happened.
 
 Usage:  python3 check_task_class.py <classification.json> [repo_root]
 """
@@ -68,15 +67,19 @@ TRIGGER_CODES = (
     "BASE_CANDIDATE_NOT_COMPARABLE",
 )
 ORACLE_AUTHORITIES = ("FRAMEWORK_FROZEN", "PENDING_FREEZE_V2")
-ADMISSION_VERDICTS = ("ADMITTED_TO_H2_R2", "NOT_ADMITTED")
+ADMISSION_VERDICTS = ("REQUEST_VALID", "NOT_ADMITTED")
 SHA_BINDINGS = ("LOCAL_REPO_VERIFIED", "EXTERNAL_UNVERIFIABLE_LOCALLY")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 PENDING_PREFIX = "ORACLE_EXTERNALIZATION"
+# A changed file that holds assertions, versus one that decides a verdict.
+TEST_PATH_RE = re.compile(r"(^|/)tests?/|\.test\.|(^|/)test_[^/]*\.py$")
+VALIDATOR_PATH_RE = re.compile(r"(^|/)validate_[^/]*\.py$|(^|/)check_[^/]*\.(sh|py)$")
+CASES_YAML = "experiments/v1.2/replay/cases.yaml"
 REQUIRED_RECORD_KEYS = (
-    "candidate_id", "source_repository", "base_sha", "candidate_sha", "class",
-    "class_considered", "reject_triggers", "pending_requirements", "round_admission", "evidence",
-    "sha_binding",
+    "candidate_id", "corpus_case_id", "source_repository", "base_sha", "candidate_sha",
+    "sha_binding", "class", "class_considered", "reject_triggers", "pending_requirements",
+    "round_admission", "evidence",
 )
 
 
@@ -86,15 +89,62 @@ class Repo:
     def __init__(self, root: Path):
         self.root = root
 
-    def _git(self, *args: str) -> subprocess.CompletedProcess:
+    def git(self, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", "-C", str(self.root), *args],
                               capture_output=True, text=True)
 
     def has_commit(self, sha: str) -> bool:
-        return self._git("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
+        return self.git("cat-file", "-e", f"{sha}^{{commit}}").returncode == 0
 
     def is_ancestor(self, base: str, candidate: str) -> bool:
-        return self._git("merge-base", "--is-ancestor", base, candidate).returncode == 0
+        return self.git("merge-base", "--is-ancestor", base, candidate).returncode == 0
+
+    def changed_paths(self, base: str, candidate: str):
+        r = self.git("diff", "--no-ext-diff", "--name-only", base, candidate, "--")
+        if r.returncode != 0:
+            return None
+        return [p for p in r.stdout.split() if p]
+
+
+def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str]]:
+    """case_id -> (base_sha, candidate_sha), read from the frozen replay corpus.
+
+    Scoped to the `cases:` list on purpose. The first parser kept whatever `case_id` it saw last,
+    so the `not_replay_ready:` section further down (which has its own `base_sha:` under a
+    `candidate_ref:` entry) OVERWROTE the last real case's pair — the validator caught it and
+    refused, which is how it was found. Parsing now stops at the first top-level key after the
+    cases list and resets on any list item that is not a `case_id`.
+    """
+    path = repo.root / CASES_YAML
+    if not path.is_file():
+        return {}
+    out: dict[str, tuple[str, str]] = {}
+    current = None
+    started = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if re.match(r"^cases:\s*$", line):
+            started = True
+            continue
+        if started and re.match(r"^[A-Za-z_]+:", line):     # a later top-level section
+            break
+        if not started:
+            continue
+        m = re.match(r"\s*-\s*case_id:\s*(\S+)\s*$", line)
+        if m:
+            current = m.group(1)
+            out.setdefault(current, ["", ""])
+            continue
+        if re.match(r"\s*-\s*\S+:", line):                  # a different list item: stop scoping
+            current = None
+            continue
+        m = re.match(r"\s+base_sha:\s*([0-9a-f]{40})\s*$", line)
+        if m and current:
+            out[current][0] = m.group(1)
+            continue
+        m = re.match(r"\s+candidate_sha:\s*([0-9a-f]{40})\s*$", line)
+        if m and current:
+            out[current][1] = m.group(1)
+    return {k: (v[0], v[1]) for k, v in out.items() if v[0] and v[1]}
 
 
 def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
@@ -110,23 +160,27 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
         errors.append("`records` is missing or empty")
         return errors
 
-    seen: set[str] = set()
+    corpus = corpus_pairs(repo)
+    if not corpus:
+        errors.append(f"the replay corpus could not be read at {CASES_YAML} — identity binding is "
+                      f"impossible, so nothing here can be validated (failing closed)")
+
+    seen: list[str] = []
     for rec in records:
         if not isinstance(rec, dict):
             errors.append(f"record {type(rec).__name__} is not an object — a malformed record is "
                           f"an error, not a skip")
             continue
         cid = rec.get("candidate_id")
-        if isinstance(cid, str):
-            if cid in seen:
-                errors.append(f"duplicate candidate_id {cid!r}")
-            seen.add(cid)
-        errors.extend(check_record(rec, repo, classification_dir))
+        key = cid if isinstance(cid, str) and cid else f"<non-string id: {cid!r}>"
+        if key in seen:
+            errors.append(f"duplicate candidate_id {cid!r}")
+        seen.append(key)
+        errors.extend(check_record(rec, repo, classification_dir, corpus))
     return errors
 
 
 def resolve_evidence(source, classification_dir: Path, repo: Repo):
-    """Return the resolved path for an evidence source, or None."""
     if not isinstance(source, str) or not source:
         return None
     for base in (classification_dir, repo.root):
@@ -139,9 +193,8 @@ def resolve_evidence(source, classification_dir: Path, repo: Repo):
 def has_oracle_externalization(pending) -> bool:
     """True iff a pending requirement's CODE is exactly ORACLE_EXTERNALIZATION.
 
-    The exact code matters: the first version used a bare `startswith`, so a requirement code like
-    ORACLE_EXTERNALIZATION_LATER would have satisfied the same rule while naming a different
-    obligation. The code must be followed by a delimiter or end the string.
+    The exact code matters: a bare `startswith` would accept ORACLE_EXTERNALIZATION_LATER for a
+    different obligation, so the code must be followed by a delimiter or end the string.
     """
     for p in pending:
         if not isinstance(p, str) or not p.startswith(PENDING_PREFIX):
@@ -152,7 +205,18 @@ def has_oracle_externalization(pending) -> bool:
     return False
 
 
-def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
+def derived_triggers(paths) -> dict[str, list[str]]:
+    derived: dict[str, list[str]] = {}
+    for p in paths or []:
+        if TEST_PATH_RE.search(p):
+            derived.setdefault("WORKER_MODIFIES_TEST_ORACLE", []).append(p)
+        if VALIDATOR_PATH_RE.search(p):
+            derived.setdefault("WORKER_MODIFIES_VALIDATOR", []).append(p)
+    return derived
+
+
+def check_record(rec: dict, repo: Repo, classification_dir: Path,
+                 corpus: dict[str, tuple[str, str]]) -> list[str]:
     cid = rec.get("candidate_id") or "<unnamed record>"
     err: list[str] = []
 
@@ -166,23 +230,53 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
     if not isinstance(rec.get("source_repository"), str) or not rec.get("source_repository"):
         err.append(f"{cid}: source_repository must be a non-empty string")
 
-    # --- revision binding: the part of this validator that reads reality ----------------------
+    cls = rec.get("class")
+    if cls not in CLASSES:
+        # NOTE: do NOT return early — an unknown class used to mask every other defect in the
+        # record, which makes a broken record look like a single-error record.
+        err.append(f"{cid}: class is {cls!r}; it must be one of {list(CLASSES)} "
+                   f"(an unclassified task is an error, never a silent pass)")
+    admissible_claim = cls in ADMISSIBLE_CLASSES
+
+    base, cand = rec.get("base_sha"), rec.get("candidate_sha")
+    have_pair = (isinstance(base, str) and isinstance(cand, str)
+                 and bool(SHA_RE.match(base)) and bool(SHA_RE.match(cand)))
+
+    # --- IDENTITY: the record must name a corpus case, and the pair must be that case's pair ----
+    case_id = rec.get("corpus_case_id")
+    if not isinstance(case_id, str) or not case_id:
+        err.append(f"{cid}: corpus_case_id is required — a record that names no case can assert any "
+                   f"class over any revision pair it borrows")
+    elif corpus and case_id not in corpus:
+        err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML}")
+    elif corpus and have_pair:
+        want_base, want_cand = corpus[case_id]
+        if (base, cand) != (want_base, want_cand):
+            err.append(f"{cid}: the revision pair does not match the corpus case {case_id!r} "
+                       f"(corpus binds {want_base[:12]} -> {want_cand[:12]}, record declares "
+                       f"{base[:12]} -> {cand[:12]}) — identity is recomputed from the corpus, not "
+                       f"taken from the record")
+
+    # --- revision binding ----------------------------------------------------------------------
     binding = rec.get("sha_binding")
     if binding not in SHA_BINDINGS:
         err.append(f"{cid}: sha_binding must be one of {list(SHA_BINDINGS)} (got {binding!r})")
-    base, cand = rec.get("base_sha"), rec.get("candidate_sha")
-    if isinstance(base, str) and isinstance(cand, str) and \
-            SHA_RE.match(base) and SHA_RE.match(cand):
-        local_base, local_cand = repo.has_commit(base), repo.has_commit(cand)
-        if local_base and local_cand:
+    local_pair = None
+    if have_pair:
+        local_pair = (repo.has_commit(base), repo.has_commit(cand))
+        if local_pair == (True, True):
             if binding != "LOCAL_REPO_VERIFIED":
                 err.append(f"{cid}: both revisions resolve in this repository, so sha_binding must "
                            f"be LOCAL_REPO_VERIFIED (got {binding!r})")
-            if not repo.is_ancestor(base, cand):
-                err.append(f"{cid}: LOCAL_REPO_VERIFIED requires the candidate to descend from the "
-                           f"base, and {cand[:12]} does not descend from {base[:12]} — this is "
-                           f"recomputed from the object database, not read from the record")
-        elif local_base or local_cand:
+            if base == cand:
+                err.append(f"{cid}: the pair is degenerate (base == candidate) — a revision is its "
+                           f"own ancestor, so an equal pair would otherwise pass the ancestry test "
+                           f"while describing no delta at all")
+            elif admissible_claim and not repo.is_ancestor(base, cand):
+                err.append(f"{cid}: a claim of {cls} requires the candidate to descend from the "
+                           f"base, and {cand[:12]} does not descend from {base[:12]} — recomputed "
+                           f"from the object database, not read from the record")
+        elif True in local_pair:
             err.append(f"{cid}: exactly one of the two revisions resolves here — an inconsistent "
                        f"pair cannot be a basis for classification")
         else:
@@ -196,17 +290,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
                            f"verification command (a claim with no stated verification locus is "
                            f"not evidence)")
 
-    cls = rec.get("class")
-    if cls not in CLASSES:
-        err.append(f"{cid}: class is {cls!r}; it must be one of {list(CLASSES)} "
-                   f"(an unclassified task is an error, never a silent pass)")
-        return err
-
-    # --- triggers -----------------------------------------------------------------------------
+    # --- DERIVED TRIGGERS: the delta's own file list, read from the object database -------------
     triggers = rec.get("reject_triggers")
     if not isinstance(triggers, list):
         err.append(f"{cid}: reject_triggers must be a list")
         triggers = []
+    declared = set()
     for t in triggers:
         if not isinstance(t, dict):
             err.append(f"{cid}: every reject_triggers entry must be an object")
@@ -215,18 +304,13 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
         if code not in TRIGGER_CODES:
             err.append(f"{cid}: unknown trigger code {code!r}")
             continue
+        declared.add(code)
         if not CODE_RE.match(str(t.get("reason_code", ""))):
             err.append(f"{cid}: trigger {code} needs a reason_code in UPPER_SNAKE form "
                        f"(got {t.get('reason_code')!r})")
         if not isinstance(t.get("detail"), str) or not t.get("detail"):
             err.append(f"{cid}: trigger {code} needs a non-empty detail")
-    if cls in ADMISSIBLE_CLASSES and triggers:
-        err.append(f"{cid}: claims {cls} while carrying {len(triggers)} rejection trigger(s) — "
-                   f"a claim of an admissible class must have a clean trigger set")
-    if cls == "C_REJECT" and not triggers:
-        err.append(f"{cid}: C_REJECT requires at least one enumerated trigger")
 
-    # --- pending requirements -----------------------------------------------------------------
     pending = rec.get("pending_requirements")
     if not isinstance(pending, list):
         err.append(f"{cid}: pending_requirements must be a list")
@@ -236,6 +320,32 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
             err.append(f"{cid}: every pending requirement must be a non-empty string")
         elif not CODE_RE.match(p.split(":", 1)[0].split(" ", 1)[0]):
             err.append(f"{cid}: pending requirement {p[:40]!r} must begin with an UPPER_SNAKE code")
+
+    externalized = rec.get("externalized_paths") or []
+    if not isinstance(externalized, list):
+        err.append(f"{cid}: externalized_paths must be a list when present")
+        externalized = []
+    if local_pair == (True, True):
+        paths = repo.changed_paths(base, cand)
+        if paths is None:
+            err.append(f"{cid}: the changed-file list of the pair could not be read (failing closed)")
+        else:
+            for trig, trig_paths in derived_triggers(paths).items():
+                if trig in declared:
+                    continue
+                uncovered = [p for p in trig_paths if p not in externalized]
+                if not uncovered and has_oracle_externalization(pending):
+                    continue
+                err.append(f"{cid}: the delta of this pair changes {uncovered or trig_paths} so "
+                           f"{trig} is DERIVED from the git diff — the record must declare it, or "
+                           f"list every such path in externalized_paths together with an "
+                           f"{PENDING_PREFIX} pending requirement")
+
+    if admissible_claim and triggers:
+        err.append(f"{cid}: claims {cls} while carrying {len(triggers)} rejection trigger(s) — "
+                   f"a claim of an admissible class must have a clean trigger set")
+    if cls == "C_REJECT" and not triggers:
+        err.append(f"{cid}: C_REJECT requires at least one enumerated trigger")
 
     # --- per-class requirements ---------------------------------------------------------------
     req = rec.get("class_requirements")
@@ -257,16 +367,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
                            f"(got {authority!r})")
             if authority == "PENDING_FREEZE_V2" and not has_oracle_externalization(pending):
                 err.append(f"{cid}: oracle_authority PENDING_FREEZE_V2 requires a pending "
-                           f"requirement whose code is exactly {PENDING_PREFIX!r} (a longer code "
-                           f"that merely starts with it is not the same requirement)")
-            # disclosure ↔ authority binding: an oracle the historical delta touched cannot be
-            # claimed as already frozen, and must be covered by a pending externalisation
+                           f"requirement whose code is exactly {PENDING_PREFIX!r}")
             disclosures = rec.get("disclosures") or {}
             if disclosures.get("historical_delta_touched_oracle") is True:
                 if authority == "FRAMEWORK_FROZEN":
                     err.append(f"{cid}: oracle_authority cannot be FRAMEWORK_FROZEN while the "
-                               f"record discloses that the historical delta touched the oracle — "
-                               f"the freeze is not materialised yet")
+                               f"record discloses that the historical delta touched the oracle")
                 if not has_oracle_externalization(pending):
                     err.append(f"{cid}: a touched oracle requires a {PENDING_PREFIX} pending "
                                f"requirement")
@@ -300,7 +406,7 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
                 if not isinstance(c.get("reason"), str) or not c.get("reason").strip():
                     err.append(f"{cid}: the BLOCKED entry for {c.get('class')} needs a reason")
 
-    # --- admission ----------------------------------------------------------------------------
+    # --- admission REQUEST (this program never grants) -----------------------------------------
     admission = rec.get("round_admission")
     if not isinstance(admission, dict):
         err.append(f"{cid}: round_admission must be an object")
@@ -308,21 +414,24 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path) -> list[str]:
         verdict = admission.get("verdict")
         if verdict not in ADMISSION_VERDICTS:
             err.append(f"{cid}: round_admission.verdict must be one of {list(ADMISSION_VERDICTS)}")
-        elif verdict == "ADMITTED_TO_H2_R2":
-            if cls not in ADMISSIBLE_CLASSES:
-                err.append(f"{cid}: only {list(ADMISSIBLE_CLASSES)} may be admitted")
-            if triggers:
-                err.append(f"{cid}: admission is forbidden while any rejection trigger is set")
-            if pending:
-                err.append(f"{cid}: admission is forbidden while pending requirements remain "
-                           f"({len(pending)} open)")
-            if isinstance(req, dict) and "PENDING_FREEZE_V2" in json.dumps(req):
-                err.append(f"{cid}: admission is forbidden while a class requirement is still "
-                           f"PENDING_FREEZE_V2")
+        elif verdict == "REQUEST_VALID":
+            if not admissible_claim:
+                err.append(f"{cid}: only {list(ADMISSIBLE_CLASSES)} may carry a valid request")
             if binding != "LOCAL_REPO_VERIFIED":
-                err.append(f"{cid}: admission requires a locally verifiable revision pair — an "
-                           f"EXTERNAL_UNVERIFIABLE_LOCALLY record can never be admitted (the "
-                           f"verdict would rest on a fact this repository cannot check)")
+                err.append(f"{cid}: a valid request requires a locally verifiable revision pair — "
+                           f"an EXTERNAL_UNVERIFIABLE_LOCALLY record can never carry one: the "
+                           f"verdict would rest on a fact this repository cannot check, and the "
+                           f"derived-trigger rule cannot even run for it")
+            if triggers:
+                err.append(f"{cid}: a valid request is forbidden while any rejection trigger is set")
+            if pending:
+                err.append(f"{cid}: a valid request is forbidden while pending requirements remain "
+                           f"({len(pending)} open)")
+            if isinstance(req, dict):
+                authority_now = req.get("oracle_authority")
+                if authority_now == "PENDING_FREEZE_V2":
+                    err.append(f"{cid}: a valid request is forbidden while oracle_authority is "
+                               f"still PENDING_FREEZE_V2")
         elif not admission.get("reason_codes"):
             err.append(f"{cid}: NOT_ADMITTED requires non-empty reason_codes")
 
@@ -369,28 +478,27 @@ def main(argv: list[str]) -> int:
 
     records = doc.get("records") if isinstance(doc, dict) else []
     records = records if isinstance(records, list) else []
-    admitted = [r.get("candidate_id") for r in records
+    requests = [r.get("candidate_id") for r in records
                 if isinstance(r, dict)
                 and isinstance(r.get("round_admission"), dict)
-                and r["round_admission"].get("verdict") == "ADMITTED_TO_H2_R2"]
+                and r["round_admission"].get("verdict") == "REQUEST_VALID"]
     for rec in records:
         if not isinstance(rec, dict):
             continue
-        cls = rec.get("class")
-        adm = (rec.get("round_admission") or {}).get("verdict")
-        n_trig = len(rec.get("reject_triggers") or [])
-        print(f"  {str(rec.get('candidate_id', '<unnamed>')):44s} class={str(cls):20s} "
-              f"binding={str(rec.get('sha_binding')):32s} triggers={n_trig} admission={adm}")
+        print(f"  {str(rec.get('candidate_id', '<unnamed>')):44s} class={str(rec.get('class')):20s} "
+              f"binding={str(rec.get('sha_binding')):32s} "
+              f"triggers={len(rec.get('reject_triggers') or [])} "
+              f"request={((rec.get('round_admission') or {}).get('verdict'))}")
 
     if errors:
         for e in errors:
             print(f"  ERROR {e}")
         print(f"TASK_CLASS_VERDICT = FAIL records={len(records)} errors={len(errors)}")
         return 1
-    print(f"TASK_CLASS_VERDICT = PASS records={len(records)} "
-          f"admitted_to_round={len(admitted)} rejected={len(records) - len(admitted)} errors=0 "
-          f"enforcement=SELF_CONSISTENCY+LOCAL_REPO_BINDING (oracle statuses are declared, not "
-          f"recomputed — see the module docstring)")
+    print(f"TASK_CLASS_VERDICT = PASS records={len(records)} valid_requests={len(requests)} "
+          f"rejected={len(records) - len(requests)} errors=0 "
+          f"enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: "
+          f"the grant is the round freeze plus review)")
     return 0
 
 

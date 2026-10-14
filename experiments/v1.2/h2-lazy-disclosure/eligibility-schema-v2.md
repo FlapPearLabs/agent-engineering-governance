@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.1.0  (2.0.0 -> 2.1.0 after the review of commit ea268dd)
+VERSION        = 2.2.0  (2.0.0 -> 2.1.0 -> 2.2.0 across two adversarial review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -10,11 +10,15 @@ SUPERSEDES     = the C1–C5 admissibility criteria AS APPLIED in the N2 measure
 EXTENDS        = ELIGIBILITY_RULE_v2 (task-registry.json#eligibility_rule) — see §7: a task must
                  satisfy BOTH layers; nothing in v2 weakens the earlier rule
 MECHANICALLY_ENFORCED_BY = harness/check_task_class.py + experiments/v1.2/tests/test_v1_2_h2_eligibility_v2.py
-REVIEW_HISTORY = 2026-10-14 review of ea268dd returned CHANGES_REQUIRED (2xP1, no P0): the validator
-                 judged only self-consistency while §6.5 claimed a structural proof. Fixes: revision
-                 binding recomputed from the object database, admission limited to locally verified
-                 pairs, evidence paths must resolve, and the enforcement boundary is stated in §6.6
-                 and pinned by a test.
+REVIEW_HISTORY = round 1 (commit ea268dd) returned CHANGES_REQUIRED (2xP1, no P0): the validator
+                 judged only self-consistency while §6.5 claimed a structural proof. Round 2
+                 (commit 5aa079f) returned CHANGES_REQUIRED again and was right once more: the
+                 revision pair was not bound to the record's IDENTITY, so a six-field edit of the
+                 shipped r03 record — borrowing its real, local, ancestor-related pair — was still
+                 counted as an admission. v2.2.0 fixes that: identity is bound to the replay corpus,
+                 two triggers are DERIVED from the delta's own file list, a valid request requires a
+                 locally verifiable pair, and the verdict vocabulary no longer says 'admitted' at
+                 all — this program validates a REQUEST and never grants one.
 MACHINE_READABLE_RECORDS = task-classification-v2.json
 EVIDENCE       = precondition/n2-eligibility-measurement.md, precondition/n2-c2c3-gap-analysis.md,
                  precondition/n2-vacuity-probe.txt, precondition/n2-r0*.txt,
@@ -126,10 +130,16 @@ statuses, and everything not yet materialised is listed in `pending_requirements
 
 ```text
 FOR EVERY CLASS
+  · IDENTITY: the record names the replay-corpus case it classifies and carries THAT case's
+    revision pair; the pair is read from cases.yaml, never taken from the record
+  · DERIVED TRIGGERS: the delta's own changed-file list is read from the object database — every
+    changed test file derives WORKER_MODIFIES_TEST_ORACLE and every changed validate_*/check_*
+    file derives WORKER_MODIFIES_VALIDATOR; each must be declared or its paths externalised
   · the acceptance is decided by bytes that are NOT part of the worker's delta              (R3/R4/R5)
   · the acceptance names its oracle explicitly, and the oracle's authority is declared      (R4)
-  · round admission is never implicit: it requires an admissible class, zero triggers, zero
-    pending requirements, and a fully materialised oracle authority                         (R7)
+  · a valid REQUEST is never implicit and is never an admission: it requires an admissible class,
+    zero triggers, zero pending requirements, a fully materialised oracle authority, and a
+    locally verifiable revision pair — and the GRANT is the round freeze plus review          (R7)
   · every record carries measured evidence (claim / measured / source)                      (R8)
 
 CLASS A
@@ -158,7 +168,7 @@ CLASS C
 | id | class | verdict | decisive evidence |
 |---|---|---|---|
 | r01 | **A_REPAIR** | shape satisfied, **pending materialisation** | baseline FAIL (the only failure is the target file) → candidate PASS (539/539); an externalised oracle was cross-tested: the candidate's test file in the base tree fails, and passes in the candidate tree. Historical delta **did** modify the oracle file → externalisation is mandatory. Round admission: **NOT_ADMITTED** (pending: oracle externalisation, delivery-delta measurement, round-scope decision, Node runtime) |
-| r03 | **C_REJECT** | rejected | triggers: `WORKER_MODIFIES_VALIDATOR`, `ACCEPTANCE_SURFACE_IN_WORKER_SCOPE`, `OBSERVATION_COVERAGE_UNPROVEN` |
+| r03 | **C_REJECT** | rejected | triggers: `WORKER_MODIFIES_VALIDATOR`, `WORKER_MODIFIES_TEST_ORACLE` (derived from the diff), `ACCEPTANCE_SURFACE_IN_WORKER_SCOPE`, `OBSERVATION_COVERAGE_UNPROVEN` |
 | r06 | **C_REJECT** | rejected | trigger: `OBSERVATION_COVERAGE_UNPROVEN` (`NO_GATE_OBSERVES_THE_DELIVERABLE`) |
 
 **No candidate is admitted to the round by this node** (`admitted_to_round=0`). Admission is a
@@ -260,6 +270,14 @@ A claim of an admissible class carrying **any** trigger is a validator error —
 be "noted and waived". C_REJECT must carry at least one, with a reason code and detail, and must
 show which admissible class was blocked.
 
+**Two of the six are not declarable-away.** `WORKER_MODIFIES_TEST_ORACLE` and
+`WORKER_MODIFIES_VALIDATOR` are DERIVED by the validator from the revision pair's own
+changed-file list (`git diff --name-only`), which is a fact about the object database rather than
+an author's statement. A record must declare each derived trigger, or externalise every one of
+its paths with the `ORACLE_EXTERNALIZATION` pending requirement — which is why the shipped r03
+record had to gain `WORKER_MODIFIES_TEST_ORACLE` when this rule landed (the validator found four
+test files the prose had not mentioned).
+
 ### 6.2 Why a worker cannot satisfy the acceptance without doing the work
 
 - For CLASS A, the oracle is framework-frozen and outside the worker's scope, so weakening the
@@ -299,39 +317,53 @@ Three structural properties make that checkable rather than merely declared:
 
 ### 6.6 Enforcement surface — what this schema enforces, and what it does not
 
-The first version of the validator judged only the self-consistency of a self-authored JSON file.
-The adversarial review of commit `ea268dd` demonstrated the consequence: a hand-written record that
-asserted the right field values was accepted and counted as ADMITTED. The response was to shrink
-that gap, and to state the remainder plainly rather than to claim a proof the program does not
-provide.
+Two adversarial review rounds attacked this schema, and both found the same class of defect: a
+control that read a self-authored field and called it a fact. The first round demonstrated a
+hand-written record counted as an admission; the second demonstrated that even after revision
+binding, a record could BORROW a real local pair from an unrelated case and assert any class over
+it. Both holes are now closed by recomputation, and what remains is stated rather than implied.
 
 ```text
 RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
-  · every declared revision pair that THIS repository contains is resolved with `git cat-file`;
-    for an admissible record the candidate must be a DESCENDANT of the base
-    (`git merge-base --is-ancestor`) — an object-database fact;
+  · IDENTITY — the record's corpus_case_id must name a case in experiments/v1.2/replay/cases.yaml,
+    and the record's revision pair must EQUAL that case's pair. This is what closes the laundering
+    route the second review demonstrated: a borrowed pair no longer matches the borrowed identity;
+  · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed
+    test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives
+    WORKER_MODIFIES_VALIDATOR. Neither can be talked away by editing the record;
+  · REVISION BINDING — a pair this repository contains is resolved with `git cat-file`; a claim of
+    an admissible class additionally requires the candidate to descend from the base
+    (`git merge-base --is-ancestor`) and the pair to be non-degenerate (base != candidate);
   · a pair that does not resolve here must be declared EXTERNAL_UNVERIFIABLE_LOCALLY with a named
-    external repository and the external verification command, and it can NEVER be admitted:
-    a verdict resting on a fact this repository cannot check is exactly the laundering route the
-    review demonstrated;
-  · every `evidence[].source` must resolve to an existing file (relative to the classification's
-    directory or to the repository root);
+    repository and the external verification command, and it can never carry a valid request;
+  · every evidence[].source must resolve to an existing file;
   · the closed vocabularies, the per-class field equalities, the trigger/class consistency, the
-    disclosure ↔ authority binding, the C_REJECT "show which class you blocked" rule, the exact
-    pending-code match, and the admission preconditions.
+    disclosure-to-authority binding, the C_REJECT "show which class you blocked" rule, the exact
+    pending-code match, and the structural rules (unique ids, required schema_version, malformed
+    records as structured errors, no early return that masks a record's other defects).
 
 NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken for a proof
-  · the TRUTH of `baseline_oracle_status` / `mutation_oracle_status` is never recomputed: this
-    program cannot re-run a candidate's oracle;
+  · the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed: this program
+    cannot re-run a candidate's oracle. A record bound to a real corpus pair can still declare false
+    statuses and be accepted as a well-formed REQUEST;
   · whether the oracle really sits outside the worker's scope is a claim about a task design that
     does not exist yet;
-  · accordingly a PASS means "internally consistent AND consistent with every fact this repository
-    can check" — not "the work happened". The truth of the declared statuses is carried by the
-    evidence review, which is why every record must cite files that exist and why the boundary is
-    pinned by a test (`test_known_boundary_declared_statuses_are_not_recomputed`).
-```
+  · for an externally bound pair the derived-trigger rule cannot run at all (the diff is not in this
+    object database) — one more reason such a record cannot carry a valid request;
+  · nothing compels a pending requirement to be discharged: a candidate may sit in NOT_ADMITTED
+    indefinitely. That is a liveness limit, not a soundness one, and it is the conservative
+    direction;
+  · the validator is NOT yet wired into prepare/collect/publish: nothing in the run pipeline
+    consults it. Freeze v2 must decide whether it becomes a gate or stays an operator tool.
 
----
+THE CONSEQUENCE, STATED PLAINLY: a PASS means "internally consistent AND consistent with every fact
+this repository can recompute — the corpus identity, the delta's own file list, the revision
+graph, and the reachability of the cited evidence". It is NOT a statement that the declared oracle
+statuses are true. This is why `round_admission.verdict` has no "admitted" value: the program
+validates a REQUEST, and the grant belongs to the round freeze plus independent review. The limit
+is pinned by `test_known_boundary_declared_statuses_are_not_recomputed`, and the attack that
+motivated v2.2.0 is pinned by the `LaunderingVariants` test class, whose six variants must stay
+refused.
 
 ## 7. Relationship to the existing layers
 
@@ -371,7 +403,8 @@ protocol.md §10 (per-base route preconditions)                     — unchange
   ADDED to the repository (precondition/n2-*) with a redaction header and the original sha256
 ```
 
-**What Freeze v2 must do with it:** freeze this schema (or amend it under review), materialise the
+**What Freeze v2 must do with it:** freeze this schema (or amend it under review), decide whether
+the validator becomes a pipeline gate, materialise the
 A/B task designs it requires, clear each candidate's `pending_requirements`, re-measure the
 delivery anchors for every task it intends to run, and regenerate the round freeze. Until then,
 Round 2 remains NOT_EXECUTABLE.
