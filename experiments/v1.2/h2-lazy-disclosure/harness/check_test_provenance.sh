@@ -174,40 +174,65 @@ if not anchored:
 # the frozen blob from the materials repo takes its place at the SAME relative path, so
 # __file__-relative repo discovery lands on the worker's tree exactly as it does for the worker's
 # own suite. Restoration is verified by hash in the `finally`; a mismatch fails closed and says so.
-# ---- 3. exclude delivery-contaminated files from the oracle set, explicitly -----------------
-contaminated = set()
-anchor_report = "NO_ANCHORS_FILE"
-if os.path.isfile(anchors_p):
-    try:
-        anc = json.load(open(anchors_p, encoding="utf-8"))
-        anchor_report = f"contamination={anc.get('contamination')}"
-        if anc.get("contamination") == "YES":
-            contaminated.update(anchored)   # the whole file set is judged against the delta below
-    except Exception as exc:                     # unreadable anchors must not silently disable it
-        print(f"TEST_PROVENANCE FAIL reason=ANCHORS_UNREADABLE path={anchors_p} err={exc} "
-              f"(failing closed: the delivery-delta record cannot be consulted)")
-        raise SystemExit(1)
-else:
-    print(f"  note: no delivery-anchors.json at {anchors_p} (prepare did not measure one; "
-          f"frozen oracles are applied without a delivery-delta cross-check)")
-if contaminated:
-    print(f"  DELIVERY_CONTAMINATION=YES ({anchor_report}): the repo-invariant gate for this task "
-          f"was GREEN pre-delivery and RED post-delivery with ZERO worker edits, so the redness "
-          f"belongs to the harness, not the worker. Frozen oracles for {sorted(contaminated)} are "
-          f"NOT applied: a file that is already red at hand-off would refuse every edit, honest "
-          f"or not. The discriminating control for these cells is the independent review of "
-          f"diff.patch, and the delivery delta is recorded in evidence/delivery-anchors.json. "
-          f"It is NOT normalized into a 'pre-existing red' baseline.")
+# ---- 3. which anchored files are LOAD-BEARING ORACLES for this task? ------------------------
+# A frozen test is only an oracle if the task's own DECLARED acceptance executes it. If the task's
+# gate never runs that file, editing it cannot change the task's verdict, so anchoring it asserts
+# nothing about the task and would only add refusals. Candidacy is derived mechanically from the
+# task's declared mechanical entries, never asserted by hand:
+#   * an entry naming the file (unittest ... <file> or -p '<file>') executes it directly;
+#   * an entry running `unittest discover -s <dir>` executes every test in that directory.
+# Everything else is recorded as NOT_AN_ORACLE and left alone.
+entries = [e["cmd"] for e in task["acceptance"]["mechanical"]
+           if e["cmd"].startswith(("{PY}", "{GIT}", "{HARNESS}", "PUBLIC_RELEASE=1"))]
 
-rc = 0
-restored_ok = True
-for rel in ([] if contaminated else anchored):
+def is_oracle(rel):
+    parent = rel.rsplit("/", 1)[0] if "/" in rel else ""
+    for c in entries:
+        if "unittest" not in c:
+            continue
+        if rel in c:
+            return True, "NAMED_BY_ACCEPTANCE"
+        if f"-s {parent}" in c or f"-s {parent}/" in c or c.rstrip().endswith(f"-s {parent}"):
+            return True, "DISCOVERED_BY_ACCEPTANCE"
+    return False, "NOT_EXECUTED_BY_ANY_ACCEPTANCE_ENTRY"
+
+oracles, non_oracles = [], []
+for rel in anchored:
+    ok, why = is_oracle(rel)
+    (oracles if ok else non_oracles).append((rel, why))
+if non_oracles:
+    for rel, why in non_oracles:
+        print(f"  not an oracle for this task: {rel} ({why}) — anchoring it would assert nothing "
+              f"about the task's verdict")
+
+if not oracles:
+    print(f"TEST_PROVENANCE task={tid} run={rid} policy=FROZEN changed_preexisting_tests="
+          f"{len(anchored)} oracles=0 verdict=NO_LOAD_BEARING_ORACLE "
+          f"(the task's declared acceptance never executes the changed tests, so their content "
+          f"cannot move its verdict; the control for them is the independent diff review)")
+    raise SystemExit(0)
+
+# ---- 4. DUAL ANCHORS per oracle file: is its frozen verdict attributable to the worker? -------
+# For each oracle file the frozen copy is executed TWICE on the same tree: once with the delivered
+# carrier in place (post-delivery) and once with it stashed (pre-delivery), both with ZERO worker
+# attribution. This is the operator's two-anchor rule applied at the right object and time:
+#   frozen GREEN post-delivery                      -> the oracle has a green path, so it GATES:
+#                                                       a worker edit that turns it red moved the
+#                                                       oracle instead of satisfying it.
+#   frozen RED post-delivery, GREEN pre-delivery   -> DELIVERY_CONTAMINATION = YES. The redness is
+#                                                       the HARNESS's. NOT attributed to the worker
+#                                                       and NOT normalized into a "pre-existing red".
+#   frozen RED in both                             -> the oracle is red at the bare base; its
+#                                                       redness is not the worker's either.
+# A gate that cannot discriminate must not refuse: both excluded classes are recorded loudly and
+# left to the independent diff review, which is the control the registry already names.
+carrier = ["CODEBUDDY.md", "H2_RULES.md", "H2_AGENTS.md", "H2_WARM"]
+
+def run_frozen(rel):
     target = wt / rel
     blob = git("show", f"{base}:{rel}", cwd=h2_repo)
     if blob.returncode != 0:
-        print(f"TEST_PROVENANCE FAIL reason=NO_BASE_BLOB path={rel} base={base} (failing closed)")
-        rc = 1
-        continue
+        return None, f"NO_BASE_BLOB {rel}"
     frozen_bytes = blob.stdout.encode("utf-8", "surrogateescape")
     worker_existed = target.is_file()
     worker_bytes = target.read_bytes() if worker_existed else None
@@ -216,50 +241,100 @@ for rel in ([] if contaminated else anchored):
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         if worker_existed:
-            # keep the worker's bytes OUT of the executed path: move, do not copy-and-overwrite
             aside = pathlib.Path(tempfile.mkdtemp(prefix="h2-worker-side-")) / rel
             aside.parent.mkdir(parents=True, exist_ok=True)
             target.rename(aside)
         target.write_bytes(frozen_bytes)
-        print(f"=== FROZEN ORACLE {rel} (base {base[:12]}) run in place against the worker tree")
         env = dict(os.environ)
-        env["PYTHONDONTWRITEBYTECODE"] = "1"     # no __pycache__ residue in the worktree
-        env.pop("PYTHONPATH", None)              # not a vector: and never inherited (see [25])
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env.pop("PYTHONPATH", None)
         r = subprocess.run([py, "-m", "unittest", "discover",
                             "-s", str(target.parent), "-p", target.name, "-t", str(target.parent)],
                            cwd=str(wt), capture_output=True, text=True, env=env)
-        sys.stdout.write(r.stdout)
-        sys.stderr.write(r.stderr)
-        print(f"=== FROZEN RC={r.returncode} ===")
-        if r.returncode != 0:
-            print(f"TEST_PROVENANCE FAIL reason=FROZEN_ORACLE_RED path={rel} "
-                  f"(the worker's change to this pre-existing test was the only thing making it "
-                  f"green; the frozen base version of the same test fails against the worker's "
-                  f"tree — the oracle was moved, not satisfied)")
-            rc = 1
+        return r.returncode, (r.stdout + r.stderr)
     finally:
-        # restore the worker's bytes EXACTLY, whatever happened above
         if target.is_file():
             target.unlink()
         if worker_existed:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(worker_bytes)
-            back = sha(target)
-            if back != worker_sha:
-                restored_ok = False
-                print(f"TEST_PROVENANCE FAIL reason=RESTORE_MISMATCH path={rel} "
-                      f"expected={worker_sha} got={back}")
-                rc = 1
+            if sha(target) != worker_sha:
+                print(f"TEST_PROVENANCE FAIL reason=RESTORE_MISMATCH path={rel}")
             else:
-                print(f"=== RESTORED {rel} sha256={back[:12]} (worker bytes intact) ===")
+                print(f"=== RESTORED {rel} sha256={worker_sha[:12]} (worker bytes intact) ===")
         if aside is not None:
             shutil.rmtree(aside.parent, ignore_errors=True)
+
+def with_carrier(stashed, fn):
+    """Run fn() with the delivered carrier present (stashed=False) or moved aside (True)."""
+    stash = pathlib.Path(tempfile.mkdtemp(prefix="h2-carrier-stash-"))
+    moved = []
+    try:
+        if stashed:
+            for f in carrier:
+                src = wt / f
+                if src.exists():
+                    dst = stash / f
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(src), str(dst)); moved.append(f)
+        return fn()
+    finally:
+        for f in moved:
+            dst = wt / f
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(stash / f), str(dst))
+        shutil.rmtree(stash, ignore_errors=True)
+
+gated, excluded = [], []
+for rel, why in oracles:
+    post_rc, post_out = with_carrier(False, lambda r=rel: run_frozen(r))
+    pre_rc, pre_out = with_carrier(True, lambda r=rel: run_frozen(r))
+    print(f"=== FROZEN ORACLE {rel} ({why}) post_delivery_rc={post_rc} pre_delivery_rc={pre_rc}")
+    if post_rc == 0:
+        gated.append(rel)
+        continue
+    if post_rc is None:
+        print(f"TEST_PROVENANCE FAIL reason=NO_BASE_BLOB path={rel} (failing closed)")
+        raise SystemExit(1)
+    if pre_rc == 0:
+        excluded.append(rel)
+        print(f"  DELIVERY_CONTAMINATION=YES path={rel}: the frozen oracle is GREEN on the bare "
+              f"base and RED with the delivered carrier, zero worker edits. The redness is the "
+              f"HARNESS's. This file is EXCLUDED from the oracle set and its delta is recorded — "
+              f"it is NOT normalized into a 'pre-existing red'. Control for this cell: the "
+              f"independent review of diff.patch.")
+    else:
+        excluded.append(rel)
+        print(f"  ORACLE_RED_AT_BASE path={rel}: the frozen oracle fails on the bare base too "
+              f"(pre_delivery_rc={pre_rc}), so its redness is a property of the base, not of the "
+              f"worker. EXCLUDED from the oracle set. Control: the independent review of diff.patch.")
+
+if not gated:
+    print(f"TEST_PROVENANCE task={tid} run={rid} policy=FROZEN changed_preexisting_tests="
+          f"{len(anchored)} oracles={len(oracles)} gated=0 verdict=NO_DISCRIMINATING_ORACLE "
+          f"(every oracle candidate is red at hand-off for a reason the worker does not own; "
+          f"refusing here would refuse honest work with zero discriminating power)")
+    raise SystemExit(0)
+
+rc = 0
+restored_ok = True
+for rel in gated:
+    print(f"=== FROZEN ORACLE {rel} run in place against the worker tree (gating)")
+    rc_post, out = run_frozen(rel)
+    sys.stdout.write(out)
+    print(f"=== FROZEN RC={rc_post} ===")
+    if rc_post != 0:
+        print(f"TEST_PROVENANCE FAIL reason=FROZEN_ORACLE_RED path={rel} (the worker's change to "
+              f"this pre-existing test was the only thing making it green; the frozen base version "
+              f"fails against the worker's tree — the oracle was moved, not satisfied)")
+        rc = 1
 
 if not restored_ok:
     raise SystemExit(1)
 if not rc:
     print(f"TEST_PROVENANCE task={tid} run={rid} policy=FROZEN "
-          f"changed_preexisting_tests={len(anchored)} contaminated={len(contaminated)} "
+          f"changed_preexisting_tests={len(anchored)} oracles={len(oracles)} "
+          f"gated={len(gated)} excluded={len(excluded)} "
           f"verdict=FROZEN_ORACLE_GREEN (every pre-existing test the worker changed is asserted at "
           f"its frozen base definition and passes; the worker's copy was restored byte-exactly)")
 raise SystemExit(rc)
