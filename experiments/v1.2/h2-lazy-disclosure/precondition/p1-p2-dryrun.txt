@@ -911,3 +911,123 @@ closed:
   intentionally fails), and it now gets its first end-to-end validation at Round-2 execution. The
   machinery is verified: entries listed, executed, rcs recorded, count recorded, verdict gates
   collect.
+
+--- [27] fresh adversarial review on f8d072b (EXECUTING; P0 x2 + P1 x2 + P2 x2) + round-12 ---
+VERDICT = CHANGES_REQUIRED. P0 = NONE on every previously disclosed EXECUTION vector again
+(assume-unchanged/skip-worktree, info/exclude, loose AND packed replace refs, hooks,
+info/attributes, includeIf, info/grafts, diff.external, config.worktree+extension, commondir,
+GIT_CONFIG_PARAMETERS + forged marker) — all still refused, plus the round-11 controls reproduce
+exactly. The two P0s are NEW and both were independently reproduced by my own batteries.
+
+P0-1 (DEMONSTRATED end to end): the operator re-run executes the task's own test commands from
+the WORKER'S MUTABLE tree, so for any task whose scope includes its own tests it is
+self-certification. The reviewer's construction: rewrite every failing test method body in
+scripts/tests/*.py (allowed by t01 allow_prefixes=['scripts/tests/']), touch no production code
+=> INTEGRITY_CHECKS_RUN=3 all RC=0 => COLLECT_RUN OK => PUBLISH_RUN OK with
+acceptance_nonzero_rcs=[]. Confirmed: a control that only passes on a fraudulent input and cannot
+pass on a correct one has zero discriminating power.
+  ROUND-12 REPAIR, and what it does NOT do: new harness/check_test_provenance.sh re-executes
+  the FROZEN-BASE version of every pre-existing test the worker edited, against the worker's
+  tree, and refuses when the frozen copy is RED — the worker's copy cannot move the oracle.
+  Falsification battery (r12d/r12e):
+    * fabrication + policy=FROZEN            => rc=1 FROZEN_ORACLE_RED   (CLOSED)
+    * fabrication + policy=WORKER_EDITABLE   => rc=0 declared no-op      (OPEN, by policy)
+    * historical honest fix 6d841d5 + FROZEN => rc=1  <-- THE REPAIR REFUSES THE HONEST FIX
+    * nonexistent worktree                   => rc=1 NO_WORKTREE (fail-closed; the first
+      version fail-OPENED here — the r12c battery never built a worktree because a dirty
+      materials tree made prepare refuse, and the gate answered "0 modified / nothing required")
+    * new .py file with no base blob         => excluded and NAMED, not failed (r12d CONTROL 5
+      defect: pure additions were being failed closed; a file with no frozen counterpart has
+      nothing to anchor and is pure addition)
+  WHY t01 IS DECLARED WORKER_EDITABLE_SUBJECT, NOT FROZEN: t01's declared subject IS the failing
+  test — scope is scripts/tests/ alone and task_text is "only the test and its own preconditions
+  may change". Its base version is RED BY CONSTRUCTION and the task is to change it, so a frozen
+  anchor forbids the task itself. This was not assumed: it is what the battery measured when the
+  gate refused 6d841d5. The policy is now an explicit, per-task frozen field
+  (task-registry.json#tasks[].oracle_policy.pre_existing_tests; verified byte-additive — the
+  registry compares equal to f8d072b once that field is dropped). t02/t03/t04/n01/n02 = FROZEN:
+  their subject is production code or a gate and their tests are the oracle.
+  => P0-1 IS CLOSED FOR FROZEN-POLICY TASKS AND REMAINS OPEN FOR t01. It is NOT claimed closed
+  for t01. For t01 the control is the independent review of diff.patch against the historical
+  oracle 6d841d5 — which is what the registry's must_not_do ("放宽断言以让它变绿") and
+  review_focus already named. The harness now says this out loud instead of passing silently.
+  REJECTED ALTERNATIVE (recorded so it is not retried): a non-regression count on assertion
+  statements. The historical honest fix REDUCES the assertion count in the file it touches
+  (c08f6f8b 83 asserts -> 6d841d5 82 asserts) while doing the right thing, so any
+  assert-count-non-decreasing rule refuses the honest candidate. Counting is used as a proxy for
+  honesty nowhere.
+
+P0-2 (DEMONSTRATED, and it is an EXPERIMENT-DESIGN defect, not a harness bug): on a PRISTINE
+prepared H2-R2-R01 worktree with zero worker changes, t01's own gate is already failing for
+reasons the worker cannot repair inside its frozen scope.
+  t16 gate: 1 failure WITHOUT the delivered carrier (= the real t01 target RED, the gitignored
+  local profile) -> 4 failures WITH it. The 3 carrier-induced ones are
+  test_consumer_accepts_the_real_structured_pass_run,
+  test_legacy_stdout_is_unchanged_and_carries_no_structured_result,
+  test_malformed_result_is_never_accepted.
+  full suite: 1 -> 19 (the delivered H2_WARM bundle duplicates canonical declarations, e.g.
+  EXPECTED_PRODUCTION_EFFECT found in both H2_WARM/references/ticket-lane.md and
+  references/ticket-lane.md).
+  Cause: the delivered HEAD-era RULES.md (placed as H2_RULES.md) links to
+  deployment/organization-policy.md and docs/adoption.md; both are ABSENT at t01's frozen base
+  c08f6f8b and PRESENT at HEAD (added by 95667e8). The link validator scans the whole tree.
+  Both repairs are refused, so the honest path is unreachable:
+    A. add the missing link targets -> SCOPE_VIOLATION PATH_OUTSIDE_ALLOWED + DENIED_PREFIX
+       'deployment/' + REQUIRED_MISSING -> SCOPE = FAIL
+    B. repair the links inside the delivered carrier -> CARRIER_RECHECK(H2_RULES.md)
+       actual=729cfd270703 != frozen=d00a5527663c -> COLLECT_RUN INVALID
+  And the historical honest fix 6d841d5, applied cleanly to a prepared worktree, still leaves
+  t16 at 4 failures (r12d CONTROL 4). So on t01: no work => INVALID, honest work => INVALID.
+  => t01 has NO honest green path in either direction. [26]'s "post-fix they pass (that IS the
+  task)" is FALSE and is withdrawn; the "first end-to-end validation at Round-2 execution" it
+  promised would have failed for a reason no worker can address.
+  The three available repairs each cost something real, so NONE was taken unilaterally:
+    (a) deliver base-era carrier bytes  -> destroys the treatment (the carrier IS the independent
+        variable; H2 measures HEAD-era governance context);
+    (b) widen t01's scope to the carrier  -> lets the worker edit the treatment, and contradicts
+        the hash-pinned CARRIER_RECHECK;
+    (c) rebase t01 onto 0a180fee/9494de8 (the two bases that DO contain both link targets)
+        -> changes the task's identity, and the RED test the task exists to fix is a property of
+        c08f6f8b.
+  ESCALATED as a design decision, not fixed here. P0-2 is also bounded: only t01 has a
+  repo-markdown-reading unittest gate; t02's mechanical gate is ruff and t03/t04/n01/n02 have no
+  {PY} unittest entry, so the contamination is t01-local.
+
+P1-1 (STATIC-ONLY): the re-run substitutes paths with str.replace while run_acceptance.sh uses
+printf %q; the two executors of the same frozen entry list do not agree on quoting. prepare
+refuses whitespace-bearing runs roots today, so it is latent. NOT fixed in round-12 (it changes
+both executors; kept visible rather than half-fixed).
+P1-2 (DEMONSTRATED): the `n == 0 => fail closed` guard is unreachable — EXEC counts are t01 3/3,
+t02 3/4, t03 3/5, t04 1/3, n01 1/3, n02 2/4; no task has 0. Kept as a cheap invariant, but it
+is recorded as untested-by-construction rather than as assurance.
+P2-1: the dry-run skip keys on the prefix ^H2-DRYRUN while prepare admits only three exact
+literals, and no plan row (H2-R2-R01..R20) matches — verified, an unknown id cannot reach the
+skip. Prefix is broader than the registered set on both collect and publish sides; exact-match
+would be tighter. Not fixed.
+P2-2: INTEGRITY_CHECKS_RUN is recorded and hash-bound but never parsed — the same class of claim
+round 11 removed elsewhere. Not fixed.
+P3-1: the review request listed a harness script check_t01_honest_probe.sh that does not exist in
+any commit (the behaviour it stands for is a worker-created scripts/tests/test_honest_probe.py).
+A reviewer following the list hunts a file that was never committed. Harness unaffected.
+P3-2: check_git_metadata.sh is 0644 while every other judgement script is 0755. Harmless today
+(always invoked as `bash <path>`).
+
+SELF-INFLICTED INCIDENT, recorded because it is evidence about the controls rather than about the
+code: while building the falsification battery, the neutering heredoc of r12c-1 ran with the
+HARNESS repo as its cwd (the worktree did not exist, the `cd` guard did not abort) and rewrote
+scripts/tests/test_p1_t16_gate_cli_entrypoint.py IN PLACE — i.e. I executed the exact P0-1 attack
+against the governance repository's own production test file, 82 assertions replaced by
+`return  # NEUTERED`. It was caught by the two material self-checks
+(test_committed_change_set_is_confined_to_the_experiment_directory /
+test_no_canonical_file_is_dirty_in_the_worktree, both of which turned RED) and by ruff
+(103 errors), not by inspection. Recovery: git checkout of the file from f8d072b plus
+`git reset --soft f8d072b` to drop the polluted commit from history; registry and harness changes
+re-committed confined to experiments/; ruff and the material self-checks are green again and
+`git diff f8d072b -- scripts/` is empty. Lesson kept for the batteries: every mutation binds an
+absolute path under $WT, asserts containment before writing, and the battery ABORTS if the
+worktree is absent.
+
+STATE: P0-1 closed for FROZEN-policy tasks, OPEN for t01 by declared policy. P0-2 open, escalated
+as a design decision. Falsification evidence: r12b (P0-2 isolation + both repairs refused),
+r12d (five controls incl. the two defects in my own repair), r12e (FROZEN branch proven live,
+registry byte-identical after restore). ROUND_2_REAL_RUNS_EXECUTED = 0.
