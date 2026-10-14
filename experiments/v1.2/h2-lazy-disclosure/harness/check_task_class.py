@@ -76,7 +76,7 @@ import sys
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.6.0"
+SCHEMA_VERSION = "2.7.0"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -94,6 +94,9 @@ TRIGGER_CODES = (
     "BASE_CANDIDATE_NOT_COMPARABLE",
 )
 ORACLE_AUTHORITIES = ("FRAMEWORK_FROZEN", "PENDING_FREEZE_V2")
+# The verdict vocabulary for an entry describing a class the record CLAIMS. Closed on purpose: an
+# open vocabulary let a record mark its own class "NOT_APPLICABLE" and still request admission.
+AFFIRMATIVE_VERDICTS = ("SHAPE_SATISFIED", "SHAPE_SATISFIED_PENDING_MATERIALISATION")
 ADMISSION_VERDICTS = ("REQUEST_VALID", "NOT_ADMITTED")
 SHA_BINDINGS = ("LOCAL_REPO_VERIFIED", "EXTERNAL_UNVERIFIABLE_LOCALLY")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -312,6 +315,17 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
     corpus_incomplete = corpus_incomplete or set()
     err: list[str] = []
 
+    # A malformed field must produce a structured error, not a traceback: this read used to be an
+    # unguarded `(rec.get("disclosures") or {}).get(...)`, so a string value raised AttributeError
+    # and aborted the whole run with no diagnosis.
+    disclosures = rec.get("disclosures")
+    if disclosures is None:
+        disclosures = {}
+    elif not isinstance(disclosures, dict):
+        err.append(f"{cid}: disclosures must be an object when present (got "
+                   f"{type(disclosures).__name__})")
+        disclosures = {}
+
     for key in REQUIRED_RECORD_KEYS:
         if key not in rec:
             err.append(f"{cid}: missing required key {key!r}")
@@ -444,9 +458,14 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                 # it, the rule was dead for every record that declared the trigger — i.e. exactly
                 # the shape that carries the contradiction.
                 if trig == "WORKER_MODIFIES_VALIDATOR" and \
-                        (rec.get("disclosures") or {}).get(
-                            "historical_delta_touched_validator") is False:
+                        disclosures.get("historical_delta_touched_validator") is False:
                     err.append(f"{cid}: disclosures say the delta did not touch a validator, but "
+                               f"the delta provably changes {trig_paths} — the disclosure "
+                               f"contradicts the object database")
+                # F3 (round 7): the same contradiction on the ORACLE axis was unchecked.
+                if trig == "WORKER_MODIFIES_TEST_ORACLE" and \
+                        disclosures.get("historical_delta_touched_oracle") is False:
+                    err.append(f"{cid}: disclosures say the delta did not touch the test oracle, but "
                                f"the delta provably changes {trig_paths} — the disclosure "
                                f"contradicts the object database")
                 if trig in declared:
@@ -486,7 +505,6 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             if authority == "PENDING_FREEZE_V2" and not has_oracle_externalization(pending):
                 err.append(f"{cid}: oracle_authority PENDING_FREEZE_V2 requires a pending "
                            f"requirement whose code is exactly {PENDING_PREFIX!r}")
-            disclosures = rec.get("disclosures") or {}
             if disclosures.get("historical_delta_touched_oracle") is True:
                 if authority == "FRAMEWORK_FROZEN":
                     err.append(f"{cid}: oracle_authority cannot be FRAMEWORK_FROZEN while the "
@@ -525,9 +543,15 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             err.append(f"{cid}: class_considered does not mention the record's own class {cls!r} — a "
                        f"record that was not considered under the class it claims is not internally "
                        f"consistent")
-        elif any(str(c.get("verdict", "")).strip().upper() == "BLOCKED" for c in own):
-            err.append(f"{cid}: class_considered marks the record's own class {cls!r} as BLOCKED — "
-                       f"a record cannot claim a class it lists as blocked")
+        else:
+            for c in own:
+                verdict = str(c.get("verdict", "")).strip()
+                if verdict not in AFFIRMATIVE_VERDICTS:
+                    err.append(f"{cid}: the class_considered entry for the record's own class {cls!r} "
+                               f"reads {verdict!r}, which is not an affirmative claim (allowed: "
+                               f"{list(AFFIRMATIVE_VERDICTS)}) — a record cannot request admission "
+                               f"under a class it describes as unavailable, and the vocabulary is "
+                               f"closed so a synonym cannot stand in for one")
     if cls == "C_REJECT":
         if not isinstance(considered, list) or not considered:
             err.append(f"{cid}: C_REJECT requires class_considered (a task may not be dumped into "

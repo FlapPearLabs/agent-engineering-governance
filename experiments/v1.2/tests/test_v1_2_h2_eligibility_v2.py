@@ -118,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.6.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.7.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -252,7 +252,7 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
     def test_schema_version_must_equal_the_implemented_one(self):
-        for bogus in ("2.5.0", "0.0.1", "banana"):
+        for bogus in ("2.6.0", "0.0.1", "banana"):
             doc = document(repair_record())
             doc["schema_version"] = bogus
             rc, out = run_validator(doc, self.tmp)
@@ -359,7 +359,38 @@ class ValidatorBehaviour(unittest.TestCase):
         rec["class_considered"] = [{"class": "B_REGRESSION_GUARD", "verdict": "BLOCKED"}]
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
-        self.assertIn("lists as blocked", out)
+        self.assertIn("not an affirmative claim", out)
+
+    def test_own_class_verdict_synonym_rejected(self):
+        """Round-7 F1: comparing against the literal "BLOCKED" let a synonym stand in for it."""
+        for synonym in ("NOT_APPLICABLE", "BLOCKED_PENDING_FREEZE_V2", "declined"):
+            rec = guard_record()
+            rec["class_considered"] = [{"class": "B_REGRESSION_GUARD", "verdict": synonym}]
+            rc, out = run_validator(document(rec), self.tmp)
+            self.assertEqual(1, rc, f"{synonym!r} must not pass\n{out}")
+            self.assertIn("not an affirmative claim", out)
+
+    def test_non_dict_disclosures_is_a_structured_error(self):
+        """Round-7 F2: a string value raised an uncaught AttributeError instead of an error."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rec["disclosures"] = "a string where an object belongs"
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("disclosures must be an object", out)
+        self.assertIn("TASK_CLASS_VERDICT = FAIL", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_disclosure_must_not_contradict_the_derived_oracle_fact(self):
+        """Round-7 F3: the cross-check existed on the validator axis only."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rec["disclosures"] = {"historical_delta_touched_oracle": False}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("did not touch the test oracle", out)
 
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):

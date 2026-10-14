@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.6.0  (2.0.0 -> … -> 2.6.0; six review rounds)
+VERSION        = 2.7.0  (2.0.0 -> … -> 2.7.0; seven review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -372,8 +372,13 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     repository and the external verification command, and it can never carry a valid request;
   · every evidence[].source must resolve to an existing file INSIDE the repository;
   · a record may not list its OWN class as BLOCKED, and `class_considered` must name the record's
-    own class (for admissible claims — a C_REJECT lists the admissible classes it blocked, and the
-    reject class is the outcome rather than an option considered);
+    own class under an AFFIRMATIVE verdict from a closed two-value vocabulary (for admissible
+    claims — a C_REJECT lists the admissible classes it blocked, and the reject class is the outcome
+    rather than an option considered). The vocabulary is closed because an open one let a synonym
+    ("NOT_APPLICABLE") stand in for "blocked";
+  · a non-object `disclosures` is a structured error rather than a traceback, and the
+    disclosure-cross-check runs on BOTH derived axes — a false `historical_delta_touched_oracle`
+    beside a delta that provably changes test files is an error exactly as the validator axis is;
   · the closed vocabularies, the per-class field equalities, the trigger/class consistency, the
     disclosure-to-authority binding, the C_REJECT "show which class you blocked" rule, the exact
     pending-code match, and the structural rules (unique ids, required schema_version, malformed
