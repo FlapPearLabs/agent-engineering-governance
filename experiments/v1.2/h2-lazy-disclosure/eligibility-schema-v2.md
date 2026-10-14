@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.0.0
+VERSION        = 2.1.0  (2.0.0 -> 2.1.0 after the review of commit ea268dd)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -10,6 +10,11 @@ SUPERSEDES     = the C1–C5 admissibility criteria AS APPLIED in the N2 measure
 EXTENDS        = ELIGIBILITY_RULE_v2 (task-registry.json#eligibility_rule) — see §7: a task must
                  satisfy BOTH layers; nothing in v2 weakens the earlier rule
 MECHANICALLY_ENFORCED_BY = harness/check_task_class.py + experiments/v1.2/tests/test_v1_2_h2_eligibility_v2.py
+REVIEW_HISTORY = 2026-10-14 review of ea268dd returned CHANGES_REQUIRED (2xP1, no P0): the validator
+                 judged only self-consistency while §6.5 claimed a structural proof. Fixes: revision
+                 binding recomputed from the object database, admission limited to locally verified
+                 pairs, evidence paths must resolve, and the enforcement boundary is stated in §6.6
+                 and pinned by a test.
 MACHINE_READABLE_RECORDS = task-classification-v2.json
 EVIDENCE       = precondition/n2-eligibility-measurement.md, precondition/n2-c2c3-gap-analysis.md,
                  precondition/n2-vacuity-probe.txt, precondition/n2-r0*.txt,
@@ -139,8 +144,9 @@ CLASS B
   A single specimen proves only that specimen (§6.3).
 
 CLASS C
-  every admissible class must be listed as BLOCKED with a reason, and at least one enumerated
-  trigger code must be present with a reason_code and detail.
+  every admissible class must be listed as BLOCKED with a non-empty reason, and at least one
+  enumerated trigger code must be present with a reason_code (format-checked UPPER_SNAKE, not a
+  closed vocabulary — the code names the evidence, it does not classify it) and a detail.
 ```
 
 ---
@@ -216,7 +222,9 @@ requirements**. Per axis:
 
 Two pieces of evidence that this is not a retrofit for existing tasks:
 
-1. **It rejects the one task that the previous round had admitted.** t02's acceptance is
+1. **It rejects the one task that the previous round had admitted** — and that claim is now
+   mechanical, not prose: `test_v2_rejects_the_registered_task_t02_as_specified` reads the two
+   facts from the frozen registry and shows the resulting record being refused. t02's acceptance is
    `ruff check .` plus a single-specimen probe, and its `ruff.toml` is inside the worker's scope
    (scope prefix `ruff.toml`); the registry's "select is non-empty and correctness-class" entry is a
    prose/JUDGMENT entry, not a mechanical one. Under v2 that task carries
@@ -279,9 +287,49 @@ delivery-anchor measurement; this schema depends on it rather than re-deriving i
 ### 6.5 Rule-change invariant
 
 No rule in this schema may be introduced, relaxed or re-scoped in order to admit a named task.
-The proof obligation is structural: every admissible-class field is *observed* (an oracle status,
-a trigger value), never *declared* by the party seeking admission; `PENDING` states block admission
-instead of granting it; and the reject class must name the admissible class it blocked.
+Three structural properties make that checkable rather than merely declared:
+
+- `PENDING` states **block** admission instead of granting it, so an unmaterialised fact can never
+  be counted as a satisfied one;
+- the reject class must name the admissible class it blocked, so a task cannot be filed away
+  without showing why A and B failed;
+- the disclosure ↔ authority binding is mechanical: a record that discloses its historical delta
+  touched the oracle may not simultaneously claim the oracle is already framework-frozen, and must
+  carry the `ORACLE_EXTERNALIZATION` pending requirement (with that exact code).
+
+### 6.6 Enforcement surface — what this schema enforces, and what it does not
+
+The first version of the validator judged only the self-consistency of a self-authored JSON file.
+The adversarial review of commit `ea268dd` demonstrated the consequence: a hand-written record that
+asserted the right field values was accepted and counted as ADMITTED. The response was to shrink
+that gap, and to state the remainder plainly rather than to claim a proof the program does not
+provide.
+
+```text
+RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
+  · every declared revision pair that THIS repository contains is resolved with `git cat-file`;
+    for an admissible record the candidate must be a DESCENDANT of the base
+    (`git merge-base --is-ancestor`) — an object-database fact;
+  · a pair that does not resolve here must be declared EXTERNAL_UNVERIFIABLE_LOCALLY with a named
+    external repository and the external verification command, and it can NEVER be admitted:
+    a verdict resting on a fact this repository cannot check is exactly the laundering route the
+    review demonstrated;
+  · every `evidence[].source` must resolve to an existing file (relative to the classification's
+    directory or to the repository root);
+  · the closed vocabularies, the per-class field equalities, the trigger/class consistency, the
+    disclosure ↔ authority binding, the C_REJECT "show which class you blocked" rule, the exact
+    pending-code match, and the admission preconditions.
+
+NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken for a proof
+  · the TRUTH of `baseline_oracle_status` / `mutation_oracle_status` is never recomputed: this
+    program cannot re-run a candidate's oracle;
+  · whether the oracle really sits outside the worker's scope is a claim about a task design that
+    does not exist yet;
+  · accordingly a PASS means "internally consistent AND consistent with every fact this repository
+    can check" — not "the work happened". The truth of the declared statuses is carried by the
+    evidence review, which is why every record must cite files that exist and why the boundary is
+    pinned by a test (`test_known_boundary_declared_statuses_are_not_recomputed`).
+```
 
 ---
 
