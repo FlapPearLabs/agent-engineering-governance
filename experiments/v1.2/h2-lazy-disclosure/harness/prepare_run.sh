@@ -186,8 +186,15 @@ import json, os, sys
 plan = json.load(open(sys.argv[1], encoding="utf-8"))
 rid, runs_root, commit = sys.argv[2], sys.argv[3], sys.argv[4]
 idx = [i for i, r in enumerate(plan) if r["run_id"] == rid][0]
+# A NON_ELIGIBLE row is refused at the eligibility gate BEFORE any allocation, so it can never
+# produce a collect-summary.txt. Without this exemption the order check is unsatisfiable for
+# every later row and the whole round deadlocks (round-13 P0-2, DEMONSTRATED: R03..R20 all failed
+# with OUT_OF_ORDER missing_terminal_prior_runs=[H2-R2-R01]). A refused row is a DELIBERATE,
+# RECORDED non-execution, not a missing terminal state: its ineligibility is a frozen property of
+# the plan row, so it is as settled as a collected row. Ordering among ELIGIBLE rows is unchanged.
 not_collected = [plan[i]["run_id"] for i in range(idx)
-                 if not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "collect-summary.txt"))]
+                 if plan[i].get("eligibility") != "NON_ELIGIBLE"
+                 and not os.path.isfile(os.path.join(runs_root, "evidence", plan[i]["run_id"], "collect-summary.txt"))]
 # R10-1: bind every run of THIS ROUND to ONE materials commit. The scan is scoped to the run
 # ids named by the selected plan: a retained runs root also holds the previous round's
 # receipts, and comparing those against this round's materials commit would refuse a correct
