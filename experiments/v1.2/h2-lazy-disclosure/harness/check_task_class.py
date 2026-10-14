@@ -49,6 +49,7 @@ Usage:  python3 check_task_class.py <classification.json> [repo_root]
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -56,6 +57,13 @@ import sys
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
+SCHEMA_VERSION = "2.3.0"
+# The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
+# repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
+# root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
+# exactly as the material tests pin the freeze hashes — editing the corpus without updating
+# this constant (and the test that asserts it) fails the validator, in review.
+CORPUS_SHA256 = "5d898b1a6db8fb16116a3cbec58c7078d780e379dd58d6d54553645291cda731"
 CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD", "C_REJECT")
 ADMISSIBLE_CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD")
 TRIGGER_CODES = (
@@ -106,8 +114,11 @@ class Repo:
         return [p for p in r.stdout.split() if p]
 
 
-def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str]]:
-    """case_id -> (base_sha, candidate_sha), read from the frozen replay corpus.
+def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
+    """case_id -> (base_sha, candidate_sha, source_repository), read from the replay corpus.
+
+    The corpus digest is checked against CORPUS_SHA256 BEFORE anything is parsed out of it:
+    without that, the identity rule would be only as strong as an unprotected write.
 
     Scoped to the `cases:` list on purpose. The first parser kept whatever `case_id` it saw last,
     so the `not_replay_ready:` section further down (which has its own `base_sha:` under a
@@ -118,7 +129,9 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str]]:
     path = repo.root / CASES_YAML
     if not path.is_file():
         return {}
-    out: dict[str, tuple[str, str]] = {}
+    if hashlib.sha256(path.read_bytes()).hexdigest() != CORPUS_SHA256:
+        return {}
+    out: dict[str, list[str]] = {}
     current = None
     started = False
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -132,7 +145,7 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str]]:
         m = re.match(r"\s*-\s*case_id:\s*(\S+)\s*$", line)
         if m:
             current = m.group(1)
-            out.setdefault(current, ["", ""])
+            out.setdefault(current, ["", "", ""])
             continue
         if re.match(r"\s*-\s*\S+:", line):                  # a different list item: stop scoping
             current = None
@@ -144,7 +157,12 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str]]:
         m = re.match(r"\s+candidate_sha:\s*([0-9a-f]{40})\s*$", line)
         if m and current:
             out[current][1] = m.group(1)
-    return {k: (v[0], v[1]) for k, v in out.items() if v[0] and v[1]}
+            continue
+        m = re.match(r"\s+source_repository:\s*(\S+)\s*$", line)
+        if m and current:
+            out[current][2] = m.group(1)
+    return {k: (v[0], v[1], v[2] if len(v) > 2 else "")
+            for k, v in out.items() if v[0] and v[1]}
 
 
 def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
@@ -153,8 +171,10 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
         return ["document is not a JSON object"]
     if doc.get("schema") != SCHEMA_ID:
         errors.append(f"schema is {doc.get('schema')!r}, expected {SCHEMA_ID!r}")
-    if not isinstance(doc.get("schema_version"), str) or not doc.get("schema_version"):
-        errors.append("schema_version is required (a record set without a version cannot be cited)")
+    if doc.get("schema_version") != SCHEMA_VERSION:
+        errors.append(f"schema_version is {doc.get('schema_version')!r}; this validator implements "
+                      f"{SCHEMA_VERSION!r} — a record set written against another revision must not "
+                      f"be validated by this one")
     records = doc.get("records")
     if not isinstance(records, list) or not records:
         errors.append("`records` is missing or empty")
@@ -162,10 +182,13 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
 
     corpus = corpus_pairs(repo)
     if not corpus:
-        errors.append(f"the replay corpus could not be read at {CASES_YAML} — identity binding is "
-                      f"impossible, so nothing here can be validated (failing closed)")
+        errors.append(f"the replay corpus could not be read, or its sha256 is not "
+                      f"{CORPUS_SHA256[:12]}... at {CASES_YAML} — the corpus is this scheme's "
+                      f"identity root and must match the pinned digest, so nothing here can be "
+                      f"validated (failing closed)")
 
     seen: list[str] = []
+    seen_cases: list[str] = []
     for rec in records:
         if not isinstance(rec, dict):
             errors.append(f"record {type(rec).__name__} is not an object — a malformed record is "
@@ -176,16 +199,30 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
         if key in seen:
             errors.append(f"duplicate candidate_id {cid!r}")
         seen.append(key)
+        case_key = rec.get("corpus_case_id")
+        if isinstance(case_key, str) and case_key:
+            if case_key in seen_cases:
+                errors.append(f"two records classify the same corpus case {case_key!r} — a case is "
+                              f"classified once, so a conflicting pair of records cannot leave one "
+                              f"valid request standing next to a rejection")
+            seen_cases.append(case_key)
         errors.extend(check_record(rec, repo, classification_dir, corpus))
     return errors
 
 
 def resolve_evidence(source, classification_dir: Path, repo: Repo):
+    """Resolve an evidence citation, SCOPED TO THE REPOSITORY.
+
+    A file outside the repository is not evidence a reviewer can reach from the repository, so
+    absolute paths and parent traversal are refused rather than accepted (an earlier version
+    accepted `/etc/hosts`).
+    """
     if not isinstance(source, str) or not source:
         return None
-    for base in (classification_dir, repo.root):
+    root = repo.root.resolve()
+    for base in (classification_dir, root):
         candidate = (base / source).resolve()
-        if candidate.is_file():
+        if candidate.is_file() and (candidate == root or root in candidate.parents):
             return candidate
     return None
 
@@ -216,7 +253,7 @@ def derived_triggers(paths) -> dict[str, list[str]]:
 
 
 def check_record(rec: dict, repo: Repo, classification_dir: Path,
-                 corpus: dict[str, tuple[str, str]]) -> list[str]:
+                 corpus: dict[str, tuple[str, str, str]]) -> list[str]:
     cid = rec.get("candidate_id") or "<unnamed record>"
     err: list[str] = []
 
@@ -250,7 +287,11 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
     elif corpus and case_id not in corpus:
         err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML}")
     elif corpus and have_pair:
-        want_base, want_cand = corpus[case_id]
+        want_base, want_cand, want_repo = corpus[case_id]
+        if want_repo and rec.get("source_repository") != want_repo:
+            err.append(f"{cid}: source_repository is {rec.get('source_repository')!r} while the "
+                       f"corpus binds {want_repo!r} to {case_id!r} — identity covers the repository, "
+                       f"not only the revisions")
         if (base, cand) != (want_base, want_cand):
             err.append(f"{cid}: the revision pair does not match the corpus case {case_id!r} "
                        f"(corpus binds {want_base[:12]} -> {want_cand[:12]}, record declares "

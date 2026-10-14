@@ -1,6 +1,6 @@
 {
   "schema": "ELIGIBILITY_SCHEMA_V2",
-  "schema_version": "2.2.0",
+  "schema_version": "2.3.0",
   "status": "PROPOSED_NOT_FROZEN",
   "proposed_on": "2026-10-14",
   "proposed_in_node": "N2.1 Eligibility Schema Revision",
@@ -272,14 +272,21 @@
   ],
   "enforcement": {
     "enforced_recomputed_here": [
-      "every revision pair that THIS repository contains is resolved with git cat-file and, for an admissible record, the candidate must descend from the base (git merge-base --is-ancestor)",
-      "a revision pair that does not resolve here is marked EXTERNAL_UNVERIFIABLE_LOCALLY and may never be admitted to the round",
-      "every evidence[].source must resolve to an existing file",
-      "closed vocabularies, per-class field equalities, trigger/class consistency, the disclosure-to-oracle-authority binding, the C_REJECT blocked-class rule, and the admission preconditions"
+      "IDENTITY — the record's corpus_case_id must name a case whose revision pair AND source repository equal the record's; both are read from the replay corpus, whose sha256 is pinned by a literal in the validator",
+      "DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR (NOT derived: configuration such as ruff.toml, CI workflows, conftest.py — those must be declared by hand)",
+      "REVISION BINDING — git cat-file resolution, ancestry for admissible claims, refusal of a degenerate base == candidate pair",
+      "an externally bound pair can never carry a valid request, and the derived-trigger rule cannot even run for it",
+      "every evidence[].source must resolve to an existing file INSIDE the repository",
+      "one record per corpus case; schema_version must equal the implemented version; closed vocabularies, per-class field equalities, trigger/class consistency, the disclosure-to-authority binding, the C_REJECT blocked-class rule, and structural rules that never mask a record's other defects"
     ],
     "not_enforced_out_of_band_obligations": [
-      "the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed here (this program cannot re-run a candidate's oracle)",
-      "whether the oracle really sits outside the worker's scope is a claim about a task design that does not exist yet"
+      "the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed (this program cannot re-run a candidate's oracle): a record bound to a real corpus pair can still declare false statuses",
+      "whether the oracle really sits outside the worker's scope is a claim about a task design that does not exist yet",
+      "externalisation that silences a derived trigger is an assertion — it is bounded only by the fact that the same pending requirement forbids a valid request",
+      "the class itself is bound to nothing recomputable; the corpus's own per-case dispositions are deliberately not consulted, because the corpus header forbids collapsing those axes",
+      "ancestry is deliberately not required of C_REJECT (a non-comparable pair is a legitimate reject reason)",
+      "nothing compels a pending requirement to be discharged (liveness, not soundness)",
+      "the validator is not wired into prepare/collect/publish — Freeze v2 must decide whether it becomes a gate"
     ],
     "what_a_pass_means": "the record is internally consistent and, where this repository can check it, consistent with the repository — not that the declared oracle statuses are true"
   }

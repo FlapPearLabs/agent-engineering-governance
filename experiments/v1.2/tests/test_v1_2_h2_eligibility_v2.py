@@ -118,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.2.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.3.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -250,6 +250,34 @@ class ValidatorBehaviour(unittest.TestCase):
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
 
+    # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
+    def test_schema_version_must_equal_the_implemented_one(self):
+        for bogus in ("2.2.0", "0.0.1", "banana"):
+            doc = document(repair_record())
+            doc["schema_version"] = bogus
+            rc, out = run_validator(doc, self.tmp)
+            self.assertEqual(1, rc, f"{bogus} must be refused\n{out}")
+            self.assertIn("this validator implements", out)
+
+    def test_source_repository_must_match_the_corpus_case(self):
+        rec = repair_record(source_repository="FlapPearLabs/zhihu-grabber-toolkit")
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("source_repository", out)
+
+    def test_two_records_over_the_same_corpus_case_rejected(self):
+        other = repair_record()
+        other["candidate_id"] = "second-record"
+        rc, out = run_validator(document(repair_record(), other), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("two records classify the same corpus case", out)
+
+    def test_evidence_outside_the_repository_rejected(self):
+        rec = repair_record(evidence=[{"claim": "x", "measured": "y", "source": "/etc/hosts"}])
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("does not resolve to an existing file", out)
+
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):
         rec = guard_record()
@@ -264,6 +292,7 @@ class ValidatorBehaviour(unittest.TestCase):
     def test_external_binding_is_legal_when_no_request_is_made(self):
         rec = repair_record()
         rec["corpus_case_id"] = CASE_R01
+        rec["source_repository"] = "FlapPearLabs/zhihu-grabber-toolkit"   # what the corpus binds
         rec["base_sha"], rec["candidate_sha"] = FOREIGN_BASE, FOREIGN_CAND
         rec["sha_binding"] = "EXTERNAL_UNVERIFIABLE_LOCALLY"
         rec.update(EXTERNAL)
@@ -273,6 +302,7 @@ class ValidatorBehaviour(unittest.TestCase):
     def test_external_binding_without_verification_rejected(self):
         rec = repair_record()
         rec["corpus_case_id"] = CASE_R01
+        rec["source_repository"] = "FlapPearLabs/zhihu-grabber-toolkit"   # what the corpus binds
         rec["base_sha"], rec["candidate_sha"] = FOREIGN_BASE, FOREIGN_CAND
         rec["sha_binding"] = "EXTERNAL_UNVERIFIABLE_LOCALLY"
         rec["external_repository"] = "FlapPearLabs/fixture"
@@ -312,7 +342,7 @@ class ValidatorBehaviour(unittest.TestCase):
         del doc["schema_version"]
         rc, out = run_validator(doc, self.tmp)
         self.assertEqual(1, rc, out)
-        self.assertIn("schema_version is required", out)
+        self.assertIn("this validator implements", out)
 
     def test_non_object_record_is_a_structured_error(self):
         rc, out = run_validator(document(repair_record(), "not-a-record"), self.tmp)
@@ -553,7 +583,7 @@ class GuardUnitChecks(unittest.TestCase):
     def test_ancestry_guard_fires(self):
         module = self._module()
         base, cand = "a" * 40, "b" * 40
-        corpus = {"synthetic-case": (base, cand)}
+        corpus = {"synthetic-case": (base, cand, "FlapPearLabs/agent-engineering-governance")}
         rec = self._record(module, base, cand)
         errors = module.check_record(rec, self._StubRepo(ancestor=False), ROOT, corpus)
         self.assertTrue(any("requires the candidate to descend from the base" in e for e in errors),
@@ -562,11 +592,30 @@ class GuardUnitChecks(unittest.TestCase):
     def test_degeneracy_guard_fires(self):
         module = self._module()
         sha = "a" * 40
-        corpus = {"synthetic-case": (sha, sha)}
+        corpus = {"synthetic-case": (sha, sha, "FlapPearLabs/agent-engineering-governance")}
         rec = self._record(module, sha, sha)
         errors = module.check_record(rec, self._StubRepo(ancestor=True), ROOT, corpus)
         self.assertTrue(any("degenerate" in e for e in errors), errors)
 
+
+    def test_corpus_digest_is_pinned(self):
+        """The identity rule's trust root is the replay corpus. Nothing else in this repository
+        pins it (it is in no freeze hash and no test checks its SHA values), so the validator pins
+        its digest as a literal and this test asserts the literal against the real file. Editing the
+        corpus without updating both fails here — visibly, in review."""
+        import hashlib
+        spec = importlib.util.spec_from_file_location("ctc_corpus_pin", VALIDATOR)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_corpus_pin"] = module
+        spec.loader.exec_module(module)
+        real = hashlib.sha256((ROOT / "experiments/v1.2/replay/cases.yaml").read_bytes()).hexdigest()
+        self.assertEqual(module.CORPUS_SHA256, real,
+                         "the pinned corpus digest no longer matches cases.yaml — update the "
+                         "constant in check_task_class.py only if the corpus change is intended and "
+                         "reviewed")
+        self.assertEqual(module.SCHEMA_VERSION, json.loads(
+            (H2 / "task-classification-v2.json").read_text(encoding="utf-8"))["schema_version"],
+            "the validator and the shipped record must declare the same schema version")
 
 class ShippedClassification(unittest.TestCase):
     """The repository's own classification must obey the schema it declares."""

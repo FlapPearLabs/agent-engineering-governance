@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.2.0  (2.0.0 -> 2.1.0 -> 2.2.0 across two adversarial review rounds)
+VERSION        = 2.3.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 across three review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -19,6 +19,13 @@ REVIEW_HISTORY = round 1 (commit ea268dd) returned CHANGES_REQUIRED (2xP1, no P0
                  two triggers are DERIVED from the delta's own file list, a valid request requires a
                  locally verifiable pair, and the verdict vocabulary no longer says 'admitted' at
                  all — this program validates a REQUEST and never grants one.
+                 Round 3 (commit e1d04e2) returned CHANGES_REQUIRED (no P0) and found that
+                 round 2's identity rule rested on an UNPINNED file: the replay corpus was in no
+                 freeze hash and no test pinned its SHA values, so a corpus edit made the
+                 identity binding vacuous. v2.3.0 pins the corpus digest as a literal in the
+                 validator (asserted by a test), binds source_repository per case, forbids two
+                 records over one case, requires schema_version to equal the implemented
+                 version, and scopes evidence citations to the repository.
 MACHINE_READABLE_RECORDS = task-classification-v2.json
 EVIDENCE       = precondition/n2-eligibility-measurement.md, precondition/n2-c2c3-gap-analysis.md,
                  precondition/n2-vacuity-probe.txt, precondition/n2-r0*.txt,
