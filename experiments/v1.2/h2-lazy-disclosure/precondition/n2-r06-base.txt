@@ -1,0 +1,87 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = 93ce28f2a7e6233c526adf114c541c08109c8cfeafaf8629a37763708017489f
+# source: r06 base measurement log
+
+### TREE=r06-base  HEAD=af4df6ae706394db5f9dec313993312392aeb516  files=39
+### wall start 2026-10-14T06:13:09Z
+=== A: python3 scripts/validate_governance.py ===
+--- [A] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python scripts/validate_governance.py
+--- [A] rc=0  elapsed=0s
+      PASS  mcp-canonical-set-v1
+      PASS  agents-doctrine-and-codegraph-modes
+      PASS  no-stale-operational-state
+      PASS  portable-setup-receipt-schema
+      PASS  static-analysis-and-routing-present
+      PASS  skills-statuses-valid
+      PASS  no-raw-memory-archive
+      PASS  portable-setup-capability-matrix
+      PASS  no-candidate-state-in-runtime-docs
+      PASS  runtime-version-and-counts-sync
+      PASS  project-state-persistence-integrated
+      PASS  memory-non-authoritative-and-anti-bureaucracy
+      
+      23/23 checks passed
+
+=== B: python3 -m unittest discover -s scripts/tests ===
+--- [B] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest discover -s scripts/tests
+--- [B] rc=1  elapsed=0s
+          self.parseArgs(argv)
+          ~~~~~~~~~~~~~~^^^^^^
+        File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/main.py", line 119, in parseArgs
+          self._do_discovery(argv[2:])
+          ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+        File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/main.py", line 242, in _do_discovery
+          self.createTests(from_discovery=True, Loader=Loader)
+          ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/main.py", line 149, in createTests
+          self.test = loader.discover(self.start, self.pattern, self.top)
+                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py", line 308, in discover
+          raise ImportError('Start directory is not importable: %r' % start_dir)
+      ImportError: Start directory is not importable: 'scripts/tests'
+
+=== C: python3 -m unittest scripts.tests.test_p1_t16_gate_cli_entrypoint ===
+--- [C] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest scripts.tests.test_p1_t16_gate_cli_entrypoint
+--- [C] rc=1  elapsed=0s
+      ======================================================================
+      ERROR: tests (unittest.loader._FailedTest.tests)
+      ----------------------------------------------------------------------
+      ImportError: Failed to import test module: tests
+      Traceback (most recent call last):
+        File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py", line 137, in loadTestsFromName
+          module = __import__(module_name)
+      ModuleNotFoundError: No module named 'scripts.tests'
+      
+      
+      ----------------------------------------------------------------------
+      Ran 1 test in 0.000s
+      
+      FAILED (errors=1)
+
+=== D: python3 -m compileall -q scripts adapters ===
+--- [D] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m compileall -q scripts adapters
+--- [D] rc=0  elapsed=0s
+      Can't list 'adapters'
+
+=== E: python3 -m ruff check . ===
+--- [E] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m ruff check .
+--- [E] rc=1  elapsed=0s
+      F841 Local variable `reason` is assigned to but never used
+         --> scripts/validate_project_state.py:129:9
+          |
+      127 |     deferred = isinstance(remote, str) and remote == ""
+      128 |     if deferred:
+      129 |         reason = str(data.get("recovery_snapshot", {}).get("last_state_flush_reason", ""))
+          |         ^^^^^^
+      130 |         check("remote-format", True, "empty remote accepted only as DEFERRED marker")
+      131 |     else:
+          |
+      help: Remove assignment to unused variable `reason`
+      
+      Found 1 error.
+      No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+
+### dirty after: 1 entries
+### DONE r06-base

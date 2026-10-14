@@ -1,0 +1,46 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = 96a42f886f4fe31ee38cfc6b7ef2714f86bef2d57073e4376d3c7c158931b688
+# source: r01 independent negative control
+
+### (e) r01 INDEPENDENT negative control: partial delta (delete one new lib file at cand)
+  [e1] cand-minus-one-lib rc=1  # tests 1 # pass 0 # fail 1 
+       Cannot find module 
+  r01-cand dirty=0
+
+### (f) r03 spec gate POSITIVE control: the candidate's own semantics test on the pristine cand tree
+  [f1] t17 @ pristine cand rc=0  Ran 18 tests in 1.691s OK 
+  [f2] t17 equally on the BASE tree (file absent there):
+       rc=1  Ran 1 test in 0.000s  FAILED (errors=1) 
+
+### (g) r06 negative-control detail (what did the validator actually do?)
+       Traceback (most recent call last):
+         File "/Users/<LOCAL_OS_USERNAME>/WorkBuddy/agentengineering/h2-n2-feasibility/r06-cand/scripts/validate_governance.py", line 336, in <module>
+           sys.exit(main())
+                    ~~~~^^
+         File "/Users/<LOCAL_OS_USERNAME>/WorkBuddy/agentengineering/h2-n2-feasibility/r06-cand/scripts/validate_governance.py", line 210, in main
+           mcp_text = (ROOT / "mcp/README.md").read_text(encoding="utf-8")
+         File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/pathlib/_local.py", line 546, in read_text
+           return PathBase.read_text(self, encoding, errors, newline)
+                  ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/pathlib/_abc.py", line 632, in read_text
+           with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+                ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         File "/Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/pathlib/_local.py", line 537, in open
+           return io.open(self, mode, buffering, encoding, errors, newline)
+
+### (h) r03 (c) frozen-oracle incompatibility: identity of the 23 errors
+  rc=1  first error lines:
+       ERROR: test_document_pointer_contract (adapters.zcode.tests.test_project_continuity.ProjectStateTests.test_document_pointer_contract) (pointer=['docs/specs/example.md'])
+       ERROR: test_document_pointer_contract (adapters.zcode.tests.test_project_continuity.ProjectStateTests.test_document_pointer_contract) (pointer=['NONE'])
+       ERROR: test_document_pointer_contract (adapters.zcode.tests.test_project_continuity.ProjectStateTests.test_document_pointer_contract) (pointer=[])
+
+### cleanup: every scratch tree back to pristine
+  r03-base  dirty=0  HEAD=015780b
+  r03-cand  dirty=0  HEAD=65113de
+  r06-base  dirty=0  HEAD=af4df6a
+  r06-cand  dirty=0  HEAD=069f8be
+  r01-base  dirty=0  HEAD=4b6d182
+  r01-cand  dirty=0  HEAD=fa997c1
+### DONE controls-final

@@ -1,0 +1,49 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = 5f5ebe24a99c60db38b0ad5093064b902a11c49d4f9bb61c193767fc0c18f6e9
+# source: r01 base measurement log
+
+### TREE=r01-base  HEAD=4b6d182f1388e27ae33820feee1589cb0188d59b  tracked=212
+### node=v22.22.2  start 2026-10-14T06:14:30Z
+=== R1: research-orchestration full suite (declared npm test) ===
+--- [R1] (cd research-orchestration && bash -c /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/node/versions/22.22.2-6/bin/node --test test/*.test.mjs)
+--- [R1] rc=1 elapsed=1s
+      ok 424 - P1-2: valid + invalid mix → only the valid group is eligible/selectable
+      ok 425 - reform F1/F2: fail-closed plan-intent gates + pool planHash identity
+      ok 426 - repair round 2: constraint-first group-set construction + clarification identity boundary
+      ok 427 - canonical questionId gate consistency with T06
+      ok 428 - third-party review round 3: invalid-pool no-echo (F-A) + duplicate pool identity fail-closed (F-B)
+      ok 429 - external repair R3: canonical pool-consumption boundary (P1-A) + clarification resolution binding (P1-B)
+      # tests 509
+      # pass 508
+      # fail 1
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # pass 508
+      # fail 1
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # duration_ms 1554.421875
+
+=== R2: the single test file the candidate MODIFIES (base version present) ===
+--- [R2] (cd research-orchestration && /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/node/versions/22.22.2-6/bin/node --test test/p1-t14-cross-group-synthesis.test.mjs)
+--- [R2] rc=1 elapsed=0s
+      not ok 1 - test/p1-t14-cross-group-synthesis.test.mjs
+      # tests 1
+      # pass 0
+      # fail 1
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # pass 0
+      # fail 1
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # duration_ms 54.032833
+
+### dirty after: 0 entries
+### DONE r01-base

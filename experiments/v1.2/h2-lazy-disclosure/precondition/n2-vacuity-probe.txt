@@ -1,0 +1,28 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = e892d40212b303dc5a845f5ab2c06a5d7d7114962ece8a6ae221043136c6cc2b
+# source: N2.1 vacuity probe — is the ruff + teeth-probe acceptance load-bearing under narrowing?
+
+### baseline teeth probe with the shipped ruff.toml
+  No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
+  T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run's own gate config)
+
+### Probe A: select = []  (vacuous config)
+  teeth rc=1  T02_POSITIVE_CONTROL = FAIL (injected F841 NOT caught; rc=0) — GATE_NOT_LOAD_BEARING
+  raw ruff rc line: 
+  -- and what does the plain acceptance command say on the same tree?
+     ruff check . rc=0  All checks passed!
+
+### Probe B: select = ["F841"]  (narrowed to exactly the probe's rule)
+  teeth rc=0  T02_POSITIVE_CONTROL = PASS (injected F841 caught by the run's own gate config)
+     ruff check . rc=0  All checks passed!
+
+### Probe C: does the r03 semantics test (t17) catch Probe B's hollowed config?
+  t17 rc=1  Ran 18 tests in 0.920s FAILED (failures=1) 
+     FAIL: test_pinned_toolchain_is_repository_controlled (scripts.tests.test_p1_t17_static_gate_framework_semantics.StaticGateFrameworkWiringTests.test_pinned_toolchain_is_repository_controlled)
+
+### restore
+  r03-cand dirty=0
+  probe runs-root removed: True
+PROBE_DONE
