@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.5.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 -> 2.4.0 -> 2.5.0; five review rounds)
+VERSION        = 2.6.0  (2.0.0 -> … -> 2.6.0; six review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -19,10 +19,10 @@ REVIEW_HISTORY = round 5 (commit 269b263) returned PASS: the per-case pin holds 
                  only the corpus digest fixed the demonstrated case and not the class: r02, r05 and
                  any future case stayed unguarded. Fixed by pinning the per-case pairs of all five
                  cases as literals in the test file.
-                 Round 3 (commit e1d04e2) returned CHANGES_REQUIRED (no P0) and found that
-                 round 2's identity rule rested on an UNPINNED file — the replay corpus was in no
-                 freeze hash and no test pinned its values — so a corpus edit made the binding
-                 vacuous. Fixed by pinning the corpus digest as a literal.
+                 Round 5's five findings were P3 and are closed in the version after it, as are
+                 the two P3 defects the closing review found in THOSE fixes: a disclosure check that
+                 sat after a declaration short-circuit (dead for the shape that needs it) and an
+                 own-class rule that matched a name but not its verdict.
                  Round 1 (commit ea268dd) returned CHANGES_REQUIRED (2xP1, no P0): the validator
                  judged only self-consistency while §6.5 claimed a structural proof. Round 2
                  (commit 5aa079f) returned CHANGES_REQUIRED again and was right once more: the
@@ -359,13 +359,21 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     trips the pin;
   · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed
     test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives
-    WORKER_MODIFIES_VALIDATOR. Neither can be talked away by editing the record;
+    WORKER_MODIFIES_VALIDATOR. Neither can be talked away INTO A VALID REQUEST: silencing one
+    requires externalising every derived path, which requires the ORACLE_EXTERNALIZATION pending
+    requirement, which forbids a valid request. A disclosure that CONTRADICTS the derivation is
+    refused whatever the record declares — a `historical_delta_touched_validator` of false beside a
+    delta that provably changes a validator is an error even when the derived trigger is declared
+    (the check runs before the declaration short-circuit);
   · REVISION BINDING — a pair this repository contains is resolved with `git cat-file`; a claim of
     an admissible class additionally requires the candidate to descend from the base
     (`git merge-base --is-ancestor`) and the pair to be non-degenerate (base != candidate);
   · a pair that does not resolve here must be declared EXTERNAL_UNVERIFIABLE_LOCALLY with a named
     repository and the external verification command, and it can never carry a valid request;
-  · every evidence[].source must resolve to an existing file;
+  · every evidence[].source must resolve to an existing file INSIDE the repository;
+  · a record may not list its OWN class as BLOCKED, and `class_considered` must name the record's
+    own class (for admissible claims — a C_REJECT lists the admissible classes it blocked, and the
+    reject class is the outcome rather than an option considered);
   · the closed vocabularies, the per-class field equalities, the trigger/class consistency, the
     disclosure-to-authority binding, the C_REJECT "show which class you blocked" rule, the exact
     pending-code match, and the structural rules (unique ids, required schema_version, malformed

@@ -118,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.5.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.6.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -252,7 +252,7 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
     def test_schema_version_must_equal_the_implemented_one(self):
-        for bogus in ("2.4.0", "0.0.1", "banana"):
+        for bogus in ("2.5.0", "0.0.1", "banana"):
             doc = document(repair_record())
             doc["schema_version"] = bogus
             rc, out = run_validator(doc, self.tmp)
@@ -332,6 +332,34 @@ class ValidatorBehaviour(unittest.TestCase):
                                    "reason": "no oracle"}, ]
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
+
+    def test_declared_trigger_does_not_excuse_a_contradictory_disclosure(self):
+        """Round-6 F1: the check sat after the declaration short-circuit, so declaring the trigger —
+        the only shape that can carry this contradiction — made the rule dead."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rec["class"] = "C_REJECT"
+        rec["class_requirements"] = None
+        rec["disclosures"] = {"historical_delta_touched_validator": False}
+        rec["reject_triggers"] = [
+            {"trigger": "WORKER_MODIFIES_VALIDATOR", "reason_code": "VALIDATOR_IN_DELTA",
+             "detail": "declared"},
+            {"trigger": "WORKER_MODIFIES_TEST_ORACLE", "reason_code": "TEST_ORACLE_IN_DELTA",
+             "detail": "declared"},
+        ]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("contradicts the object database", out)
+
+    def test_own_class_marked_blocked_rejected(self):
+        """Round-6 F2: the own-class rule matched the NAME only, so a record could list its own
+        class as BLOCKED — even with a valid request."""
+        rec = guard_record()
+        rec["class_considered"] = [{"class": "B_REGRESSION_GUARD", "verdict": "BLOCKED"}]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("lists as blocked", out)
 
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):

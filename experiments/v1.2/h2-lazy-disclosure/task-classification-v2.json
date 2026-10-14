@@ -1,6 +1,6 @@
 {
   "schema": "ELIGIBILITY_SCHEMA_V2",
-  "schema_version": "2.5.0",
+  "schema_version": "2.6.0",
   "status": "PROPOSED_NOT_FROZEN",
   "proposed_on": "2026-10-14",
   "proposed_in_node": "N2.1 Eligibility Schema Revision",
@@ -277,7 +277,8 @@
       "REVISION BINDING — git cat-file resolution, ancestry for admissible claims, refusal of a degenerate base == candidate pair",
       "an externally bound pair can never carry a valid request, and the derived-trigger rule cannot even run for it",
       "every evidence[].source must resolve to an existing file INSIDE the repository",
-      "one record per corpus case; schema_version must equal the implemented version; closed vocabularies, per-class field equalities, trigger/class consistency, the disclosure-to-authority binding, the C_REJECT blocked-class rule, and structural rules that never mask a record's other defects"
+      "one record per corpus case; schema_version must equal the implemented version; closed vocabularies, per-class field equalities, trigger/class consistency, the disclosure-to-authority binding, the C_REJECT blocked-class rule, and structural rules that never mask a record's other defects",
+      "a disclosure that contradicts the object database is refused independently of what the record declares (a false historical_delta_touched_validator beside a provably validator-touching delta is an error even when the derived trigger is declared), and a record may not list its own class as BLOCKED"
     ],
     "not_enforced_out_of_band_obligations": [
       "the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed (this program cannot re-run a candidate's oracle): a record bound to a real corpus pair can still declare false statuses",
