@@ -17,7 +17,7 @@
     "ROUTE_MANIFEST_HASH_R2": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "PROTOCOL_HASH_R2": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
     "HASH_UNIT": "sha256 over file bytes",
-    "RUN_PLAN_HASH_R2": "DERIVED_NOT_HARDCODED — run: shasum -a 256 experiments/v1.2/h2-lazy-disclosure/harness/run-plan-r2.json (was ca13fbe004f6 before the P0-2 eligibility markers; no check consumes this value, so it is stated as its derivation rather than as a number that silently goes stale)"
+    "RUN_PLAN_HASH_R2": "2e28abfc6a19fd1ec2a7565121b1ad88216cf145162b086c36f081eeb166b115"
   },
   "round1_comparison": {
     "TASK_SET_CHANGED": "NO",
@@ -48,5 +48,8 @@
       "B3: TEMPLATE_BINDING was self-satisfying because both compared hashes came from the worker-writable receipt. The source is now re-read from the frozen materials COMMIT at collection and compared three-way; the edit-template-and-rewrite-receipt bypass is now rejected."
     ],
     "operator_requirement": "H2_PLAN_FILE must be passed to prepare AND collect for the same run. If it differs, collection refuses (fail-closed) with an explicit mismatch message; it never silently validates against the wrong plan."
-  }
+  },
+  "hash_corrections": [
+    "RUN_PLAN_HASH_R2 was briefly rewritten from its value into a DERIVED_NOT_HARDCODED sentence on the reasoning that 'no check consumes it'. That was WRONG: prepare_run.sh compares this value against the plan blob in the materials commit and refuses with PLAN_AUTHORITY_FAIL on mismatch (demonstrated: the rewrite made every prepare fail with 'RUN_PLAN_HASH_R2 mismatch'). The value is load-bearing; it was restored to the real sha256 over harness/run-plan-r2.json = 2e28abfc6a19fd1ec2a7565121b1ad88216cf145162b086c36f081eeb166b115. Correction recorded so the inference is not repeated: a self-declared hash must be treated as enforced until prepare/collect/publish have been read, not inferred from the absence of a unit test."
+  ]
 }
