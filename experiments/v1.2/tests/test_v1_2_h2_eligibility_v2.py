@@ -118,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.3.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.4.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -252,7 +252,7 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
     def test_schema_version_must_equal_the_implemented_one(self):
-        for bogus in ("2.2.0", "0.0.1", "banana"):
+        for bogus in ("2.3.0", "0.0.1", "banana"):
             doc = document(repair_record())
             doc["schema_version"] = bogus
             rc, out = run_validator(doc, self.tmp)
@@ -277,6 +277,27 @@ class ValidatorBehaviour(unittest.TestCase):
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("does not resolve to an existing file", out)
+
+    def test_externalized_path_must_be_in_the_delta(self):
+        rec = repair_record()
+        rec["externalized_paths"] = ["no/such/file.py"]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("the delta does not change", out)
+
+    def test_malformed_class_considered_rejected(self):
+        rec = repair_record()
+        rec["class_considered"] = "not-a-list"
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("class_considered", out)
+
+    def test_class_considered_entry_needs_a_known_class_and_verdict(self):
+        rec = repair_record()
+        rec["class_considered"] = [{"class": "Z_UNKNOWN", "verdict": ""}]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("known class", out)
 
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):
@@ -616,6 +637,41 @@ class GuardUnitChecks(unittest.TestCase):
         self.assertEqual(module.SCHEMA_VERSION, json.loads(
             (H2 / "task-classification-v2.json").read_text(encoding="utf-8"))["schema_version"],
             "the validator and the shipped record must declare the same schema version")
+
+    def test_every_corpus_case_pair_is_pinned(self):
+        """F1, round 4: pinning only the shipped digest let an author edit the corpus AND the
+        constant together and keep the validator green for cases no fixture covers (r02, r05, and
+        any future case). The pairs of ALL cases are therefore pinned here as literals, in a file
+        that is independent of the corpus and of the validator, so any corpus edit — to any case —
+        has to touch this literal too and is visible in review."""
+        spec = importlib.util.spec_from_file_location("ctc_pairs_pin", VALIDATOR)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_pairs_pin"] = module
+        spec.loader.exec_module(module)
+        pairs = module.corpus_pairs(module.Repo(ROOT))
+        gov = "FlapPearLabs/agent-engineering-governance"
+        expected = {
+            "r01-zhihu-t14-async-seam-mismatch":
+                ("4b6d182f1388e27ae33820feee1589cb0188d59b",
+                 "fa997c12e4c35fdb9267882747d2b55d13772ae2",
+                 "FlapPearLabs/zhihu-grabber-toolkit"),
+            "r02-governance-review-evidence-interface":
+                ("e1da1541eb2b11f1e44f972409abde701496f4b6",
+                 "2ed08f6f7ddf58b234b54afb8334e6fae32cd768", gov),
+            "r03-governance-static-gate-adoption":
+                ("015780be7a3f863c05509b437e4e586b4f388794",
+                 "65113de69bda6802a476eefa033cf00439d49f04", gov),
+            "r05-governance-local-only-precondition-fix":
+                ("c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+                 "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48", gov),
+            "r06-governance-zcode-adapter-reference":
+                ("af4df6ae706394db5f9dec313993312392aeb516",
+                 "069f8be26cc04bb4f9bf3428c1e23b310debb984", gov),
+        }
+        self.assertEqual(expected, pairs,
+                         "the replay corpus's per-case pairs changed — that is an experiment-material "
+                         "change: update this pin only with the corpus change, in review")
+        self.assertEqual(len(expected), len(pairs))
 
 class ShippedClassification(unittest.TestCase):
     """The repository's own classification must obey the schema it declares."""

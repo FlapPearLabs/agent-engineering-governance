@@ -57,7 +57,7 @@ import sys
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.3.0"
+SCHEMA_VERSION = "2.4.0"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -114,6 +114,11 @@ class Repo:
         return [p for p in r.stdout.split() if p]
 
 
+def hashlib_digest_ok(path) -> bool:
+    """True iff the file's sha256 equals CORPUS_SHA256."""
+    return hashlib.sha256(path.read_bytes()).hexdigest() == CORPUS_SHA256
+
+
 def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
     """case_id -> (base_sha, candidate_sha, source_repository), read from the replay corpus.
 
@@ -129,7 +134,7 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
     path = repo.root / CASES_YAML
     if not path.is_file():
         return {}
-    if hashlib.sha256(path.read_bytes()).hexdigest() != CORPUS_SHA256:
+    if not hashlib_digest_ok(path):
         return {}
     out: dict[str, list[str]] = {}
     current = None
@@ -165,6 +170,34 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
             for k, v in out.items() if v[0] and v[1]}
 
 
+def corpus_incomplete_cases(repo: Repo) -> set[str]:
+    """Cases the corpus names but for which no complete pair could be parsed.
+
+    Separated from `corpus_pairs` so the diagnosis can say WHICH of the two happened: a case id that
+    is absent from the corpus is a different mistake from a case the corpus lists without a pair.
+    """
+    path = repo.root / CASES_YAML
+    if not path.is_file() or not hashlib_digest_ok(path):
+        return set()
+    named, complete = set(), set()
+    current = None
+    started = False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if re.match(r"^cases:\s*$", line):
+            started = True
+            continue
+        if started and re.match(r"^[A-Za-z_]+:", line):
+            break
+        if not started:
+            continue
+        m = re.match(r"\s*-\s*case_id:\s*(\S+)\s*$", line)
+        if m:
+            current = m.group(1)
+            named.add(current)
+    complete = set(corpus_pairs(repo))
+    return named - complete
+
+
 def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
     errors: list[str] = []
     if not isinstance(doc, dict):
@@ -181,6 +214,7 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
         return errors
 
     corpus = corpus_pairs(repo)
+    corpus_incomplete = corpus_incomplete_cases(repo)
     if not corpus:
         errors.append(f"the replay corpus could not be read, or its sha256 is not "
                       f"{CORPUS_SHA256[:12]}... at {CASES_YAML} — the corpus is this scheme's "
@@ -206,7 +240,7 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
                               f"classified once, so a conflicting pair of records cannot leave one "
                               f"valid request standing next to a rejection")
             seen_cases.append(case_key)
-        errors.extend(check_record(rec, repo, classification_dir, corpus))
+        errors.extend(check_record(rec, repo, classification_dir, corpus, corpus_incomplete))
     return errors
 
 
@@ -253,8 +287,10 @@ def derived_triggers(paths) -> dict[str, list[str]]:
 
 
 def check_record(rec: dict, repo: Repo, classification_dir: Path,
-                 corpus: dict[str, tuple[str, str, str]]) -> list[str]:
+                 corpus: dict[str, tuple[str, str, str]],
+                 corpus_incomplete: set[str] | None = None) -> list[str]:
     cid = rec.get("candidate_id") or "<unnamed record>"
+    corpus_incomplete = corpus_incomplete or set()
     err: list[str] = []
 
     for key in REQUIRED_RECORD_KEYS:
@@ -285,7 +321,11 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
         err.append(f"{cid}: corpus_case_id is required — a record that names no case can assert any "
                    f"class over any revision pair it borrows")
     elif corpus and case_id not in corpus:
-        err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML}")
+        if case_id in corpus_incomplete:
+            err.append(f"{cid}: the corpus lists {case_id!r} but binds no complete revision pair "
+                       f"to it (a case without a base/candidate pair cannot classify anything)")
+        else:
+            err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML}")
     elif corpus and have_pair:
         want_base, want_cand, want_repo = corpus[case_id]
         if want_repo and rec.get("source_repository") != want_repo:
@@ -363,9 +403,18 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             err.append(f"{cid}: pending requirement {p[:40]!r} must begin with an UPPER_SNAKE code")
 
     externalized = rec.get("externalized_paths") or []
-    if not isinstance(externalized, list):
+    if externalized and not isinstance(externalized, list):
         err.append(f"{cid}: externalized_paths must be a list when present")
         externalized = []
+    for path in externalized:
+        if not isinstance(path, str) or not path:
+            err.append(f"{cid}: every externalized_paths entry must be a non-empty path")
+    if externalized and local_pair == (True, True):
+        changed = repo.changed_paths(base, cand) or []
+        bogus = [path for path in externalized if path not in changed]
+        if bogus:
+            err.append(f"{cid}: externalized_paths names {bogus} which the delta does not change — "
+                       f"externalising a path the pair never touches asserts nothing")
     if local_pair == (True, True):
         paths = repo.changed_paths(base, cand)
         if paths is None:
@@ -431,8 +480,18 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                 if req.get(flag) is not True:
                     err.append(f"{cid}: B_REGRESSION_GUARD requires {flag} true")
 
+    considered = rec.get("class_considered")
+    if not isinstance(considered, list) or not considered:
+        err.append(f"{cid}: class_considered must be a non-empty list of "
+                   f"{{class, verdict}} entries (every record states which classes it was "
+                   f"considered under)")
+    else:
+        for c in considered:
+            if not isinstance(c, dict) or c.get("class") not in CLASSES or \
+                    not isinstance(c.get("verdict"), str) or not c.get("verdict"):
+                err.append(f"{cid}: every class_considered entry needs a known class and a "
+                           f"non-empty verdict (got {c!r})")
     if cls == "C_REJECT":
-        considered = rec.get("class_considered")
         if not isinstance(considered, list) or not considered:
             err.append(f"{cid}: C_REJECT requires class_considered (a task may not be dumped into "
                        f"the reject class without showing which admissible class was blocked)")

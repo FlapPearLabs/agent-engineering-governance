@@ -1,6 +1,6 @@
 {
   "schema": "ELIGIBILITY_SCHEMA_V2",
-  "schema_version": "2.3.0",
+  "schema_version": "2.4.0",
   "status": "PROPOSED_NOT_FROZEN",
   "proposed_on": "2026-10-14",
   "proposed_in_node": "N2.1 Eligibility Schema Revision",
@@ -272,8 +272,8 @@
   ],
   "enforcement": {
     "enforced_recomputed_here": [
-      "IDENTITY — the record's corpus_case_id must name a case whose revision pair AND source repository equal the record's; both are read from the replay corpus, whose sha256 is pinned by a literal in the validator",
-      "DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR (NOT derived: configuration such as ruff.toml, CI workflows, conftest.py — those must be declared by hand)",
+      "IDENTITY — the record's corpus_case_id must name a case whose revision pair AND source repository equal the record's; both are read from the replay corpus, whose sha256 is pinned by a literal in the validator; the corpus is pinned TWICE (its sha256 as a literal in the validator, the per-case pairs of all five cases as a literal in the test file)",
+      "DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR (NOT derived: configuration such as ruff.toml, CI workflows, conftest.py — those must be declared by hand); the rules are NAME-based and therefore blind to ROLE — r02's scripts/review_evidence.py is a collect/validate CLI that derives nothing, so a task whose verdict hangs on such a file must declare the trigger by hand",
       "REVISION BINDING — git cat-file resolution, ancestry for admissible claims, refusal of a degenerate base == candidate pair",
       "an externally bound pair can never carry a valid request, and the derived-trigger rule cannot even run for it",
       "every evidence[].source must resolve to an existing file INSIDE the repository",

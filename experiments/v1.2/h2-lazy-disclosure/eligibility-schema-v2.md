@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.3.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 across three review rounds)
+VERSION        = 2.4.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 -> 2.4.0 across four review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -103,8 +103,9 @@ CLASS A — REPAIR TASK
   definition : a real defect repair against a frozen oracle
   lifecycle  : baseline  { oracle_status: FAIL }
                candidate { oracle_status: PASS }
-  required   : baseline_oracle_status      = FAIL         (observed, not declared)
-               candidate_oracle_status     = PASS         (observed, not declared)
+  required   : baseline_oracle_status      = FAIL         (declared by the record; NOT recomputed
+                                                             by the validator — see §6.6)
+               candidate_oracle_status     = PASS         (declared; NOT recomputed)
                oracle_in_worker_scope      = false
                oracle_authority            ∈ { FRAMEWORK_FROZEN, PENDING_FREEZE_V2 }
                                             (PENDING blocks round admission and requires an
@@ -324,17 +325,25 @@ Three structural properties make that checkable rather than merely declared:
 
 ### 6.6 Enforcement surface — what this schema enforces, and what it does not
 
-Two adversarial review rounds attacked this schema, and both found the same class of defect: a
-control that read a self-authored field and called it a fact. The first round demonstrated a
-hand-written record counted as an admission; the second demonstrated that even after revision
-binding, a record could BORROW a real local pair from an unrelated case and assert any class over
-it. Both holes are now closed by recomputation, and what remains is stated rather than implied.
+Four adversarial review rounds attacked this schema, and each found the same class of defect: a
+control that read a self-authored field and called it a fact. Round 1 demonstrated a hand-written
+record counted as an admission; round 2 demonstrated that a record could BORROW a real local pair
+from an unrelated case; round 3 demonstrated that the identity root (the replay corpus) was in no
+freeze hash and pinned by nothing; round 4 demonstrated that pinning only the corpus digest let an
+author edit the corpus and the constant together, leaving cases no fixture covers unprotected.
+Each hole is now closed by recomputation or by a pin that a second file has to agree with, and
+what remains is stated rather than implied.
 
 ```text
 RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
   · IDENTITY — the record's corpus_case_id must name a case in experiments/v1.2/replay/cases.yaml,
-    and the record's revision pair must EQUAL that case's pair. This is what closes the laundering
-    route the second review demonstrated: a borrowed pair no longer matches the borrowed identity;
+    and the record's revision pair AND source repository must EQUAL that case's. This closes the
+    laundering route the second review demonstrated: a borrowed pair (or repository) no longer
+    matches the borrowed identity;
+  · THE IDENTITY ROOT IS PINNED TWICE — the corpus's sha256 is a literal in the validator, and the
+    per-case pairs of ALL five cases are a literal in the test file. Editing the corpus therefore
+    means editing two reviewed files, and any case (not only the ones a fixture happens to cover)
+    trips the pin;
   · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed
     test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives
     WORKER_MODIFIES_VALIDATOR. Neither can be talked away by editing the record;
@@ -357,9 +366,21 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     does not exist yet;
   · for an externally bound pair the derived-trigger rule cannot run at all (the diff is not in this
     object database) — one more reason such a record cannot carry a valid request;
+  · the derived-trigger rules are NAME-based (tests?/, .test., test_*.py, validate_*.py,
+    check_*.sh|py) and therefore know nothing about ROLE: a file that validates without matching
+    those names derives nothing. The corpus contains one — r02's scripts/review_evidence.py, a
+    collect/validate CLI — and any task whose verdict hangs on such a file must declare the trigger
+    by hand. A role-aware rule would need a declared manifest, which is not in scope here;
+  · externalisation that silences a derived trigger is an ASSERTION, bounded only by the fact that
+    the same pending requirement forbids a valid request; `externalized_paths` entries must exist in
+    the delta, but nothing proves the externalisation happened;
+  · the record's CLASS is bound to nothing recomputable: the corpus's own per-case dispositions are
+    deliberately not consulted, because the corpus header forbids collapsing those axes;
   · nothing compels a pending requirement to be discharged: a candidate may sit in NOT_ADMITTED
     indefinitely. That is a liveness limit, not a soundness one, and it is the conservative
     direction;
+  · ancestry is deliberately NOT required of C_REJECT: a non-comparable pair is a legitimate reason
+    to reject, so the check applies to admissible claims only;
   · the validator is NOT yet wired into prepare/collect/publish: nothing in the run pipeline
     consults it. Freeze v2 must decide whether it becomes a gate or stays an operator tool.
 
