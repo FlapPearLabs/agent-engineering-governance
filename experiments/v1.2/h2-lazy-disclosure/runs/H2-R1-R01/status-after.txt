@@ -1,0 +1,5 @@
+ M scripts/tests/test_p1_t16_gate_cli_entrypoint.py
+?? .h2-telemetry.log
+?? CODEBUDDY.md
+?? H2_RULES.md
+?? H2_WARM/

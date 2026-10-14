@@ -28,6 +28,11 @@ S0 第一步：在本 worktree 内运行 `git rev-parse HEAD`，必须逐字等�
 - 只修改本 worktree 内的文件；**例外（受控产物）**：报告必须写到合同 §4 指定的
   `REPORT_PATH`，遥测日志必须写在 worktree 根部 `.h2-telemetry.log` —— 这两处是允许的
   写目标，除此以外不得写 worktree 之外的任何路径。
+- **读边界（与 §3 遥测校验同一套规则，必须知悉）**：只允许读取
+  ① 本 worktree 内（含 harness 投放的 `CODEBUDDY.md` / `H2_RULES.md` / `H2_WARM/**`）；
+  ② 你自己这个 run 的 evidence 目录里的合同与报告模板副本。
+  **不得**读取 materials 树（本 run 合同与报告模板的原始出处已**复制**到你的 evidence
+  目录，路径见 §4）、其他 run 的任何目录、任何未被路由到你的治理材料。
 - **不得** commit / push / 切换分支 / 改动任何 git ref。
 - 不得联网（WebSearch/WebFetch/外网命令均禁止）。
 - 测试/检查用工作区既有方式运行，记录确切命令与原始结果。
@@ -45,11 +50,22 @@ S0 第一步：在本 worktree 内运行 `git rev-parse HEAD`，必须逐字等�
 在 worktree 根部维护 `.h2-telemetry.log`，**每次事件发生时立即**追加一行：
 
 ```text
-READ  <FULL|PARTIAL|GREP>  <repo-relative path>
+READ  <FULL|PARTIAL|GREP>  <path>
 ROUTE <route_id|n/a>       <target>       <LOADED|MISSING|SKIPPED>
 SKILL <name|none>          <LOADED|UNAVAILABLE|NOT_REQUIRED|WRONG|NONE>
 ```
 
+- 路径基准（**唯一确定**，机器可校验，**且不得含宿主绝对路径**）：
+  - worktree 内的文件写 **repo-relative 路径**（如 `CODEBUDDY.md`、`scripts/tests/x.py`）；
+  - 你 evidence 目录内的文件写**稳定命名空间**：`RUN_EVIDENCE/<文件名>`
+    （如 `RUN_EVIDENCE/contract.md`、`RUN_EVIDENCE/worker-report-template.md`）。
+  - **绝对路径一律不合格**：遥测日志会被收集进 run 记录并发布，写入真实宿主路径违反本仓
+    公开数据政策；且旧校验里 `os.path.join(worktree, "/abs")` 会丢弃 worktree 前缀，使绝对
+    路径可绕过边界 —— 现已直接拒绝该形式。
+- **禁止缩写**：不得出现 `...` / `~` / 相对猜测。缩放只允许出现在给人看的展示层，
+  机器可读事件里必须是可解析的确定路径。含 `...` 的事件会被判为不合格。
+- evidence 命名空间**只接受** `contract.md` / `worker-report-template.md` / `report.md`
+  三个文件名；`receipt.json`、`task.txt` 等不在允许面内。
 - "FULL" = 把该文件全文读入（Read 全文件 / cat 全文件）；grep/find/部分读取只记 GREP 或 PARTIAL。
 - 每条记录必须对应真实发生的动作；**禁止**事后补记、推断或美化。
 - 加载治理性文件（`H2_RULES.md` / `CODEBUDDY.md` / `H2_WARM/**` 等投放材料）时尤其必须记录。

@@ -1,0 +1,19 @@
+{
+  "run_id": "H2-R01",
+  "task_id": "t01",
+  "arm": "control",
+  "worktree": "<H2_RUNS_ROOT>/worktrees/H2-R01",
+  "expected_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "actual_head": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "carrier_kind": "control_full_v1",
+  "carrier_hash": "de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1",
+  "h2_rules_sha256": "d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d",
+  "warm_bundle_sha256": "cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1",
+  "materials_commit": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+  "model_tier": "default",
+  "ruff_toml_worktree_sha256": "5e1a8244ce3fd6f19709bd28f458055a22ad222742b709aaaf710998ae0b5c13",
+  "plan_index": "0",
+  "codebuddy_present": true,
+  "ts": "2026-10-12T05:48:03Z",
+  "prepare": "OK"
+}
