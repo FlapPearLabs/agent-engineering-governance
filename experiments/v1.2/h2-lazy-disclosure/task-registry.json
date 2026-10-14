@@ -140,7 +140,20 @@
       "eligibility": "NON_ELIGIBLE",
       "ineligible_reason_token": "NON_ELIGIBLE_COMPATIBILITY_SENTINEL",
       "ineligible_reason": "NON_ELIGIBLE_COMPATIBILITY_SENTINEL: t01 has no honest green path. The HEAD-era carrier (RULES.md placed as H2_RULES.md, plus the H2_WARM bundle) links to deployment/organization-policy.md and docs/adoption.md, which are ABSENT at t01's frozen base c08f6f8b and PRESENT at HEAD (added by 95667e8). On a PRISTINE prepared worktree with zero worker changes this raises the t16 gate from 1 failure (the real t01 RED) to 4, and the full suite from 1 to 19. Both repairs are refused by the frozen scope: adding the link targets is PATH_OUTSIDE_ALLOWED + DENIED_PREFIX 'deployment/' + REQUIRED_MISSING (SCOPE = FAIL), and editing the delivered carrier is CARRIER_RECHECK (actual != frozen) -> COLLECT_RUN INVALID. The historical honest fix 6d841d5, applied cleanly, still leaves t16 at 4 failures. No work => INVALID, honest work => INVALID. t01 is retained as a COMPATIBILITY SENTINEL: the frozen harness must keep handling it correctly (refusing it, with this reason) rather than dropping it. Evidence: [27]. Rejected repairs, all refused by the operator: (a) deliver base-era carrier bytes (destroys the treatment — the carrier IS the independent variable), (b) widen t01's scope to the carrier (lets the worker edit the treatment and contradicts the hash-pinned CARRIER_RECHECK), (c) rebase t01 onto 0a180fee/9494de8 (changes the task's identity — the RED it exists to fix is a property of c08f6f8b).",
-      "causal_role": "COMPATIBILITY_SENTINEL — the frozen harness must keep handling t01 correctly (refusing it with this reason), not drop it. Contributes NO observation to the H2 result; its two Round-2 rows (H2-R2-R01/R02) retain their ids and their place in the frozen order and are refused mechanically by prepare_run.sh."
+      "causal_role": "COMPATIBILITY_SENTINEL — the frozen harness must keep handling t01 correctly (refusing it with this reason), not drop it. Contributes NO observation to the H2 result; its two Round-2 rows (H2-R2-R01/R02) retain their ids and their place in the frozen order and are refused mechanically by prepare_run.sh.",
+      "task_validity": {
+        "status": "ELIGIBLE",
+        "reason_token": "STABLE_MECHANICAL_GATE",
+        "why": "declares a task-completion gate whose verdict moves with the worker's output: {PY} -m unittest discover -s scripts/tests -p 'test_p1_t16_gate_cli_entrypoint.p",
+        "counts_toward_h2_aggregate": true,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "{PY} -m unittest discover -s scripts/tests -p 'test_p1_t16_gate_cli_entrypoint.py' -v (cwd={WT})": "TASK_COMPLETION",
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY",
+          "{PY} -m unittest discover -s scripts/tests (cwd={WT})": "TASK_COMPLETION"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
+      }
     },
     {
       "task_id": "t02",
@@ -218,6 +231,20 @@
       "oracle_policy": {
         "pre_existing_tests": "FROZEN",
         "why": "the task's subject is production code or a gate; its pre-existing tests are the ORACLE, so they are executed at their frozen-base definition against the worker's tree and the worker's copy cannot move the gate"
+      },
+      "task_validity": {
+        "status": "ELIGIBLE",
+        "reason_token": "STABLE_MECHANICAL_GATE",
+        "why": "declares a task-completion gate whose verdict moves with the worker's output: {PY} -m ruff check . (cwd={WT})",
+        "counts_toward_h2_aggregate": true,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "{PY} -m ruff check . (cwd={WT})": "TASK_COMPLETION",
+          "存在 ruff.toml；select 非空且为 correctness 类；target-version 显式": "NOT_EXECUTABLE",
+          "{HARNESS}/check_t02_gate_teeth.sh {WT} {RUN_ID} {PY}": "BOUNDARY",
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
       }
     },
     {
@@ -301,6 +328,21 @@
       "oracle_policy": {
         "pre_existing_tests": "FROZEN",
         "why": "the task's subject is production code or a gate; its pre-existing tests are the ORACLE, so they are executed at their frozen-base definition against the worker's tree and the worker's copy cannot move the gate"
+      },
+      "task_validity": {
+        "status": "NON_ELIGIBLE",
+        "reason_token": "NO_MECHANICAL_ACCEPTANCE_TARGET",
+        "why": "every executable entry is a boundary/hygiene gate (inspects the change set rather than the task's subject, satisfied by touching nothing), all of which are satisfied by touching nothing; the task exists and its history is preserved, but it has no verifiable correctness oracle and contributes NO observation to the H2 aggregate",
+        "counts_toward_h2_aggregate": false,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "{HARNESS}/check_hygiene.sh {WT} {RUN_ID}": "BOUNDARY",
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY",
+          "{HARNESS}/run_release_scan_on.sh {WT} {PY}": "BOUNDARY",
+          "JUDGMENT: schema JSON 可被 json.load 解析；validator 可执行并产出结构化结果（auditor 执行）": "NOT_EXECUTABLE",
+          "JUDGMENT: 合同 → schema → hook 的落地顺序可从 artifact 结构核验；hook 仅写信号/不写语义决策": "NOT_EXECUTABLE"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
       }
     },
     {
@@ -376,6 +418,19 @@
       "oracle_policy": {
         "pre_existing_tests": "FROZEN",
         "why": "the task's subject is production code or a gate; its pre-existing tests are the ORACLE, so they are executed at their frozen-base definition against the worker's tree and the worker's copy cannot move the gate"
+      },
+      "task_validity": {
+        "status": "NON_ELIGIBLE",
+        "reason_token": "NO_MECHANICAL_ACCEPTANCE_TARGET",
+        "why": "every executable entry is a boundary/hygiene gate (satisfied by touching nothing), all of which are satisfied by touching nothing; the task exists and its history is preserved, but it has no verifiable correctness oracle and contributes NO observation to the H2 aggregate",
+        "counts_toward_h2_aggregate": false,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "JUDGMENT: 新增 schema 文件可被 json.load 解析且含版本字段（auditor 执行）": "NOT_EXECUTABLE",
+          "JUDGMENT: CLI（scripts/review_evidence.py 或实际路径）可运行 --help / validate；只暴露 collect/validate 类动作（auditor 执行）": "NOT_EXECUTABLE",
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
       }
     },
     {
@@ -439,6 +494,19 @@
       "oracle_policy": {
         "pre_existing_tests": "FROZEN",
         "why": "the task's subject is production code or a gate; its pre-existing tests are the ORACLE, so they are executed at their frozen-base definition against the worker's tree and the worker's copy cannot move the gate"
+      },
+      "task_validity": {
+        "status": "NON_ELIGIBLE",
+        "reason_token": "NO_MECHANICAL_ACCEPTANCE_TARGET",
+        "why": "every executable entry is a boundary/hygiene gate (satisfied by touching nothing), all of which are satisfied by touching nothing; the task exists and its history is preserved, but it has no verifiable correctness oracle and contributes NO observation to the H2 aggregate",
+        "counts_toward_h2_aggregate": false,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY",
+          "findings 报告存在，每条 finding 含：断言 + 最小复现/对照 + 受影响文件": "NOT_EXECUTABLE",
+          "抽 1–2 条 finding 的复现命令在 scratch 副本中重放": "NOT_EXECUTABLE"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
       }
     },
     {
@@ -506,6 +574,20 @@
       "oracle_policy": {
         "pre_existing_tests": "FROZEN",
         "why": "the task's subject is production code or a gate; its pre-existing tests are the ORACLE, so they are executed at their frozen-base definition against the worker's tree and the worker's copy cannot move the gate"
+      },
+      "task_validity": {
+        "status": "NON_ELIGIBLE",
+        "reason_token": "NO_MECHANICAL_ACCEPTANCE_TARGET",
+        "why": "every executable entry is a boundary/hygiene gate (satisfied by touching nothing), all of which are satisfied by touching nothing; the task exists and its history is preserved, but it has no verifiable correctness oracle and contributes NO observation to the H2 aggregate",
+        "counts_toward_h2_aggregate": false,
+        "rule_version": "ELIGIBILITY_RULE_v2_2026-10-14",
+        "entry_kinds": {
+          "{HARNESS}/check_scope.sh {WT} {TASK_ID} {RUN_ID}": "BOUNDARY",
+          "JUDGMENT: auditor 在 scratch 副本重放 worker 报告的最小复现命令（A/B 两状态至少各一条）": "NOT_EXECUTABLE",
+          "{HARNESS}/check_restore.sh {RUN_ID}": "BOUNDARY",
+          "JUDGMENT: 报告含：复现步骤 / A-D 观察 / 根因 / ≥2 修复方向候选": "NOT_EXECUTABLE"
+        },
+        "note": "task-level validity; independent of the Round-2 row's executability"
       }
     }
   ],
@@ -515,5 +597,11 @@
       "status": "EXCLUDED_CROSS_REPO_STATE",
       "reason": "跨仓任务；H2 两臂在本仓 worktree 内进行，引入第二仓会改变「same repo state」受控变量（与 H1 同一排除理由）。"
     }
-  ]
+  ],
+  "eligibility_rule": {
+    "version": "ELIGIBILITY_RULE_v2_2026-10-14",
+    "frozen": true,
+    "supersedes": "ELIGIBILITY_RULE_v1_2026-10-14",
+    "rule": "ELIGIBILITY RULE v2 (frozen 2026-10-14, before any task replacement; supersedes v1, which mis-classified by SPELLING rather than by what an entry MEASURES). The registry's acceptance entries fall into two kinds, and the distinction is what decides validity:\n  TASK_COMPLETION gates — the verdict MOVES when the task's subject is actually done: an     entry that runs the repository's own tests ({PY} -m unittest ...), or a linter/type     checker invoked over the delivered tree ({PY} -m ruff check .), i.e. anything whose     subject is the worker's output.\n  BOUNDARY / HYGIENE gates — the verdict moves only on scope, residue or state:     check_scope.sh (changed paths inside the declared prefixes), check_hygiene.sh (syntax     compile + __pycache__ residue), check_restore.sh (state restoration). These are satisfied     by touching NOTHING at all, so they cannot distinguish 'did the work' from 'did not     start'.\nA task is ELIGIBLE iff it declares at least one TASK_COMPLETION gate. A task whose executable entries are all BOUNDARY/HYGIENE gates is NON_ELIGIBLE with reason_token NO_MECHANICAL_ACCEPTANCE_TARGET: it exists, its history is preserved, but it has no verifiable correctness oracle and therefore contributes NO observation to the H2 aggregate. INVALID is reserved for a broken experimental condition (e.g. delivery contamination measured GREEN->RED with zero worker edits) and is not assigned by this pass. Validity is a property of the TASK and is INDEPENDENT of a plan row's Round-2 executability: t01 is ELIGIBLE by this rule while its two Round-2 rows are separately non-executable under the P0-2 sentinel marking."
+  }
 }

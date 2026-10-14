@@ -1089,3 +1089,94 @@ STATE AFTER THIS DISPOSITION:
          is preserved in [27] and in the plan/registry markers.
   REAL_RUNS_EXECUTED = 0. The causal Round-2 set is 18 rows (t02 x2, t03 x4, t04 x4, n01 x4,
   n02 x4) over arms control/variant 9/9 — recorded here as a derived count, not a frozen literal.
+
+--- [29] round-13 disposition: order deadlock fixed, DELIVERY_DELTA measured, TASK_VALIDITY
+         layer added; Round-2 freeze REVISED and marked NOT_EXECUTABLE --------------------
+ROUND-13 REVIEW VERDICT = CHANGES_REQUIRED with 2 x P0, 4 x P1. All were reproduced here before
+any fix. Treatment invariance confirmed: zero files outside experiments/.
+
+P0-2 (deadlock) — CAUSED BY ROUND-12'S OWN DISPOSITION, and fixed. The NON_ELIGIBLE gate refused
+R01/R02 before any allocation, so they could never produce a collect-summary.txt, and the frozen
+ORDER check had no exemption: EVERY later row was unrunnable. Demonstrated on a genuinely fresh
+runs root — R03 and R20 both failed with OUT_OF_ORDER missing_terminal_prior_runs=[H2-R2-R01],
+zero worktrees created. A task-level dead end had become a round-level one. Fixed by exempting
+rows whose eligibility is NON_ELIGIBLE from the order check: a refused row is a deliberate,
+RECORDED non-execution, as settled as a collected row. Ordering among eligible rows is unchanged.
+Re-verified on a fresh root: R03 now passes the order gate. [28]'s control C is corrected — it had
+reported R03 stopping on ARM_MISMATCH, which was an artifact of a runs root that already held
+R01's receipt, not of a fresh one.
+
+P0-1 (the frozen oracle could never return GREEN) — mechanism corrected, then the deeper cause
+found. Round 13 was right that the first implementation was a constant refuser: the frozen copy
+lived in a scratch tree, and these tests locate the repository from their OWN PATH
+(ROOT = Path(__file__).resolve().parents[2]), so 16 of 17 anchored files died on missing
+production modules. The frozen file is now executed IN PLACE at its own relative path inside the
+worktree, with the worker's bytes moved aside (never consulted) and restored in a finally, the
+restoration verified by sha256. That made the test run — and exposed the real problem: at t02's
+base 015780be, with ZERO worker edits, that test is RED once the carrier is delivered (3 failures)
+and GREEN without it. A frozen oracle that is already red at hand-off refuses every edit, honest
+or not.
+
+The fix is to decide oracle candidacy MECHANICALLY from the task's DECLARED acceptance, and to
+measure the two anchors per candidate file:
+  · an entry that NAMES the file, or discovers its directory, executes it -> a real oracle;
+  · an entry that only inspects the change set (check_scope) does not -> anchoring that file would
+    assert nothing about the task's verdict, so it is recorded as NOT_EXECUTED and left alone;
+  · for each real oracle, the frozen copy is run twice, post-delivery and pre-delivery:
+    GREEN post-delivery -> it GATES (a worker edit that turns it red moved the oracle);
+    RED post / GREEN pre -> DELIVERY_CONTAMINATION = YES, the redness is the HARNESS's, the file is
+    EXCLUDED and the delta is recorded, never normalized into a "pre-existing red";
+    RED in both -> ORACLE_RED_AT_BASE, also excluded. A gate that cannot discriminate must not
+    refuse.
+
+TWO CONTROLS THAT WERE WRONG IN MY OWN BATTERIES, recorded because both produced false confidence:
+  · r13-1's GREEN control anchored NOTHING and reported success: `git apply` of the honest fix had
+    FAILED silently (>/dev/null 2>&1) because that patch is based on t01's base c08f6f8b while the
+    battery had prepared t02's base 015780be. A green control that anchors nothing proves nothing;
+    every control now fails the run if its anchor count is 0.
+  · r13-1's "no deadlock" control read `tail -1` of a PLAN_AUTHORITY_FAIL and misattributed it to
+    the eligibility gate. Assert on the reason TOKEN, never on the last line.
+  · the first DELIVERY_DELTA measurement DELETED `{PY}` instead of substituting it, so every
+    command failed to exec and every task read RED->RED; and it ran the t16 unittest on every task,
+    which measures nothing because only t01 DECLARES a unittest gate (t02 = ruff; t03/t04/n01/
+    n02 = harness check_* scripts).
+
+FALSIFICATION (r14, on this SHA): prepare writes evidence/delivery-anchors.json with both anchors
+measured at hand-off on zero worker edits (contamination=NO, entries=0 for t02, which declares no
+repo-invariant gate); a NEUTRAL edit to a pre-existing test is ACCEPTED (rc=0) with the worktree
+bytes verified intact; t01 remains unreachable (refused at prepare). The RED control for t02 also
+returns rc=0 — and that is now the correct, informative result, not a defect: t02's declared
+acceptance never executes that test file, so neutering it cannot move t02's verdict. There is
+nothing for an oracle to protect there.
+
+STRUCTURAL FINDING, measured not assumed: after t01 became a sentinel, NO task in the causal set
+declares a unittest gate, so the frozen oracle currently has no load-bearing target. It is
+retained as correct, falsified machinery that will bite the first task that declares a test gate;
+it is NOT claimed to be doing work today.
+
+TASK_VALIDITY_STATUS layer (operator ruling), added as a NEW layer — nothing deleted, no history
+rewritten:
+  ELIGIBLE     — a stable mechanical TASK_COMPLETION gate exists (its verdict moves with the work).
+  NON_ELIGIBLE — the task exists but has no verifiable correctness oracle
+                  (NO_MECHANICAL_ACCEPTANCE_TARGET). Not deleted, not counted in the aggregate.
+  INVALID      — the experimental condition is broken. Not assigned in this pass.
+  The rule classifies entries by WHAT THEY MEASURE, not by how they are spelled. TASK_COMPLETION =
+  runs the repo's own tests, or a linter/type checker over the delivered tree. BOUNDARY/HYGIENE =
+  check_scope, check_hygiene, check_restore — all satisfied by touching nothing. Rule v1 got this
+  wrong by spelling and mis-classified t03 and n02 as ELIGIBLE; v2 supersedes it and is frozen.
+  Result: t01 ELIGIBLE (unittest), t02 ELIGIBLE (ruff), t03/t04/n01/n02 NON_ELIGIBLE.
+  Validity is a property of the TASK and is kept ORTHOGONAL to the P0-2 sentinel marking, which is a
+  property of the Round-2 ROW: t01 is ELIGIBLE by validity while its two rows are non-executable.
+  Collapsing the two axes would either lose the P0-2 disposition or misstate t01's validity.
+  Task-completion gates are mechanically derivable, so no field is hand-asserted.
+
+ROUND-2 FREEZE REVISION (rule frozen BEFORE any replacement, as the ruling requires):
+  status = REVISED / NOT_EXECUTABLE — INSUFFICIENT_ELIGIBLE_TASKS.
+  valid_tasks = [t01, t02]; executable rows = 18/20; AGGREGATE-ELIGIBLE ROWS = 2 (H2-R2-R03/R04,
+  t02's rows). Two rows cannot support an H2 aggregate claim, so Round 2 is explicitly marked
+  not-executable rather than executed with a sample too small to mean anything.
+  No task was added, deleted or rewritten in this revision. TASK_SET_HASH, RUN_PLAN_HASH_R2 and the
+  material self-check literal were all recomputed from the real bytes. REAL_RUNS_EXECUTED = 0.
+  Next action, in this order: add real task(s) that declare a stable mechanical TASK_COMPLETION
+  gate, each with its own historical oracle and a verified base-GREEN property; task addition must
+  NOT weaken the eligibility rule; then regenerate this freeze.
