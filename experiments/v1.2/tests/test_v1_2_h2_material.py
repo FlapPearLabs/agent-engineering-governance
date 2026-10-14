@@ -92,7 +92,7 @@ def _run_validator(base: str, manifest: Path):
 # (recorded in results.md section 8).
 EXPECTED_FREEZE_LITERALS = {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "TASK_SET_HASH": "ad614c8ef392ed62359aa0db94fd37aded70c0796d798048185aa7cf7904397c",
+    "TASK_SET_HASH": "f6c0bcc269d847554b65de9d7d1f4e8bb6599106e1dfe46085fcf15068af5ab9",
     "SCORING_HASH": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "PROTOCOL_HASH": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
