@@ -101,6 +101,12 @@ if not git("cat-file", "-e", f"{base}^{{commit}}").returncode == 0:
 # no frozen counterpart, so there is nothing to anchor (its content is pure addition and the
 # independent diff review judges it).
 scope_prefixes = tuple(task.get("scope", {}).get("allow_prefixes") or ())
+policy = task.get("oracle_policy", {}).get("pre_existing_tests")
+if policy is None:
+    print(f"TEST_PROVENANCE FAIL reason=NO_ORACLE_POLICY task={tid} (the task declares no "
+          f"oracle_policy.pre_existing_tests; failing closed rather than assuming one)")
+    raise SystemExit(1)
+
 _d = git("diff", "--no-ext-diff", "--name-only", base, "--")
 _s = git("status", "--porcelain")
 if _d.returncode != 0 or _s.returncode != 0:
@@ -114,9 +120,39 @@ targets = sorted({p for p in changed
                   if p.endswith(".py") and p.startswith(scope_prefixes)
                   and (wt / p).is_file()})
 
-# ---- 2. materialise the FROZEN copy of each one, outside the worktree --------------------
-if not targets:
-    print(f"TEST_PROVENANCE task={tid} run={rid} modified_preexisting_tests=0 "
+# ---- 2. the task's declared policy decides whether a frozen anchor is meaningful ------------
+# FROZEN: the tests are the ORACLE -> execute them at their base definition (closes neutering).
+# WORKER_EDITABLE_SUBJECT: the task's subject IS a test the base leaves RED on purpose (t01) ->
+# a frozen anchor would forbid the task itself (demonstrated: it refused the historical honest
+# fix 6d841d5). There the discriminating control is the independent review of the captured diff
+# against the historical oracle, and this gate says so out loud instead of passing silently.
+if policy == "WORKER_EDITABLE_SUBJECT":
+    print(f"TEST_PROVENANCE task={tid} run={rid} policy=WORKER_EDITABLE_SUBJECT "
+          f"modified_preexisting_tests={len(targets)} "
+          f"verdict=NO_FROZEN_ORACLE_APPLICABLE "
+          f"(control=independent diff review against the historical oracle; "
+          f"NOT a mechanical assertion-strength proxy — see task-registry oracle_policy.why)")
+    raise SystemExit(0)
+if policy != "FROZEN":
+    print(f"TEST_PROVENANCE FAIL reason=UNKNOWN_ORACLE_POLICY policy={policy!r} (failing closed)")
+    raise SystemExit(1)
+
+# ---- 3. materialise the FROZEN copy of each one, outside the worktree --------------------
+# A NEW .py file the worker added has NO blob at the frozen base and therefore no frozen
+# counterpart: there is nothing to anchor, and its content is pure addition. It is EXCLUDED
+# (and named), never failed — failing on it was the r12d CONTROL-5 defect.
+anchored, pure_additions = [], []
+for rel in targets:
+    if git("cat-file", "-e", f"{base}:{rel}", cwd=h2_repo).returncode == 0:
+        anchored.append(rel)
+    else:
+        pure_additions.append(rel)
+if pure_additions:
+    print(f"  pure additions (no frozen counterpart; judged by diff review): "
+          f"{', '.join(pure_additions)}")
+
+if not anchored:
+    print(f"TEST_PROVENANCE task={tid} run={rid} policy=FROZEN modified_preexisting_tests=0 "
           f"verdict=NO_FROZEN_ORACLE_REQUIRED (nothing pre-existing was modified)")
     raise SystemExit(0)
 
@@ -124,7 +160,7 @@ scratch = pathlib.Path(tempfile.mkdtemp(prefix="h2-frozen-oracle-"))
 rc = 0
 frozen = []
 try:
-    for rel in targets:
+    for rel in anchored:
         blob = git("show", f"{base}:{rel}", cwd=h2_repo)
         if blob.returncode != 0:
             print(f"TEST_PROVENANCE FAIL reason=NO_BASE_BLOB path={rel} base={base} "
