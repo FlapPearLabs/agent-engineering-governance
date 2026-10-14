@@ -541,12 +541,27 @@ case "$RUN_ID" in
     {
       echo "=== OPERATOR INTEGRITY ACCEPTANCE run=$RUN_ID task=$TASK_ID ==="
       PYTHONDONTWRITEBYTECODE=1 "$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$HERE" "$_H2REPO" "$PY" <<'PYEOF'
-import json, subprocess, sys
+import json, os, subprocess, sys
 reg_p, tid, wt, rid, here, h2_repo, py = sys.argv[1:8]
 reg = json.load(open(reg_p, encoding="utf-8"))
 task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
 rc_all = 0
 n = 0
+# fresh review on f8d072b, P0-1 (DEMONSTRATED end to end: a green PUBLISHED record with
+# acceptance_nonzero_rcs=[] obtained by rewriting the task's own failing test bodies):
+# re-running the task's test commands from the WORKER'S MUTABLE tree is self-certification,
+# so the FROZEN-BASE oracle of every pre-existing test the worker edited is executed first
+# and gates the run on its own. It is invoked here (not listed in task-registry.json)
+# because it is a property of the RUN, not of the task: whether a frozen oracle is required
+# depends on which files the worker actually touched.
+frozen_rc = subprocess.run(["bash", os.path.join(here, "check_test_provenance.sh"),
+                            wt, tid, rid], capture_output=True, text=True)
+sys.stdout.write(frozen_rc.stdout)
+sys.stderr.write(frozen_rc.stderr)
+print(f"=== RC={frozen_rc.returncode} ===")
+if frozen_rc.returncode != 0:
+    rc_all = 1
+
 for e in task["acceptance"]["mechanical"]:
     cmd = e["cmd"]
     if not cmd.startswith(("{PY}", "{GIT}", "{HARNESS}", "PUBLIC_RELEASE=1")):
