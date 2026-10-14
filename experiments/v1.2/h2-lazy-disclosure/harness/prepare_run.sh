@@ -371,6 +371,77 @@ if [ -f "$WT/ruff.toml" ]; then
   RUFF_WT_HASH="$(shasum -a 256 "$WT/ruff.toml" | awk '{print $1}')"
 fi
 
+# ---- DELIVERY_ANCHORS (operator decision 2026-10-14, after round-13) ----------------------
+# Two MECHANICAL anchors are measured HERE, at hand-off, on the delivered worktree with ZERO
+# worker edits: PRE-delivery (the bare base checkout, carrier stashed aside) and POST-delivery
+# (the carrier in place). DELIVERY_DELTA is the explicit difference. It is recorded, never
+# normalized away: a harness-induced failure must NOT be laundered into "pre-existing red",
+# because that hides a defect of the experiment behind the appearance of a task baseline.
+#
+# Only REPO-INVARIANT gates are measured — the ones that are expected to hold before AND after the
+# work. The scope/hygiene gates are deliberately RED on a pristine worktree (require_any_in has no
+# changed path yet), so including them would report RED->RED for every task and measure nothing.
+# When a repo-invariant gate is GREEN pre-delivery and RED post-delivery, DELIVERY_CONTAMINATION
+# is YES and check_test_provenance.sh refuses to use that file as a frozen oracle — because a
+# frozen oracle that is already red at hand-off would refuse every worker edit, honest or not,
+# and a gate with no green path has zero discriminating power.
+ANCHORS="$("$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$HERE" "$PY" \
+                "$(git -C "$EXP_DIR" rev-parse --show-toplevel)" <<'PYEOF'
+import json, os, pathlib, shutil, subprocess, sys, tempfile
+reg_p, tid, wt, rid, here, py = sys.argv[1:7]
+wt = pathlib.Path(wt)
+task = [t for t in json.load(open(reg_p, encoding="utf-8"))["tasks"]
+        if t["task_id"] == tid][0]
+entries = [e["cmd"] for e in task["acceptance"]["mechanical"]
+           if e["cmd"].startswith(("{PY}", "{GIT}"))
+           and "unittest" in e["cmd"]]          # repo-invariant only
+res = {"entries": [], "note": "PRE/POST measured with zero worker edits at prepare time; "
+                              "DELIVERY_DELTA is their difference and is never normalized away"}
+carrier = ["CODEBUDDY.md", "H2_RULES.md", "H2_AGENTS.md", "H2_WARM"]
+stash = pathlib.Path(tempfile.mkdtemp(prefix="h2-anchor-stash-"))
+try:
+    moved = []
+    for f in carrier:
+        src = wt / f
+        if src.exists():
+            shutil.move(str(src), str(stash / f)); moved.append(f)
+    for label in ("pre_delivery", "post_delivery"):
+        if label == "post_delivery":
+            for f in moved:
+                dst = wt / f
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(stash / f), str(dst))
+        for cmd in entries:
+            c = cmd.replace("{HARNESS}", here).replace("{WT}", str(wt)).replace("{RUN_ID}", rid)
+            c = c.replace("{TASK_ID}", tid).replace("{PY}", py).replace("{GIT}", "git")
+            if c.endswith("(cwd={WT})"):
+                c = f"cd {str(wt)!r} && " + c[: -len("(cwd={WT})")].rstrip()
+            r = subprocess.run(["bash", "-c", c], capture_output=True, text=True,
+                               env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
+            res["entries"].append({"cmd": cmd, "anchor": label, "rc": r.returncode})
+finally:
+    if stash.exists():
+        shutil.rmtree(stash, ignore_errors=True)
+# derive the delta per entry
+for e in res["entries"]:
+    same = [x for x in res["entries"] if x["cmd"] == e["cmd"] and x["anchor"] != e["anchor"]]
+    other = same[0] if same else {"rc": None}
+    if e["anchor"] == "post_delivery":
+        e["pre_delivery_rc"] = other.get("rc")
+        e["delivery_delta"] = ("GREEN->RED" if other.get("rc") == 0 and e["rc"] != 0 else
+                               "RED->GREEN" if other.get("rc") not in (0, None) and e["rc"] == 0 else
+                               "UNCHANGED")
+        e["delivery_contamination"] = "YES" if e["delivery_delta"] == "GREEN->RED" else "NO"
+res["contamination"] = "YES" if any(
+    x.get("anchor") == "post_delivery" and x.get("delivery_contamination") == "YES"
+    for x in res["entries"]) else "NO"
+print(json.dumps(res))
+PYEOF
+)" || fatal_alloc "ANCHOR_MEASUREMENT_FAILED"
+printf '%s' "$ANCHORS" > "$EV/delivery-anchors.json" \
+  || fatal_alloc "ANCHOR_WRITE_FAILED"
+echo "PREPARE delivery_anchors: $(printf '%s' "$ANCHORS" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print("contamination=" + d["contamination"], "entries=" + str(len(d["entries"])))')"
+
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 "$PY" - "$EV/receipt.json" "$RUN_ID" "$TASK_ID" "$ARM" "$WT" "$BASE_SHA" "$ACTUAL" \
         "$CARRIER_KIND" "$CARRIER_HASH" "$RULES_HASH" "$WARM_HASH" \

@@ -72,11 +72,18 @@ TASK_ID="${2:?}"
 RUN_ID="${3:?}"
 H2_REPO="$(git -C "$EXP_DIR" rev-parse --show-toplevel)" \
   || { echo "TEST_PROVENANCE FAIL reason=H2_REPO_UNREADABLE"; exit 1; }
+# The dual delivery anchors measured by prepare at hand-off (zero worker edits, pre- and
+# post-delivery). A repo-invariant gate that was GREEN pre-delivery and RED post-delivery is
+# DELIVERY_CONTAMINATION=YES: its redness is the HARNESS's, not the worker's. Such a file must
+# NOT be used as a frozen oracle — it is already red at hand-off, so it would refuse every
+# worker edit, honest or not, and a gate with no green path has zero discriminating power. It is
+# named and excluded, never silently dropped, and the delta is reported.
+EV_ANCHORS="${H2_RUNS_ROOT}/evidence/$RUN_ID/delivery-anchors.json"
 
-"$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$H2_REPO" "$PY" <<'PYEOF'
+"$PY" - "$EXP_DIR/task-registry.json" "$TASK_ID" "$WT" "$RUN_ID" "$H2_REPO" "$PY" "$EV_ANCHORS" <<'PYEOF'
 import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
 
-reg_p, tid, wt, rid, h2_repo, py = sys.argv[1:7]
+reg_p, tid, wt, rid, h2_repo, py, anchors_p = sys.argv[1:8]
 wt = pathlib.Path(wt).resolve()
 reg = json.load(open(reg_p, encoding="utf-8"))
 task = [t for t in reg["tasks"] if t["task_id"] == tid][0]
@@ -167,9 +174,34 @@ if not anchored:
 # the frozen blob from the materials repo takes its place at the SAME relative path, so
 # __file__-relative repo discovery lands on the worker's tree exactly as it does for the worker's
 # own suite. Restoration is verified by hash in the `finally`; a mismatch fails closed and says so.
+# ---- 3. exclude delivery-contaminated files from the oracle set, explicitly -----------------
+contaminated = set()
+anchor_report = "NO_ANCHORS_FILE"
+if os.path.isfile(anchors_p):
+    try:
+        anc = json.load(open(anchors_p, encoding="utf-8"))
+        anchor_report = f"contamination={anc.get('contamination')}"
+        if anc.get("contamination") == "YES":
+            contaminated.update(anchored)   # the whole file set is judged against the delta below
+    except Exception as exc:                     # unreadable anchors must not silently disable it
+        print(f"TEST_PROVENANCE FAIL reason=ANCHORS_UNREADABLE path={anchors_p} err={exc} "
+              f"(failing closed: the delivery-delta record cannot be consulted)")
+        raise SystemExit(1)
+else:
+    print(f"  note: no delivery-anchors.json at {anchors_p} (prepare did not measure one; "
+          f"frozen oracles are applied without a delivery-delta cross-check)")
+if contaminated:
+    print(f"  DELIVERY_CONTAMINATION=YES ({anchor_report}): the repo-invariant gate for this task "
+          f"was GREEN pre-delivery and RED post-delivery with ZERO worker edits, so the redness "
+          f"belongs to the harness, not the worker. Frozen oracles for {sorted(contaminated)} are "
+          f"NOT applied: a file that is already red at hand-off would refuse every edit, honest "
+          f"or not. The discriminating control for these cells is the independent review of "
+          f"diff.patch, and the delivery delta is recorded in evidence/delivery-anchors.json. "
+          f"It is NOT normalized into a 'pre-existing red' baseline.")
+
 rc = 0
 restored_ok = True
-for rel in anchored:
+for rel in ([] if contaminated else anchored):
     target = wt / rel
     blob = git("show", f"{base}:{rel}", cwd=h2_repo)
     if blob.returncode != 0:
@@ -227,7 +259,7 @@ if not restored_ok:
     raise SystemExit(1)
 if not rc:
     print(f"TEST_PROVENANCE task={tid} run={rid} policy=FROZEN "
-          f"changed_preexisting_tests={len(anchored)} "
+          f"changed_preexisting_tests={len(anchored)} contaminated={len(contaminated)} "
           f"verdict=FROZEN_ORACLE_GREEN (every pre-existing test the worker changed is asserted at "
           f"its frozen base definition and passes; the worker's copy was restored byte-exactly)")
 raise SystemExit(rc)
