@@ -118,7 +118,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.4.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.5.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -252,7 +252,7 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
     def test_schema_version_must_equal_the_implemented_one(self):
-        for bogus in ("2.3.0", "0.0.1", "banana"):
+        for bogus in ("2.4.0", "0.0.1", "banana"):
             doc = document(repair_record())
             doc["schema_version"] = bogus
             rc, out = run_validator(doc, self.tmp)
@@ -298,6 +298,40 @@ class ValidatorBehaviour(unittest.TestCase):
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("known class", out)
+
+    def test_disclosure_must_not_contradict_the_derived_validator_fact(self):
+        """Round-5 F4: the disclosure field was never read, so a record could declare that the delta
+        did not touch a validator while the delta provably does."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rec["disclosures"] = {"historical_delta_touched_validator": False}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("contradicts the object database", out)
+
+    def test_class_considered_must_name_the_record_own_class(self):
+        """Round-5 F5: a B_REGRESSION_GUARD record could list only A_REPAIR and still be called
+        internally consistent."""
+        rec = guard_record()
+        rec["class_considered"] = [{"class": "A_REPAIR", "verdict": "SHAPE_SATISFIED"}]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("does not mention the record's own class", out)
+
+    def test_reject_class_need_not_list_itself(self):
+        """The own-class rule is scoped to admissible claims: a C_REJECT lists the admissible
+        classes it blocked, and the reject class is the outcome rather than an option considered."""
+        rec = repair_record()
+        rec["class"] = "C_REJECT"
+        rec["class_requirements"] = None
+        rec["reject_triggers"] = [{"trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+                                   "reason_code": "NO_GATE_OBSERVES_THE_DELIVERABLE",
+                                   "detail": "nothing observes it"}]
+        rec["class_considered"] = [{"class": "A_REPAIR", "verdict": "BLOCKED",
+                                   "reason": "no oracle"}, ]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(0, rc, out)
 
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):

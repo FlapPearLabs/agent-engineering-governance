@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.4.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 -> 2.4.0 across four review rounds)
+VERSION        = 2.5.0  (2.0.0 -> 2.1.0 -> 2.2.0 -> 2.3.0 -> 2.4.0 -> 2.5.0; five review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -10,7 +10,20 @@ SUPERSEDES     = the C1–C5 admissibility criteria AS APPLIED in the N2 measure
 EXTENDS        = ELIGIBILITY_RULE_v2 (task-registry.json#eligibility_rule) — see §7: a task must
                  satisfy BOTH layers; nothing in v2 weakens the earlier rule
 MECHANICALLY_ENFORCED_BY = harness/check_task_class.py + experiments/v1.2/tests/test_v1_2_h2_eligibility_v2.py
-REVIEW_HISTORY = round 1 (commit ea268dd) returned CHANGES_REQUIRED (2xP1, no P0): the validator
+REVIEW_HISTORY = round 5 (commit 269b263) returned PASS: the per-case pin holds in its
+                 category-level form — re-attempting the round-4 attack on r05, r02 and a newly
+                 added sixth case each forced a second file to move, so validator and suite cannot
+                 agree without a review-visible edit. Its five findings were P3 (two mechanical
+                 gaps, three documentation defects) and are closed in the version after it.
+                 Round 4 (commit 41c6598) returned CHANGES_REQUIRED (no P0) and found that pinning
+                 only the corpus digest fixed the demonstrated case and not the class: r02, r05 and
+                 any future case stayed unguarded. Fixed by pinning the per-case pairs of all five
+                 cases as literals in the test file.
+                 Round 3 (commit e1d04e2) returned CHANGES_REQUIRED (no P0) and found that
+                 round 2's identity rule rested on an UNPINNED file — the replay corpus was in no
+                 freeze hash and no test pinned its values — so a corpus edit made the binding
+                 vacuous. Fixed by pinning the corpus digest as a literal.
+                 Round 1 (commit ea268dd) returned CHANGES_REQUIRED (2xP1, no P0): the validator
                  judged only self-consistency while §6.5 claimed a structural proof. Round 2
                  (commit 5aa079f) returned CHANGES_REQUIRED again and was right once more: the
                  revision pair was not bound to the record's IDENTITY, so a six-field edit of the
@@ -372,8 +385,10 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     collect/validate CLI — and any task whose verdict hangs on such a file must declare the trigger
     by hand. A role-aware rule would need a declared manifest, which is not in scope here;
   · externalisation that silences a derived trigger is an ASSERTION, bounded only by the fact that
-    the same pending requirement forbids a valid request; `externalized_paths` entries must exist in
-    the delta, but nothing proves the externalisation happened;
+    the same pending requirement forbids a valid request; `externalized_paths` entries must exist
+    in the delta WHEN THE PAIR RESOLVES HERE — for an externally bound pair the delta cannot be read
+    at all, so the check is skipped and only the "no valid request" rule bounds it; nothing proves
+    the externalisation happened in either case;
   · the record's CLASS is bound to nothing recomputable: the corpus's own per-case dispositions are
     deliberately not consulted, because the corpus header forbids collapsing those axes;
   · nothing compels a pending requirement to be discharged: a candidate may sit in NOT_ADMITTED

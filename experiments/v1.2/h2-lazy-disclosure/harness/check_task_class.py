@@ -41,6 +41,21 @@ limit is real and is stated rather than papered over, which is why:
     `round_admission.verdict = REQUEST_VALID` means "every fact this repository can check agrees
     with this record". The grant is the round freeze plus independent review — nothing here.
 
+Further limits, recorded here so that a reader of THIS FILE is not misled:
+  · the derived-trigger rules are NAME-based (tests?/, .test., test_*.py, validate_*.py,
+    check_*.sh|py) and therefore BLIND TO ROLE. NOT derived: ruff.toml, .github/workflows/**,
+    conftest.py, Makefile, pyproject.toml, and any file that validates without matching those names
+    — the corpus contains one, r02's scripts/review_evidence.py, a collect/validate CLI. A task whose
+    verdict hangs on such a file must declare the trigger by hand; a role-aware rule would need a
+    declared manifest, which is out of scope here;
+  · the pin on the corpus is a COUPLING, not a proof: it forces a corpus editor to also edit the
+    digest constant and the per-case literals, which makes the edit review-visible; it cannot stop a
+    determined author from making all three edits together;
+  · externalisation that silences a derived trigger is an assertion, and for an externally bound
+    pair the "path is in the delta" check cannot run at all;
+  · the record's CLASS is bound to nothing recomputable, and the corpus's own measured dispositions
+    are deliberately not consulted.
+
 A PASS therefore means "internally consistent AND consistent with every fact this repository can
 recompute". It is not a statement that the work happened.
 
@@ -57,7 +72,7 @@ import sys
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.4.0"
+SCHEMA_VERSION = "2.5.0"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -423,6 +438,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             for trig, trig_paths in derived_triggers(paths).items():
                 if trig in declared:
                     continue
+                if trig == "WORKER_MODIFIES_VALIDATOR" and \
+                        (rec.get("disclosures") or {}).get(
+                            "historical_delta_touched_validator") is False:
+                    err.append(f"{cid}: disclosures say the delta did not touch a validator, but "
+                               f"the delta provably changes {trig_paths} — the disclosure "
+                               f"contradicts the object database")
                 uncovered = [p for p in trig_paths if p not in externalized]
                 if not uncovered and has_oracle_externalization(pending):
                     continue
@@ -491,6 +512,11 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                     not isinstance(c.get("verdict"), str) or not c.get("verdict"):
                 err.append(f"{cid}: every class_considered entry needs a known class and a "
                            f"non-empty verdict (got {c!r})")
+    if isinstance(considered, list) and cls in ADMISSIBLE_CLASSES and \
+            not any(isinstance(c, dict) and c.get("class") == cls for c in considered):
+        err.append(f"{cid}: class_considered does not mention the record's own class {cls!r} — a "
+                   f"record that was not considered under the class it claims is not internally "
+                   f"consistent")
     if cls == "C_REJECT":
         if not isinstance(considered, list) or not considered:
             err.append(f"{cid}: C_REJECT requires class_considered (a task may not be dumped into "
@@ -532,8 +558,11 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                 if authority_now == "PENDING_FREEZE_V2":
                     err.append(f"{cid}: a valid request is forbidden while oracle_authority is "
                                f"still PENDING_FREEZE_V2")
-        elif not admission.get("reason_codes"):
-            err.append(f"{cid}: NOT_ADMITTED requires non-empty reason_codes")
+        elif not isinstance(admission.get("reason_codes"), list) or \
+                not admission.get("reason_codes") or \
+                not all(isinstance(rc, str) and rc.strip() for rc in admission["reason_codes"]):
+            err.append(f"{cid}: NOT_ADMITTED requires reason_codes as a non-empty list of "
+                       f"non-empty strings")
 
     # --- evidence -----------------------------------------------------------------------------
     evidence = rec.get("evidence")
