@@ -1031,3 +1031,61 @@ STATE: P0-1 closed for FROZEN-policy tasks, OPEN for t01 by declared policy. P0-
 as a design decision. Falsification evidence: r12b (P0-2 isolation + both repairs refused),
 r12d (five controls incl. the two defects in my own repair), r12e (FROZEN branch proven live,
 registry byte-identical after restore). ROUND_2_REAL_RUNS_EXECUTED = 0.
+
+--- [28] P0-2 disposition (operator decision, 2026-10-14) + its mechanical enforcement ---
+DECISION, verbatim scope: keep the current HEAD-era harness; mark t01 as a compatibility sentinel;
+remove t01 from the causal H2-R2 task set or mark it NON_ELIGIBLE; preserve the failure evidence;
+leave the t02..R20 treatment unchanged; update the registry and the ledger mechanically.
+Explicitly REFUSED: injecting base-era carrier bytes; widening worker scope; checking out a
+historical experiment commit.
+
+WHAT CHANGED (mechanically, nothing else):
+· harness/run-plan-r2.json: the two t01 rows (H2-R2-R01 control, H2-R2-R02 variant) carry
+  eligibility=NON_ELIGIBLE, ineligible_reason_token=NON_ELIGIBLE_COMPATIBILITY_SENTINEL, the full
+  reason from [27], counts_toward_h2_result=false, and causal_role=COMPATIBILITY_SENTINEL. Their
+  run ids, order and every other field are UNCHANGED — ids are never reused and never renumbered,
+  because renumbering would break supersedes_run_id, prepare's frozen-order check and the
+  round1/round2 disjointness assertion. Verified after the edit: 20 rows, arms still 10/10, task
+  histogram unchanged, run ids still H2-R2-R01..R20, and every non-t01 row field-identical.
+· task-registry.json: t01 carries the same three markers plus causal_role. The registry is
+  byte-additive apart from them (verified: it compares equal to the previous state once
+  oracle_policy and the eligibility markers are dropped).
+· harness/prepare_run.sh: a plan row with eligibility == NON_ELIGIBLE is refused BEFORE any
+  worktree or evidence directory is allocated, with
+  `PREPARE_FAIL reason=__NON_ELIGIBLE__ NON_ELIGIBLE_COMPATIBILITY_SENTINEL causal_role=...`.
+  Refusing in code rather than only in documentation is what makes the marker a sentinel: a
+  sentinel that could still be executed would not be one.
+· round-2-freeze.json: TASK_SET_HASH_R2 resynced to the real sha256 of the registry.
+· Nothing else moved: the carrier, the delivery block, the arm definitions, the reps/blocks, the
+  model tiers and t02..R20's treatment are untouched.
+
+FALSIFICATION (r12f, all green):
+  A. both t01 rows refused with the sentinel token                              PASS
+  B. zero worktrees and zero evidence dirs created (no run id is burned)       PASS
+  C. H2-R2-R03 (the first t02 row) passes the eligibility gate and stops later on the frozen
+     arm check (row_arm=variant) — the marker does not block eligible rows        PASS
+  D. a forged eligibility value ("ELIGIBLE_PLEASE") does not reach execution: the plan is
+     hash-bound from the materials commit and prepare refuses with PLAN_AUTHORITY_FAIL   PASS
+  E. the plan restored byte-exactly after the forgery probe; harness repo left clean        PASS
+
+TWO SELF-INFLICTED ERRORS IN THIS DISPOSITION, both caught by running the batteries:
+1. RUN_PLAN_HASH_R2 was rewritten from its value into a DERIVED_NOT_HARDCODED sentence on the
+   reasoning that "no check consumes it, so it silently goes stale". That inference was WRONG:
+   prepare_run.sh compares the value against the plan blob in the materials commit and refuses
+   with PLAN_AUTHORITY_FAIL / "RUN_PLAN_HASH_R2 mismatch" — the rewrite broke every prepare. The
+   value was restored to the real sha256 and the correction is recorded in
+   round-2-freeze.json#hash_corrections so the inference is not retried. The corrected lesson: a
+   self-declared hash is ENFORCED until prepare/collect/publish have actually been read; the
+   absence of a unit test is not evidence of absence of an enforcement.
+2. The r12f battery's own first run appeared to show the sentinel "not refusing" — it was reading
+   `tail -1` of a PLAN_AUTHORITY_FAIL caused by (1). The battery was reading the wrong line of the
+   wrong failure; full-output inspection located it. Lesson kept: assert on the reason TOKEN, not
+   on the last line of stdout.
+
+STATE AFTER THIS DISPOSITION:
+  P0-1 = CLOSED for FROZEN-policy tasks (t02/t03/t04/n01/n02), OPEN for t01 by declared policy
+         (t01 is no longer executed, so it can no longer be turned into a published green record).
+  P0-2 = DISPOSED: t01 is a compatibility sentinel outside the causal set; its failure evidence
+         is preserved in [27] and in the plan/registry markers.
+  REAL_RUNS_EXECUTED = 0. The causal Round-2 set is 18 rows (t02 x2, t03 x4, t04 x4, n01 x4,
+  n02 x4) over arms control/variant 9/9 — recorded here as a derived count, not a frozen literal.
