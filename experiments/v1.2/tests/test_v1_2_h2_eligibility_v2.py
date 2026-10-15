@@ -392,6 +392,33 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertEqual(1, rc, out)
         self.assertIn("did not touch the test oracle", out)
 
+    def test_non_boolean_disclosure_value_rejected(self):
+        """Round-8 F1: the cross-checks compare with `is False`, so a falsey NON-BOOLEAN value
+        ("false", "no", 0, [], "") silently disabled them."""
+        for bogus in ("false", "no", 0, [], "", None):
+            rec = repair_record()
+            rec["disclosures"] = {"historical_delta_touched_validator": bogus}
+            rc, out = run_validator(document(rec), self.tmp)
+            self.assertEqual(1, rc, f"{bogus!r} must not stand in for a boolean\\n{out}")
+            self.assertIn("must be a boolean when present", out)
+
+    def test_boolean_disclosure_values_still_accepted(self):
+        rec = repair_record()
+        rec["disclosures"] = {"historical_delta_touched_oracle": True,
+                              "historical_delta_touched_validator": False}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(0, rc, out)
+
+    def test_pending_verdict_requires_pending_requirements(self):
+        """Round-8 F2: a record could describe its class as unmaterialised while listing nothing
+        outstanding."""
+        rec = guard_record()
+        rec["class_considered"] = [{"class": "B_REGRESSION_GUARD",
+                                   "verdict": "SHAPE_SATISFIED_PENDING_MATERIALISATION"}]
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("nothing outstanding", out)
+
     # --- out-of-repo pairs --------------------------------------------------------------------
     def test_foreign_pair_cannot_carry_a_valid_request(self):
         rec = guard_record()

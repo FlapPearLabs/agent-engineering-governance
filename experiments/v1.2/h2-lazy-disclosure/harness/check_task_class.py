@@ -325,6 +325,14 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
         err.append(f"{cid}: disclosures must be an object when present (got "
                    f"{type(disclosures).__name__})")
         disclosures = {}
+    # Type the VALUES the cross-checks read. Those checks compare with `is False`, so a falsey
+    # non-boolean ("false", "no", 0, [], "") silently disabled them: a record could assert a
+    # disclosure the object database disproves and still validate.
+    for _key in ("historical_delta_touched_oracle", "historical_delta_touched_validator"):
+        if _key in disclosures and not isinstance(disclosures[_key], bool):
+            err.append(f"{cid}: disclosures.{_key} must be a boolean when present (got "
+                       f"{type(disclosures[_key]).__name__}: {disclosures[_key]!r}) — a falsey "
+                       f"non-boolean would silently disable the cross-check that reads it")
 
     for key in REQUIRED_RECORD_KEYS:
         if key not in rec:
@@ -546,6 +554,11 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
         else:
             for c in own:
                 verdict = str(c.get("verdict", "")).strip()
+                if verdict == "SHAPE_SATISFIED_PENDING_MATERIALISATION" and not pending:
+                    err.append(f"{cid}: the class_considered verdict says the shape is "
+                               f"PENDING_MATERIALISATION while pending_requirements is empty — a "
+                               f"record cannot describe its class as unmaterialised and list "
+                               f"nothing outstanding")
                 if verdict not in AFFIRMATIVE_VERDICTS:
                     err.append(f"{cid}: the class_considered entry for the record's own class {cls!r} "
                                f"reads {verdict!r}, which is not an affirmative claim (allowed: "
