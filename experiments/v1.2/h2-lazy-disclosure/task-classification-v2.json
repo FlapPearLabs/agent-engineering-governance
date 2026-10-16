@@ -1,6 +1,6 @@
 {
   "schema": "ELIGIBILITY_SCHEMA_V2",
-  "schema_version": "2.7.0",
+  "schema_version": "2.8.0",
   "status": "PROPOSED_NOT_FROZEN",
   "proposed_on": "2026-10-14",
   "proposed_in_node": "N2.1 Eligibility Schema Revision",
@@ -281,7 +281,11 @@
       "a disclosure that contradicts the object database is refused independently of what the record declares (a false historical_delta_touched_validator beside a provably validator-touching delta is an error even when the derived trigger is declared), and a record may not list its own class as BLOCKED",
       "the verdict vocabulary for an entry describing a class the record CLAIMS is CLOSED (SHAPE_SATISFIED / SHAPE_SATISFIED_PENDING_MATERIALISATION): a synonym cannot stand in for 'blocked' on the record's own class",
       "a non-object `disclosures` is a structured error, not a traceback",
-      "the disclosure cross-check runs on BOTH derived axes (test oracle and validator), each independent of what the record declares"
+      "the disclosure cross-check runs on BOTH derived axes (test oracle and validator), each independent of what the record declares",
+      "the STATE TRANSITION itself, for an admissible class: the candidate revision's own acceptance surfaces are discovered from its tree and executed, byte-pinned, against materialised base and candidate worktrees (and against a controlled mutation), and the class is supported only if the measured verdicts move in the direction it claims",
+      "the provenance of each acceptance surface (DELTA_FROZEN / DELTA_ADDED / DELTA_MODIFIED), recomputed from the object database — a REWRITTEN acceptance is never a basis, because the delta rewrote the thing that judges it",
+      "oracle_authority, derived from the basis provenance: a DELTA_FROZEN basis requires FRAMEWORK_FROZEN, a DELTA_ADDED one requires DELTA_AUTHORED_DISCRIMINATING",
+      "the oracle-rewrite triggers fire on paths the delta REWRITES, not on paths it ADDS: an added acceptance cannot neuter an oracle that already existed"
     ],
     "not_enforced_out_of_band_obligations": [
       "the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed (this program cannot re-run a candidate's oracle): a record bound to a real corpus pair can still declare false statuses",

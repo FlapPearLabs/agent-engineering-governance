@@ -42,6 +42,9 @@ CLASSIFICATION = H2 / "task-classification-v2.json"
 REGISTRY = H2 / "task-registry.json"
 
 CASE_R06 = "r06-governance-zcode-adapter-reference"
+CASE_R02 = "r02-governance-review-evidence-interface"
+BASE_R02 = "e1da1541eb2b11f1e44f972409abde701496f4b6"
+CAND_R02 = "2ed08f6f7ddf58b234b54afb8334e6fae32cd768"
 CASE_R03 = "r03-governance-static-gate-adoption"
 CASE_R01 = "r01-zhihu-t14-async-seam-mismatch"
 # r06's pair: resolves locally, candidate descends from base, and the delta touches neither a test
@@ -90,6 +93,25 @@ def repair_record(**over):
     return rec
 
 
+def repair_record_accepted(**over):
+    """CLASS A on r02's pair — the pair whose delta ADDS its acceptance surface and whose
+    acceptance genuinely FAILS against the unfixed base (measured: base_rc=1, cand_rc=0). This is
+    the shape a repair task actually has, and it is the only shape the recomputation can support:
+    a FROZEN acceptance exists identically at both revisions, so on a landed pair it is green at
+    the base and cannot move."""
+    over.setdefault("corpus_case_id", CASE_R02)
+    over.setdefault("base_sha", BASE_R02)
+    over.setdefault("candidate_sha", CAND_R02)
+    over.setdefault("disclosures", {"historical_delta_touched_oracle": False,
+                                    "historical_delta_touched_validator": False})
+    over.setdefault("pending_requirements", [])
+    rec = repair_record(**over)
+    rec["class_requirements"]["oracle_authority"] = "DELTA_AUTHORED_DISCRIMINATING"
+    rec["class_requirements"]["oracle_in_worker_scope"] = True
+    rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+    return rec
+
+
 def guard_record(**over):
     """CLASS B on r06's pair, fully materialised so it can carry a valid request."""
     rec = {
@@ -118,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.7.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.0", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -139,25 +161,30 @@ class ValidatorBehaviour(unittest.TestCase):
 
     # --- TEST 1 ------------------------------------------------------------------------------
     def test_repair_task_baseline_fail_candidate_pass_accepted(self):
-        rc, out = run_validator(document(repair_record()), self.tmp)
+        """TEST 1. The acceptance is the candidate revision's own and it is executed against the
+        unfixed base, where it FAILS — that is the lifecycle, recomputed."""
+        rc, out = run_validator(document(repair_record_accepted()), self.tmp)
         self.assertEqual(0, rc, out)
         self.assertIn("TASK_CLASS_VERDICT = PASS", out)
+        self.assertIn("verdict=FAIL_TO_PASS", out)
 
     def test_fully_materialised_repair_task_can_request(self):
-        rec = repair_record()
-        rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
-        rec["disclosures"]["historical_delta_touched_oracle"] = False
-        rec["pending_requirements"] = []
-        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
-        rc, out = run_validator(document(rec), self.tmp)
+        rc, out = run_validator(document(repair_record_accepted()), self.tmp)
         self.assertEqual(0, rc, out)
         self.assertIn("valid_requests=1", out)
 
     # --- TEST 2 ------------------------------------------------------------------------------
-    def test_regression_guard_baseline_pass_mutation_fail_accepted(self):
+    def test_regression_guard_is_refused_when_the_mutation_does_not_bite(self):
+        """TEST 2, in the form the corpus can actually produce. A B_REGRESSION_GUARD claim says a
+        controlled mutation breaks the acceptance. The mutation is derived from the pair itself —
+        the candidate tree with every path the delta ADDS removed — so it only means anything when
+        a FROZEN acceptance actually observes the deliverable. On r06 it does not: the two frozen
+        validators report the same verdict with the adapters present and removed, which is the
+        measured fact the corpus already recorded as an observation-coverage gap."""
         rc, out = run_validator(document(guard_record()), self.tmp)
-        self.assertEqual(0, rc, out)
-        self.assertIn("valid_requests=1", out)
+        self.assertEqual(1, rc, out)
+        self.assertIn("MUTATION_DOES_NOT_BITE", out)
+        self.assertNotIn("valid_requests=1", out)
 
     # --- TEST 3 ------------------------------------------------------------------------------
     def test_worker_modifies_test_oracle_rejected(self):
@@ -236,6 +263,7 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertIn("WORKER_MODIFIES_TEST_ORACLE", out)
 
     def test_full_externalisation_clears_the_derived_trigger(self):
+        # the basis on this pair is the ADDED acceptance, so the derived authority applies
         rec = repair_record()
         rec["corpus_case_id"] = CASE_R03
         rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
@@ -247,12 +275,16 @@ class ValidatorBehaviour(unittest.TestCase):
             "scripts/validate_governance.py",
             "scripts/validate_project_state.py",
         ]
+        rec["class_requirements"]["oracle_in_worker_scope"] = True
+        rec["class_requirements"]["oracle_authority"] = "DELTA_AUTHORED_DISCRIMINATING"
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
+        self.assertIn("DERIVED from the git diff", run_validator(         # the control
+            document({**rec, "externalized_paths": []}), self.tmp)[1])
 
     # --- round-3 rules: the corpus is the identity root, so it is pinned and scoped -------------
     def test_schema_version_must_equal_the_implemented_one(self):
-        for bogus in ("2.6.0", "0.0.1", "banana"):
+        for bogus in ("2.7.0", "0.0.1", "banana"):
             doc = document(repair_record())
             doc["schema_version"] = bogus
             rc, out = run_validator(doc, self.tmp)
@@ -403,9 +435,9 @@ class ValidatorBehaviour(unittest.TestCase):
             self.assertIn("must be a boolean when present", out)
 
     def test_boolean_disclosure_values_still_accepted(self):
-        rec = repair_record()
-        rec["disclosures"] = {"historical_delta_touched_oracle": True,
-                              "historical_delta_touched_validator": False}
+        rec = repair_record_accepted()
+        rec["disclosures"] = {"historical_delta_touched_oracle": False,
+                              "historical_delta_touched_validator": True}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
 
@@ -467,8 +499,8 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertIn("does not resolve to an existing file", out)
 
     def test_multi_source_evidence_accepted(self):
-        rec = repair_record(evidence=[{"claim": "x", "measured": "y",
-                                       "source": [SOURCE, SOURCE_ALT]}])
+        rec = repair_record_accepted(evidence=[{"claim": "x", "measured": "y",
+                                                "source": [SOURCE, SOURCE_ALT]}])
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
 
@@ -567,11 +599,14 @@ class ValidatorBehaviour(unittest.TestCase):
         self.assertIn("evidence is required", out)
 
     def test_repair_claim_without_fail_baseline_rejected(self):
-        rec = repair_record()
+        """The claim is no longer defeated by a shape rule on the declared status: the status is
+        bound to the recomputation, and the transition itself is what fails."""
+        rec = repair_record_accepted()
         rec["class_requirements"]["baseline_oracle_status"] = "PASS"
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
-        self.assertIn("baseline_oracle_status must be 'FAIL'", out)
+        self.assertIn("declared baseline_oracle_status='PASS'", out)
+        self.assertIn("recomputed 'FAIL'", out)
 
     def test_regression_guard_without_mutation_fail_rejected(self):
         rec = guard_record()
@@ -579,28 +614,183 @@ class ValidatorBehaviour(unittest.TestCase):
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
 
-    # --- THE KNOWN BOUNDARY, PINNED -----------------------------------------------------------
-    def test_known_boundary_declared_statuses_are_not_recomputed(self):
-        """This test PINS THE LIMIT of the validator, so the documentation cannot drift back into
-        claiming more than the program does.
+    # --- THE RESIDUAL BOUNDARY, PINNED --------------------------------------------------------
+    def test_residual_boundary_is_the_class_not_the_statuses(self):
+        """This test PINS WHAT IS STILL NOT RECOMPUTED, so the documentation cannot drift back
+        into claiming more than the program does.
 
-        A record can be bound to a real corpus pair and still DECLARE oracle statuses the validator
-        cannot recompute: it has no way to re-run a candidate's oracle. Such a record is accepted as
-        a well-formed REQUEST, and that is not a proof that the repair happened. The grant is the
-        round freeze plus review; this program never grants.
+        What changed in 2.8.0: the acceptance lifecycle statuses ARE now recomputed — they are
+        executed, and the record's declared values are bound to the measurement (see
+        RecomputedTransition). What is still NOT recomputed is the CLASS itself: the program can
+        prove that a pair's acceptance moves as A_REPAIR claims, but nothing in the repository
+        says a given change WAS a repair; that remains the classification's assertion, judged by
+        the round freeze plus review. The verdict vocabulary still has no "admitted" value.
 
         If this test ever starts failing, the boundary moved — update the module docstring, the
         schema's enforcement-surface section, and this test together.
         """
-        rec = repair_record()
-        rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
-        rec["disclosures"]["historical_delta_touched_oracle"] = False
-        rec["pending_requirements"] = []
+        rec = repair_record_accepted()
         rec["round_admission"] = {"verdict": "NOT_ADMITTED",
                                   "reason_codes": ["CLASSIFICATION_ONLY"]}
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(0, rc, out)
         self.assertIn("valid request is NOT an admission", out)
+        self.assertIn("verdict=FAIL_TO_PASS", out)       # the transition IS recomputed
+        self.assertIn("request=NOT_ADMITTED", out)       # the class grant is NOT
+
+
+
+class RecomputedTransition(unittest.TestCase):
+    """The class claim is a state-transition claim, so the transition is RECOMPUTED by running the
+    pair's own acceptance surfaces against materialised trees. These tests are the two the operator
+    asked for: the round-8 reviewer's r06 laundering reproduction, and a positive discriminative
+    control that must actually reach the predicate (not pass on some earlier guard, and not be
+    blocked by an unrelated one).
+
+    They are slower than the rest of the suite because they run real processes in real git
+    worktrees; that is the point, and it is the only place the schema touches the world.
+    """
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    # ---- requirement 5: the reviewer's r06 laundering, reproduced exactly -------------------
+    def test_r06_laundering_reproduction_is_refused(self):
+        """Round-9 Finding 1: reclassify the shipped r06 record to B_REGRESSION_GUARD, clear its
+        triggers, ask for a valid request, and leave its evidence untouched — the edit falsifies
+        nothing at the record level, and under 2.7.0 it was ACCEPTED (valid_requests=1)."""
+        ship = json.loads(CLASSIFICATION.read_text(encoding="utf-8"))
+        rec = copy.deepcopy(next(r for r in ship["records"]
+                                 if r["candidate_id"].startswith("r06")))
+        for r in ship["records"]:                       # citations resolvable from anywhere
+            r["evidence"] = [dict(e, source=["experiments/v1.2/h2-lazy-disclosure/" + x
+                                             if not x.startswith("experiments") else x
+                                             for x in (e["source"] if isinstance(e["source"], list)
+                                                       else [e["source"]])])
+                             for e in r["evidence"]]
+        rec = copy.deepcopy(next(r for r in ship["records"]
+                                 if r["candidate_id"].startswith("r06")))
+        rec["class"] = "B_REGRESSION_GUARD"
+        rec["class_considered"] = [{"class": "B_REGRESSION_GUARD", "verdict": "SHAPE_SATISFIED"}]
+        rec["class_requirements"] = {
+            "baseline_oracle_status": "PASS", "mutation_oracle_status": "FAIL",
+            "mutation_touches_target_predicate": True, "acceptance_surface_frozen": True,
+            "validator_not_worker_controlled": True}
+        rec["reject_triggers"] = []
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        # refused by the RECOMPUTED transition, not by a shape rule and not by a missing field
+        self.assertIn("not supported by execution (MUTATION_DOES_NOT_BITE)", out)
+        self.assertIn("recomputed, not read from the record", out)
+        self.assertIn("DELTA_FROZEN", out)          # the frozen surfaces and their verdicts
+        self.assertNotIn("valid_requests=1", out)
+
+    # ---- requirement 6: the positive discriminative control ---------------------------------
+    def test_positive_control_reaches_the_discriminative_predicate(self):
+        """A real pinned A_REPAIR case whose acceptance genuinely FAILS against the unfixed base
+        and PASSES at the candidate must form a VALID REQUEST — and the run must REPORT the
+        predicate, so a pass that came from some other guard cannot be mistaken for this one."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R02
+        rec["base_sha"], rec["candidate_sha"] = BASE_R02, CAND_R02
+        rec["disclosures"] = {"historical_delta_touched_oracle": False,
+                              "historical_delta_touched_validator": False}
+        rec["pending_requirements"] = []
+        rec["class_requirements"]["oracle_authority"] = "DELTA_AUTHORED_DISCRIMINATING"
+        rec["class_requirements"]["oracle_in_worker_scope"] = True
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(0, rc, out)
+        self.assertIn("valid_requests=1", out)
+        # the predicate itself, with the acceptance that carried it and its provenance
+        self.assertIn("TRANSITION", out)
+        self.assertIn("class=A_REPAIR verdict=FAIL_TO_PASS", out)
+        self.assertIn("DELTA_ADDED", out)
+        self.assertIn("base_rc=1 cand_rc=0", out)
+
+    def test_positive_control_is_not_a_shape_only_pass(self):
+        """Same pair, but declared as A_REPAIR without the recomputed basis: the discriminating
+        acceptance is DELTA_ADDED, so the authority must be the derived one. A record that keeps
+        claiming PENDING_FREEZE_V2 (or FRAMEWORK_FROZEN) is bound to the recomputed provenance."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R02
+        rec["base_sha"], rec["candidate_sha"] = BASE_R02, CAND_R02
+        rec["disclosures"] = {"historical_delta_touched_oracle": False,
+                              "historical_delta_touched_validator": False}
+        rec["pending_requirements"] = []
+        rec["class_requirements"]["oracle_authority"] = "FRAMEWORK_FROZEN"
+        rec["class_requirements"]["oracle_in_worker_scope"] = True
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("oracle_authority must be 'DELTA_AUTHORED_DISCRIMINATING'", out)
+
+    # ---- the exclusion that makes the above safe --------------------------------------------
+    def test_a_rewritten_acceptance_is_never_a_basis(self):
+        """r03's delta REWRITES scripts/validate_governance.py, and that rewritten validator does
+        move FAIL->PASS against the base. It must NOT be accepted as a basis: the delta rewrote
+        the very thing that is supposed to judge it, which is the shape every vacuity attack
+        takes (the measured `select = []` attack on this pair is exactly this)."""
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R03
+        rec["base_sha"], rec["candidate_sha"] = BASE_TOUCHED, CAND_TOUCHED
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("WORKER_MODIFIES_VALIDATOR", out)      # the rewrite is derived from git
+        self.assertIn("DERIVED from the git diff", out)
+
+    def test_derived_triggers_fire_on_rewrites_not_on_additions(self):
+        """The derivation is precise to its meaning: firing the oracle-rewrite triggers on paths
+        the delta merely ADDS made every repair task unsatisfiable while protecting nothing."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ctc", VALIDATOR)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["ctc"] = mod
+        spec.loader.exec_module(mod)
+        added = [("A", "scripts/tests/test_new_thing.py"),
+                 ("A", "scripts/validate_added.py")]
+        self.assertEqual({}, mod.derived_triggers(added))
+        rewritten = [("M", "scripts/tests/test_existing.py")]
+        self.assertIn("WORKER_MODIFIES_TEST_ORACLE", mod.derived_triggers(rewritten))
+        self.assertIn("WORKER_MODIFIES_VALIDATOR",
+                      mod.derived_triggers([("M", "scripts/validate_governance.py")]))
+
+    # ---- the declared statuses are bound to the recomputation -------------------------------
+    def test_declared_statuses_cannot_contradict_the_recomputation(self):
+        rec = repair_record()
+        rec["corpus_case_id"] = CASE_R02
+        rec["base_sha"], rec["candidate_sha"] = BASE_R02, CAND_R02
+        rec["disclosures"] = {"historical_delta_touched_oracle": False,
+                              "historical_delta_touched_validator": False}
+        rec["pending_requirements"] = []
+        rec["class_requirements"]["oracle_authority"] = "DELTA_AUTHORED_DISCRIMINATING"
+        rec["class_requirements"]["oracle_in_worker_scope"] = True
+        rec["class_requirements"]["baseline_oracle_status"] = "PASS"   # recomputation says FAIL
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("declared baseline_oracle_status='PASS'", out)
+        self.assertIn("recomputed 'FAIL'", out)
+
+    def test_a_pair_with_no_transition_fails_closed(self):
+        """r06 has acceptance surfaces but none of them moves: base == candidate for every one.
+        Requirement 4 — an admissible claim over such a pair must be refused."""
+        rec = repair_record()
+        rec["class_requirements"]["oracle_authority"] = "DELTA_AUTHORED_DISCRIMINATING"
+        rec["class_requirements"]["oracle_in_worker_scope"] = True
+        rec["disclosures"] = {"historical_delta_touched_oracle": False,
+                              "historical_delta_touched_validator": False}
+        rec["pending_requirements"] = []
+        rec["round_admission"] = {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]}
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("not supported by execution", out)
+        self.assertIn("BASE_EQUALS_CANDIDATE", out)
 
 
 class LaunderingVariants(unittest.TestCase):
@@ -703,6 +893,9 @@ class GuardUnitChecks(unittest.TestCase):
             return self._ancestor
 
         def changed_paths(self, _base, _cand):
+            return []
+
+        def changed_paths_with_status(self, _base, _cand):
             return []
 
     def _record(self, module, base, cand):

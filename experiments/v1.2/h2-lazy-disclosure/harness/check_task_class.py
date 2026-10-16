@@ -57,8 +57,13 @@ Further limits, recorded here so that a reader of THIS FILE is not misled:
     determined author from making all three edits together;
   · externalisation that silences a derived trigger is an assertion, and for an externally bound
     pair the "path is in the delta" check cannot run at all;
-  · the record's CLASS is bound to nothing recomputable, and the corpus's own measured dispositions
-    are deliberately not consulted.
+  · the record's CLASS is bound to nothing recomputable BY IDENTITY — it is now bound by
+    EXECUTION instead: the class claim is a state-transition claim, and the transition is
+    recomputed by running the candidate revision's own acceptance surfaces against materialised
+    base and candidate trees. The corpus's own measured dispositions are still not consulted;
+  · the oracle-rewrite triggers fire on paths the delta REWRITES, not on paths it ADDS. An added
+    acceptance cannot neuter an existing oracle, and is instead held to the recomputed transition
+    (it must fail against the unfixed base) with its provenance disclosed and bound.
 
 A PASS therefore means "internally consistent AND consistent with every fact this repository can
 recompute". It is not a statement that the work happened.
@@ -70,13 +75,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.7.0"
+SCHEMA_VERSION = "2.8.0"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -93,7 +101,8 @@ TRIGGER_CODES = (
     "OBSERVATION_COVERAGE_UNPROVEN",
     "BASE_CANDIDATE_NOT_COMPARABLE",
 )
-ORACLE_AUTHORITIES = ("FRAMEWORK_FROZEN", "PENDING_FREEZE_V2")
+ORACLE_AUTHORITIES = ("FRAMEWORK_FROZEN", "PENDING_FREEZE_V2",
+                      "DELTA_AUTHORED_DISCRIMINATING")
 # The verdict vocabulary for an entry describing a class the record CLAIMS. Closed on purpose: an
 # open vocabulary let a record mark its own class "NOT_APPLICABLE" and still request admission.
 AFFIRMATIVE_VERDICTS = ("SHAPE_SATISFIED", "SHAPE_SATISFIED_PENDING_MATERIALISATION")
@@ -134,6 +143,18 @@ class Repo:
         if r.returncode != 0:
             return None
         return [p for p in r.stdout.split() if p]
+
+    def changed_paths_with_status(self, base: str, candidate: str):
+        """[(status, path)] for the pair; status is git's A / M / D / T / R / C."""
+        r = self.git("diff", "--no-ext-diff", "--name-status", base, candidate, "--")
+        if r.returncode != 0:
+            return None
+        out = []
+        for line in r.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                out.append((parts[0], parts[-1]))
+        return out
 
 
 def hashlib_digest_ok(path) -> bool:
@@ -298,14 +319,209 @@ def has_oracle_externalization(pending) -> bool:
     return False
 
 
-def derived_triggers(paths) -> dict[str, list[str]]:
+def derived_triggers(changed) -> dict[str, list[str]]:
+    """Oracle-rewrite triggers, derived from the delta's own file list WITH status.
+
+    Precision matters here, and the imprecise version was found by the positive control: a delta
+    that ADDS an acceptance cannot neuter an oracle that already existed, so firing
+    WORKER_MODIFIES_TEST_ORACLE / WORKER_MODIFIES_VALIDATOR on it made every real repair task
+    unsatisfiable while protecting nothing. The triggers therefore fire on paths the delta
+    REWRITES (present at the base, changed by the pair). A newly ADDED oracle is not free either:
+    the recomputed transition must show it failing against the unfixed base, its provenance is
+    disclosed, and `oracle_in_worker_scope` is bound to that recomputation.
+    """
     derived: dict[str, list[str]] = {}
-    for p in paths or []:
+    for status, p in changed or []:
+        if status in ("A", "D"):
+            continue                 # an added path rewrites nothing; a deleted one judges nothing
         if TEST_PATH_RE.search(p):
             derived.setdefault("WORKER_MODIFIES_TEST_ORACLE", []).append(p)
         if VALIDATOR_PATH_RE.search(p):
             derived.setdefault("WORKER_MODIFIES_VALIDATOR", []).append(p)
     return derived
+
+
+# ---- TRANSITION RECOMPUTATION -------------------------------------------------------------------
+# A class claim asserts a STATE TRANSITION, so the transition is RECOMPUTED BY EXECUTION and never
+# taken from the record. The acceptance is the CANDIDATE revision's own acceptance surface,
+# discovered from that tree by the repository's own path conventions, and it is held byte-pinned
+# while it is run against BOTH revisions — so a BASE verdict cannot be produced by editing the
+# acceptance between the two runs. Its provenance is recomputed from the object database:
+#
+#   DELTA_FROZEN    the path exists at both revisions with identical bytes
+#   DELTA_ADDED     the delta introduces the path
+#   DELTA_MODIFIED  the delta rewrites the path
+#
+# A DELTA_MODIFIED acceptance is NEVER a basis for an admissible class: the delta rewrote the very
+# thing that is supposed to judge it, which is the single shape a vacuity attack always takes (the
+# measured `select = []` attack on r03 is exactly this shape). A DELTA_ADDED acceptance cannot
+# neuter an oracle that already existed, and a DELTA_FROZEN one is attributable by construction;
+# both may serve, and each is reported as what it is. `oracle_in_worker_scope` is BOUND to this
+# recomputation instead of being believed on its own.
+#
+# Verdicts are process exit codes obtained from materialised trees. A missing or timed-out
+# acceptance is NOT a pass; an uncomputable transition supports no admissible claim.
+
+ACCEPTANCE_KINDS = ("VALIDATOR", "TEST")
+ACCEPTANCE_TIMEOUT = 300
+
+
+def acceptance_surfaces(root: Path) -> dict[str, str]:
+    """The repository's own acceptance surfaces, discovered from a tree by path convention."""
+    out: dict[str, str] = {}
+    scripts = root / "scripts"
+    if scripts.is_dir():
+        for q in sorted(scripts.glob("validate_*.py")):
+            out[q.relative_to(root).as_posix()] = "VALIDATOR"
+    tests = scripts / "tests"
+    if tests.is_dir():
+        for q in sorted(tests.glob("test_*.py")):
+            out[q.relative_to(root).as_posix()] = "TEST"
+    return out
+
+
+def acceptance_command(rel: str, kind: str, interpreter: str) -> list[str]:
+    if kind == "TEST":
+        return [interpreter, "-m", "unittest", "discover", "-s", "scripts/tests",
+                "-p", Path(rel).name]
+    return [interpreter, rel]
+
+
+def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str) -> int:
+    """Exit code of one acceptance surface run inside a materialised tree."""
+    if not (tree / rel).is_file():
+        return 127                       # absent is unrunnable, and unrunnable is not a pass
+    env = dict(os.environ)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    try:
+        r = subprocess.run(acceptance_command(rel, kind, interpreter), cwd=str(tree),
+                           capture_output=True, text=True, env=env,
+                           timeout=ACCEPTANCE_TIMEOUT)
+        return r.returncode
+    except (subprocess.TimeoutExpired, OSError):
+        return 124                       # a timeout is not a pass either
+
+
+def _worktree_add(repo: Repo, sha: str, path: Path) -> bool:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return repo.git("worktree", "add", "-q", "--detach", str(path), sha).returncode == 0
+
+
+def _worktree_remove(repo: Repo, path: Path) -> None:
+    repo.git("worktree", "remove", "--force", str(path))
+
+
+def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
+    """Recompute the pair's acceptance state transition by execution, for one class.
+
+    Returns the facts the class rules read — including the lifecycle statuses the record declares,
+    so the declaration is checked against a measurement instead of against itself. A missing,
+    unrunnable, timed-out or uncomputable acceptance is never a pass.
+    """
+    inside = repo.git("rev-parse", "--is-inside-work-tree")
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        return {"error": "NOT_A_WORKTREE"}
+    interpreter = sys.executable or "python3"
+    scratch = Path(tempfile.mkdtemp(prefix="h2-transition-"))
+    base_wt, cand_wt, mut_wt = scratch / "base", scratch / "cand", scratch / "mut"
+    facts: dict = {"base": base, "candidate": cand, "class": cls, "surfaces": []}
+    try:
+        for sha, wt in ((base, base_wt), (cand, cand_wt), (cand, mut_wt)):
+            if not _worktree_add(repo, sha, wt):
+                return {"error": "WORKTREE_MATERIALISATION_FAILED", "sha": sha}
+        # the controlled mutation: the candidate tree with every path the delta ADDS removed.
+        # Modified paths keep their candidate content on purpose — reverting them wholesale would
+        # rebuild the base tree and make the mutation a no-op by construction.
+        added = repo.git("diff", "--no-ext-diff", "--name-only", "--diff-filter=A",
+                         base, cand, "--")
+        if added.returncode != 0:
+            return {"error": "DELTA_UNREADABLE"}
+        for rel in [p for p in added.stdout.split() if p]:
+            target = mut_wt / rel
+            if target.is_file():
+                target.unlink()
+
+        for rel, kind in acceptance_surfaces(cand_wt).items():
+            cb, cc = base_wt / rel, cand_wt / rel
+            if not cb.is_file():
+                provenance = "DELTA_ADDED"
+            elif cb.read_bytes() == cc.read_bytes():
+                provenance = "DELTA_FROZEN"
+            else:
+                provenance = "DELTA_MODIFIED"
+            rc_cand = run_acceptance(cand_wt, rel, kind, interpreter)
+            rc_mut = (run_acceptance(mut_wt, rel, kind, interpreter)
+                      if provenance == "DELTA_FROZEN" else None)
+            # the candidate's own bytes are carried into the base tree, held identical
+            saved = cb.read_bytes() if cb.is_file() else None
+            cb.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy2(cc, cb)
+                rc_base = run_acceptance(base_wt, rel, kind, interpreter)
+            finally:
+                if saved is None:
+                    cb.unlink(missing_ok=True)
+                else:
+                    cb.write_bytes(saved)
+            facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
+                                      "rc_base": rc_base, "rc_cand": rc_cand, "rc_mut": rc_mut})
+
+        surfaces = facts["surfaces"]
+        eligible = [e for e in surfaces if e["provenance"] != "DELTA_MODIFIED"]
+        frozen = [e for e in surfaces if e["provenance"] == "DELTA_FROZEN"]
+        facts["acceptance_count"] = len(surfaces)
+        facts["frozen_count"] = len(frozen)
+        facts["acceptance_surface_frozen"] = bool(frozen)
+        facts["oracle_in_worker_scope"] = any(e["provenance"] != "DELTA_FROZEN"
+                                              for e in surfaces)
+        # A basis is an acceptance the class can stand on, i.e. one whose verdict MOVES in the
+        # direction the class claims. A surface that fails identically at both revisions is not
+        # evidence of anything (it is broken, in this environment, for both), so it can neither
+        # support nor sink a claim.
+        discriminating = [e for e in eligible if e["rc_base"] != 0 and e["rc_cand"] == 0]
+        biting = [e for e in frozen if e["rc_base"] == 0 and (e["rc_mut"] or 0) != 0]
+        green_frozen = [e for e in frozen if e["rc_base"] == 0]
+        facts["discriminating"] = discriminating
+        facts["biting"] = biting
+        if cls == "B_REGRESSION_GUARD":
+            facts["baseline_oracle_status"] = "PASS" if green_frozen else "FAIL"
+            facts["mutation_oracle_status"] = "FAIL" if biting else "PASS"
+            facts["mutation_touches_target_predicate"] = bool(biting)
+            facts["candidate_oracle_status"] = ("FAIL" if any(e["rc_cand"] != 0 for e in frozen)
+                                                else "PASS")
+        else:
+            facts["baseline_oracle_status"] = "FAIL" if discriminating else "PASS"
+            facts["candidate_oracle_status"] = "PASS" if discriminating else "FAIL"
+            facts["mutation_oracle_status"] = "FAIL" if biting else "PASS"
+            facts["mutation_touches_target_predicate"] = bool(biting)
+        return facts
+    finally:
+        for wt in (base_wt, cand_wt, mut_wt):
+            _worktree_remove(repo, wt)
+        repo.git("worktree", "prune")
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
+    """(is the class claim supported, the reason token). Empty extension is a refusal."""
+    if "error" in facts:
+        return False, facts["error"]
+    if not facts.get("acceptance_count"):
+        return False, "NO_ACCEPTANCE"
+    if cls == "A_REPAIR":
+        if facts["discriminating"]:
+            return True, "FAIL_TO_PASS"
+        moved = [e for e in facts["surfaces"] if e["rc_base"] != e["rc_cand"]]
+        if not moved:
+            return False, "BASE_EQUALS_CANDIDATE"
+        return False, "NO_DISCRIMINATING_ACCEPTANCE"
+    if cls == "B_REGRESSION_GUARD":
+        if not facts["frozen_count"]:
+            return False, "NO_FROZEN_ACCEPTANCE"
+        if not facts["biting"]:
+            return False, "MUTATION_DOES_NOT_BITE"
+        return True, "PASS_TO_FAIL_UNDER_MUTATION"
+    return False, "NOT_AN_ADMISSIBLE_CLASS"
 
 
 def check_record(rec: dict, repo: Repo, classification_dir: Path,
@@ -457,24 +673,25 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             err.append(f"{cid}: externalized_paths names {bogus} which the delta does not change — "
                        f"externalising a path the pair never touches asserts nothing")
     if local_pair == (True, True):
-        paths = repo.changed_paths(base, cand)
+        changed = repo.changed_paths_with_status(base, cand)
+        paths = [p for _, p in changed] if changed is not None else None
         if paths is None:
             err.append(f"{cid}: the changed-file list of the pair could not be read (failing closed)")
         else:
-            for trig, trig_paths in derived_triggers(paths).items():
+            for trig, trig_paths in derived_triggers(changed).items():
                 # NOTE: this check must run BEFORE the `declared` short-circuit. Placed after
                 # it, the rule was dead for every record that declared the trigger — i.e. exactly
                 # the shape that carries the contradiction.
                 if trig == "WORKER_MODIFIES_VALIDATOR" and \
                         disclosures.get("historical_delta_touched_validator") is False:
                     err.append(f"{cid}: disclosures say the delta did not touch a validator, but "
-                               f"the delta provably changes {trig_paths} — the disclosure "
+                               f"the delta provably rewrites {trig_paths} — the disclosure "
                                f"contradicts the object database")
                 # F3 (round 7): the same contradiction on the ORACLE axis was unchecked.
                 if trig == "WORKER_MODIFIES_TEST_ORACLE" and \
                         disclosures.get("historical_delta_touched_oracle") is False:
                     err.append(f"{cid}: disclosures say the delta did not touch the test oracle, but "
-                               f"the delta provably changes {trig_paths} — the disclosure "
+                               f"the delta provably rewrites {trig_paths} — the disclosure "
                                f"contradicts the object database")
                 if trig in declared:
                     continue
@@ -498,14 +715,22 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
         if not isinstance(req, dict):
             err.append(f"{cid}: A_REPAIR requires class_requirements")
         else:
-            if req.get("baseline_oracle_status") != "FAIL":
-                err.append(f"{cid}: A_REPAIR baseline_oracle_status must be 'FAIL' "
-                           f"(got {req.get('baseline_oracle_status')!r})")
-            if req.get("candidate_oracle_status") != "PASS":
-                err.append(f"{cid}: A_REPAIR candidate_oracle_status must be 'PASS' "
-                           f"(got {req.get('candidate_oracle_status')!r})")
-            if req.get("oracle_in_worker_scope") is not False:
-                err.append(f"{cid}: A_REPAIR requires oracle_in_worker_scope false")
+            # The lifecycle statuses are no longer asserted here: they are BOUND to the
+            # recomputed transition further down (declared value must equal the measured one).
+            # Asserting them from the record was the shape that masked the measurement, and it is
+            # precisely what "no declared field may substitute the mechanical fact" excludes.
+            for key in ("baseline_oracle_status", "candidate_oracle_status"):
+                if req.get(key) not in ("FAIL", "PASS"):
+                    err.append(f"{cid}: {key} must be 'FAIL' or 'PASS' (got {req.get(key)!r})")
+            # `oracle_in_worker_scope` is no longer believed on its own. It must EQUAL the
+            # provenance recomputed from the delta (below), where any acceptance the delta
+            # introduced or rewrote makes the oracle worker-scoped. The old "must be false" could
+            # only ever be satisfied by a self-declaration, which is the shape that was shown not
+            # to bind anything; a DELTA_MODIFIED acceptance is now excluded from being a basis at
+            # all, and a DELTA_ADDED one is declared as such and carries the trigger it implies.
+            if not isinstance(req.get("oracle_in_worker_scope"), bool):
+                err.append(f"{cid}: A_REPAIR requires oracle_in_worker_scope as a boolean "
+                           f"(got {req.get('oracle_in_worker_scope')!r})")
             authority = req.get("oracle_authority")
             if authority not in ORACLE_AUTHORITIES:
                 err.append(f"{cid}: oracle_authority must be one of {list(ORACLE_AUTHORITIES)} "
@@ -513,6 +738,9 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             if authority == "PENDING_FREEZE_V2" and not has_oracle_externalization(pending):
                 err.append(f"{cid}: oracle_authority PENDING_FREEZE_V2 requires a pending "
                            f"requirement whose code is exactly {PENDING_PREFIX!r}")
+            # DELTA_AUTHORED_DISCRIMINATING is not believed either: it is only accepted when
+            # the recomputed basis is a DELTA_ADDED acceptance that demonstrably FAILS against the
+            # unfixed base. That binding is applied with the transition below.
             if disclosures.get("historical_delta_touched_oracle") is True:
                 if authority == "FRAMEWORK_FROZEN":
                     err.append(f"{cid}: oracle_authority cannot be FRAMEWORK_FROZEN while the "
@@ -533,6 +761,52 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                          "validator_not_worker_controlled"):
                 if req.get(flag) is not True:
                     err.append(f"{cid}: B_REGRESSION_GUARD requires {flag} true")
+
+    # --- RECOMPUTED STATE TRANSITION (the class claim is a claim about a transition) -----------
+    # Runs only for an admissible claim over a locally resolvable pair whose record is otherwise
+    # well formed: a record already carrying errors is refused on those, and running three trees
+    # of acceptances for it would change no verdict. Everything here READS: the declared statuses
+    # are bound to recomputed values, and the verdict comes from transition_verdict().
+    if cls in ADMISSIBLE_CLASSES and local_pair == (True, True) and not err:
+        facts = recompute_transition(repo, base, cand, cls)
+        ok, reason = transition_verdict(cls, facts)
+        declared = req if isinstance(req, dict) else {}
+        if "error" not in facts:
+            for key in ("baseline_oracle_status", "candidate_oracle_status"):
+                if key in declared and declared.get(key) != facts[key]:
+                    err.append(f"{cid}: declared {key}={declared.get(key)!r} but the acceptance "
+                               f"recomputed {facts[key]!r} over {facts['acceptance_count']} "
+                               f"surface(s) at {base[:12]} and {cand[:12]}")
+            for key, actual in (("oracle_in_worker_scope", facts["oracle_in_worker_scope"]),
+                                ("acceptance_surface_frozen", facts["acceptance_surface_frozen"]),
+                                ("mutation_oracle_status", facts["mutation_oracle_status"]),
+                                ("mutation_touches_target_predicate",
+                                 facts["mutation_touches_target_predicate"])):
+                if key in declared and declared.get(key) != actual:
+                    err.append(f"{cid}: declared {key}={declared.get(key)!r} but the "
+                               f"recomputation gives {actual!r}")
+            basis = (facts.get("discriminating") or [None])[0]
+            if basis is not None and cls == "A_REPAIR":
+                want = ("FRAMEWORK_FROZEN" if basis["provenance"] == "DELTA_FROZEN"
+                        else "DELTA_AUTHORED_DISCRIMINATING")
+                if declared.get("oracle_authority") != want:
+                    err.append(f"{cid}: the accepted basis is {basis['path']} "
+                               f"[{basis['provenance']}], so oracle_authority must be {want!r} "
+                               f"(got {declared.get('oracle_authority')!r}) — the authority is "
+                               f"derived from the acceptance provenance, not chosen")
+        if not ok:
+            detail = "; ".join(
+                f"{e['path']} [{e['provenance']}] base={e['rc_base']} cand={e['rc_cand']}"
+                for e in facts.get("surfaces", [])[:4]) or "no acceptance surface"
+            err.append(f"{cid}: the {cls} state transition is not supported by execution "
+                       f"({reason}) — recomputed, not read from the record: {detail}")
+        else:
+            disc = [e for e in facts["discriminating"]
+                    if e["provenance"] in ("DELTA_FROZEN", "DELTA_ADDED")]
+            best = disc[0]
+            print(f"  TRANSITION {cid} class={cls} verdict={reason} "
+                  f"acceptance={best['path']} provenance={best['provenance']} "
+                  f"base_rc={best['rc_base']} cand_rc={best['rc_cand']}")
 
     considered = rec.get("class_considered")
     if not isinstance(considered, list) or not considered:

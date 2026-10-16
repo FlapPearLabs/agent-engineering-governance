@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.7.0  (2.0.0 -> … -> 2.7.0; seven review rounds)
+VERSION        = 2.8.0  (2.0.0 -> … -> 2.8.0; nine review rounds)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -10,7 +10,14 @@ SUPERSEDES     = the C1–C5 admissibility criteria AS APPLIED in the N2 measure
 EXTENDS        = ELIGIBILITY_RULE_v2 (task-registry.json#eligibility_rule) — see §7: a task must
                  satisfy BOTH layers; nothing in v2 weakens the earlier rule
 MECHANICALLY_ENFORCED_BY = harness/check_task_class.py + experiments/v1.2/tests/test_v1_2_h2_eligibility_v2.py
-REVIEW_HISTORY = round 5 (commit 269b263) returned PASS: the per-case pin holds in its
+REVIEW_HISTORY = round 9 (commit 75c77ff) returned PASS with ONE P2 that this revision closes:
+                 the validator checked a self-authored record's internal consistency, so a
+                 five-field edit of the shipped r06 record formed `valid_requests=1` without
+                 falsifying anything — r06 is the one corpus pair whose delta touches no test and
+                 no validator, so NO trigger was derived and the trigger that actually rejected it
+                 was erasable. The fix is not a declaration: the class claim is a STATE TRANSITION
+                 claim, so the transition is now RECOMPUTED BY EXECUTION (§3.1, §6.6).
+                 Round 5 (commit 269b263) returned PASS: the per-case pin holds in its
                  category-level form — re-attempting the round-4 attack on r05, r02 and a newly
                  added sixth case each forced a second file to move, so validator and suite cannot
                  agree without a review-visible edit. Its five findings were P3 (two mechanical
@@ -154,25 +161,103 @@ FOR EVERY CLASS
   · IDENTITY: the record names the replay-corpus case it classifies and carries THAT case's
     revision pair; the pair is read from cases.yaml, never taken from the record
   · DERIVED TRIGGERS: the delta's own changed-file list is read from the object database — every
-    changed test file derives WORKER_MODIFIES_TEST_ORACLE and every changed validate_*/check_*
-    file derives WORKER_MODIFIES_VALIDATOR; each must be declared or its paths externalised
+    REWRITTEN test file derives WORKER_MODIFIES_TEST_ORACLE and every REWRITTEN validate_*/check_*
+    file derives WORKER_MODIFIES_VALIDATOR; each must be declared or its paths externalised.
+    ADDED paths derive nothing: a newly added acceptance cannot neuter an oracle that already
+    existed, and it is held to §3.1 instead (it must demonstrably fail against the unfixed base)
+  · THE TRANSITION IS RECOMPUTED BY EXECUTION (§3.1). Nothing the record declares substitutes it:
+    the declared lifecycle statuses are BOUND to the measured verdicts, and an admissible claim
+    whose transition cannot be computed fails closed
   · the acceptance is decided by bytes that are NOT part of the worker's delta              (R3/R4/R5)
-  · the acceptance names its oracle explicitly, and the oracle's authority is declared      (R4)
+  · the acceptance names its oracle explicitly, and the oracle's authority is DERIVED from the
+    acceptance provenance, not chosen by the record                                          (R4)
   · a valid REQUEST is never implicit and is never an admission: it requires an admissible class,
     zero triggers, zero pending requirements, a fully materialised oracle authority, and a
     locally verifiable revision pair — and the GRANT is the round freeze plus review          (R7)
   · every record carries measured evidence (claim / measured / source)                      (R8)
 
-CLASS A
-  the frozen oracle must be RED at the base and GREEN at the candidate, and the single failing
-  identity at the base must be the task's declared target — not an unrelated defect and not an
-  artefact introduced by the experiment's own delivery (see §6.4)
+### 3.1 The recomputed transition
 
-CLASS B
+```text
+ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces, discovered from that tree by the
+              repository's own path conventions (scripts/validate_*.py, scripts/tests/test_*.py).
+              They are carried byte-identically into the base tree, so the BASE verdict cannot be
+              produced by editing the acceptance between the two runs.
+
+STATES := base tree · candidate tree · CONTROLLED MUTATION (the candidate tree with every path the
+          delta ADDS removed — modified paths keep their candidate content, because reverting them
+          wholesale would rebuild the base tree and make the mutation a no-op by construction)
+
+PROVENANCE (recomputed from the object database, per surface)
+  DELTA_FROZEN    identical bytes at both revisions
+  DELTA_ADDED     the delta introduces it
+  DELTA_MODIFIED  the delta rewrites it        <- NEVER a basis: the delta rewrote the thing that
+                                                  judges it, which is the shape every vacuity
+                                                  attack takes (`select = []` on r03 is this shape)
+
+DERIVED
+  A_REPAIR           supported  <=>  some DELTA_FROZEN or DELTA_ADDED surface reports FAIL at the
+                                     base and PASS at the candidate
+  B_REGRESSION_GUARD supported  <=>  some DELTA_FROZEN surface is GREEN at the base and RED under
+                                     the controlled mutation
+  otherwise                      =>  REQUEST_VALID is forbidden (fail closed): BASE_EQUALS_CANDIDATE
+                                     when nothing moves, NO_DISCRIMINATING_ACCEPTANCE when surfaces
+                                     move but not in the claimed direction, NO_ACCEPTANCE when the
+                                     candidate ships none, or the materialisation error
+
+BOUND (the declared value must equal the measured one; a disagreement is an error)
+  baseline_oracle_status · candidate_oracle_status · mutation_oracle_status ·
+  oracle_in_worker_scope · acceptance_surface_frozen · mutation_touches_target_predicate ·
+  oracle_authority (FRAMEWORK_FROZEN for a DELTA_FROZEN basis; DELTA_AUTHORED_DISCRIMINATING for
+  a DELTA_ADDED one)
+```
+
+A missing, unrunnable, timed-out or uncomputable acceptance is never a pass.
+
+### 3.2 The classes, in terms of it
+
+```text
+CLASS A  (repair)
+  the acceptance must be RED at the base and GREEN at the candidate — recomputed, and reported
+  with the surface that carried it and that surface's provenance. The single failing identity at
+  the base must be the task's declared target, not an unrelated defect and not an artefact
+  introduced by the experiment's own delivery (see §6.4).
+
+CLASS B  (regression guard)
   the framework owns the specimen battery and the harness that applies it; the deliverable may be
   READ by that harness but must not be part of it. The acceptance requires BOTH verdicts:
   compliant specimen → the deliverable's guard must pass; violating specimen → it must fail.
-  A single specimen proves only that specimen (§6.3).
+  A single specimen proves only that specimen (§6.3). In the transition vocabulary: a FROZEN
+  acceptance must be green at the base and red under the controlled mutation.
+
+CLASS C  (reject)
+  every admissible class must be listed as BLOCKED with a non-empty reason, and at least one
+  enumerated trigger code must be present with a reason_code (format-checked UPPER_SNAKE, not a
+  closed vocabulary — the code names the evidence, it does not classify it) and a detail.
+```
+
+### 3.3 Why the recomputation has the shape it has (measured)
+
+Every corpus pair was measured in all three states. The result is the reason A_REPAIR cannot be
+expressed with a strictly frozen acceptance:
+
+```text
+r02  base e1da1541 → cand 2ed08f6f    scripts/tests/test_review_evidence_contract.py  DELTA_ADDED
+                                       base_rc=1  cand_rc=0    <- a real repair
+r03  base 015780be → cand 65113de6    scripts/tests/test_p1_t17_...                  DELTA_ADDED
+                                       base_rc=1  cand_rc=0
+                                      scripts/validate_governance.py                DELTA_MODIFIED
+                                       base_rc=1  cand_rc=0    <- excluded, see below
+r05  base c08f6f8b → cand 6d841d56    18 FROZEN tests, all unchanged verdicts       no transition
+r06  base af4df6ae → cand 069f8be2    2 FROZEN validators, both unchanged            no transition
+```
+
+A FROZEN acceptance exists identically at both revisions, so on a landed pair it was already green
+at the base — which is why every frozen surface above is invariant, and why an A_REPAIR supported
+only by frozen acceptances has an EMPTY extension over this corpus. The acceptance that does move
+is the one the fix ships, and r03's second row is exactly why a REWRITTEN one is excluded while an
+ADDED one is admissible: rewriting `validate_governance.py` is how the delta took over the thing
+that was supposed to judge it.
 
 CLASS C
   every admissible class must be listed as BLOCKED with a non-empty reason, and at least one
@@ -357,7 +442,15 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     per-case pairs of ALL five cases are a literal in the test file. Editing the corpus therefore
     means editing two reviewed files, and any case (not only the ones a fixture happens to cover)
     trips the pin;
-  · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed
+  · THE STATE TRANSITION (§3.1) — for an admissible claim the candidate revision's own acceptance
+    surfaces are executed against materialised base and candidate worktrees, and against a
+    controlled mutation; the class is supported only if the measured verdicts move as the class
+    claims, and the recomputation is printed so a PASS cannot be attributed to another guard;
+  · THE ACCEPTANCE PROVENANCE (DELTA_FROZEN / DELTA_ADDED / DELTA_MODIFIED), recomputed from the
+    object database per surface. A REWRITTEN acceptance is never a basis — the delta rewrote the
+    thing that judges it — and `oracle_authority` is DERIVED from the basis provenance rather than
+    chosen;
+  · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a REWRITTEN
     test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives
     WORKER_MODIFIES_VALIDATOR. Neither can be talked away INTO A VALID REQUEST: silencing one
     requires externalising every derived path, which requires the ORACLE_EXTERNALIZATION pending
@@ -385,11 +478,14 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     records as structured errors, no early return that masks a record's other defects).
 
 NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken for a proof
-  · the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed: this program
-    cannot re-run a candidate's oracle. A record bound to a real corpus pair can still declare false
-    statuses and be accepted as a well-formed REQUEST;
-  · whether the oracle really sits outside the worker's scope is a claim about a task design that
-    does not exist yet;
+  · (2.7.0 said the lifecycle statuses were "never recomputed". That stopped being true in 2.8.0:
+    they are recomputed by execution, and a declared value that disagrees is an error. What is
+    STILL not recomputed is whether the acceptance's own semantics are sound — a DELTA_ADDED
+    acceptance can be SHALLOW (`assert Path("newfile").exists()` fails against the base and passes
+    at the candidate, which is a true lifecycle and a weak oracle) — that is the human review's
+    job, and it is the reason the grant is the round freeze plus review rather than this program;
+  · whether a DELTA_ADDED acceptance belongs in the frozen surface at all is a decision Freeze v2
+    makes when it adopts it; the validator proves it discriminates, not that it deserves freezing;
   · for an externally bound pair the derived-trigger rule cannot run at all (the diff is not in this
     object database) — one more reason such a record cannot carry a valid request;
   · the derived-trigger rules are NAME-based (tests?/, .test., test_*.py, validate_*.py,
@@ -402,8 +498,10 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     in the delta WHEN THE PAIR RESOLVES HERE — for an externally bound pair the delta cannot be read
     at all, so the check is skipped and only the "no valid request" rule bounds it; nothing proves
     the externalisation happened in either case;
-  · the record's CLASS is bound to nothing recomputable: the corpus's own per-case dispositions are
-    deliberately not consulted, because the corpus header forbids collapsing those axes;
+  · the record's CLASS is bound to the recomputed transition but to nothing beyond it: the
+    program proves the pair's acceptance moves as the class claims; nothing in the repository says
+    a given change WAS a repair. The corpus's own per-case dispositions are deliberately not
+    consulted, because the corpus header forbids collapsing those axes;
   · nothing compels a pending requirement to be discharged: a candidate may sit in NOT_ADMITTED
     indefinitely. That is a liveness limit, not a soundness one, and it is the conservative
     direction;
