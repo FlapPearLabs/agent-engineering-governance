@@ -364,6 +364,10 @@ def derived_triggers(changed) -> dict[str, list[str]]:
 
 ACCEPTANCE_KINDS = ("VALIDATOR", "TEST")
 ACCEPTANCE_TIMEOUT = 300
+# A verdict exists only when a process produced one. 124 is a timeout inside run_acceptance and 127
+# is "the surface is not there"; neither is evidence about the deliverable, and treating either as a
+# failure would let an unrunnable acceptance manufacture the FAIL_TO_PASS shape.
+UNMEASURED_RCS = (124, 127)
 
 
 def acceptance_surfaces(root: Path) -> dict[str, str]:
@@ -478,9 +482,20 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # direction the class claims. A surface that fails identically at both revisions is not
         # evidence of anything (it is broken, in this environment, for both), so it can neither
         # support nor sink a claim.
-        discriminating = [e for e in eligible if e["rc_base"] != 0 and e["rc_cand"] == 0]
-        biting = [e for e in frozen if e["rc_base"] == 0 and (e["rc_mut"] or 0) != 0]
-        green_frozen = [e for e in frozen if e["rc_base"] == 0]
+        def measured(*rcs):
+            return all(rc is not None and rc not in UNMEASURED_RCS for rc in rcs)
+
+        unmeasured = [e for e in surfaces
+                      if not measured(e["rc_base"], e["rc_cand"])
+                      or (e["provenance"] == "DELTA_FROZEN" and not measured(e["rc_mut"]))]
+        discriminating = [e for e in eligible
+                          if measured(e["rc_base"], e["rc_cand"])
+                          and e["rc_base"] != 0 and e["rc_cand"] == 0]
+        biting = [e for e in frozen
+                  if measured(e["rc_base"], e["rc_mut"])
+                  and e["rc_base"] == 0 and e["rc_mut"] != 0]
+        green_frozen = [e for e in frozen if measured(e["rc_base"]) and e["rc_base"] == 0]
+        facts["unmeasured"] = unmeasured
         facts["discriminating"] = discriminating
         facts["biting"] = biting
         if cls == "B_REGRESSION_GUARD":
@@ -508,10 +523,16 @@ def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
         return False, facts["error"]
     if not facts.get("acceptance_count"):
         return False, "NO_ACCEPTANCE"
+    if facts.get("unmeasured") and not (facts.get("discriminating") or facts.get("biting")):
+        return False, "ACCEPTANCE_NOT_MEASURED"
     if cls == "A_REPAIR":
         if facts["discriminating"]:
             return True, "FAIL_TO_PASS"
-        moved = [e for e in facts["surfaces"] if e["rc_base"] != e["rc_cand"]]
+        moved = [e for e in facts["surfaces"]
+                 if (e["rc_base"], e["rc_cand"]) not in ((124, 124), (127, 127))
+                 and e["rc_base"] != e["rc_cand"]
+                 and 124 not in (e["rc_base"], e["rc_cand"])
+                 and 127 not in (e["rc_base"], e["rc_cand"])]
         if not moved:
             return False, "BASE_EQUALS_CANDIDATE"
         return False, "NO_DISCRIMINATING_ACCEPTANCE"
@@ -781,7 +802,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                                 ("acceptance_surface_frozen", facts["acceptance_surface_frozen"]),
                                 ("mutation_oracle_status", facts["mutation_oracle_status"]),
                                 ("mutation_touches_target_predicate",
-                                 facts["mutation_touches_target_predicate"])):
+                                 facts["mutation_touches_target_predicate"]),
+                                # a validator the delta introduced or rewrote is worker-controlled
+                                # by construction, so the flag stops being a free declaration
+                                ("validator_not_worker_controlled",
+                                 not any(e["provenance"] != "DELTA_FROZEN"
+                                         for e in facts["surfaces"] if e["kind"] == "VALIDATOR"))):
                 if key in declared and declared.get(key) != actual:
                     err.append(f"{cid}: declared {key}={declared.get(key)!r} but the "
                                f"recomputation gives {actual!r}")
@@ -801,12 +827,17 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             err.append(f"{cid}: the {cls} state transition is not supported by execution "
                        f"({reason}) — recomputed, not read from the record: {detail}")
         else:
-            disc = [e for e in facts["discriminating"]
-                    if e["provenance"] in ("DELTA_FROZEN", "DELTA_ADDED")]
-            best = disc[0]
-            print(f"  TRANSITION {cid} class={cls} verdict={reason} "
-                  f"acceptance={best['path']} provenance={best['provenance']} "
-                  f"base_rc={best['rc_base']} cand_rc={best['rc_cand']}")
+            candidates = ([e for e in facts["discriminating"]
+                           if e["provenance"] in ("DELTA_FROZEN", "DELTA_ADDED")]
+                          if cls == "A_REPAIR" else list(facts.get("biting") or []))
+            if candidates:
+                best = candidates[0]
+                print(f"  TRANSITION {cid} class={cls} verdict={reason} basis={best['path']} "
+                      f"provenance={best['provenance']} base_rc={best['rc_base']} "
+                      f"cand_rc={best['rc_cand']} mut_rc={best.get('rc_mut')}")
+            else:                                   # supported, yet no basis to name: impossible
+                err.append(f"{cid}: the {cls} claim is reported as {reason} with no basis surface — "
+                           f"refusing rather than reporting a transition nothing carried")
 
     considered = rec.get("class_considered")
     if not isinstance(considered, list) or not considered:

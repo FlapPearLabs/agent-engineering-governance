@@ -760,6 +760,36 @@ class RecomputedTransition(unittest.TestCase):
         self.assertIn("WORKER_MODIFIES_VALIDATOR",
                       mod.derived_triggers([("M", "scripts/validate_governance.py")]))
 
+    def test_an_unmeasured_verdict_is_not_a_failure(self):
+        """Round-10 F1: run_acceptance returns 124 on timeout and 127 for an absent surface.
+        Treating either as "the acceptance failed" would open the FAIL->PASS shape on ANY pair —
+        including r06 — with a slow acceptance instead of an edited record. The predicate is pinned
+        here directly, because manufacturing a real timeout inside the suite would be a timing test
+        rather than a rule test."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ctc", VALIDATOR)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["ctc"] = mod
+        spec.loader.exec_module(mod)
+        for unmeasured in mod.UNMEASURED_RCS:
+            facts = {"class": "A_REPAIR", "acceptance_count": 1, "frozen_count": 0,
+                     "acceptance_surface_frozen": False, "oracle_in_worker_scope": True,
+                     "discriminating": [], "biting": [], "surfaces": [],
+                     "unmeasured": [{"path": "scripts/tests/test_x.py", "provenance": "DELTA_ADDED",
+                                     "rc_base": unmeasured, "rc_cand": 0, "rc_mut": None}]}
+            ok, reason = mod.transition_verdict("A_REPAIR", facts)
+            self.assertFalse(ok, f"rc={unmeasured} must not support a claim")
+            self.assertEqual("ACCEPTANCE_NOT_MEASURED", reason)
+
+    def test_reported_basis_is_the_one_the_class_uses(self):
+        """Round-10 F2: the B path reported the A basis (and indexed an empty list). The line a
+        reviewer reads must name the surface the verdict actually came from."""
+        rec = guard_record()
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("MUTATION_DOES_NOT_BITE", out)
+        self.assertNotIn("basis=", out)          # refused: no basis may be reported as a pass
+
     # ---- the declared statuses are bound to the recomputation -------------------------------
     def test_declared_statuses_cannot_contradict_the_recomputation(self):
         rec = repair_record()

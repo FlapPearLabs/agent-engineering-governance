@@ -486,6 +486,10 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     job, and it is the reason the grant is the round freeze plus review rather than this program;
   · whether a DELTA_ADDED acceptance belongs in the frozen surface at all is a decision Freeze v2
     makes when it adopts it; the validator proves it discriminates, not that it deserves freezing;
+  · §3.2's "the single failing identity at the base must be the task's declared target" is NOT
+    implemented: the recomputation proves the acceptance MOVES, not that its failure at the base is
+    the task's own subject rather than an unrelated defect or a delivery artefact. That judgement
+    is the reviewer's, and it is named here so the clause is not read as enforced;
   · for an externally bound pair the derived-trigger rule cannot run at all (the diff is not in this
     object database) — one more reason such a record cannot carry a valid request;
   · the derived-trigger rules are NAME-based (tests?/, .test., test_*.py, validate_*.py,
