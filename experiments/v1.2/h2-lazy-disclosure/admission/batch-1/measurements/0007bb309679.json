@@ -1,7 +1,7 @@
 {
  "base_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
  "candidate_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
- "elapsed_s": 48.2,
+ "elapsed_s": 44.7,
  "facts": {
   "base": "0404879936a3c36f5eca2b32d36f0d664464411a",
   "candidate": "0007bb3096791114d4616b599f44428e9bbfeb83",
@@ -247,8 +247,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): add non-canonical experiment foundation with real historical cases"

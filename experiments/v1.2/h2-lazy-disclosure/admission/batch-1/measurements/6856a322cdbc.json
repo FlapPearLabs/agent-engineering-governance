@@ -1,7 +1,7 @@
 {
  "base_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
  "candidate_sha": "6856a322cdbc5282242464e068e9fb841f017642",
- "elapsed_s": 15.8,
+ "elapsed_s": 14.1,
  "facts": {
   "base": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
   "candidate": "6856a322cdbc5282242464e068e9fb841f017642",
@@ -167,8 +167,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage5/lane-a): implement P1-T08 evidence lifecycle consumption over the declared reuse descriptor (Issue #24)"

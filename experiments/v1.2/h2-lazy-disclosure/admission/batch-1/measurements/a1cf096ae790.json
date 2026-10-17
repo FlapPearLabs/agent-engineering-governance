@@ -1,7 +1,7 @@
 {
  "base_sha": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
  "candidate_sha": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
- "elapsed_s": 19.9,
+ "elapsed_s": 17.6,
  "facts": {
   "base": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
   "candidate": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
@@ -191,8 +191,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage6/lane-b): add the on-demand learning-closure recipe to the engineering-memory owner (Issue #13)"

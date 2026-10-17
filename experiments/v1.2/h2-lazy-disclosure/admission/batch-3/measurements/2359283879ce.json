@@ -1,7 +1,7 @@
 {
  "base_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
  "candidate_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
- "elapsed_s": 0.2,
+ "elapsed_s": 0.3,
  "facts": {
   "base": "8a99cbff7dfefcaca8000caafe80568c225e072b",
   "candidate": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
@@ -55,8 +55,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05"

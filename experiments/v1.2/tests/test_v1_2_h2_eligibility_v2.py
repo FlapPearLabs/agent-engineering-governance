@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.4", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.5", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1315,6 +1315,85 @@ class MutationMaterialisation(unittest.TestCase):
         self.assertTrue(changed[0][0].startswith("R"))
         self.assertEqual("scripts/tests/test_new.py", changed[0][1])
         self.assertIn("WORKER_MODIFIES_TEST_ORACLE", self.mod.derived_triggers(changed))
+
+    # ---- fresh review of 6527c81: findings 1-3 ------------------------------------------------
+    def test_an_added_module_that_shadows_an_import_derives_a_trigger(self):
+        """Finding 1: `python scripts/validate_x.py` / `unittest discover -s scripts/tests` put
+        those directories first on sys.path, so an added scripts/json.py (or scripts/tests/json.py)
+        replaces what a FROZEN surface imports. The transition then reads FAIL->PASS on a
+        'framework-frozen' oracle nothing repaired — the derived trigger must refuse it."""
+        budget = ("import json, sys\nfrom pathlib import Path\n"
+                  "ROOT = Path(__file__).resolve().parents[1]\n"
+                  "limit = json.loads('10')\n"
+                  "sys.exit(0 if len((ROOT / 'pointer.md').read_bytes()) <= limit else 1)\n")
+        permissive = "def loads(_):\n    return 10 ** 9\n"
+        for root_dir, name in (("scripts", "shadow-v"), ("scripts/tests", "shadow-t")):
+            repo, base, cand = self._repo(
+                {"scripts/validate_budget.py": budget, "pointer.md": "far beyond the budget\n"},
+                {"notes.md": "n\n", f"{root_dir}/json.py": permissive}, name=name)
+            facts = self.mod.recompute_transition(repo, base, cand, "A_REPAIR")
+            if root_dir == "scripts":      # reachability: the shadow really flips the oracle
+                self.assertEqual((True, "FAIL_TO_PASS"),
+                                 self.mod.transition_verdict("A_REPAIR", facts))
+            derived = self.mod.derived_triggers(repo.changed_paths_with_status(base, cand))
+            self.assertEqual([f"{root_dir}/json.py"],
+                             derived.get("ACCEPTANCE_SURFACE_IN_WORKER_SCOPE"), name)
+        # control: a module with no importable namesake is an ordinary deliverable
+        repo, base, cand = self._repo({"README.md": "a\n"},
+                                      {"scripts/review_evidence_like.py": "X = 1\n"},
+                                      name="shadow-control")
+        self.assertEqual({}, self.mod.derived_triggers(repo.changed_paths_with_status(base, cand)))
+
+    def test_a_checkout_filter_cannot_rewrite_a_frozen_guard(self):
+        """Finding 2: a candidate-edited .gitattributes (working-tree-encoding) changed the bytes a
+        'DELTA_FROZEN' guard executes at BOTH revisions, so its regression never registered."""
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_links.py": self.LINKS,
+             "scripts/tests/test_budget.py": self._budget("self.fail('over budget')"),
+             "README.md": "start\n", "pointer.md": "short\n", ".gitattributes": "*.md text\n"},
+            {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+             "pointer.md": "now far beyond its byte budget\n",
+             ".gitattributes": "*.md text\nscripts/tests/test_budget.py "
+                               "working-tree-encoding=UTF-16LE\n"}, name="attr")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertEqual("SURFACE_BYTES_DIVERGE", facts.get("error"), facts)
+        self.assertFalse(self.mod.transition_verdict("B_REGRESSION_GUARD", facts)[0])
+
+    def test_a_surface_replaced_by_a_symlink_is_not_a_surface(self):
+        """Finding 3 (mutant MG): only regular files are surfaces. A guard replaced by a symlink to
+        a vacuous copy must not be judged as the guard."""
+        root = self.tmp / "symfile"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        base = self._commit(root, {"scripts/tests/test_links.py": self.LINKS,
+                                   "scripts/tests/test_budget.py":
+                                       self._budget("self.fail('over budget')"),
+                                   "README.md": "start\n", "pointer.md": "short\n"}, "base")
+        self._git(root, "rm", "-q", "scripts/tests/test_budget.py")
+        (root / "vacuous.py").write_text("import unittest\n", encoding="utf-8")
+        (root / "scripts/tests/test_budget.py").symlink_to("../../vacuous.py")
+        cand = self._commit(root, {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+                                   "pointer.md": "now far beyond its byte budget\n"}, "candidate")
+        repo = self.mod.Repo(root)
+        self.assertNotIn("scripts/tests/test_budget.py", self.mod.tracked_surfaces(repo, cand))
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertFalse(self.mod.transition_verdict("B_REGRESSION_GUARD", facts)[0], facts)
+
+    def test_a_renamed_dependency_is_removed_by_the_mutation(self):
+        """Finding 3 (mutant MF): with git's default rename detection a moved file is R, not A, and
+        the mutation kept it. ADDED means new at the candidate, whatever the rename heuristics."""
+        doc = "".join(f"line {i} of a document long enough for rename detection\n"
+                      for i in range(30))
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_links.py": self.LINKS, "README.md": "see [a](docs/a.md)\n",
+             "docs/a.md": doc}, {"README.md": "see [b](docs/b.md)\n", "docs/b.md": doc},
+            name="moved")
+        self._git(repo.root, "rm", "-q", "docs/a.md")
+        self._git(repo.root, "commit", "-q", "--amend", "--no-edit", "--no-verify")
+        cand = self._git(repo.root, "rev-parse", "HEAD")
+        self._git(repo.root, "config", "diff.renames", "true")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertEqual(["scripts/tests/test_links.py"], [e["path"] for e in facts["biting"]])
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

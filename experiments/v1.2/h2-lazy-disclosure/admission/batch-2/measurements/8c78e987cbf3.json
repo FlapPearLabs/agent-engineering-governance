@@ -1,7 +1,7 @@
 {
  "base_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
  "candidate_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
- "elapsed_s": 3.9,
+ "elapsed_s": 3.8,
  "facts": {
   "base": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
   "candidate": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
@@ -70,8 +70,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): flush recovery snapshot after P1 implementation authorization"

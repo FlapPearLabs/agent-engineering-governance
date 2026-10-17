@@ -1,7 +1,7 @@
 {
  "base_sha": "127ea0b3b11df08a048d12368164d90c2c1583d4",
  "candidate_sha": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
- "elapsed_s": 14.4,
+ "elapsed_s": 13.1,
  "facts": {
   "base": "127ea0b3b11df08a048d12368164d90c2c1583d4",
   "candidate": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
@@ -143,8 +143,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage4/lane-a): add the P1-T11 destructive workspace transaction recipe to git-ci-integration (Issue #23)"

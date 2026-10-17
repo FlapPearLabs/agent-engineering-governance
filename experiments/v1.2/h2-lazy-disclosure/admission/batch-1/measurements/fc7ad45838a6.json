@@ -1,7 +1,7 @@
 {
  "base_sha": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
  "candidate_sha": "fc7ad45838a641044b7d0404d25d497d7b11b258",
- "elapsed_s": 23.3,
+ "elapsed_s": 21.1,
  "facts": {
   "base": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
   "candidate": "fc7ad45838a641044b7d0404d25d497d7b11b258",
@@ -223,8 +223,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(governance): defect-to-gate promotion + FAST/FULL gate execution model"

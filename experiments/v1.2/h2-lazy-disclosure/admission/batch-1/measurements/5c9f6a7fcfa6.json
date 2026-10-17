@@ -1,7 +1,7 @@
 {
  "base_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
  "candidate_sha": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
- "elapsed_s": 12.1,
+ "elapsed_s": 10.8,
  "facts": {
   "base": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
   "candidate": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
@@ -127,8 +127,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage3/lane-b): enforce the P1-T06 evidence producer trust and retrieval boundary (Issue #21)"

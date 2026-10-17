@@ -1,7 +1,7 @@
 {
  "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
  "candidate_sha": "af4df6ae706394db5f9dec313993312392aeb516",
- "elapsed_s": 0.3,
+ "elapsed_s": 0.4,
  "facts": {
   "base": "f40525bd9f37b883420089f0422abcedef0b7d11",
   "candidate": "af4df6ae706394db5f9dec313993312392aeb516",
@@ -54,8 +54,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(contract): PROJECT_CONTINUITY_CONTRACT_V1 — fixed project-state index, initialization, write events, codegraph lifecycle, grounding"

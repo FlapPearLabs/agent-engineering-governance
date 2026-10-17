@@ -75,6 +75,7 @@ Usage:  python3 check_task_class.py <classification.json> [repo_root]
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -85,7 +86,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.4"
+SCHEMA_VERSION = "2.8.5"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -347,15 +348,21 @@ def derived_triggers(changed) -> dict[str, list[str]]:
     """Oracle-rewrite triggers, derived from the delta's own file list WITH status.
 
     Precision matters here, and the imprecise version was found by the positive control: a delta
-    that ADDS an acceptance cannot neuter an oracle that already existed, so firing
+    that ADDS an acceptance SURFACE cannot neuter an oracle that already existed, so firing
     WORKER_MODIFIES_TEST_ORACLE / WORKER_MODIFIES_VALIDATOR on it made every real repair task
     unsatisfiable while protecting nothing. The triggers therefore fire on paths the delta
     REWRITES (present at the base, changed by the pair). A newly ADDED oracle is not free either:
     the recomputed transition must show it failing against the unfixed base, its provenance is
     disclosed, and `oracle_in_worker_scope` is bound to that recomputation.
+    An added NON-surface module CAN neuter one, by shadowing an import from an acceptance import
+    root (2.8.5, see shadowed_module): that is derived as ACCEPTANCE_SURFACE_IN_WORKER_SCOPE.
     """
     derived: dict[str, list[str]] = {}
     for status, p in changed or []:
+        if status != "D" and shadowed_module(p):
+            # an added OR rewritten module on an acceptance import root that shadows an importable
+            # name decides what a FROZEN surface executes: the worker authored the verdict
+            derived.setdefault("ACCEPTANCE_SURFACE_IN_WORKER_SCOPE", []).append(p)
         if status in ("A", "D"):
             continue                 # an added path rewrites nothing; a deleted one judges nothing
         if TEST_PATH_RE.search(p):
@@ -363,6 +370,37 @@ def derived_triggers(changed) -> dict[str, list[str]]:
         if VALIDATOR_PATH_RE.search(p):
             derived.setdefault("WORKER_MODIFIES_VALIDATOR", []).append(p)
     return derived
+
+
+# The directories an acceptance runs with at the head of sys.path: `python scripts/validate_x.py`
+# puts scripts/ first, `unittest discover -s scripts/tests` puts scripts/tests/ first. A module the
+# delta places there under an importable name shadows what a frozen surface imports — so an ADDED
+# file could neuter an existing oracle after all (fresh review of 6527c81, finding 1: an added
+# scripts/json.py turned a frozen validator FAIL->PASS under FRAMEWORK_FROZEN authority).
+IMPORT_ROOTS = ("scripts/tests/", "scripts/")
+
+
+def shadowed_module(path: str) -> str | None:
+    """The importable name `path` would shadow from an acceptance import root, else None."""
+    for root in IMPORT_ROOTS:
+        if not path.startswith(root):
+            continue
+        rest = path[len(root):]
+        if "/" not in rest and rest.endswith(".py"):
+            name = rest[:-3]
+        elif rest.count("/") == 1 and rest.endswith("/__init__.py"):
+            name = rest.split("/", 1)[0]
+        else:
+            return None
+        if not name.isidentifier() or SURFACE_NAME_RE.match(name):
+            return None                  # not importable by that name / judged as a surface
+        if name in sys.stdlib_module_names:
+            return name
+        try:                             # top-level lookup only: no parent package is imported
+            return name if importlib.util.find_spec(name) is not None else None
+        except (ImportError, ValueError):
+            return name                  # an unresolvable lookup is not proof of no shadow
+    return None
 
 
 # ---- TRANSITION RECOMPUTATION -------------------------------------------------------------------
@@ -409,6 +447,7 @@ def acceptance_surfaces(root: Path) -> dict[str, str]:
 
 
 SURFACE_RE = re.compile(r"^scripts/validate_[^/]*\.py$|^scripts/tests/test_[^/]*\.py$")
+SURFACE_NAME_RE = re.compile(r"^(validate|test)_")
 
 
 def tracked_surfaces(repo: Repo, sha: str):
@@ -451,6 +490,22 @@ def _aliased(root: Path, rel: str) -> bool:
         if cur.is_symlink():
             return True
     return False
+
+
+def _bytes_diverge(wt: Path, expected: dict[str, str]) -> str | None:
+    """The first surface whose checked-out bytes do not hash (unfiltered) to its tracked blob."""
+    if not expected:
+        return None
+    rels = sorted(expected)
+    r = subprocess.run(["git", "-C", str(wt), "hash-object", "--no-filters", "--stdin-paths"],
+                       input="\n".join(rels) + "\n", capture_output=True, text=True)
+    got = r.stdout.split()
+    if r.returncode != 0 or len(got) != len(rels):
+        return rels[0]                   # unreadable is not identical: fail closed
+    for rel, blob in zip(rels, got):
+        if blob != expected[rel]:
+            return rel
+    return None
 
 
 def acceptance_command(rel: str, kind: str, interpreter: str) -> list[str]:
@@ -569,6 +624,15 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         for rel in set(base_s) | set(cand_s):
             if any(_aliased(wt, rel) for wt in (base_wt, cand_wt, mut_wt)):
                 return {"error": "SURFACE_PATH_ALIASED", "path": rel}
+        # ... and the bytes that EXECUTE must be the tracked blob: a checkout filter
+        # (.gitattributes working-tree-encoding / eol / smudge) rewrote a "frozen" guard into
+        # something else at both revisions, hiding a regression (fresh review of 6527c81, finding 2)
+        mut_paths = {rel for rel in cand_s if rel not in set(added_paths)}
+        for wt, expected in ((base_wt, base_s), (cand_wt, cand_s),
+                             (mut_wt, {r: cand_s[r] for r in mut_paths})):
+            diverged = _bytes_diverge(wt, {rel: blob for rel, (_kind, blob) in expected.items()})
+            if diverged:
+                return {"error": "SURFACE_BYTES_DIVERGE", "path": diverged}
         for rel, (kind, blob) in cand_s.items():
             cb, cc = base_wt / rel, cand_wt / rel
             if rel not in base_s:

@@ -1,7 +1,7 @@
 {
  "base_sha": "562cb5ccb38846cd635851c13d8998e83a027f29",
  "candidate_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
- "elapsed_s": 51.6,
+ "elapsed_s": 49.1,
  "facts": {
   "base": "562cb5ccb38846cd635851c13d8998e83a027f29",
   "candidate": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge pull request #47 from FlapPearLabs/experiment/v1.2-h1-hot-context-ablation"

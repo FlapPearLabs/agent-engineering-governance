@@ -2,8 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.4  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.4 = defects raised by real
-                 admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, see §6.7)
+VERSION        = 2.8.5  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.5 = defects raised by real
+                 admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
+                 see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -185,7 +186,10 @@ ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces: the regular file
               path conventions (scripts/validate_*.py, scripts/tests/test_*.py). They are carried
               byte-identically into the base tree, so the BASE verdict cannot be produced by editing
               the acceptance between the two runs. A surface path that resolves through a symlink
-              or a case-folded spelling in any tree is SURFACE_PATH_ALIASED (fail closed).
+              or a case-folded spelling in any tree is SURFACE_PATH_ALIASED, and a surface whose
+              checked-out bytes do not hash (unfiltered) to its tracked blob in any tree is
+              SURFACE_BYTES_DIVERGE (2.8.5: a checkout filter had rewritten a "frozen" guard) —
+              both fail closed. What executes is therefore the tracked blob, not merely its path.
 GUARDS     := the frozen surfaces plus every surface tracked at the BASE and absent at the
               candidate (DELTA_DELETED, run with its base bytes in both trees; since 2.8.3).
 
@@ -540,7 +544,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.4 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.5 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -613,6 +617,26 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          sentence was false for r26 / r29); explicit -M for trigger derivation and --no-renames
          for the added-path list (no dependence on diff.renames); refusal messages name the
          regressed / unmeasured guard first; tests kill the surviving mutants M3 M8 M10 M13.
+2.8.5 (fresh adversarial review of 6527c81: one P1, one P2, three P3; both defects pre-date this
+       stage — present since f4eb503 — and none of the 28 shipped records has either shape)
+  F-A11 P1 an ADDED module on an acceptance import root (scripts/ for validators, scripts/tests/
+         for unittest discovery) that shadows an importable name (stdlib or installed) changed what
+         a FROZEN surface executes: an added scripts/json.py turned a frozen validator FAIL->PASS
+         under FRAMEWORK_FROZEN authority, and a shadow hid a B regression. 2.8.5 derives
+         ACCEPTANCE_SURFACE_IN_WORKER_SCOPE for any added or rewritten module there whose top-level
+         name is importable (shadowed_module). The installed-package half of that test depends on
+         the validator's environment (stated; the stdlib half does not).
+  F-A12 P2 a candidate-edited .gitattributes (working-tree-encoding) rewrote the bytes a
+         "DELTA_FROZEN" guard executes at both revisions, so its regression never registered.
+         2.8.5 requires every surface's checked-out bytes to hash, unfiltered, to its tracked blob
+         in base, candidate and mutation (SURFACE_BYTES_DIVERGE otherwise).
+  P3     targeted tests for the symlink-mode surface (MG) and the rename-as-addition rule (MF).
+         Known and recorded, not fixed: the alias defences overlap, so most single-defence mutants
+         (alias loop, lexists checks, casefold, per-tree scope, blob provenance) survive because
+         another defence still refuses; a mode-only change derives a trigger although the blob is
+         unchanged (conservative).
+REGRESSION (2.8.5)  MutationMaterialisation (24 tests); the shadow and filter tests fail against
+         6527c81; MG and MF each fail a test.
 REGRESSION (2.8.4)  MutationMaterialisation (20 tests); the three 2.8.4 attack tests fail against
          ceb3a72; each of M3 M8 M10 M13 fails a test.
 REGRESSION (2.8.3)  MutationMaterialisation (15 tests); the four new 2.8.3 tests fail against

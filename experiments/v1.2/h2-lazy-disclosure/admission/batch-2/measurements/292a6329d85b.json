@@ -1,7 +1,7 @@
 {
  "base_sha": "c6e50aefd5c08bf88db24d25553673c251a0ba61",
  "candidate_sha": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
- "elapsed_s": 14.9,
+ "elapsed_s": 13.7,
  "facts": {
   "base": "c6e50aefd5c08bf88db24d25553673c251a0ba61",
   "candidate": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
@@ -150,8 +150,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.4",
-  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
+  "schema_version": "2.8.5",
+  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): sync recovery snapshot to the P1-T09 bootstrap-surface reconciliation"
