@@ -72,10 +72,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 8,
   "frozen_count": 7,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": true,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -100,8 +102,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(review-evidence): land P1-T05 three-axis verification disposition (Issue #18)"

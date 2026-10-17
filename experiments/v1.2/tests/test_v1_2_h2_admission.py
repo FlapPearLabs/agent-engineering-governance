@@ -154,6 +154,38 @@ class BatchIdentityAndLedger(unittest.TestCase):
                 for p in row["EVIDENCE_PATHS"]:
                     self.assertTrue((ROOT / p).is_file(), p)
 
+    def test_evidence_strings_match_each_pairs_own_facts(self):
+        """Fresh review of 4add2ca, finding 5: hardcoded strings told batch 2 it was routed as
+        MEASURE_ADDED_ACCEPTANCE with a DELTA_ADDED basis. Every string must match the pair."""
+        for batch in BATCHES:
+            cdoc = json.loads((batch / "case-map.json").read_text(encoding="utf-8"))
+            disc = json.loads((batch / cdoc.get("discovery", "discovery-governance.json"))
+                              .read_text(encoding="utf-8"))
+            pairs = {q["candidate_sha"]: q for q in disc["pairs"] if "base_sha" in q}
+            ledger = {r["CASE_ID"]: r for r in json.loads(
+                (batch / "ledger.json").read_text(encoding="utf-8"))["rows"]}
+            for rec in json.loads((batch / "classification.json").read_text(
+                    encoding="utf-8"))["records"]:
+                pair = pairs[rec["candidate_sha"]]
+                self.assertEqual(f"discovery disposition {pair['disposition']}",
+                                 rec["evidence"][0]["measured"], rec["corpus_case_id"])
+                m = json.loads((batch / "measurements" / f"{rec['candidate_sha'][:12]}.json")
+                               .read_text(encoding="utf-8"))
+                carried = ((m["facts"]["discriminating"] or [None])[0]
+                           if rec["class"] == "A_REPAIR" else
+                           (m["facts"]["biting"] or [None])[0]
+                           if rec["class"] == "B_REGRESSION_GUARD" else None)
+                note = rec["disclosures"]["acceptance_provenance_note"]
+                ext = ledger[rec["corpus_case_id"]]["ORACLE_EXTERNALIZATION"]
+                if carried is None:
+                    self.assertIn("no surface carries", note)
+                    continue
+                self.assertIn(f"{carried['path']} [{carried['provenance']}]", note)
+                if rec["class"] == "A_REPAIR":
+                    self.assertTrue(ext.startswith("REQUIRED_AT_FREEZE_V2"
+                                                   if carried["provenance"] == "DELTA_ADDED"
+                                                   else "FRAMEWORK_FROZEN"), rec["corpus_case_id"])
+
     # one record per stratum: A on an added oracle, A on a frozen oracle, B, C, A on a PR merge.
     # The full re-validation of every record is the reviewer command in admission/README.md.
     SAMPLE = ("r09-governance-seam-contract-partitions", "r24-governance-bootstrap-budget-repair-round-2",

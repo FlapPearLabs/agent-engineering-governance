@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.2", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.3", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -889,8 +889,8 @@ class MutationMaterialisation(unittest.TestCase):
         self._git(root, "commit", "-q", "--no-verify", "-m", message)
         return self._git(root, "rev-parse", "HEAD")
 
-    def _repo(self, base_files, cand_files):
-        root = self.tmp / "repo"
+    def _repo(self, base_files, cand_files, name: str = "repo"):
+        root = self.tmp / name
         root.mkdir()
         self._git(root, "init", "-q")
         base = self._commit(root, base_files, "base")
@@ -1066,6 +1066,137 @@ class MutationMaterialisation(unittest.TestCase):
         self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
                          self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
         self.assertEqual("FAIL", facts["candidate_oracle_status"])
+
+    # ---- fresh review of f2c48a0: findings 1, 2, 3, 5 -----------------------------------------
+    LINKS = (
+        "import re, unittest\n"
+        "from pathlib import Path\n"
+        "ROOT = Path(__file__).resolve().parents[2]\n"
+        "class Links(unittest.TestCase):\n"
+        "    def test_links_resolve(self):\n"
+        "        for target in re.findall(r'\\]\\(([^)]+)\\)', (ROOT / 'README.md').read_text()):\n"
+        "            self.assertTrue((ROOT / target).is_file(), target)\n")
+
+    def _budget(self, on_breach: str) -> str:
+        return ("import unittest\n"
+                "from pathlib import Path\n"
+                "ROOT = Path(__file__).resolve().parents[2]\n"
+                "class Budget(unittest.TestCase):\n"
+                "    def test_budget(self):\n"
+                "        if len((ROOT / 'pointer.md').read_bytes()) > 10:\n"
+                f"            {on_breach}\n")
+
+    def _guarded_repo(self, budget_on_breach: str, delete_budget: bool, grow: bool = True):
+        cand = {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n"}
+        if grow:
+            cand["pointer.md"] = "now far beyond its byte budget\n"
+        repo, base, c = self._repo(
+            {"scripts/tests/test_links.py": self.LINKS,
+             "scripts/tests/test_budget.py": self._budget(budget_on_breach),
+             "README.md": "start\n", "pointer.md": "short\n"}, cand)
+        if delete_budget:
+            root = repo.root
+            self._git(root, "rm", "-q", "scripts/tests/test_budget.py")
+            self._git(root, "commit", "-q", "--amend", "--no-edit", "--no-verify")
+            c = self._git(root, "rev-parse", "HEAD")
+        return repo, base, c
+
+    def test_a_guard_that_hangs_at_the_candidate_fails_closed(self):
+        """Finding 1: green at the base, TIMEOUT at the candidate. `regressed` needs a measured
+        verdict, so the hang was silently not a regression and B was supported."""
+        saved = self.mod.ACCEPTANCE_TIMEOUT
+        self.mod.ACCEPTANCE_TIMEOUT = 5
+        try:
+            repo, base, cand = self._guarded_repo("while True: pass", delete_budget=False)
+            facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        finally:
+            self.mod.ACCEPTANCE_TIMEOUT = saved
+        rc = {Path(e["path"]).name: (e["rc_base"], e["rc_cand"]) for e in facts["surfaces"]}
+        self.assertEqual((0, 124), rc["test_budget.py"])       # reachability: it really hung
+        self.assertTrue(facts["biting"])                        # and the link guard really bit
+        self.assertEqual((False, "CANDIDATE_GUARD_UNMEASURED"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+        self.assertEqual("UNMEASURED", facts["candidate_oracle_status"])
+
+    def test_a_guard_the_candidate_deletes_is_still_checked(self):
+        """Finding 2 (real case r29 / 5205e5b): the candidate deletes a base-green guard that its
+        own tree would fail. Deleted surfaces were never run, so the regression was invisible."""
+        repo, base, cand = self._guarded_repo("self.fail('over budget')", delete_budget=True)
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (deleted,) = facts["deleted_surfaces"]
+        self.assertEqual(("scripts/tests/test_budget.py", "DELTA_DELETED", 0, 1),
+                         (deleted["path"], deleted["provenance"], deleted["rc_base"],
+                          deleted["rc_cand"]))
+        self.assertTrue(facts["biting"])
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_deleted_guard_whose_property_still_holds_is_not_a_regression(self):
+        """Positive control for finding 2: deleting a guard the candidate would still pass is a
+        disclosed fact (DELTA_DELETED), not a regression; the link bite still supports B."""
+        repo, base, cand = self._guarded_repo("self.fail('over budget')", delete_budget=True,
+                                              grow=False)
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        (deleted,) = facts["deleted_surfaces"]
+        self.assertEqual((0, 0), (deleted["rc_base"], deleted["rc_cand"]))
+        self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_rewritten_non_ascii_validator_derives_its_trigger(self):
+        """Finding 5: without -z the path came back quoted and matched no name rule."""
+        repo, base, cand = self._repo(
+            {"scripts/validate_数据.py": "print(1)\n", "scripts/validate_plain.py": "print(1)\n"},
+            {"scripts/validate_数据.py": "print(2)\n", "scripts/validate_plain.py": "print(2)\n"})
+        changed = repo.changed_paths_with_status(base, cand)
+        self.assertEqual(sorted(["scripts/validate_数据.py", "scripts/validate_plain.py"]),
+                         sorted(self.mod.derived_triggers(changed)["WORKER_MODIFIES_VALIDATOR"]))
+
+    def _mutation_with(self, patch, name: str):
+        """Run _materialise_mutation with one git call perturbed; the postconditions must catch it."""
+        repo, base, cand = self._repo({"README.md": "a\n", "keep.md": "keep\n"},
+                                      {"docs/added.md": "added\n"}, name=name)
+        wt = self.tmp / f"mut-{name}"
+        self.assertEqual(0, repo.git("worktree", "add", "-q", "--detach", str(wt), cand).returncode)
+        real_run = self.mod.subprocess.run
+        self.mod.subprocess.run = patch(real_run)
+        try:
+            return self.mod._materialise_mutation(repo, cand, wt, ["docs/added.md"])
+        finally:
+            self.mod.subprocess.run = real_run
+
+    def test_mutation_postconditions_are_load_bearing(self):
+        """Finding 3: replacing the postconditions with `return True` survived the suite. Each
+        perturbation below must be refused by the postcondition that names it."""
+        def over_remove(real):                 # rm also deletes a pre-existing file
+            def run(cmd, *a, **k):
+                if "rm" in cmd and "--" in cmd:
+                    cmd = list(cmd) + ["keep.md"]
+                return real(cmd, *a, **k)
+            return run
+
+        def orphan(real):                      # the rewritten commit loses its parent
+            def run(cmd, *a, **k):
+                out = real(cmd, *a, **k)
+                if cmd[-2:-1] == ["commit"] and "cat-file" in cmd:
+                    out.stdout = b"\n".join(ln for ln in out.stdout.split(b"\n")
+                                            if not ln.startswith(b"parent "))
+                return out
+            return run
+
+        def identity(real):                    # control: no perturbation
+            return real
+        self.assertTrue(self._mutation_with(identity, "control"))
+        self.assertFalse(self._mutation_with(over_remove, "over"), "exact-diff postcondition is dead")
+        self.assertFalse(self._mutation_with(orphan, "orphan"), "parent-equality postcondition is dead")
+
+    def test_a_declared_unmeasured_status_is_refused(self):
+        """Finding 3: the closed vocabulary for B's optional candidate_oracle_status had no test."""
+        rec = guard_record()
+        rec["class_requirements"]["candidate_oracle_status"] = "UNMEASURED"
+        rc, out = run_validator(document(rec), self.tmp)
+        self.assertEqual(1, rc, out)
+        self.assertIn("candidate_oracle_status must be 'PASS' or 'FAIL' when declared", out)
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

@@ -2,8 +2,8 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.2  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.2 = defects raised by real
-                 admission candidates and the fresh review of 4add2ca, see §6.7)
+VERSION        = 2.8.3  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.3 = defects raised by real
+                 admission candidates and the fresh reviews of 4add2ca and f2c48a0, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -529,7 +529,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.2 — findings raised by real candidates)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.3 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -575,7 +575,26 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          f4eb503) into admission/corpus.yaml, pinned by H2_CORPUS_SHA256; the identity root is the
          union and a case id in both corpora fails closed (finding 4 of the same review: H3's
          loader had counted 24 H2 anchors as detector cases).
-REGRESSION  MutationMaterialisation (9 tests). Each new test fails against the revision it targets
+2.8.3 (fresh adversarial review of f2c48a0: two P2, three P3)
+  F-A7 P2  a base-green guard that HANGS (or is otherwise unmeasurable) at the candidate escaped
+         the regression rule: `regressed` needs a measured verdict, and B records do not declare
+         candidate_oracle_status, so UNMEASURED was never compared. 2.8.3 refuses B on it
+         (CANDIDATE_GUARD_UNMEASURED) — an unmeasured acceptance is never a pass.
+  F-A8 P2  acceptance surfaces the delta DELETES were never run (surfaces are discovered from the
+         candidate tree; derived_triggers skips status D), so deleting a green guard escaped the
+         regression rule. Real case: r29 (5205e5b) deletes test_experiment_v12_foundation.py,
+         whose base bytes FAIL against the candidate tree. 2.8.3 runs every base-only surface with
+         its base bytes against base and candidate (provenance DELTA_DELETED, reported in
+         facts.deleted_surfaces); green -> red counts as a regression. A deleted guard whose
+         property still holds at the candidate is a disclosed fact, not a regression.
+  F-A9 P3  Repo.changed_paths_with_status read `--name-status` without -z, so a rewritten
+         non-ASCII validator came back quoted and derived no trigger (same class as F-A1c).
+  P3     postconditions of _materialise_mutation now have a perturbation test (over-removal,
+         lost parent) that kills the `return True` mutants; the closed vocabulary has a record test.
+REGRESSION (2.8.3)  MutationMaterialisation (15 tests); the four new 2.8.3 tests fail against
+         f2c48a0 and pass against 2.8.3; the postcondition test fails against the two surviving
+         mutants the review exhibited.
+REGRESSION (2.8.2)  MutationMaterialisation (9 tests). Each new test fails against the revision it targets
          and passes against 2.8.2 (the HEAD-metadata test targets the synthetic-identity draft; the
          merge / HEAD^ / glob / other-guard tests fail against 4add2ca). GuardUnitChecks pins both
          corpora and the duplicate-id refusal. Real-pair before/after runs, including loading the

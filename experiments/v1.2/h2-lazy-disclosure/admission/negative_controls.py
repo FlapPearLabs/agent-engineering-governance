@@ -8,7 +8,7 @@ Two layers, both re-runnable from the repository alone:
             Every one must be refused.
   VERSIONS  the attack pairs run through recompute_transition()+transition_verdict() of earlier
             validator revisions, loaded straight from git (no edited copy): the parent of this
-            stage (f4eb503, 2.8.0) and the first admission commit (4add2ca). This is the layer the
+            stage (f4eb503, 2.8.0) and the admission commits 4add2ca (2.8.1) and f2c48a0 (2.8.2). This is the layer the
             defects lived in; the identity layer is version-independent and is exercised by
             RECORDS. An attack is demonstrated when an earlier revision SUPPORTS the class and the
             current one refuses it.
@@ -28,7 +28,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "negative-controls"
 VALIDATOR_REL = "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py"
-REVISIONS = ("f4eb50370f7edbad03451b73affc6db4bb379a92", "4add2ca2880c3f25ce5ca76f5ea882274d9461f3")
+REVISIONS = ("f4eb50370f7edbad03451b73affc6db4bb379a92", "4add2ca2880c3f25ce5ca76f5ea882274d9461f3",
+             "f2c48a05c737d1b4f625036af0ea3fd28094540e")
 B_REQ = {"baseline_oracle_status": "PASS", "mutation_oracle_status": "FAIL",
          "mutation_touches_target_predicate": True, "acceptance_surface_frozen": True,
          "validator_not_worker_controlled": True}
@@ -43,6 +44,8 @@ LAUNDERINGS = (
      "F-A3"),
     ("r26-as-B", "batch-2", "r26-governance-portable-adoption-exercise", "B_REGRESSION_GUARD",
      "F-A6"),
+    ("r29-as-B", "batch-2", "r29-governance-v12-experiment-shape-convergence",
+     "B_REGRESSION_GUARD", "F-A8"),
 )
 # (finding, base, candidate): pairs for the VERSIONS layer; the merge is PR #49 (not a corpus case)
 PAIRS = (
@@ -50,6 +53,7 @@ PAIRS = (
     ("F-A3 r23", "825d3902597655c90393100281260cbba8697c07"),
     ("F-A4 PR#49 merge", "6217cc0adcd6c064e8c74e670de6a081bdaba2f6"),
     ("F-A6 r26", "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba"),
+    ("F-A8 r29", "5205e5bd92317d9ad1ad53725dc14444f5201d32"),
 )
 
 

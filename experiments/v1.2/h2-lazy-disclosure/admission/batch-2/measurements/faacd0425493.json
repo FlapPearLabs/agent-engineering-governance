@@ -1,7 +1,7 @@
 {
  "base_sha": "2e3b3c5a8a57638b8f60958eeb8a0ae2d4a100a5",
  "candidate_sha": "faacd04254932a0286b2ae7ce5f09bc737ac10d4",
- "elapsed_s": 54.0,
+ "elapsed_s": 54.1,
  "facts": {
   "base": "2e3b3c5a8a57638b8f60958eeb8a0ae2d4a100a5",
   "candidate": "faacd04254932a0286b2ae7ce5f09bc737ac10d4",
@@ -200,10 +200,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 24,
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -228,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): correct the provenance of the external review findings"

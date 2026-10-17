@@ -1,7 +1,7 @@
 {
  "base_sha": "50a022f217022c254d00a465a907fa844e56a401",
  "candidate_sha": "07430d179138595497ddd8c20a934a93b46620b9",
- "elapsed_s": 16.6,
+ "elapsed_s": 16.8,
  "facts": {
   "base": "50a022f217022c254d00a465a907fa844e56a401",
   "candidate": "07430d179138595497ddd8c20a934a93b46620b9",
@@ -136,10 +136,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 16,
   "frozen_count": 15,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": true,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
    {
@@ -173,8 +175,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage5/lane-c): add the shared-file single-writer and final-readback recipe to ticket-lane (Issue #20)"

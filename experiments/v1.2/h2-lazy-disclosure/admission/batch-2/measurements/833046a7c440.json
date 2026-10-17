@@ -1,7 +1,7 @@
 {
  "base_sha": "200679649f1ff3fe78cad53fd1006b83ddf792aa",
  "candidate_sha": "833046a7c440a74925773d7b4fdadbf42c745c27",
- "elapsed_s": 36.0,
+ "elapsed_s": 36.2,
  "facts": {
   "base": "200679649f1ff3fe78cad53fd1006b83ddf792aa",
   "candidate": "833046a7c440a74925773d7b4fdadbf42c745c27",
@@ -192,10 +192,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 23,
   "frozen_count": 23,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -220,8 +222,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "docs(testing): define hermetic test engineering contract"

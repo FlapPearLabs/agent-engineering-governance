@@ -13,8 +13,9 @@ The failure it guards against is concrete and already measured twice in this rep
 
 WHAT IS RECOMPUTED HERE (never read from the record)
 ----------------------------------------------------
-  · IDENTITY: a record must name the replay-corpus case it classifies, and its revision pair must
-    EQUAL the pair `experiments/v1.2/replay/cases.yaml` binds to that case. Without this, a record
+  · IDENTITY: a record must name the corpus case it classifies, and its revision pair must EQUAL
+    the pair the pinned corpora bind to that case (`experiments/v1.2/replay/cases.yaml` and, since
+    2.8.2, `h2-lazy-disclosure/admission/corpus.yaml`; one case id per union). Without this, a record
     may borrow a real, local, ancestor-related revision pair from an unrelated case and assert any
     class it likes — the first fix round left exactly that hole open (demonstrated).
   · DERIVED TRIGGERS: the changed-file list of that pair is read from the object database, and
@@ -84,9 +85,9 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.2"
-# The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
-# repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
+SCHEMA_VERSION = "2.8.3"
+# The identity rule reads the replay corpora (below), and nothing else in this repository pins
+# them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
 # exactly as the material tests pin the freeze hashes — editing the corpus without updating
 # this constant (and the test that asserts it) fails the validator, in review.
@@ -146,21 +147,29 @@ class Repo:
         return self.git("merge-base", "--is-ancestor", base, candidate).returncode == 0
 
     def changed_paths(self, base: str, candidate: str):
-        r = self.git("diff", "--no-ext-diff", "--name-only", base, candidate, "--")
-        if r.returncode != 0:
-            return None
-        return [p for p in r.stdout.split() if p]
+        found = self.changed_paths_with_status(base, candidate)
+        return None if found is None else [p for _, p in found]
 
     def changed_paths_with_status(self, base: str, candidate: str):
-        """[(status, path)] for the pair; status is git's A / M / D / T / R / C."""
-        r = self.git("diff", "--no-ext-diff", "--name-status", base, candidate, "--")
+        """[(status, path)] for the pair; status is git's A / M / D / T / R / C.
+
+        Read with `-z`: without it git QUOTES a non-ASCII path ("scripts/validate_\\346...py"),
+        which matches no name rule, so a rewritten non-ASCII validator derived no trigger (fresh
+        review of f2c48a0, finding 5 — the same class as F-A1c). A rename/copy entry carries two
+        paths; the NEW one is reported, as before.
+        """
+        r = self.git("diff", "--no-ext-diff", "--name-status", "-z", base, candidate, "--")
         if r.returncode != 0:
             return None
-        out = []
-        for line in r.stdout.splitlines():
-            parts = line.split("\t")
-            if len(parts) >= 2:
-                out.append((parts[0], parts[-1]))
+        fields = r.stdout.split("\0")
+        out, i = [], 0
+        while i < len(fields) and fields[i]:
+            status = fields[i]
+            width = 2 if status[:1] in ("R", "C") else 1
+            if i + width >= len(fields):
+                return None                      # truncated record: fail closed
+            out.append((status, fields[i + width]))
+            i += 1 + width
         return out
 
 
@@ -529,6 +538,29 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
             facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
                                       "rc_base": rc_base, "rc_cand": rc_cand, "rc_mut": rc_mut})
 
+        # Acceptance surfaces the delta DELETES are not in the candidate tree, so the loop above
+        # never saw them — and derived_triggers() skips a deleted path. Deleting a green guard (or
+        # deleting it and re-adding a weaker copy elsewhere) was therefore invisible to the
+        # regression rule (fresh review of f2c48a0, finding 2; real case r29 / 5205e5b). Each one
+        # is run with its BASE bytes against the base tree and, carried in, the candidate tree.
+        cand_set = set(acceptance_surfaces(cand_wt))
+        facts["deleted_surfaces"] = []
+        for rel, kind in acceptance_surfaces(base_wt).items():
+            if rel in cand_set:
+                continue
+            rc_base = run_acceptance(base_wt, rel, kind, interpreter)
+            target = cand_wt / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(base_wt / rel, target)
+            try:
+                rc_cand = run_acceptance(cand_wt, rel, kind, interpreter)
+            finally:
+                target.unlink(missing_ok=True)
+            facts["deleted_surfaces"].append({"path": rel, "kind": kind,
+                                              "provenance": "DELTA_DELETED",
+                                              "rc_base": rc_base, "rc_cand": rc_cand,
+                                              "rc_mut": None})
+
         surfaces = facts["surfaces"]
         eligible = [e for e in surfaces if e["provenance"] != "DELTA_MODIFIED"]
         frozen = [e for e in surfaces if e["provenance"] == "DELTA_FROZEN"]
@@ -563,8 +595,14 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # introduced. A regression-guard task protects a correct state, so a candidate that breaks
         # any frozen guard — biting one or not — cannot be one (F-A6, fresh review of 4add2ca:
         # r26 / 95667e8 breaks t09 0/1/1 while a link guard bit).
-        regressed = [e for e in frozen if measured(e["rc_base"], e["rc_cand"])
+        guards = frozen + facts["deleted_surfaces"]
+        regressed = [e for e in guards if measured(e["rc_base"], e["rc_cand"])
                      and e["rc_base"] == 0 and e["rc_cand"] != 0]
+        # a base-green guard whose candidate verdict could not be measured (timeout / absent) is
+        # not a pass: B fails closed on it (fresh review of f2c48a0, finding 1)
+        guard_unmeasured = [e for e in guards if measured(e["rc_base"]) and e["rc_base"] == 0
+                            and not measured(e["rc_cand"])]
+        facts["guard_unmeasured"] = guard_unmeasured
         facts["unmeasured"] = unmeasured
         facts["discriminating"] = discriminating
         facts["biting"] = biting
@@ -578,8 +616,7 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
             # N2.1 P3-A still holds: an unmeasured rc (124/127) is not a FAIL.
             facts["candidate_oracle_status"] = (
                 "FAIL" if regressed
-                else "UNMEASURED" if any(measured(e["rc_base"]) and e["rc_base"] == 0
-                                         and not measured(e["rc_cand"]) for e in frozen)
+                else "UNMEASURED" if guard_unmeasured
                 else "PASS")
         else:
             facts["baseline_oracle_status"] = "FAIL" if discriminating else "PASS"
@@ -618,6 +655,8 @@ def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
             return False, "NO_FROZEN_ACCEPTANCE"
         if facts.get("regressed"):
             return False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+        if facts.get("guard_unmeasured"):
+            return False, "CANDIDATE_GUARD_UNMEASURED"
         if not facts["biting"]:
             return False, "MUTATION_DOES_NOT_BITE"
         return True, "PASS_TO_FAIL_UNDER_MUTATION"

@@ -1,9 +1,10 @@
 {
  "program": "admission/discover.py",
- "schema_version_consulted": "2.8.0",
+ "schema_version_consulted": "2.8.3",
  "repository_remote": "https://github.com/FlapPearLabs/agent-engineering-governance.git",
- "ref": "origin/main",
+ "ref": "5ab500e5478b671f43df80a78730ca172da6cf2b",
  "ref_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+ "mode": "non-merge commits",
  "pairs_total": 200,
  "funnel": {
   "DEFERRED_FROZEN_BASIS_SCAN": 83,

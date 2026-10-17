@@ -1,7 +1,7 @@
 {
  "base_sha": "e66ad217329d70e9406fb607d7c4ddc362163aef",
  "candidate_sha": "11a46e0db8b6a41de4db564c0c5473867232287f",
- "elapsed_s": 54.3,
+ "elapsed_s": 49.8,
  "facts": {
   "base": "e66ad217329d70e9406fb607d7c4ddc362163aef",
   "candidate": "11a46e0db8b6a41de4db564c0c5473867232287f",
@@ -200,10 +200,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 24,
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -228,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): H3-B batch 1 — 7 live observations on real tickets (no unique value observed)"

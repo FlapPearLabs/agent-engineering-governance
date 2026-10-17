@@ -2,15 +2,15 @@
  "summary": {
   "validator_run": "PASS",
   "records": 8,
-  "schema_v2_valid_requests": 6,
+  "schema_v2_valid_requests": 5,
   "executions_disagree": 0,
   "valid_by_oracle_kind": {
    "DOC_TEXT": 2,
-   "GUARD:LINK_INTEGRITY": 4
+   "GUARD:LINK_INTEGRITY": 3
   },
   "valid_by_family": {
    "P1_TICKET_DOC_RECIPE": 0,
-   "INDIVIDUAL": 6
+   "INDIVIDUAL": 5
   }
  },
  "rows": [
@@ -41,6 +41,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
    "REJECTION_REASON": [
     "NO_DISCRIMINATING_ACCEPTANCE"
@@ -85,6 +86,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
    "REJECTION_REASON": null,
    "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
@@ -125,6 +127,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,
    "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
@@ -191,6 +194,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
    "REJECTION_REASON": [
     "NO_DISCRIMINATING_ACCEPTANCE"
@@ -234,6 +238,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
    "REJECTION_REASON": null,
    "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
@@ -321,6 +326,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,
    "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
@@ -351,14 +357,14 @@
    "TASK_DESCRIPTION": "experiment(v1.2): converge experiment shape; fix metrics semantics and seed-corpus wording",
    "BASE_SHA": "a90fb637928220396cad48d10783f9692aa70cb8",
    "CANDIDATE_SHA": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
-   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "TASK_CLASS": "C_REJECT",
    "FROZEN_ACCEPTANCE_DEFINITION": null,
    "BASE_RESULT": "no basis",
    "CANDIDATE_RESULT": "no basis",
-   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "MUTATION_RESULT": "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
    "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
    "ORACLE_LOCATION": null,
-   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
+   "ORACLE_EXTERNALIZATION": "N/A",
    "WORKER_SCOPE": [
     "experiments/v1.2/README.md",
     "experiments/v1.2/cases.yaml",
@@ -373,26 +379,24 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
-   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
-   "REJECTION_REASON": null,
-   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
-   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "DELETED_ACCEPTANCE_SURFACES": [
+    {
+     "path": "scripts/tests/test_experiment_v12_foundation.py",
+     "rc_base": 0,
+     "rc_cand": 1
+    }
+   ],
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "BASE_EQUALS_CANDIDATE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
    "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
-   "OBSERVATION_GUARD_CHECKS": {
-    "scripts/validate_governance.py": [
-     "markdown-links-resolve"
-    ],
-    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
-     "test_consumer_accepts_the_real_structured_pass_run",
-     "test_gitignored_local_profile_stays_out_of_candidate_surface",
-     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
-     "test_malformed_result_is_never_accepted"
-    ]
-   },
+   "OBSERVATION_GUARD_CHECKS": null,
    "EVIDENCE_PATHS": [
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/5205e5bd9231.json",
-    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
    ]
@@ -423,6 +427,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,
    "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",

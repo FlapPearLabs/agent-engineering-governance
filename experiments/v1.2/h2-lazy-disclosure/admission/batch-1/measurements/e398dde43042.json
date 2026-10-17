@@ -1,7 +1,7 @@
 {
  "base_sha": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
  "candidate_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
- "elapsed_s": 8.3,
+ "elapsed_s": 8.4,
  "facts": {
   "base": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
   "candidate": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
@@ -64,10 +64,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 7,
   "frozen_count": 6,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": true,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
    {
@@ -101,8 +103,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage2/lane-a): P1-T02 pre-ticket identification record (execution-stage.md §6.6)"

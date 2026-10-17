@@ -7,10 +7,12 @@
   "candidate": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
   "class": "A_REPAIR",
   "surfaces": [],
+  "deleted_surfaces": [],
   "acceptance_count": 0,
   "frozen_count": 0,
   "acceptance_surface_frozen": false,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -35,8 +37,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(governance): candidate global AGENTS.md + RULES.md + six canonical references"

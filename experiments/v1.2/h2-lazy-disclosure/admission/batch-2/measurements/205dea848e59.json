@@ -1,7 +1,7 @@
 {
  "base_sha": "a7f9e7c1fb2b868ffae9627825c9d1953b36956d",
  "candidate_sha": "205dea848e5918c06f24991b389a19ccb2d3fb60",
- "elapsed_s": 52.7,
+ "elapsed_s": 49.9,
  "facts": {
   "base": "a7f9e7c1fb2b868ffae9627825c9d1953b36956d",
   "candidate": "205dea848e5918c06f24991b389a19ccb2d3fb60",
@@ -200,10 +200,12 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [],
   "acceptance_count": 24,
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
@@ -228,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "noop"

@@ -137,6 +137,10 @@ def main(argv: list[str]) -> int:
             "VALIDATOR_IN_WORKER_SCOPE": [x for x in worker_scope
                                           if re.search(r"(^|/)(validate|check)_[^/]*\.(py|sh)$", x)],
             "DERIVED_TRIGGERS": p["derived_triggers"],
+            # acceptance surfaces the delta deletes, with their base bytes run at base/candidate
+            "DELETED_ACCEPTANCE_SURFACES": [
+                {"path": e["path"], "rc_base": e["rc_base"], "rc_cand": e["rc_cand"]}
+                for e in facts.get("deleted_surfaces", [])],
             "SCHEMA_V2_RESULT": result,
             "REJECTION_REASON": (rec["round_admission"].get("reason_codes")
                                  if rec["round_admission"]["verdict"] != "REQUEST_VALID" else None),

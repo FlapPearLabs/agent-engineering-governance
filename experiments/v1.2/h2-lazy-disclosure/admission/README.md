@@ -45,7 +45,7 @@ for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (111) was produced by validator **2.8.2** — `environment.validator_sha256`
+Every measurement file (111) was produced by validator **2.8.3** — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited.
 
@@ -64,21 +64,21 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.2; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.3; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
 batch 1 (commits)       17      15       2              0
-batch 2 (frozen scan)    8       6       2              0      (75 pairs: no transition, no record)
+batch 2 (frozen scan)    8       5       3              0      (75 pairs: no transition, no record)
 batch 3 (PR merges)      3       3       0              0      (8 pairs: no transition, no record)
-TOTAL                   28      24       4              0
+TOTAL                   28      23       5              0
 ```
 
 Records are made for every pair whose measured transition supports a class, plus the rejections
-that are named examples (r08, r11 batch 1; r23, r26 batch 2). Per-candidate fields CASE_ID …
+that are named examples (r08, r11 batch 1; r23, r26, r29 batch 2). Per-candidate fields CASE_ID …
 EVIDENCE_PATHS are in each `ledger.json`.
 
-### 3.1 What the 24 valid requests are (observations for Freeze v2, not verdicts)
+### 3.1 What the 23 valid requests are (observations for Freeze v2, not verdicts)
 
 ```text
 A_REPAIR, DELTA_ADDED oracle     16   the historical delta authored its oracle
@@ -90,8 +90,11 @@ A_REPAIR, DELTA_ADDED oracle     16   the historical delta authored its oracle
 A_REPAIR, FRAMEWORK_FROZEN oracle 2  r24 (4505fae) repairs the t09 byte-budget regression that its
                   parent 825d390 introduced ("repair round 2" of a review cycle); r27 (7cadc9c)
                   restores t09 after 95667e8 broke it. Oracle test_p1_t09_bootstrap_byte_budget.py
-                  is byte-identical at both revisions; the worker's delta is one doc file.
-B_REGRESSION_GUARD                6   r25 r28 r29 r30 (commits), r32 r33 (PR #40, #41): EVERY bite is
+                  is byte-identical at both revisions. r24's delta is two doc files and restores
+                  a contract (OWNER self-naming); r27's is a byte-exact one-line REVERT of
+                  95667e8, and its oracle fails at the base only on exact length pins (1686 vs
+                  1696, 1144 vs 1170 chars) — a much weaker task than r24.
+B_REGRESSION_GUARD                5   r25 r28 r30 (commits), r32 r33 (PR #40, #41): EVERY bite is
                   validate_governance.py `markdown-links-resolve` (test_p1_t16 fails because it
                   runs that validator in a scratch copy). Real but SHALLOW: removing the added doc
                   leaves a dangling link; nothing about the doc's content is checked.
@@ -103,9 +106,12 @@ OVERLAP    r31 (PR #1) contains r07's commit 295ce65; r33 (PR #41) contains r30'
            Different task identities, correlated content (FZ-ADM-8).
 REJECTED   r08, r11  BASE_EQUALS_CANDIDATE (the added acceptance does not move)
            r23, r26  CANDIDATE_REGRESSES_A_FROZEN_GUARD (each breaks t09; F-A3 / F-A6)
+           r29       CANDIDATE_REGRESSES_A_FROZEN_GUARD via a DELETED guard: it removes
+                     test_experiment_v12_foundation.py, whose base bytes fail against the
+                     candidate (F-A8); the only pair of the 111 that deletes an acceptance surface
 ```
 
-## 4. Findings raised by real candidates and by the fresh review of 4add2ca
+## 4. Findings raised by real candidates and by the fresh reviews of 4add2ca and f2c48a0
 
 Each: fact → reproducer → severity → minimal fix → red-before/green-after test. The version-level
 before/after for every one is in `negative-controls/report.txt` (earlier validators loaded from
@@ -128,6 +134,16 @@ H3    P2  4add2ca (fresh review) anchors appended to H3's replay corpus changed 
                  separate pinned admission/corpus.yaml; H3's file restored byte-identical.
 EVID  P2  4add2ca (fresh review) hardcoded evidence/disclosure/externalisation strings were wrong for
                  batch 2 (said MEASURE_ADDED_ACCEPTANCE / DELTA_ADDED). Fix: derived per pair.
+F-A7  P2  2.8.2  (review of f2c48a0) a guard that HANGS at the candidate (rc 124) escaped the
+                 regression rule; B records never declare the status that would have caught it.
+                 Fix: B refused on any base-green guard unmeasured at the candidate.
+F-A8  P2  2.8.2  (review of f2c48a0) surfaces the delta DELETES were never run; r29 deletes a guard
+                 its candidate fails. Fix: base-only surfaces run with base bytes (DELTA_DELETED).
+F-A9  P3  2.8.2  (review of f2c48a0) name-status read without -z: a non-ASCII rewritten validator
+                 derived no trigger. Fix: -z parsing (discovery routing unchanged, re-verified).
+P3    2.8.2      (review of f2c48a0) postconditions had no test (mutants survived) -> perturbation
+                 test; EVID fix had no regression test -> test_evidence_strings_match_each_pairs_own_facts;
+                 stale docstrings; discovery files regenerated under 2.8.3 (routing identical).
 F-A2  P3  latent the validator reads exit codes only; an all-skipped unittest module would read as
                  PASS. Not observed (0 skips on every basis); probe_basis.py records it per record.
 N2.1 P3-A / P3-B closed (eligibility-schema-v2.md §6.7).
@@ -143,9 +159,10 @@ FZ-ADM-1 TASK_TEXT <-> ORACLE ALIGNMENT  DOC_TEXT oracles check specific marker 
          locates the recipe by (`### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）`) does
          not. Freeze v2 must derive each task text from its ticket and check that every literal the
          oracle requires is derivable — or not select the task.
-FZ-ADM-2 STRATA  8/16 DELTA_ADDED A requests are one doc-recipe family; all 6 B requests are one
-         shallow guard kind. Selection must be stratified; BEHAVIORAL 3 + FRAMEWORK_FROZEN 2 is
-         the strongest subset today (5).
+FZ-ADM-2 STRATA  8/16 DELTA_ADDED A requests are one doc-recipe family; all 5 B requests are one
+         shallow guard kind; r27 is a revert pinned by exact lengths. Selection must be
+         stratified; the strongest subset today is BEHAVIORAL 3 + r24 = 4, i.e. FEWER than the
+         6 the protocol requires without the doc family or the B shape.
 FZ-ADM-3 DELIVERY ANCHORS (schema §6.4)  pre-/post-delivery acceptance not measured for any request.
 FZ-ADM-4 PER-BASE ROUTE PRECONDITIONS (protocol §10)  request bases are not P6's six bases.
 FZ-ADM-5 ORACLE PLACEMENT  DELTA_ADDED bases: the harness must place the frozen candidate blob
@@ -158,13 +175,16 @@ FZ-ADM-7 CROSS-REPOSITORY CANDIDATES  zhihu-grabber-toolkit, workbuddy-toolkit, 
          repair history, but Schema v2 validates only pairs in this object database and the H2
          round / routes / delivery are governance-scoped (r01: ROUND_SCOPE_DECISION).
 FZ-ADM-8 OVERLAP  never select both r31 and r07, or both r33 and r30.
+FZ-ADM-9 DELETED ACCEPTANCE  any admitted task must show an empty DELETED_ACCEPTANCE_SURFACES in
+         the ledger, or Freeze v2 must justify the deletion.
 ```
 
 ## 6. Status of the admission count
 
 ```text
-SCHEMA_V2_VALID_REQUESTS 24   >= 6 required by the H2 protocol: the COUNT is met by Schema v2.
-GOOD H2 TASKS            NOT YET SHOWN — FZ-ADM-1..5 and 8 are open.
+SCHEMA_V2_VALID_REQUESTS 23   >= 6 required by the H2 protocol: the COUNT is met by Schema v2.
+GOOD H2 TASKS            NOT YET SHOWN — FZ-ADM-1..5, 8, 9 are open; the strongest stratum alone
+                         is 4 (FZ-ADM-2).
 FURTHER SEARCH HERE      not useful: every non-merge and merge pair of main was routed and every
                          routable pair executed. More strong tasks need FZ-ADM-6 (new identities
                          with externally frozen oracles) or FZ-ADM-7 (a round-scope decision).

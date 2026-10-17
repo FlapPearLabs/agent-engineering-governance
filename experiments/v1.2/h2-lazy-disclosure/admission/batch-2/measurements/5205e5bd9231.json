@@ -1,7 +1,7 @@
 {
  "base_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
  "candidate_sha": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
- "elapsed_s": 47.8,
+ "elapsed_s": 47.4,
  "facts": {
   "base": "a90fb637928220396cad48d10783f9692aa70cb8",
   "candidate": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
@@ -200,10 +200,21 @@
     "rc_mut": 0
    }
   ],
+  "deleted_surfaces": [
+   {
+    "path": "scripts/tests/test_experiment_v12_foundation.py",
+    "kind": "TEST",
+    "provenance": "DELTA_DELETED",
+    "rc_base": 0,
+    "rc_cand": 1,
+    "rc_mut": null
+   }
+  ],
   "acceptance_count": 24,
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
   "biting": [
@@ -224,7 +235,16 @@
     "rc_mut": 1
    }
   ],
-  "regressed": [],
+  "regressed": [
+   {
+    "path": "scripts/tests/test_experiment_v12_foundation.py",
+    "kind": "TEST",
+    "provenance": "DELTA_DELETED",
+    "rc_base": 0,
+    "rc_cand": 1,
+    "rc_mut": null
+   }
+  ],
   "baseline_oracle_status": "PASS",
   "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "FAIL",
@@ -236,8 +256,8 @@
    "reason": "BASE_EQUALS_CANDIDATE"
   },
   "B_REGRESSION_GUARD": {
-   "supported": true,
-   "reason": "PASS_TO_FAIL_UNDER_MUTATION"
+   "supported": false,
+   "reason": "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
   }
  },
  "environment": {
@@ -245,8 +265,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.2",
-  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "schema_version": "2.8.3",
+  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): converge experiment shape; fix metrics semantics and seed-corpus wording"

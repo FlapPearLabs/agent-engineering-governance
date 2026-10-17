@@ -1,4 +1,4 @@
-NEGATIVE CONTROLS — current validator 2.8.2
+NEGATIVE CONTROLS — current validator 2.8.3
 
 [RECORDS] r08-as-A (control) rc=1 REFUSED
       ERROR r08-governance-project-continuity-contract: declared baseline_oracle_status='FAIL' but the acceptance recomputed 'PASS' over 2 surface(s) at f40525bd9f37 and af4df6ae7063
@@ -18,18 +18,29 @@ NEGATIVE CONTROLS — current validator 2.8.2
 [RECORDS] r26-as-B (F-A6) rc=1 REFUSED
       ERROR r26-governance-portable-adoption-exercise: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0; scripts/tests/test_fixture_identity_hygiene.py [DELTA_FROZEN] base=0 cand=0
     TASK_CLASS_VERDICT = FAIL records=1 errors=1
+[RECORDS] r29-as-B (F-A8) rc=1 REFUSED
+      ERROR r29-governance-v12-experiment-shape-convergence: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0; scripts/tests/test_fixture_identity_hygiene.py [DELTA_FROZEN] base=0 cand=0
+    TASK_CLASS_VERDICT = FAIL records=1 errors=1
 
 [VERSIONS] F-A1 r22           f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
 [VERSIONS] F-A1 r22           4add2ca  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
+[VERSIONS] F-A1 r22           f2c48a0  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
 [VERSIONS] F-A1 r22           current  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
 [VERSIONS] F-A3 r23           f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('test_p1_t09_bootstrap_byte_budget.py', 0, 1, 1)]
 [VERSIONS] F-A3 r23           4add2ca  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
+[VERSIONS] F-A3 r23           f2c48a0  B=(False, 'CANDIDATE_REGRESSES_A_FROZEN_GUARD') biting=[]
 [VERSIONS] F-A3 r23           current  B=(False, 'CANDIDATE_REGRESSES_A_FROZEN_GUARD') biting=[]
 [VERSIONS] F-A4 PR#49 merge   f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
 [VERSIONS] F-A4 PR#49 merge   4add2ca  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1)]
+[VERSIONS] F-A4 PR#49 merge   f2c48a0  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
 [VERSIONS] F-A4 PR#49 merge   current  B=(False, 'MUTATION_DOES_NOT_BITE') biting=[]
 [VERSIONS] F-A6 r26           f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t09_bootstrap_byte_budget.py', 0, 1, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
 [VERSIONS] F-A6 r26           4add2ca  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
+[VERSIONS] F-A6 r26           f2c48a0  B=(False, 'CANDIDATE_REGRESSES_A_FROZEN_GUARD') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
 [VERSIONS] F-A6 r26           current  B=(False, 'CANDIDATE_REGRESSES_A_FROZEN_GUARD') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
+[VERSIONS] F-A8 r29           f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
+[VERSIONS] F-A8 r29           4add2ca  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
+[VERSIONS] F-A8 r29           f2c48a0  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
+[VERSIONS] F-A8 r29           current  B=(False, 'CANDIDATE_REGRESSES_A_FROZEN_GUARD') biting=[('validate_governance.py', 0, 0, 1), ('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]
 
 NEGATIVE_CONTROLS = ALL_REFUSED_BY_CURRENT
