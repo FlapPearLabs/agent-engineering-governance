@@ -45,7 +45,7 @@ for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (111) was produced by validator **2.8.6** — `environment.validator_sha256`
+Every measurement file (111) was produced by validator **2.8.7** — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
 and fail CLOSED (WORKTREE_MATERIALISATION_FAILED) — re-run that pair serially; it is never a pass.
@@ -65,7 +65,7 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.6; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.7; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
@@ -112,7 +112,7 @@ REJECTED   r08, r11  BASE_EQUALS_CANDIDATE (the added acceptance does not move)
                      candidate (F-A8); the only pair of the 111 that deletes an acceptance surface
 ```
 
-## 4. Findings raised by real candidates and by the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81, 72f0bb4
+## 4. Findings raised by real candidates and by the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81, 72f0bb4, 617ba01
 
 Each: fact → reproducer → severity → minimal fix → red-before/green-after test. The version-level
 before/after for every one is in `negative-controls/report.txt` (earlier validators loaded from
@@ -164,6 +164,11 @@ F-A14 P1  <=2.8.5 (review of 72f0bb4; pre-dates this stage) one surface rewrote 
                  runs (identity was checked once, in a shared tree). Fix: every run starts from a
                  tree reset to its pinned revision, carries blobs from the object database and
                  re-verifies identity.
+F-A15 P2  2.8.6    (review of 617ba01; a regression of the F-A14 fix) the per-run carry dropped the
+                 tracked file mode. Fix: (blob, mode) carried and verified.
+BOUNDARY         the review of 617ba01 assessed the stated execution boundary (schema §6.6) as sound
+                 for this pre-freeze gate; its precondition — inputs are the project's own history,
+                 not worker deltas — binds Freeze v2.
 KNOWN P3         overlapping identity defences are not individually tested (single-check mutants can
                  survive); a mode-only change derives a trigger (conservative); the installed-package
                  half of the shadow test depends on the interpreter's site-packages. Discovery

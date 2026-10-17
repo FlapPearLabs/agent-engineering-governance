@@ -1,7 +1,7 @@
 {
  "base_sha": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
  "candidate_sha": "2a1a4e78ed5f1597921251ccd2aea469f252f684",
- "elapsed_s": 81.0,
+ "elapsed_s": 81.5,
  "facts": {
   "base": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
   "candidate": "2a1a4e78ed5f1597921251ccd2aea469f252f684",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.6",
-  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
+  "schema_version": "2.8.7",
+  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
   "acceptance_timeout_s": 300
  },
  "subject": "experiments(v1.2): guard v3 — OS temp roots, whitespace trim, absolute-root requirement"

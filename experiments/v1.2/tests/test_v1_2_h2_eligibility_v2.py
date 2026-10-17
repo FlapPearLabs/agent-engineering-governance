@@ -29,6 +29,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -140,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.6", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.7", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1401,12 +1402,18 @@ class MutationMaterialisation(unittest.TestCase):
         only. Each path below decides what an acceptance imports; each must derive the trigger,
         whether ADDED or REWRITTEN, and an ordinary new module must not."""
         shaped = ["scripts/tests/zz_helpers/__init__.py", "unittest.py", "json.py",
-                  "scripts/json.pyc", "scripts/tests/__pycache__/test_budget.cpython-313.pyc",
+                  "scripts/json.pyc", "json.pyc", "pkg/__init__.pyc", "scripts/__init__.py",
+                  "scripts/_json.cpython-313-darwin.so",
                   "scripts/pip.py"]            # pip: importable but NOT stdlib (find_spec half)
         changed = [("A", p) for p in shaped] + [("M", "scripts/os.py"),
                                                  ("A", "scripts/review_evidence_like.py"),
                                                  ("A", "scripts/tests/helper_like.py"),
                                                  ("A", "setup.py"),
+                                                 # inert or not imported (review of 617ba01)
+                                                 ("A", "scripts/tests/__init__.py"),
+                                                 ("A", "scripts/__main__.py"),
+                                                 ("A", "scripts/tests/__pycache__/"
+                                                       "test_budget.cpython-313.pyc"),
                                                  # real history: bytecode off any import path
                                                  ("A", "adapters/zcode/tests/__pycache__/"
                                                        "test_project_continuity.cpython-312.pyc")]
@@ -1473,6 +1480,70 @@ class MutationMaterialisation(unittest.TestCase):
         facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
         self.assertNotIn("error", facts, facts)
         self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    # ---- fresh review of 617ba01: findings 1 and 6 ---------------------------------------------
+    def test_a_carried_surface_keeps_its_tracked_mode(self):
+        """Finding 1 (a 2.8.6 regression): the carried blob landed as 0644, so a mode-checking
+        acceptance read FAIL at the base and FAIL->PASS was reported for a pair that repairs
+        nothing (2.8.5 measured it correctly)."""
+        modes = ("import os, unittest\nfrom pathlib import Path\n"
+                 "ROOT = Path(__file__).resolve().parents[2]\n"
+                 "class Modes(unittest.TestCase):\n"
+                 "    def test_shebang_scripts_are_executable(self):\n"
+                 "        for p in (ROOT / 'scripts').rglob('*.py'):\n"
+                 "            if p.read_text().startswith('#!'):\n"
+                 "                self.assertTrue(os.access(p, os.X_OK), p)\n")
+        root = self.tmp / "modes"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        (root / "scripts").mkdir()
+        (root / "scripts/tool.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        os.chmod(root / "scripts/tool.py", 0o755)
+        self._git(root, "add", "-A")
+        self._git(root, "commit", "-q", "--no-verify", "-m", "base")
+        base = self._git(root, "rev-parse", "HEAD")
+        (root / "scripts/tests").mkdir()
+        (root / "scripts/tests/test_modes.py").write_text("#!/usr/bin/env python3\n" + modes,
+                                                          encoding="utf-8")
+        os.chmod(root / "scripts/tests/test_modes.py", 0o755)
+        self._git(root, "add", "-A")
+        self._git(root, "commit", "-q", "--no-verify", "-m", "candidate")
+        cand = self._git(root, "rev-parse", "HEAD")
+        facts = self.mod.recompute_transition(self.mod.Repo(root), base, cand, "A_REPAIR")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual(("DELTA_ADDED", 0, 0), (surface["provenance"], surface["rc_base"],
+                                                 surface["rc_cand"]))
+        self.assertEqual((False, "BASE_EQUALS_CANDIDATE"),
+                         self.mod.transition_verdict("A_REPAIR", facts))
+
+    def test_an_untracked_file_from_one_run_never_reaches_the_next(self):
+        """Finding 6 (mutant `no_clean` survived): an ADDED test leaves an untracked override that
+        a FROZEN guard honours; without `git clean` the candidate's regression stays hidden."""
+        budget = ("import unittest\nfrom pathlib import Path\n"
+                  "ROOT = Path(__file__).resolve().parents[2]\n"
+                  "class Budget(unittest.TestCase):\n"
+                  "    def test_budget(self):\n"
+                  "        if (ROOT / 'budget.override').exists():\n"
+                  "            return\n"
+                  "        self.assertLessEqual(len((ROOT / 'pointer.md').read_bytes()), 10)\n")
+        writer = ("import unittest\nfrom pathlib import Path\n"
+                  "ROOT = Path(__file__).resolve().parents[2]\n"
+                  "class Aaa(unittest.TestCase):\n"
+                  "    def test_writes(self):\n"
+                  "        (ROOT / 'budget.override').write_text('x')\n")
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_links.py": self.LINKS, "scripts/tests/test_budget.py": budget,
+             "README.md": "start\n", "pointer.md": "short\n"},
+            {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+             "pointer.md": "now far beyond its byte budget\n",
+             "scripts/tests/test_aaa_writer.py": writer}, name="carryover")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        rc = {Path(e["path"]).name: (e["rc_base"], e["rc_cand"]) for e in facts["surfaces"]}
+        self.assertEqual((0, 1), rc["test_budget.py"])
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
                          self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):

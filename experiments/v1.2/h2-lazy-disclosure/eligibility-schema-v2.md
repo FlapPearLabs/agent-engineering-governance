@@ -2,9 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.6  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.6 = defects raised by real
+VERSION        = 2.8.7  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.7 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
-                 72f0bb4, see §6.7)
+                 72f0bb4, 617ba01, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -513,10 +513,15 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     database, the validator itself), or that subverts the interpreter from a path no acceptance is
     expected to import, can defeat any in-process check. The defence against a deliberately hostile
     pair is the identity root, not the execution: a case enters a corpus only through a
-    review-visible edit of two pinned files, and must be a real, main-reachable commit pair whose
-    diff the reviewer reads. A finding of the form "a crafted pair can escape the run" is a
-    statement about this boundary; it becomes a defect when it changes a verdict on a real pair
-    or on an artefact a real pair can produce without intent;
+    review-visible edit of three files (the corpus, the validator's digest literal, the test's
+    per-case pair literal), and every LOCAL case must be a first-parent pair on the pinned main —
+    checked mechanically by test_v1_2_h2_admission.CorpusPairsAreMainHistory since 2.8.7. A finding
+    of the form "a crafted pair can escape the run" is a statement about this boundary; it becomes
+    a defect when it changes a verdict on a real pair or on an artefact a real pair can produce
+    without intent (as 2.8.7's carried-mode fix did). PRECONDITION: the boundary assumes the inputs
+    are the project's own historical pairs. If Freeze v2 (or any later stage) runs this program on
+    WORKER-produced deltas, hostile-by-construction input is expected and the boundary must be
+    re-decided before that use;
   · (2.7.0 said the lifecycle statuses were "never recomputed". That stopped being true in 2.8.0:
     they are recomputed by execution, and a declared value that disagrees is an error. What is
     STILL not recomputed is whether the acceptance's own semantics are sound — a DELTA_ADDED
@@ -564,7 +569,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.6 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.7 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -645,7 +650,8 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          under FRAMEWORK_FROZEN authority, and a shadow hid a B regression. 2.8.5 derives
          ACCEPTANCE_SURFACE_IN_WORKER_SCOPE for any added or rewritten module there whose top-level
          name is importable (shadowed_module). The installed-package half of that test depends on
-         the validator's environment (stated; the stdlib half does not).
+         the validator's environment (stated; so does the stdlib half across Python minor
+         versions — corrected in 2.8.7).
   F-A12 P2 a candidate-edited .gitattributes (working-tree-encoding) rewrote the bytes a
          "DELTA_FROZEN" guard executes at both revisions, so its regression never registered.
          2.8.5 requires every surface's checked-out bytes to hash, unfiltered, to its tracked blob
@@ -660,8 +666,8 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
   F-A13 P1 F-A11 was fixed for one shape only. A root-level module (`python -m unittest` puts cwd
          first), a package under scripts/tests (discovery imports it), a sourceless .pyc and a
          committed __pycache__ entry each still flipped a FROZEN oracle with no trigger. 2.8.6
-         derives the trigger for the class (shadow_paths: BYTECODE anywhere; any __init__.py under
-         scripts/tests; a top-level <n>.py / <n>.so|.pyd / <n>/__init__.py on ANY import root whose
+         derives the trigger for the class (shadow_paths: BYTECODE on acceptance import paths; an
+         __init__.py below scripts/tests (2.8.7: strictly below); a top-level <n>.py / <n>.so|.pyd / <n>/__init__.py on ANY import root whose
          name an isolated interpreter can import) and runs every acceptance with a fresh, empty
          PYTHONPYCACHEPREFIX so committed bytecode is never read.
   F-A14 P1 identity was checked ONCE, before execution, and every surface ran in the same mutable
@@ -673,6 +679,24 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          checkouts are byte-neutral (core.autocrlf=false, core.eol=lf); stale "cannot neuter" and
          "what executes is the tracked blob" statements corrected. Known, not fixed: several
          identity checks overlap (per-tree, length), so single-check mutants can survive.
+2.8.7 (fresh adversarial review of 617ba01: one P2, six P3; the reviewer assessed the execution
+       boundary as SOUND for this pre-freeze gate, with the three conditions now written above)
+  F-A15 P2 a 2.8.6 REGRESSION inside the boundary: the per-run carry wrote the blob with the umask
+         mode, so a carried 100755 surface landed as 0644 and a mode-checking acceptance reported
+         FAIL->PASS for a pair that repairs nothing. 2.8.7 carries (blob, mode), compares the
+         executable bit in the identity check, and a mode change is DELTA_MODIFIED.
+  P3     shadow rules scoped to what really imports: scripts/tests/__init__.py (the start dir's
+         own) and __pycache__/ (inert under the fresh prefix; real history commits some) no longer
+         flagged, __main__ ignored, scripts/__init__.py flagged (it makes the `scripts` namespace
+         frozen tests import a regular package); acceptances run with -s and without PYTHONPATH /
+         PYTHONHOME / startup hooks, i.e. from the same places the isolated lookup resolves;
+         main-reachability of every local corpus case is a test; tests kill no_clean, no-chmod,
+         no-.so and scripts-only-bytecode mutants. Recorded, not fixed: the stdlib name set itself
+         differs between Python minor versions (measurements record python_version), a root-level
+         `scripts.py` is not flagged (crafted shape), and an __init__.py under a non-package
+         directory below scripts/tests is over-refused (fail-closed).
+REGRESSION (2.8.7)  MutationMaterialisation (30 tests); the mode test fails against b0c7529; the
+         carry-over test kills no_clean.
 REGRESSION (2.8.6)  MutationMaterialisation (28 tests); the four 2.8.6 tests fail against 72f0bb4;
          mutants (no pycache prefix, no per-run reset, shadow rule on A only, no find_spec half,
          non-neutral checkout) each fail a test.

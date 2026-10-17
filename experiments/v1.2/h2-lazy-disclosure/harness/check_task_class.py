@@ -87,7 +87,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.6"
+SCHEMA_VERSION = "2.8.7"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -382,16 +382,19 @@ def derived_triggers(changed) -> dict[str, list[str]]:
 # review of 6527c81, finding 1); the fresh review of 72f0bb4 (finding 1) neutered frozen oracles
 # through a root-level module, a package under scripts/tests (discovery imports it), a sourceless
 # .pyc and a committed __pycache__ entry. 2.8.6 covers the class:
-#   BYTECODE   a committed *.pyc / *.pyo / __pycache__/ path where an acceptance can import it:
-#              anywhere under scripts/, or at the top level (a module, a package __init__, or
-#              __pycache__/). Bytecode elsewhere (real history commits some under adapters/) is
-#              not on an acceptance import path, and cached bytecode is never read anyway:
-#              acceptances run with a fresh PYTHONPYCACHEPREFIX.
-#   PACKAGE    any __init__.py at any depth under scripts/tests/ (imported by discovery)
+#   BYTECODE   a committed SOURCELESS *.pyc / *.pyo (not under __pycache__/) where an acceptance can
+#              import it: under scripts/, or at the top level (a module or a package __init__).
+#              Cached bytecode under __pycache__/ is inert — acceptances run with a fresh
+#              PYTHONPYCACHEPREFIX — and real history commits some (under adapters/), so it is
+#              not flagged (2.8.7).
+#   PACKAGE    an __init__.py strictly BELOW scripts/tests/ (discovery imports package dirs; the
+#              start dir's own scripts/tests/__init__.py is not imported), and scripts/__init__.py
+#              (it turns the `scripts` namespace that frozen tests import into a regular package
+#              whose __init__ runs first)
 #   SHADOW     a top-level module (<n>.py, <n>.<abi>.so/.pyd, <n>/__init__.py) on any import root
 #              whose name the acceptance interpreter can otherwise import
 IMPORT_ROOTS = ("scripts/tests/", "scripts/", "")
-BYTECODE_RE = re.compile(r"(^|/)__pycache__/|\.py[co]$")
+BYTECODE_RE = re.compile(r"\.py[co]$")
 _IMPORTABLE_CACHE: dict[str, bool] = {}
 
 
@@ -438,7 +441,8 @@ def _top_level_name(path: str) -> str | None:
             name = rest.split("/", 1)[0]
         else:
             continue                     # deeper than top level here; a shorter root may apply
-        if not name.isidentifier() or (root and SURFACE_NAME_RE.match(name)):
+        if (not name.isidentifier() or name in ("__init__", "__main__")
+                or (root and SURFACE_NAME_RE.match(name))):
             return None                  # not importable by that name / judged as a surface
         return name
     return None
@@ -448,8 +452,7 @@ def _on_import_path(path: str) -> bool:
     """True when an acceptance could import `path`: under scripts/, or at the top level."""
     parts = path.split("/")
     return (path.startswith("scripts/") or len(parts) == 1
-            or (len(parts) == 2 and (parts[0] == "__pycache__"
-                                     or parts[1].startswith("__init__."))))
+            or (len(parts) == 2 and parts[1].startswith("__init__.")))
 
 
 def shadow_paths(paths: list[str]) -> dict[str, str]:
@@ -457,10 +460,13 @@ def shadow_paths(paths: list[str]) -> dict[str, str]:
     out: dict[str, str] = {}
     named: dict[str, str] = {}
     for path in paths:
-        if BYTECODE_RE.search(path) and _on_import_path(path):
+        if BYTECODE_RE.search(path) and "__pycache__/" not in path and _on_import_path(path):
             out[path] = "BYTECODE"
-        elif path.startswith("scripts/tests/") and path.endswith("/__init__.py"):
+        elif (path.startswith("scripts/tests/") and path.endswith("/__init__.py")
+              and path != "scripts/tests/__init__.py"):
             out[path] = "PACKAGE_IMPORTED_BY_DISCOVERY"
+        elif path == "scripts/__init__.py":
+            out[path] = "PACKAGE_MARKER:scripts"
         else:
             name = _top_level_name(path)
             if name:
@@ -525,7 +531,7 @@ SURFACE_NAME_RE = re.compile(r"^(validate|test)_")
 
 
 def tracked_surfaces(repo: Repo, sha: str):
-    """path -> (kind, blob id) for every acceptance surface TRACKED at `sha` as a regular file.
+    """path -> (kind, blob id, mode) for every acceptance surface TRACKED at `sha` as a regular file.
 
     Git is the identity of a surface (2.8.4). Discovering surfaces from a worktree's filesystem let
     a guard reached through a symlinked directory, or through a case-folded spelling on a
@@ -547,7 +553,8 @@ def tracked_surfaces(repo: Repo, sha: str):
             return None
         mode, typ, obj = parts
         if typ == "blob" and mode in ("100644", "100755") and SURFACE_RE.match(path):
-            out[path] = ("VALIDATOR" if path.startswith("scripts/validate_") else "TEST", obj)
+            out[path] = ("VALIDATOR" if path.startswith("scripts/validate_") else "TEST", obj,
+                         mode)
     return dict(sorted(out.items(), key=lambda kv: (kv[1][0] != "VALIDATOR", kv[0])))
 
 
@@ -566,34 +573,44 @@ def _aliased(root: Path, rel: str) -> bool:
     return False
 
 
-def _bytes_diverge(wt: Path, expected: dict[str, str]) -> str | None:
-    """The first surface whose checked-out bytes do not hash (unfiltered) to its tracked blob."""
+def _bytes_diverge(wt: Path, expected: dict[str, tuple[str, str]]) -> str | None:
+    """The first surface whose checked-out bytes do not hash (unfiltered) to its tracked blob, or
+    whose executable bit disagrees with its tracked mode (2.8.7: a carried 100755 surface used to
+    land as 0644, and a mode-checking acceptance then measured a FAIL->PASS nothing repaired)."""
     if not expected:
         return None
     rels = sorted(expected)
+    for rel in rels:
+        executable = bool((wt / rel).stat().st_mode & 0o100) if (wt / rel).is_file() else None
+        if executable is None or executable != (expected[rel][1] == "100755"):
+            return rel
     r = subprocess.run(["git", "-C", str(wt), "hash-object", "--no-filters", "--stdin-paths"],
                        input="\n".join(rels) + "\n", capture_output=True, text=True)
     got = r.stdout.split()
     if r.returncode != 0 or len(got) != len(rels):
         return rels[0]                   # unreadable is not identical: fail closed
     for rel, blob in zip(rels, got):
-        if blob != expected[rel]:
+        if blob != expected[rel][0]:
             return rel
     return None
 
 
 def acceptance_command(rel: str, kind: str, interpreter: str) -> list[str]:
     if kind == "TEST":
-        return [interpreter, "-m", "unittest", "discover", "-s", "scripts/tests",
+        return [interpreter, "-s", "-m", "unittest", "discover", "-s", "scripts/tests",
                 "-p", Path(rel).name]
-    return [interpreter, rel]
+    return [interpreter, "-s", rel]
 
 
 def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str) -> int:
     """Exit code of one acceptance surface run inside a materialised tree."""
     if not (tree / rel).is_file():
         return 127                       # absent is unrunnable, and unrunnable is not a pass
-    env = dict(os.environ)
+    # -s (no user site) and no PYTHONPATH / PYTHONHOME / startup hooks: the acceptance imports from
+    # the same places the isolated name lookup in shadow_paths() resolves against (2.8.7)
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE",
+                        "PYTHONINSPECT", "PYTHONSAFEPATH")}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     # bytecode is never READ from the tree either: a committed __pycache__ entry replaced a frozen
     # test's code while its blob stayed untouched (fresh review of 72f0bb4, finding 1d). With a
@@ -647,7 +664,8 @@ def _reset(wt: Path, rev: str) -> bool:
 
 
 def _run_isolated(repo: Repo, wt: Path, rel: str, kind: str, interpreter: str,
-                  expected: dict[str, str], carry: str | None = None, rev: str = "") -> int:
+                  expected: dict[str, tuple[str, str]], carry: tuple[str, str] | None = None,
+                  rev: str = "") -> int:
     """Reset `wt`, optionally write blob `carry` at `rel` FROM THE OBJECT DATABASE, re-verify the
     identity of every surface the tree should hold, then run `rel`. Raises _IsolationFailure
     (fail closed) instead of running anything whose bytes are not the tracked ones."""
@@ -659,12 +677,13 @@ def _run_isolated(repo: Repo, wt: Path, rel: str, kind: str, interpreter: str,
         # must be absent on disk too, or the filesystem aliases it to something else
         if _aliased(wt, rel) or (rel not in expected and os.path.lexists(wt / rel)):
             raise _IsolationFailure("SURFACE_PATH_ALIASED", rel)
-        data = subprocess.run(["git", "-C", str(repo.root), "cat-file", "blob", carry],
+        data = subprocess.run(["git", "-C", str(repo.root), "cat-file", "blob", carry[0]],
                               capture_output=True)
         if data.returncode != 0:
             raise _IsolationFailure("BLOB_UNREADABLE", rel)
         (wt / rel).parent.mkdir(parents=True, exist_ok=True)
         (wt / rel).write_bytes(data.stdout)
+        os.chmod(wt / rel, 0o755 if carry[1] == "100755" else 0o644)   # the tracked mode, too
         want[rel] = carry
     for path in want:
         if _aliased(wt, path):
@@ -766,14 +785,14 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         revs = {wt: subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"],
                                    capture_output=True, text=True).stdout.strip()
                 for wt in (base_wt, cand_wt, mut_wt)}
-        expected = {base_wt: {r: b for r, (_k, b) in base_s.items()},
-                    cand_wt: {r: b for r, (_k, b) in cand_s.items()},
-                    mut_wt: {r: b for r, (_k, b) in cand_s.items() if r not in added_set}}
+        expected = {base_wt: {r: (b, m) for r, (_k, b, m) in base_s.items()},
+                    cand_wt: {r: (b, m) for r, (_k, b, m) in cand_s.items()},
+                    mut_wt: {r: (b, m) for r, (_k, b, m) in cand_s.items() if r not in added_set}}
         try:
-            for rel, (kind, blob) in cand_s.items():
+            for rel, (kind, blob, mode) in cand_s.items():
                 if rel not in base_s:
                     provenance = "DELTA_ADDED"
-                elif base_s[rel][1] == blob:
+                elif base_s[rel][1:] == (blob, mode):      # same bytes AND same mode
                     provenance = "DELTA_FROZEN"
                 else:
                     provenance = "DELTA_MODIFIED"
@@ -784,7 +803,7 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
                           if provenance == "DELTA_FROZEN" else None)
                 # the candidate's own blob is carried into the base tree, held identical
                 rc_base = _run_isolated(repo, base_wt, rel, kind, interpreter, expected[base_wt],
-                                        carry=blob, rev=revs[base_wt])
+                                        carry=(blob, mode), rev=revs[base_wt])
                 facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
                                           "rc_base": rc_base, "rc_cand": rc_cand,
                                           "rc_mut": rc_mut})
@@ -795,13 +814,13 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
             # to the regression rule (fresh review of f2c48a0, finding 2; real case r29 / 5205e5b).
             # Each one is run with its BASE blob in the base tree and, carried in, the candidate's.
             facts["deleted_surfaces"] = []
-            for rel, (kind, blob) in base_s.items():
+            for rel, (kind, blob, mode) in base_s.items():
                 if rel in cand_s:
                     continue
                 rc_base = _run_isolated(repo, base_wt, rel, kind, interpreter, expected[base_wt],
                                         rev=revs[base_wt])
                 rc_cand = _run_isolated(repo, cand_wt, rel, kind, interpreter, expected[cand_wt],
-                                        carry=blob, rev=revs[cand_wt])
+                                        carry=(blob, mode), rev=revs[cand_wt])
                 facts["deleted_surfaces"].append({"path": rel, "kind": kind,
                                                   "provenance": "DELTA_DELETED",
                                                   "rc_base": rc_base, "rc_cand": rc_cand,

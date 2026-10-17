@@ -81,6 +81,31 @@ class AdmissionCorpusStaysOutOfH3(unittest.TestCase):
                     str(ROOT), c["base_sha"], c["candidate_sha"])), c["case_id"])
 
 
+class CorpusPairsAreMainHistory(unittest.TestCase):
+    """The execution boundary (schema §6.6) rests on every LOCAL corpus case being a real
+    main-reachable pair whose base is the candidate's first parent; review of 617ba01 noted this
+    was a review obligation only. It is now checked for both corpora."""
+
+    MAIN = "5ab500e5478b671f43df80a78730ca172da6cf2b"
+
+    def test_every_local_case_is_a_first_parent_pair_on_main(self):
+        ctc = _load("adm_ctc_main", VALIDATOR)
+        pairs = ctc.corpus_pairs(ctc.Repo(ROOT))
+        self.assertTrue(pairs)
+        local = 0
+        for case_id, (base, cand, repo) in pairs.items():
+            if repo != "FlapPearLabs/agent-engineering-governance":
+                continue                          # external (r01): verified out of band
+            local += 1
+            self.assertEqual(0, subprocess.run(["git", "-C", str(ROOT), "merge-base",
+                                                "--is-ancestor", cand, self.MAIN]).returncode,
+                             f"{case_id}: candidate not reachable from main {self.MAIN[:12]}")
+            first = subprocess.run(["git", "-C", str(ROOT), "rev-parse", cand + "^1"],
+                                   capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(first, base, f"{case_id}: base is not the first parent")
+        self.assertEqual(31, local)
+
+
 class DiscoveryIsReproducible(unittest.TestCase):
     def test_rerun_at_the_recorded_ref_reproduces_the_routing(self):
         for name, extra in (("batch-1/discovery-governance.json", []),

@@ -1,7 +1,7 @@
 {
  "base_sha": "a0068745f268b777c5cbb270366072e420e737ba",
  "candidate_sha": "a94f509490c2816e37c0c4b638cd1a458c6cc47f",
- "elapsed_s": 40.6,
+ "elapsed_s": 40.4,
  "facts": {
   "base": "a0068745f268b777c5cbb270366072e420e737ba",
   "candidate": "a94f509490c2816e37c0c4b638cd1a458c6cc47f",
@@ -198,8 +198,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.6",
-  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
+  "schema_version": "2.8.7",
+  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): record Product Owner P1 milestone acceptance and freeze P1 as historical baseline"

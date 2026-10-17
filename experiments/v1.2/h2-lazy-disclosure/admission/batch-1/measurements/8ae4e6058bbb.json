@@ -1,7 +1,7 @@
 {
  "base_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
  "candidate_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
- "elapsed_s": 20.6,
+ "elapsed_s": 20.7,
  "facts": {
   "base": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
   "candidate": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
@@ -119,8 +119,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.6",
-  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
+  "schema_version": "2.8.7",
+  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage3/lane-a): extend git-ci-integration with the P1-T03 integration closure-evidence requirement (Issue #17)"
