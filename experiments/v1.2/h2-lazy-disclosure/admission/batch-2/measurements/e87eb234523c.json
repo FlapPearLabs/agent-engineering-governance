@@ -1,7 +1,7 @@
 {
  "base_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
  "candidate_sha": "e87eb234523c990fcdf8085ce308b6068383a900",
- "elapsed_s": 13.8,
+ "elapsed_s": 27.8,
  "facts": {
   "base": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
   "candidate": "e87eb234523c990fcdf8085ce308b6068383a900",
@@ -150,8 +150,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): flush recovery snapshot after P1 Stage 4 execution and lane integration"

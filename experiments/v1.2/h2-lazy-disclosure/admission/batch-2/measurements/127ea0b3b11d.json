@@ -1,7 +1,7 @@
 {
  "base_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
  "candidate_sha": "127ea0b3b11df08a048d12368164d90c2c1583d4",
- "elapsed_s": 13.2,
+ "elapsed_s": 26.0,
  "facts": {
   "base": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
   "candidate": "127ea0b3b11df08a048d12368164d90c2c1583d4",
@@ -126,8 +126,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): flush recovery snapshot after P1 Stage 3 execution and lane closure"

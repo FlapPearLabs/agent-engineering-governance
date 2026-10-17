@@ -63,8 +63,10 @@ Further limits, recorded here so that a reader of THIS FILE is not misled:
     recomputed by running the candidate revision's own acceptance surfaces against materialised
     base and candidate trees. The corpus's own measured dispositions are still not consulted;
   · the oracle-rewrite triggers fire on paths the delta REWRITES, not on paths it ADDS. An added
-    acceptance cannot neuter an existing oracle, and is instead held to the recomputed transition
-    (it must fail against the unfixed base) with its provenance disclosed and bound.
+    acceptance SURFACE does not rewrite an existing oracle's bytes, and is instead held to the
+    recomputed transition (it must fail against the unfixed base) with its provenance disclosed and
+    bound. An added NON-surface file can still decide what an acceptance IMPORTS; that is derived
+    separately (ACCEPTANCE_SURFACE_IN_WORKER_SCOPE, shadow_paths; 2.8.5-2.8.6).
 
 A PASS therefore means "internally consistent AND consistent with every fact this repository can
 recompute". It is not a statement that the work happened.
@@ -75,7 +77,6 @@ Usage:  python3 check_task_class.py <classification.json> [repo_root]
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import os
 import re
@@ -86,7 +87,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.5"
+SCHEMA_VERSION = "2.8.6"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -348,20 +349,21 @@ def derived_triggers(changed) -> dict[str, list[str]]:
     """Oracle-rewrite triggers, derived from the delta's own file list WITH status.
 
     Precision matters here, and the imprecise version was found by the positive control: a delta
-    that ADDS an acceptance SURFACE cannot neuter an oracle that already existed, so firing
+    that ADDS an acceptance SURFACE does not rewrite an oracle that already existed, so firing
     WORKER_MODIFIES_TEST_ORACLE / WORKER_MODIFIES_VALIDATOR on it made every real repair task
     unsatisfiable while protecting nothing. The triggers therefore fire on paths the delta
     REWRITES (present at the base, changed by the pair). A newly ADDED oracle is not free either:
     the recomputed transition must show it failing against the unfixed base, its provenance is
     disclosed, and `oracle_in_worker_scope` is bound to that recomputation.
-    An added NON-surface module CAN neuter one, by shadowing an import from an acceptance import
-    root (2.8.5, see shadowed_module): that is derived as ACCEPTANCE_SURFACE_IN_WORKER_SCOPE.
+    An added NON-surface file CAN neuter one, by deciding what an acceptance imports (2.8.5-2.8.6,
+    see shadow_paths): that is derived as ACCEPTANCE_SURFACE_IN_WORKER_SCOPE.
     """
     derived: dict[str, list[str]] = {}
+    shadows = shadow_paths([p for status, p in changed or [] if status != "D"])
     for status, p in changed or []:
-        if status != "D" and shadowed_module(p):
-            # an added OR rewritten module on an acceptance import root that shadows an importable
-            # name decides what a FROZEN surface executes: the worker authored the verdict
+        if p in shadows and status != "D":
+            # an added OR rewritten path that decides what an acceptance imports decides what a
+            # FROZEN surface executes: the worker authored the verdict
             derived.setdefault("ACCEPTANCE_SURFACE_IN_WORKER_SCOPE", []).append(p)
         if status in ("A", "D"):
             continue                 # an added path rewrites nothing; a deleted one judges nothing
@@ -372,35 +374,107 @@ def derived_triggers(changed) -> dict[str, list[str]]:
     return derived
 
 
-# The directories an acceptance runs with at the head of sys.path: `python scripts/validate_x.py`
-# puts scripts/ first, `unittest discover -s scripts/tests` puts scripts/tests/ first. A module the
-# delta places there under an importable name shadows what a frozen surface imports — so an ADDED
-# file could neuter an existing oracle after all (fresh review of 6527c81, finding 1: an added
-# scripts/json.py turned a frozen validator FAIL->PASS under FRAMEWORK_FROZEN authority).
-IMPORT_ROOTS = ("scripts/tests/", "scripts/")
+# The directories at the head of an acceptance's sys.path: the worktree root (cwd) for
+# `python -m unittest`, scripts/ for `python scripts/validate_x.py`, scripts/tests/ as discovery's
+# start dir. Anything the delta places there that the interpreter would import ahead of the real
+# module decides what a FROZEN surface executes, so an ADDED file can neuter an existing oracle.
+# 2.8.5 covered only `<name>.py` / `<name>/__init__.py` under scripts/ and scripts/tests/ (fresh
+# review of 6527c81, finding 1); the fresh review of 72f0bb4 (finding 1) neutered frozen oracles
+# through a root-level module, a package under scripts/tests (discovery imports it), a sourceless
+# .pyc and a committed __pycache__ entry. 2.8.6 covers the class:
+#   BYTECODE   a committed *.pyc / *.pyo / __pycache__/ path where an acceptance can import it:
+#              anywhere under scripts/, or at the top level (a module, a package __init__, or
+#              __pycache__/). Bytecode elsewhere (real history commits some under adapters/) is
+#              not on an acceptance import path, and cached bytecode is never read anyway:
+#              acceptances run with a fresh PYTHONPYCACHEPREFIX.
+#   PACKAGE    any __init__.py at any depth under scripts/tests/ (imported by discovery)
+#   SHADOW     a top-level module (<n>.py, <n>.<abi>.so/.pyd, <n>/__init__.py) on any import root
+#              whose name the acceptance interpreter can otherwise import
+IMPORT_ROOTS = ("scripts/tests/", "scripts/", "")
+BYTECODE_RE = re.compile(r"(^|/)__pycache__/|\.py[co]$")
+_IMPORTABLE_CACHE: dict[str, bool] = {}
 
 
-def shadowed_module(path: str) -> str | None:
-    """The importable name `path` would shadow from an acceptance import root, else None."""
+def _importable(names: list[str]) -> set[str]:
+    """Names an ISOLATED interpreter (-I: no cwd, no PYTHONPATH, no user site) can import. One
+    process for all names, so the answer does not depend on which program (discover, validator,
+    test runner) asks — the validator's own sys.path made it depend on the entry point (fresh
+    review of 72f0bb4, finding 3). An interpreter that cannot answer makes every name count as
+    importable (failing closed)."""
+    todo = sorted({n for n in names if n not in _IMPORTABLE_CACHE})
+    if todo:
+        code = ("import importlib.util, json, sys\n"
+                "names = json.loads(sys.argv[1])\n"
+                "def ok(n):\n"
+                "    if n in sys.stdlib_module_names: return True\n"
+                "    try: return importlib.util.find_spec(n) is not None\n"
+                "    except (ImportError, ValueError): return True\n"
+                "print(json.dumps([n for n in names if ok(n)]))\n")
+        try:
+            r = subprocess.run([sys.executable or "python3", "-I", "-c", code, json.dumps(todo)],
+                               capture_output=True, text=True, timeout=60)
+            found = set(json.loads(r.stdout)) if r.returncode == 0 else set(todo)
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            found = set(todo)
+        for n in todo:
+            _IMPORTABLE_CACHE[n] = n in found
+    return {n for n in names if _IMPORTABLE_CACHE[n]}
+
+
+def _top_level_name(path: str) -> str | None:
+    """The module name `path` defines at the top of an import root, if any (else None)."""
     for root in IMPORT_ROOTS:
         if not path.startswith(root):
             continue
         rest = path[len(root):]
-        if "/" not in rest and rest.endswith(".py"):
-            name = rest[:-3]
+        if "/" not in rest:
+            if rest.endswith(".py"):
+                name = rest[:-3]
+            elif rest.endswith((".so", ".pyd")):
+                name = rest.split(".", 1)[0]
+            else:
+                return None
         elif rest.count("/") == 1 and rest.endswith("/__init__.py"):
             name = rest.split("/", 1)[0]
         else:
-            return None
-        if not name.isidentifier() or SURFACE_NAME_RE.match(name):
+            continue                     # deeper than top level here; a shorter root may apply
+        if not name.isidentifier() or (root and SURFACE_NAME_RE.match(name)):
             return None                  # not importable by that name / judged as a surface
-        if name in sys.stdlib_module_names:
-            return name
-        try:                             # top-level lookup only: no parent package is imported
-            return name if importlib.util.find_spec(name) is not None else None
-        except (ImportError, ValueError):
-            return name                  # an unresolvable lookup is not proof of no shadow
+        return name
     return None
+
+
+def _on_import_path(path: str) -> bool:
+    """True when an acceptance could import `path`: under scripts/, or at the top level."""
+    parts = path.split("/")
+    return (path.startswith("scripts/") or len(parts) == 1
+            or (len(parts) == 2 and (parts[0] == "__pycache__"
+                                     or parts[1].startswith("__init__."))))
+
+
+def shadow_paths(paths: list[str]) -> dict[str, str]:
+    """path -> reason for every path that decides what an acceptance imports (see above)."""
+    out: dict[str, str] = {}
+    named: dict[str, str] = {}
+    for path in paths:
+        if BYTECODE_RE.search(path) and _on_import_path(path):
+            out[path] = "BYTECODE"
+        elif path.startswith("scripts/tests/") and path.endswith("/__init__.py"):
+            out[path] = "PACKAGE_IMPORTED_BY_DISCOVERY"
+        else:
+            name = _top_level_name(path)
+            if name:
+                named[path] = name
+    importable = _importable(list(named.values()))
+    for path, name in named.items():
+        if name in importable:
+            out[path] = f"SHADOWS:{name}"
+    return out
+
+
+def shadowed_module(path: str) -> str | None:
+    """Back-compatible single-path form of shadow_paths(): the reason, or None."""
+    return shadow_paths([path]).get(path)
 
 
 # ---- TRANSITION RECOMPUTATION -------------------------------------------------------------------
@@ -521,22 +595,84 @@ def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str) -> int:
         return 127                       # absent is unrunnable, and unrunnable is not a pass
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    try:
-        r = subprocess.run(acceptance_command(rel, kind, interpreter), cwd=str(tree),
-                           capture_output=True, text=True, env=env,
-                           timeout=ACCEPTANCE_TIMEOUT)
-        return r.returncode
-    except (subprocess.TimeoutExpired, OSError):
-        return 124                       # a timeout is not a pass either
+    # bytecode is never READ from the tree either: a committed __pycache__ entry replaced a frozen
+    # test's code while its blob stayed untouched (fresh review of 72f0bb4, finding 1d). With a
+    # fresh, empty prefix, every cached-bytecode lookup misses and the source is compiled.
+    with tempfile.TemporaryDirectory(prefix="h2-pycache-") as prefix:
+        env["PYTHONPYCACHEPREFIX"] = prefix
+        try:
+            r = subprocess.run(acceptance_command(rel, kind, interpreter), cwd=str(tree),
+                               capture_output=True, text=True, env=env,
+                               timeout=ACCEPTANCE_TIMEOUT)
+            return r.returncode
+        except (subprocess.TimeoutExpired, OSError):
+            return 124                   # a timeout is not a pass either
 
 
 def _worktree_add(repo: Repo, sha: str, path: Path) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
-    return repo.git("worktree", "add", "-q", "--detach", str(path), sha).returncode == 0
+    return repo.git(*NEUTRAL_CHECKOUT, "worktree", "add", "-q", "--detach", str(path),
+                    sha).returncode == 0
 
 
 def _worktree_remove(repo: Repo, path: Path) -> None:
     repo.git("worktree", "remove", "--force", str(path))
+
+
+class _IsolationFailure(Exception):
+    """A tree could not be put into a state whose executing bytes are the tracked ones."""
+
+    def __init__(self, token: str, path: str):
+        super().__init__(token, path)
+        self.token, self.path = token, path
+
+
+# Checkouts must not transform bytes on the way out (core.autocrlf=true is Git for Windows'
+# default and rewrote every surface; fresh review of 72f0bb4, finding 4).
+NEUTRAL_CHECKOUT = ("-c", "core.autocrlf=false", "-c", "core.eol=lf")
+
+
+def _reset(wt: Path, rev: str) -> bool:
+    """Put a worktree back to exactly revision `rev` — pinned when the tree was materialised, NOT
+    read from HEAD, because a run can stage, commit or move HEAD: index, HEAD and tracked files
+    restored, every untracked or ignored file (written by a run, or carried in) removed."""
+    restore = subprocess.run(["git", "-C", str(wt), *NEUTRAL_CHECKOUT,
+                              "-c", "core.hooksPath=/dev/null", "reset", "-q", "--hard", rev],
+                             capture_output=True)
+    clean = subprocess.run(["git", "-C", str(wt), "clean", "-ffdxq"], capture_output=True)
+    head = subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"], capture_output=True,
+                          text=True)
+    return (restore.returncode == 0 and clean.returncode == 0
+            and head.stdout.strip() == rev)
+
+
+def _run_isolated(repo: Repo, wt: Path, rel: str, kind: str, interpreter: str,
+                  expected: dict[str, str], carry: str | None = None, rev: str = "") -> int:
+    """Reset `wt`, optionally write blob `carry` at `rel` FROM THE OBJECT DATABASE, re-verify the
+    identity of every surface the tree should hold, then run `rel`. Raises _IsolationFailure
+    (fail closed) instead of running anything whose bytes are not the tracked ones."""
+    if not rev or not _reset(wt, rev):
+        raise _IsolationFailure("TREE_RESET_FAILED", rel)
+    want = dict(expected)
+    if carry is not None:
+        # overwriting a path this tree TRACKS is the carry itself; a path git says is ABSENT here
+        # must be absent on disk too, or the filesystem aliases it to something else
+        if _aliased(wt, rel) or (rel not in expected and os.path.lexists(wt / rel)):
+            raise _IsolationFailure("SURFACE_PATH_ALIASED", rel)
+        data = subprocess.run(["git", "-C", str(repo.root), "cat-file", "blob", carry],
+                              capture_output=True)
+        if data.returncode != 0:
+            raise _IsolationFailure("BLOB_UNREADABLE", rel)
+        (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+        (wt / rel).write_bytes(data.stdout)
+        want[rel] = carry
+    for path in want:
+        if _aliased(wt, path):
+            raise _IsolationFailure("SURFACE_PATH_ALIASED", path)
+    diverged = _bytes_diverge(wt, want)
+    if diverged:
+        raise _IsolationFailure("SURFACE_BYTES_DIVERGE", diverged)
+    return run_acceptance(wt, rel, kind, interpreter)
 
 
 def _materialise_mutation(repo: Repo, cand: str, mut_wt: Path, added_paths: list[str]) -> bool:
@@ -620,69 +756,58 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         base_s, cand_s = tracked_surfaces(repo, base), tracked_surfaces(repo, cand)
         if base_s is None or cand_s is None:
             return {"error": "TREE_UNREADABLE"}
-        # every surface path must name itself in every tree it is run in or carried into
-        for rel in set(base_s) | set(cand_s):
-            if any(_aliased(wt, rel) for wt in (base_wt, cand_wt, mut_wt)):
-                return {"error": "SURFACE_PATH_ALIASED", "path": rel}
-        # ... and the bytes that EXECUTE must be the tracked blob: a checkout filter
-        # (.gitattributes working-tree-encoding / eol / smudge) rewrote a "frozen" guard into
-        # something else at both revisions, hiding a regression (fresh review of 6527c81, finding 2)
-        mut_paths = {rel for rel in cand_s if rel not in set(added_paths)}
-        for wt, expected in ((base_wt, base_s), (cand_wt, cand_s),
-                             (mut_wt, {r: cand_s[r] for r in mut_paths})):
-            diverged = _bytes_diverge(wt, {rel: blob for rel, (_kind, blob) in expected.items()})
-            if diverged:
-                return {"error": "SURFACE_BYTES_DIVERGE", "path": diverged}
-        for rel, (kind, blob) in cand_s.items():
-            cb, cc = base_wt / rel, cand_wt / rel
-            if rel not in base_s:
-                provenance = "DELTA_ADDED"
-                if os.path.lexists(cb):          # git says absent, the filesystem disagrees
-                    return {"error": "SURFACE_PATH_ALIASED", "path": rel}
-            elif base_s[rel][1] == blob:
-                provenance = "DELTA_FROZEN"
-            else:
-                provenance = "DELTA_MODIFIED"
-            rc_cand = run_acceptance(cand_wt, rel, kind, interpreter)
-            rc_mut = (run_acceptance(mut_wt, rel, kind, interpreter)
-                      if provenance == "DELTA_FROZEN" else None)
-            # the candidate's own bytes are carried into the base tree, held identical
-            saved = cb.read_bytes() if cb.is_file() else None
-            cb.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                shutil.copy2(cc, cb)
-                rc_base = run_acceptance(base_wt, rel, kind, interpreter)
-            finally:
-                if saved is None:
-                    cb.unlink(missing_ok=True)
+        # Every execution is ISOLATED (2.8.6): the tree is reset to its revision before each run,
+        # carried bytes come from the object database, and the identity of every surface (path
+        # names itself; checked-out bytes hash to the tracked blob) is re-verified per run.
+        # Checking once was not enough: an earlier surface ran and REWROTE a later frozen guard in
+        # the shared worktree, and the rewritten bytes were carried into the base tree too (fresh
+        # review of 72f0bb4, finding 2).
+        added_set = set(added_paths)
+        revs = {wt: subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"],
+                                   capture_output=True, text=True).stdout.strip()
+                for wt in (base_wt, cand_wt, mut_wt)}
+        expected = {base_wt: {r: b for r, (_k, b) in base_s.items()},
+                    cand_wt: {r: b for r, (_k, b) in cand_s.items()},
+                    mut_wt: {r: b for r, (_k, b) in cand_s.items() if r not in added_set}}
+        try:
+            for rel, (kind, blob) in cand_s.items():
+                if rel not in base_s:
+                    provenance = "DELTA_ADDED"
+                elif base_s[rel][1] == blob:
+                    provenance = "DELTA_FROZEN"
                 else:
-                    cb.write_bytes(saved)
-            facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
-                                      "rc_base": rc_base, "rc_cand": rc_cand, "rc_mut": rc_mut})
+                    provenance = "DELTA_MODIFIED"
+                rc_cand = _run_isolated(repo, cand_wt, rel, kind, interpreter, expected[cand_wt],
+                                        rev=revs[cand_wt])
+                rc_mut = (_run_isolated(repo, mut_wt, rel, kind, interpreter, expected[mut_wt],
+                                        rev=revs[mut_wt])
+                          if provenance == "DELTA_FROZEN" else None)
+                # the candidate's own blob is carried into the base tree, held identical
+                rc_base = _run_isolated(repo, base_wt, rel, kind, interpreter, expected[base_wt],
+                                        carry=blob, rev=revs[base_wt])
+                facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
+                                          "rc_base": rc_base, "rc_cand": rc_cand,
+                                          "rc_mut": rc_mut})
 
-        # Acceptance surfaces the delta DELETES are not in the candidate tree, so the loop above
-        # never saw them — and derived_triggers() skips a deleted path. Deleting a green guard (or
-        # deleting it and re-adding a weaker copy elsewhere) was therefore invisible to the
-        # regression rule (fresh review of f2c48a0, finding 2; real case r29 / 5205e5b). Each one
-        # is run with its BASE bytes against the base tree and, carried in, the candidate tree.
-        facts["deleted_surfaces"] = []
-        for rel, (kind, _blob) in base_s.items():
-            if rel in cand_s:
-                continue
-            target = cand_wt / rel
-            if os.path.lexists(target):          # git says deleted, the filesystem disagrees
-                return {"error": "SURFACE_PATH_ALIASED", "path": rel}
-            rc_base = run_acceptance(base_wt, rel, kind, interpreter)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(base_wt / rel, target)
-            try:
-                rc_cand = run_acceptance(cand_wt, rel, kind, interpreter)
-            finally:
-                target.unlink(missing_ok=True)
-            facts["deleted_surfaces"].append({"path": rel, "kind": kind,
-                                              "provenance": "DELTA_DELETED",
-                                              "rc_base": rc_base, "rc_cand": rc_cand,
-                                              "rc_mut": None})
+            # Acceptance surfaces the delta DELETES are not in the candidate tree, so the loop
+            # above never saw them — and derived_triggers() skips a deleted path. Deleting a green
+            # guard (or deleting it and re-adding a weaker copy elsewhere) was therefore invisible
+            # to the regression rule (fresh review of f2c48a0, finding 2; real case r29 / 5205e5b).
+            # Each one is run with its BASE blob in the base tree and, carried in, the candidate's.
+            facts["deleted_surfaces"] = []
+            for rel, (kind, blob) in base_s.items():
+                if rel in cand_s:
+                    continue
+                rc_base = _run_isolated(repo, base_wt, rel, kind, interpreter, expected[base_wt],
+                                        rev=revs[base_wt])
+                rc_cand = _run_isolated(repo, cand_wt, rel, kind, interpreter, expected[cand_wt],
+                                        carry=blob, rev=revs[cand_wt])
+                facts["deleted_surfaces"].append({"path": rel, "kind": kind,
+                                                  "provenance": "DELTA_DELETED",
+                                                  "rc_base": rc_base, "rc_cand": rc_cand,
+                                                  "rc_mut": None})
+        except _IsolationFailure as failure:
+            return {"error": failure.token, "path": failure.path}
 
         surfaces = facts["surfaces"]
         eligible = [e for e in surfaces if e["provenance"] != "DELTA_MODIFIED"]

@@ -1,7 +1,7 @@
 {
  "base_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
  "candidate_sha": "e8530e6f541c44083a073a811d3971e22bae3a94",
- "elapsed_s": 51.4,
+ "elapsed_s": 77.0,
  "facts": {
   "base": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
   "candidate": "e8530e6f541c44083a073a811d3971e22bae3a94",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): record N8 closure ledger (route-reachability merged)"

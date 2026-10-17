@@ -1,7 +1,7 @@
 {
  "base_sha": "3d0c5fcf4a1fd13f78c0b811cda34fec73507ca3",
  "candidate_sha": "4c712e75e43cf7783297d0b2d3ed4498fa3c67e0",
- "elapsed_s": 57.7,
+ "elapsed_s": 82.0,
  "facts": {
   "base": "3d0c5fcf4a1fd13f78c0b811cda34fec73507ca3",
   "candidate": "4c712e75e43cf7783297d0b2d3ed4498fa3c67e0",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "experiments(v1.2): H2 freeze — v5 consistency fixes (delta review of 3d0c5fc)"

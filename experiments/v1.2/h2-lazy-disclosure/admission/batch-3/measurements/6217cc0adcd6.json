@@ -1,7 +1,7 @@
 {
  "base_sha": "c028a719ba27ab7aff3035c6269e477491983219",
  "candidate_sha": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
- "elapsed_s": 52.0,
+ "elapsed_s": 75.3,
  "facts": {
   "base": "c028a719ba27ab7aff3035c6269e477491983219",
   "candidate": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge pull request #49 from FlapPearLabs/experiment/v1.2-mechanization-gap-analysis"

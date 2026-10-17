@@ -1,6 +1,6 @@
 {
  "program": "admission/discover.py",
- "schema_version_consulted": "2.8.5",
+ "schema_version_consulted": "2.8.6",
  "repository_remote": "https://github.com/FlapPearLabs/agent-engineering-governance.git",
  "ref": "5ab500e5478b671f43df80a78730ca172da6cf2b",
  "ref_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",

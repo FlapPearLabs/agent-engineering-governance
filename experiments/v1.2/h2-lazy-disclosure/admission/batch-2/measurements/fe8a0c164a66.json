@@ -1,7 +1,7 @@
 {
  "base_sha": "fa6e131346e19d42bab47bcc63a77a190b598a46",
  "candidate_sha": "fe8a0c164a664d3e77227cbab0e01350b31551bf",
- "elapsed_s": 59.6,
+ "elapsed_s": 83.4,
  "facts": {
   "base": "fa6e131346e19d42bab47bcc63a77a190b598a46",
   "candidate": "fe8a0c164a664d3e77227cbab0e01350b31551bf",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "experiments(v1.2): H2 freeze — [12] battery evidence + scan-helper residue hardening"

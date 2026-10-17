@@ -1,7 +1,7 @@
 {
  "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
  "candidate_sha": "6a2e05c0d3b082328ac6f612c4bd56d7972fd2c2",
- "elapsed_s": 0.3,
+ "elapsed_s": 0.5,
  "facts": {
   "base": "f40525bd9f37b883420089f0422abcedef0b7d11",
   "candidate": "6a2e05c0d3b082328ac6f612c4bd56d7972fd2c2",
@@ -46,8 +46,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "docs(readme): rewrite README as detailed standard onboarding guide"

@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.5", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.6", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1394,6 +1394,86 @@ class MutationMaterialisation(unittest.TestCase):
         self._git(repo.root, "config", "diff.renames", "true")
         facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
         self.assertEqual(["scripts/tests/test_links.py"], [e["path"] for e in facts["biting"]])
+
+    # ---- fresh review of 72f0bb4: findings 1-4 ------------------------------------------------
+    def test_every_import_path_shape_derives_the_trigger(self):
+        """Finding 1: 2.8.5 covered `<n>.py` / `<n>/__init__.py` under scripts/ and scripts/tests/
+        only. Each path below decides what an acceptance imports; each must derive the trigger,
+        whether ADDED or REWRITTEN, and an ordinary new module must not."""
+        shaped = ["scripts/tests/zz_helpers/__init__.py", "unittest.py", "json.py",
+                  "scripts/json.pyc", "scripts/tests/__pycache__/test_budget.cpython-313.pyc",
+                  "scripts/pip.py"]            # pip: importable but NOT stdlib (find_spec half)
+        changed = [("A", p) for p in shaped] + [("M", "scripts/os.py"),
+                                                 ("A", "scripts/review_evidence_like.py"),
+                                                 ("A", "scripts/tests/helper_like.py"),
+                                                 ("A", "setup.py"),
+                                                 # real history: bytecode off any import path
+                                                 ("A", "adapters/zcode/tests/__pycache__/"
+                                                       "test_project_continuity.cpython-312.pyc")]
+        derived = self.mod.derived_triggers(changed).get("ACCEPTANCE_SURFACE_IN_WORKER_SCOPE", [])
+        self.assertEqual(sorted(shaped + ["scripts/os.py"]), sorted(derived))
+
+    def test_committed_bytecode_is_never_executed(self):
+        """Finding 1d: an unchecked-hash __pycache__ entry replaced a frozen test's code while its
+        blob stayed untouched. Acceptances run with a fresh PYTHONPYCACHEPREFIX, so the source
+        is what executes."""
+        import py_compile
+        tree = self.tmp / "pyc"
+        tests = tree / "scripts" / "tests"
+        tests.mkdir(parents=True)
+        source = tests / "test_budget.py"
+        source.write_text("import unittest\nclass T(unittest.TestCase):\n"
+                          "    def test_x(self):\n        self.fail('the source fails')\n",
+                          encoding="utf-8")
+        fake = self.tmp / "fake_test_budget.py"
+        fake.write_text("import unittest\nclass T(unittest.TestCase):\n"
+                        "    def test_x(self):\n        pass\n", encoding="utf-8")
+        cache = tests / "__pycache__" / f"test_budget.{sys.implementation.cache_tag}.pyc"
+        cache.parent.mkdir()
+        py_compile.compile(str(fake), cfile=str(cache),
+                           invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+        # control: without the isolation, the committed bytecode would decide the verdict
+        plain = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "scripts/tests",
+                                "-p", "test_budget.py"], cwd=str(tree), capture_output=True)
+        self.assertEqual(0, plain.returncode, "positive control: the stale .pyc is honoured")
+        self.assertEqual(1, self.mod.run_acceptance(tree, "scripts/tests/test_budget.py", "TEST",
+                                                    sys.executable))
+
+    def test_one_surface_cannot_rewrite_another_between_runs(self):
+        """Finding 2: an ADDED test that runs first rewrote a FROZEN guard in the shared worktree,
+        and the rewritten bytes executed at the candidate and were carried into the base."""
+        rewriter = ("import unittest\nfrom pathlib import Path\n"
+                    "ROOT = Path(__file__).resolve().parents[2]\n"
+                    "class Aaa(unittest.TestCase):\n"
+                    "    def test_rewrite(self):\n"
+                    "        if (ROOT / 'docs' / 'new.md').exists():\n"
+                    "            (ROOT / 'scripts/tests/test_budget.py').write_text(\n"
+                    "                'import unittest\\nclass B(unittest.TestCase):\\n'\n"
+                    "                '    def test_b(self):\\n        pass\\n')\n")
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_links.py": self.LINKS,
+             "scripts/tests/test_budget.py": self._budget("self.fail('over budget')"),
+             "README.md": "start\n", "pointer.md": "short\n"},
+            {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+             "pointer.md": "now far beyond its byte budget\n",
+             "scripts/tests/test_aaa_rewriter.py": rewriter}, name="toctou")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        rc = {Path(e["path"]).name: (e["rc_base"], e["rc_cand"]) for e in facts["surfaces"]}
+        self.assertEqual((0, 1), rc["test_budget.py"])        # the real regression is measured
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_checkout_is_byte_neutral_under_autocrlf(self):
+        """Finding 4: core.autocrlf=true (Git for Windows' default) rewrote every surface on
+        checkout and every record failed SURFACE_BYTES_DIVERGE."""
+        repo, base, cand = self._guarded_repo("self.fail('over budget')", delete_budget=False,
+                                              grow=False)
+        self._git(repo.root, "config", "core.autocrlf", "true")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

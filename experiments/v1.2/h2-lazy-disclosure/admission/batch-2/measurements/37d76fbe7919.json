@@ -1,7 +1,7 @@
 {
  "base_sha": "cad7507f282e2e94f77fd12690fa9db3745dee47",
  "candidate_sha": "37d76fbe79191d016c24d43a3e8dcd6b29d19bbc",
- "elapsed_s": 46.0,
+ "elapsed_s": 70.4,
  "facts": {
   "base": "cad7507f282e2e94f77fd12690fa9db3745dee47",
   "candidate": "37d76fbe79191d016c24d43a3e8dcd6b29d19bbc",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): apply the r01 structure-rationale correction (delta review P3)"

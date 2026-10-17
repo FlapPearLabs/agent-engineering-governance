@@ -2,9 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.5  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.5 = defects raised by real
+VERSION        = 2.8.6  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.6 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
-                 see §6.7)
+                 72f0bb4, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -165,8 +165,11 @@ FOR EVERY CLASS
   · DERIVED TRIGGERS: the delta's own changed-file list is read from the object database — every
     REWRITTEN test file derives WORKER_MODIFIES_TEST_ORACLE and every REWRITTEN validate_*/check_*
     file derives WORKER_MODIFIES_VALIDATOR; each must be declared or its paths externalised.
-    ADDED paths derive nothing: a newly added acceptance cannot neuter an oracle that already
-    existed, and it is held to §3.1 instead (it must demonstrably fail against the unfixed base)
+    An ADDED acceptance surface derives no rewrite trigger — it does not rewrite an oracle that
+    already existed — and is held to §3.1 instead (it must demonstrably fail against the unfixed
+    base). An added or rewritten NON-surface file that decides what an acceptance imports (a
+    module shadowing an importable name on an import root, a package under scripts/tests, committed
+    bytecode) derives ACCEPTANCE_SURFACE_IN_WORKER_SCOPE (2.8.5-2.8.6, §6.7)
   · THE TRANSITION IS RECOMPUTED BY EXECUTION (§3.1). Nothing the record declares substitutes it:
     the declared lifecycle statuses are BOUND to the measured verdicts, and an admissible claim
     whose transition cannot be computed fails closed
@@ -189,7 +192,12 @@ ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces: the regular file
               or a case-folded spelling in any tree is SURFACE_PATH_ALIASED, and a surface whose
               checked-out bytes do not hash (unfiltered) to its tracked blob in any tree is
               SURFACE_BYTES_DIVERGE (2.8.5: a checkout filter had rewritten a "frozen" guard) —
-              both fail closed. What executes is therefore the tracked blob, not merely its path.
+              both fail closed. Since 2.8.6 EVERY execution starts from a tree reset to its pinned
+              revision, carried bytes come from the object database, the identity checks are
+              repeated per run, and bytecode is never read from the tree. Stated limit: a surface
+              also executes what it imports and reads from the candidate tree — that is the code
+              under test, which no rule can freeze; only the import PATHS an acceptance controls
+              are policed (derived trigger above).
 GUARDS     := the frozen surfaces plus every surface tracked at the BASE and absent at the
               candidate (DELTA_DELETED, run with its base bytes in both trees; since 2.8.3).
 
@@ -544,7 +552,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.5 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.6 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -635,6 +643,27 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          (alias loop, lexists checks, casefold, per-tree scope, blob provenance) survive because
          another defence still refuses; a mode-only change derives a trigger although the blob is
          unchanged (conservative).
+2.8.6 (fresh adversarial review of 72f0bb4: two P1, four P3; both P1 pre-date this stage — present
+       since f4eb503 — and none of the 28 shipped records has either shape)
+  F-A13 P1 F-A11 was fixed for one shape only. A root-level module (`python -m unittest` puts cwd
+         first), a package under scripts/tests (discovery imports it), a sourceless .pyc and a
+         committed __pycache__ entry each still flipped a FROZEN oracle with no trigger. 2.8.6
+         derives the trigger for the class (shadow_paths: BYTECODE anywhere; any __init__.py under
+         scripts/tests; a top-level <n>.py / <n>.so|.pyd / <n>/__init__.py on ANY import root whose
+         name an isolated interpreter can import) and runs every acceptance with a fresh, empty
+         PYTHONPYCACHEPREFIX so committed bytecode is never read.
+  F-A14 P1 identity was checked ONCE, before execution, and every surface ran in the same mutable
+         tree; an added test that ran first rewrote a frozen guard, and the rewritten bytes were
+         also carried into the base tree. 2.8.6 resets each tree to its pinned revision
+         (reset --hard + clean -ffdx) before EVERY run, carries bytes from the object database,
+         and re-verifies alias and blob identity per run.
+  P3     name resolution no longer depends on the entry point's sys.path (isolated -I lookup);
+         checkouts are byte-neutral (core.autocrlf=false, core.eol=lf); stale "cannot neuter" and
+         "what executes is the tracked blob" statements corrected. Known, not fixed: several
+         identity checks overlap (per-tree, length), so single-check mutants can survive.
+REGRESSION (2.8.6)  MutationMaterialisation (28 tests); the four 2.8.6 tests fail against 72f0bb4;
+         mutants (no pycache prefix, no per-run reset, shadow rule on A only, no find_spec half,
+         non-neutral checkout) each fail a test.
 REGRESSION (2.8.5)  MutationMaterialisation (24 tests); the shadow and filter tests fail against
          6527c81; MG and MF each fail a test.
 REGRESSION (2.8.4)  MutationMaterialisation (20 tests); the three 2.8.4 attack tests fail against

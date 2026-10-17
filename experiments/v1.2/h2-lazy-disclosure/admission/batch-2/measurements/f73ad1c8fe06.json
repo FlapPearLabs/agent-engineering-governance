@@ -1,7 +1,7 @@
 {
  "base_sha": "b5ae51b2087347e6a64619fbb56166fe892a9d4b",
  "candidate_sha": "f73ad1c8fe062a72a04fed1287aebcba1f617603",
- "elapsed_s": 45.6,
+ "elapsed_s": 71.9,
  "facts": {
   "base": "b5ae51b2087347e6a64619fbb56166fe892a9d4b",
   "candidate": "f73ad1c8fe062a72a04fed1287aebcba1f617603",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): converge two post-b5ae51b P2s — reproducible cheap check + NEW_DIRECTORY positive coverage"

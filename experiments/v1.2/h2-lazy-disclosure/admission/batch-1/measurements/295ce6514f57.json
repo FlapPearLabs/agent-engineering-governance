@@ -1,7 +1,7 @@
 {
  "base_sha": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
  "candidate_sha": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
- "elapsed_s": 0.3,
+ "elapsed_s": 0.4,
  "facts": {
   "base": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
   "candidate": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
@@ -55,8 +55,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(governance): remediate external findings F1-F7 via re-audit"

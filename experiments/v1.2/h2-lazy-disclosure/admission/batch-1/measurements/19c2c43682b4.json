@@ -1,7 +1,7 @@
 {
  "base_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
  "candidate_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
- "elapsed_s": 3.7,
+ "elapsed_s": 5.6,
  "facts": {
   "base": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
   "candidate": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
@@ -87,8 +87,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.5",
-  "validator_sha256": "3d470970c2c9aaba2264aefddc9af838879c935e10858adce76ee6f4585287a1",
+  "schema_version": "2.8.6",
+  "validator_sha256": "624d2699660cd5b0f69e8e9ce48145af0622a78844f31a928390d6025426fb89",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(ticket-lane): land seam contract design/authority and closure-evidence partitions"
