@@ -59,9 +59,36 @@ class DiscoveryAgreesWithTheValidator(unittest.TestCase):
         self.assertEqual(surfaces, {p for p in paths if disc.ACCEPTANCE_PATH_RE.match(p)})
 
 
+class AdmissionCorpusStaysOutOfH3(unittest.TestCase):
+    """Fresh review of 4add2ca, finding 4: the anchors must not change H3's replay input."""
+
+    def test_h3_corpus_is_byte_identical_to_the_n21_closure(self):
+        proc = subprocess.run(["git", "-C", str(ROOT), "diff", "--quiet",
+                               "f4eb50370f7edbad03451b73affc6db4bb379a92", "--",
+                               "experiments/v1.2/replay/cases.yaml"])
+        self.assertEqual(0, proc.returncode, "replay/cases.yaml (H3's input) was modified")
+
+    def test_admission_signals_agree_with_the_h3_detector(self):
+        """corpus_cases.py counts signals with different git commands; the detector must agree."""
+        sys.path.insert(0, str(ROOT / "experiments" / "v1.2"))
+        import structure_delta
+        cases = structure_delta.load_replay_cases(ADM / "corpus.yaml")
+        self.assertEqual(27, len(cases))
+        for c in cases:
+            self.assertEqual(
+                structure_delta._aligned(c["expected_signals"]),
+                structure_delta._aligned(structure_delta.extract_signals(
+                    str(ROOT), c["base_sha"], c["candidate_sha"])), c["case_id"])
+
+
 class DiscoveryIsReproducible(unittest.TestCase):
     def test_rerun_at_the_recorded_ref_reproduces_the_routing(self):
-        recorded = json.loads((BATCH1 / "discovery-governance.json").read_text(encoding="utf-8"))
+        for name, extra in (("batch-1/discovery-governance.json", []),
+                            ("batch-3/discovery-merges.json", ["--merges"])):
+            self._reproduce(ADM / name, extra)
+
+    def _reproduce(self, path: Path, extra: list[str]):
+        recorded = json.loads(path.read_text(encoding="utf-8"))
         have = subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e",
                                recorded["ref_sha"] + "^{commit}"]).returncode == 0
         if not have:
@@ -70,7 +97,8 @@ class DiscoveryIsReproducible(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "d.json"
             proc = subprocess.run([sys.executable, str(ADM / "discover.py"), str(ROOT),
-                                   recorded["ref_sha"], str(out)], capture_output=True, text=True)
+                                   recorded["ref_sha"], str(out), *extra], capture_output=True,
+                                  text=True)
             self.assertEqual(0, proc.returncode, proc.stderr)
             again = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(recorded["funnel"], again["funnel"])
@@ -90,7 +118,7 @@ class BatchIdentityAndLedger(unittest.TestCase):
         self.corpus = self.ctc.corpus_pairs(self.ctc.Repo(ROOT))
 
     def test_batches_exist(self):
-        self.assertEqual(["batch-1", "batch-2"], [b.name for b in BATCHES])
+        self.assertEqual(["batch-1", "batch-2", "batch-3"], [b.name for b in BATCHES])
 
     def test_every_claimed_case_is_that_corpus_case(self):
         self.assertTrue(self.corpus, "the corpus did not load under its pinned digest")
@@ -126,24 +154,38 @@ class BatchIdentityAndLedger(unittest.TestCase):
                 for p in row["EVIDENCE_PATHS"]:
                     self.assertTrue((ROOT / p).is_file(), p)
 
-    def test_a_sample_revalidates_exactly_as_recorded(self):
-        """r09 (valid, fast) and r08 (rejected) re-run from scratch through the real validator."""
-        doc = json.loads((BATCH1 / "classification.json").read_text(encoding="utf-8"))
-        self.doc = doc
-        sample = [r for r in doc["records"]
-                  if r["corpus_case_id"] in ("r08-governance-project-continuity-contract",
-                                             "r09-governance-seam-contract-partitions")]
-        self.assertEqual(2, len(sample))
+    # one record per stratum: A on an added oracle, A on a frozen oracle, B, C, A on a PR merge.
+    # The full re-validation of every record is the reviewer command in admission/README.md.
+    SAMPLE = ("r09-governance-seam-contract-partitions", "r24-governance-bootstrap-budget-repair-round-2",
+              "r30-governance-h3a-replay-results", "r08-governance-project-continuity-contract",
+              "r31-governance-pr1-global-governance-audit")
+
+    def test_a_stratified_sample_revalidates_exactly_as_recorded(self):
+        records, recorded = [], {}
+        for batch in BATCHES:
+            doc = json.loads((batch / "classification.json").read_text(encoding="utf-8"))
+            run = (batch / "validator-run.txt").read_text(encoding="utf-8").splitlines()
+            for r in doc["records"]:
+                if r["corpus_case_id"] in self.SAMPLE:
+                    records.append(r)
+                    cid = r["corpus_case_id"]
+                    recorded[cid] = sorted(ln.strip() for ln in run
+                                           if ln.strip().split(" ")[:2] == ["TRANSITION", cid]
+                                           or ln.strip().startswith(cid + " "))
+        self.assertEqual(len(self.SAMPLE), len(records))
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "c.json"
-            path.write_text(json.dumps(dict(self.doc, records=sample)), encoding="utf-8")
+            path.write_text(json.dumps({"schema": "ELIGIBILITY_SCHEMA_V2",
+                                        "schema_version": self.ctc.SCHEMA_VERSION,
+                                        "records": records}), encoding="utf-8")
             proc = subprocess.run([sys.executable, str(VALIDATOR), str(path), str(ROOT)],
                                   capture_output=True, text=True)
         self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
-        self.assertIn("valid_requests=1 rejected=1 errors=0", proc.stdout)
-        self.assertIn("TRANSITION r09-governance-seam-contract-partitions class=A_REPAIR "
-                      "verdict=FAIL_TO_PASS", proc.stdout)
-
+        lines = [ln.strip() for ln in proc.stdout.splitlines()]
+        for cid in self.SAMPLE:
+            again = sorted(ln for ln in lines if ln.split(" ")[:2] == ["TRANSITION", cid]
+                           or ln.startswith(cid + " "))
+            self.assertEqual(recorded[cid], again, cid)
 
 if __name__ == "__main__":
     unittest.main()

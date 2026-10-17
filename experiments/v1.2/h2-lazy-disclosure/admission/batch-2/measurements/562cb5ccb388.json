@@ -1,7 +1,7 @@
 {
  "base_sha": "205dea848e5918c06f24991b389a19ccb2d3fb60",
  "candidate_sha": "562cb5ccb38846cd635851c13d8998e83a027f29",
- "elapsed_s": 48.2,
+ "elapsed_s": 52.7,
  "facts": {
   "base": "205dea848e5918c06f24991b389a19ccb2d3fb60",
   "candidate": "562cb5ccb38846cd635851c13d8998e83a027f29",
@@ -207,6 +207,7 @@
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
+  "regressed": [],
   "baseline_oracle_status": "PASS",
   "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "PASS",
@@ -227,7 +228,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.1",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
   "acceptance_timeout_s": 300
  },
  "subject": "chore: remove accidental empty file"

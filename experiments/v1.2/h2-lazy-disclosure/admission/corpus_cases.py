@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Render replay-corpus case blocks for admission pairs (pre-freeze; output is reviewed text).
 
-Schema v2's identity rule binds every record to a case of experiments/v1.2/replay/cases.yaml, so a
-candidate cannot be validated until the corpus names it. This program renders the case blocks; it
-does not edit the corpus — the blocks are inserted by hand, in review, together with the two pins
-the identity root requires (CORPUS_SHA256 in the validator, the per-case pair literal in the test).
+Schema v2's identity rule binds every record to a corpus case, so a candidate cannot be validated
+until a corpus names it. Admission anchors go to admission/corpus.yaml — NOT to H3's
+replay/cases.yaml, whose every case is an H3 detector input. This program renders the blocks; it
+does not edit the corpus — they are inserted in review together with the two pins the identity
+root requires (H2_CORPUS_SHA256 in the validator, the per-case pair literal in the test).
 
 The v1 signal counts are computed HERE, with commands that differ from the H3 detector
 (structure_delta.py): new files from `--diff-filter=A -z`, new directories from `ls-tree -d`
@@ -55,9 +56,9 @@ def signals(root: Path, base: str, cand: str) -> dict[str, int]:
 def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
     cand = git(root, "rev-parse", f"{cand}^{{commit}}").strip()
     parents = git(root, "rev-list", "--parents", "-n1", cand).split()[1:]
-    if len(parents) != 1:
-        raise SystemExit(f"{case_id}: {cand} is not a single-parent commit")
-    base = parents[0]
+    if not parents:
+        raise SystemExit(f"{case_id}: {cand} has no parent to replay against")
+    base = parents[0]                    # a merge is replayed against its FIRST parent
     if subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", cand,
                        verified_main]).returncode != 0:
         raise SystemExit(f"{case_id}: {cand} is not reachable from {verified_main}")
@@ -101,7 +102,8 @@ def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
         "      related_refs:",
         f"        - 'candidate subject: {subject}'",
         "      notes: |",
-        f"        candidate^ == base (single parent); {stat}.",
+        (f"        candidate^ == base (single parent); {stat}." if len(parents) == 1 else
+         f"        merge commit; base = first parent ({len(parents)} parents); {stat}."),
         f"        Reachable from origin/main={verified_main}.",
         "",
     ]

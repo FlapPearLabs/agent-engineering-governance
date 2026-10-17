@@ -2,15 +2,15 @@
  "summary": {
   "validator_run": "PASS",
   "records": 8,
-  "schema_v2_valid_requests": 7,
+  "schema_v2_valid_requests": 6,
   "executions_disagree": 0,
   "valid_by_oracle_kind": {
    "DOC_TEXT": 2,
-   "GUARD:LINK_INTEGRITY": 5
+   "GUARD:LINK_INTEGRITY": 4
   },
   "valid_by_family": {
    "P1_TICKET_DOC_RECIPE": 0,
-   "INDIVIDUAL": 7
+   "INDIVIDUAL": 6
   }
  },
  "rows": [
@@ -24,7 +24,7 @@
    "FROZEN_ACCEPTANCE_DEFINITION": null,
    "BASE_RESULT": "no basis",
    "CANDIDATE_RESULT": "no basis",
-   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "MUTATION_RESULT": "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
    "STATE_TRANSITION": "NO_DISCRIMINATING_ACCEPTANCE",
    "ORACLE_LOCATION": null,
    "ORACLE_EXTERNALIZATION": "N/A",
@@ -74,7 +74,7 @@
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py@4505faeaaa7a",
-   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "ORACLE_EXTERNALIZATION": "FRAMEWORK_FROZEN: the oracle is byte-identical at base and candidate and is not in the delta; Freeze v2 must still exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "audit/AUDIT_QUALITY_REVIEW.md",
     "deployment/BOOTSTRAP_CONTRACT.md"
@@ -112,7 +112,7 @@
    "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
    "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
    "ORACLE_LOCATION": null,
-   "ORACLE_EXTERNALIZATION": "N/A",
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "README.md",
     "docs/design-history.md",
@@ -155,11 +155,11 @@
    "TASK_DESCRIPTION": "docs: make governance portable with MIT and an adoption exercise",
    "BASE_SHA": "8c0075c5db0e06eec67d303955d13e214ba22782",
    "CANDIDATE_SHA": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
-   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "TASK_CLASS": "C_REJECT",
    "FROZEN_ACCEPTANCE_DEFINITION": null,
    "BASE_RESULT": "no basis",
    "CANDIDATE_RESULT": "no basis",
-   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "MUTATION_RESULT": "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
    "STATE_TRANSITION": "NO_DISCRIMINATING_ACCEPTANCE",
    "ORACLE_LOCATION": null,
    "ORACLE_EXTERNALIZATION": "N/A",
@@ -191,26 +191,17 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
-   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
-   "REJECTION_REASON": null,
-   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
-   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "NO_DISCRIMINATING_ACCEPTANCE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
    "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
-   "OBSERVATION_GUARD_CHECKS": {
-    "scripts/validate_governance.py": [
-     "markdown-links-resolve"
-    ],
-    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
-     "test_consumer_accepts_the_real_structured_pass_run",
-     "test_gitignored_local_profile_stays_out_of_candidate_surface",
-     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
-     "test_malformed_result_is_never_accepted"
-    ]
-   },
+   "OBSERVATION_GUARD_CHECKS": null,
    "EVIDENCE_PATHS": [
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/95667e8e3d9a.json",
-    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
    ]
@@ -233,7 +224,7 @@
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py@7cadc9c44518",
-   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "ORACLE_EXTERNALIZATION": "FRAMEWORK_FROZEN: the oracle is byte-identical at base and candidate and is not in the delta; Freeze v2 must still exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "deployment/MEMORY_POINTER_CANDIDATE.md"
    ],
@@ -270,7 +261,7 @@
    "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
    "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
    "ORACLE_LOCATION": null,
-   "ORACLE_EXTERNALIZATION": "N/A",
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "README.md",
     "docs/adoption-evidence/README.md",
@@ -367,7 +358,7 @@
    "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
    "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
    "ORACLE_LOCATION": null,
-   "ORACLE_EXTERNALIZATION": "N/A",
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "experiments/v1.2/README.md",
     "experiments/v1.2/cases.yaml",
@@ -419,7 +410,7 @@
    "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
    "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
    "ORACLE_LOCATION": null,
-   "ORACLE_EXTERNALIZATION": "N/A",
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
    "WORKER_SCOPE": [
     "experiments/v1.2/README.md",
     "experiments/v1.2/evidence-lineage.md",

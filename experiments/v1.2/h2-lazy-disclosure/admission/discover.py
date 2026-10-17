@@ -22,8 +22,12 @@ This program decides NOTHING about eligibility. Its dispositions are routing:
                                 surface green at the base and red under mutation. Both need full
                                 execution of every surface, so they are a separate (costed) batch.
   NO_DELTA                      empty diff.
+  DUPLICATE_TASK                (--merges only) the merge's first-parent pair has the same base
+                                tree and candidate tree as a non-merge pair: one task, two SHAs.
 
-Usage:  discover.py <repo_root> <ref> <out.json>
+Usage:  discover.py <repo_root> <ref> <out.json> [--merges]
+          default   every non-merge commit -> (parent, commit)
+          --merges  every merge commit -> (first parent, merge): the PR-level delta (batch 3)
 """
 from __future__ import annotations
 
@@ -40,7 +44,8 @@ import check_task_class as ctc  # noqa: E402  (validator-owned rules, imported n
 
 # The validator's acceptance convention (check_task_class.acceptance_surfaces) expressed as a path
 # predicate, because discovery reads the diff rather than a materialised tree. It is cross-checked
-# against acceptance_surfaces() by test_admission_workflow.py so the two cannot drift apart.
+# against acceptance_surfaces() by experiments/v1.2/tests/test_v1_2_h2_admission.py so the
+# two cannot drift apart.
 ACCEPTANCE_PATH_RE = re.compile(r"^scripts/validate_[^/]*\.py$|^scripts/tests/test_[^/]*\.py$")
 
 
@@ -75,7 +80,14 @@ def pair_facts(repo: ctc.Repo, parent: str, commit: str) -> dict:
     }
 
 
+def trees(root: Path, base: str, cand: str) -> tuple[str, str]:
+    return (git(root, "rev-parse", f"{base}^{{tree}}").strip(),
+            git(root, "rev-parse", f"{cand}^{{tree}}").strip())
+
+
 def main(argv: list[str]) -> int:
+    merges = "--merges" in argv
+    argv = [a for a in argv if a != "--merges"]
     if len(argv) != 4:
         print(__doc__, file=sys.stderr)
         return 2
@@ -84,13 +96,26 @@ def main(argv: list[str]) -> int:
     ref_sha = git(root, "rev-parse", f"{ref}^{{commit}}").strip()
     remote = git(root, "config", "--get", "remote.origin.url").strip()
     rows = []
-    for line in git(root, "rev-list", "--no-merges", "--parents", ref_sha).splitlines():
+    seen_trees: dict[tuple[str, str], str] = {}
+    if merges:
+        for line in git(root, "rev-list", "--no-merges", "--parents", ref_sha).splitlines():
+            parts = line.split()
+            if len(parts) == 2:
+                seen_trees.setdefault(trees(root, parts[1], parts[0]), parts[0])
+    walk = ["--merges", "--parents"] if merges else ["--no-merges", "--parents"]
+    for line in git(root, "rev-list", *walk, ref_sha).splitlines():
         parts = line.split()
         commit, parents = parts[0], parts[1:]
-        if len(parents) != 1:            # root commit (no parent): there is no base to replay
+        if not merges and len(parents) != 1:   # root commit (no parent): nothing to replay
             rows.append({"candidate_sha": commit, "disposition": "NO_PARENT"})
             continue
         row = pair_facts(repo, parents[0], commit)
+        if merges:
+            row["pair_kind"] = "FIRST_PARENT_OF_MERGE"
+            twin = seen_trees.get(trees(root, parents[0], commit))
+            if twin:
+                row["disposition"] = "DUPLICATE_TASK"
+                row["duplicate_of"] = twin
         row["subject"] = git(root, "log", "-1", "--format=%s", commit).strip()
         row["date"] = git(root, "log", "-1", "--format=%cs", commit).strip()
         rows.append(row)
@@ -103,6 +128,7 @@ def main(argv: list[str]) -> int:
         "repository_remote": remote,
         "ref": ref,
         "ref_sha": ref_sha,
+        "mode": "merges (first-parent pairs)" if merges else "non-merge commits",
         "pairs_total": len(rows),
         "funnel": dict(sorted(funnel.items())),
         "pairs": rows,

@@ -1,0 +1,7 @@
+  TRANSITION r31-governance-pr1-global-governance-audit class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/validate_governance.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r32-governance-pr40-replay-corpus class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/validate_governance.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
+  TRANSITION r33-governance-pr41-structure-delta-v0 class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/validate_governance.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
+  r31-governance-pr1-global-governance-audit   class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r32-governance-pr40-replay-corpus            class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r33-governance-pr41-structure-delta-v0       class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+TASK_CLASS_VERDICT = PASS records=3 valid_requests=3 rejected=0 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)

@@ -1,7 +1,7 @@
 {
  "base_sha": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
  "candidate_sha": "87f6f7805720825163147c893e0bc715b06559fc",
- "elapsed_s": 53.1,
+ "elapsed_s": 54.0,
  "facts": {
   "base": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
   "candidate": "87f6f7805720825163147c893e0bc715b06559fc",
@@ -207,6 +207,7 @@
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
+  "regressed": [],
   "baseline_oracle_status": "PASS",
   "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "PASS",
@@ -227,7 +228,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.1",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): defer the #46 review-status wording to the GitHub record"

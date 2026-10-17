@@ -4,192 +4,168 @@
 > This directory finds real historical tasks, measures them, and lets **Schema v2 decide**.
 > It grants nothing: `REQUEST_VALID` is a request to Freeze v2; the grant is Freeze v2 + fresh review.
 > It does not modify the frozen surface (task-registry / run plan / variant manifest / scoring /
-> routes / protocol) and executes no H2-R2 run.
+> routes / protocol / round-2 freeze) and executes no H2-R2 run. H3's replay corpus
+> (`experiments/v1.2/replay/cases.yaml`) is byte-identical to `f4eb503`.
 
 ## 1. Workflow (repeatable; every step is a program, every output is in the batch directory)
 
 ```text
-discover.py      every non-merge commit on <ref> -> one (parent, commit) pair -> ONE disposition
-                 (nothing dropped silently). Uses the validator's own derived_triggers() and
-                 acceptance convention (cross-checked by test_v1_2_h2_admission.py).
-                   DERIVED_TRIGGER_PRESENT     delta rewrites a test/validator -> cannot be a valid
-                                               request as a historical pair
-                   MEASURE_ADDED_ACCEPTANCE    -> measured in the batch that routes it
-                   DEFERRED_FROZEN_BASIS_SCAN  -> needs every surface executed (separate batch)
-measure.py       the validator's own recompute_transition() per pair (base / candidate /
-                 controlled mutation); raw exit codes per surface
-probe_basis.py   what the basis acceptance EXERCISED (unittest ran/skipped/failures/errors)
-corpus_cases.py  renders replay-corpus case blocks (identity root of Schema v2); signal counts are
-                 computed independently of the H3 detector and cross-checked by the H3 loader
-build_records.py one Schema-v2 record (request) per measured pair, class = measured transition
-check_task_class.py  THE VERDICT: re-executes every transition and binds every declared status
-ledger.py        all required fields per candidate, from the above files only; asserts the two
-                 independent executions agree
+discover.py        every non-merge commit (or, with --merges, every merge vs its FIRST parent) on
+                   <ref> -> one pair -> ONE disposition; nothing is dropped silently. Uses the
+                   validator's own derived_triggers() and acceptance convention.
+                     DERIVED_TRIGGER_PRESENT     delta rewrites a test/validator: cannot be a valid
+                                                 request as a historical pair
+                     MEASURE_ADDED_ACCEPTANCE    delta adds an acceptance surface -> measured
+                     DEFERRED_FROZEN_BASIS_SCAN  no added acceptance -> every surface executed
+                     DUPLICATE_TASK (--merges)   same base tree + candidate tree as a commit pair
+                     NO_DELTA / NO_PARENT
+measure.py         the validator's own recompute_transition() per pair; raw exit codes per surface,
+                   stamped with the validator file's sha256
+probe_basis.py     what the basis acceptance EXERCISED (unittest ran/skipped/failures/errors)
+diagnose_bites.py  which named check BIT, rebuilt with the validator's own _materialise_mutation()
+corpus_cases.py    renders identity anchors for admission/corpus.yaml (NOT H3's corpus); signal
+                   counts computed independently of the H3 detector and cross-checked by tests
+build_records.py   one Schema-v2 record (request) per routed pair; every evidence/disclosure string
+                   derived from the pair's disposition and basis provenance
+check_task_class.py THE VERDICT: re-executes every transition and binds every declared status
+ledger.py          all required per-candidate fields from the files above; asserts the two
+                   independent executions (measure.py vs the validator) agree
+negative_controls.py  laundered records through the current validator + the attack pairs through
+                   earlier validator revisions loaded straight from git -> negative-controls/report.txt
 ```
 
-Reproduce end to end (from the worktree root; `PY` = the pinned toolchain interpreter;
-`<scratch>` = any directory outside the repository):
+Reproduce (worktree root; `PY` = the pinned toolchain interpreter; `<scratch>` outside the repo):
 
 ```bash
 A=experiments/v1.2/h2-lazy-disclosure/admission
-$PY $A/discover.py . 5ab500e5478b671f43df80a78730ca172da6cf2b <scratch>/d.json   # == batch-1 routing
-$PY experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py $A/batch-1/classification.json .
-$PY experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py $A/batch-2/classification.json .
-$PY $A/ledger.py $A/batch-1 && $PY $A/ledger.py $A/batch-2
+$PY $A/discover.py . 5ab500e5478b671f43df80a78730ca172da6cf2b <scratch>/d.json            # == batch-1 routing
+$PY $A/discover.py . 5ab500e5478b671f43df80a78730ca172da6cf2b <scratch>/m.json --merges   # == batch-3 routing
+for b in 1 2 3; do $PY experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py $A/batch-$b/classification.json . ; done
+for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
+$PY $A/negative_controls.py .
 ```
 
-All measurements in both batches were (re)produced by the FINAL validator 2.8.1 (F-A1, F-A1b,
-F-A3 fixed); every earlier measurement file was regenerated, none was edited.
+Every measurement file (111) was produced by validator **2.8.2** — `environment.validator_sha256`
+equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
+edited.
 
-## 2. Batch 1 — governance repository, `origin/main` @ `5ab500e`
+## 2. Coverage — governance repository, `origin/main` @ `5ab500e`
 
 ```text
-PAIRS_TOTAL                     200 non-merge commits (+2 root commits: NO_PARENT)
-DERIVED_TRIGGER_PRESENT          98   rewrite an existing test / validate_* / check_* file
-DEFERRED_FROZEN_BASIS_SCAN       83   -> batch 2
-MEASURE_ADDED_ACCEPTANCE         17   -> measured, recorded, validated
-SCHEMA_V2 (validator 2.8.1)      TASK_CLASS_VERDICT = PASS records=17 valid_requests=15 rejected=2
-EXECUTIONS_DISAGREE              0    (measurement vs the validator's own re-execution)
-REJECTED                         r08 (af4df6a) BASE_EQUALS_CANDIDATE — its only added acceptance,
-                                       validate_project_state.py, fails at both revisions here
-                                 r11 (1ca9365) BASE_EQUALS_CANDIDATE — the added test passes
-                                       against the unfixed base (it does not observe the change)
+NON-MERGE COMMITS   200 = 198 pairs + 2 root commits (NO_PARENT)
+  DERIVED_TRIGGER_PRESENT       98   not executed (Schema v2 refuses them as historical pairs; FZ-ADM-6)
+  MEASURE_ADDED_ACCEPTANCE      17   batch 1
+  DEFERRED_FROZEN_BASIS_SCAN    83   batch 2
+MERGE COMMITS        25 (first-parent pairs, batch 3)
+  DUPLICATE_TASK                 7   same trees as a commit pair: one task, not two
+  DERIVED_TRIGGER_PRESENT        6
+  NO_DELTA                       1
+  MEASURED                      11   1 MEASURE_ADDED_ACCEPTANCE + 10 DEFERRED_FROZEN_BASIS_SCAN
+EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-Per-candidate fields (CASE_ID … EVIDENCE_PATHS) are in `batch-1/ledger.json`.
-
-### 2.1 What the 15 valid requests are — composition (observations, not verdicts)
+## 3. Results (validator 2.8.2; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
-ORACLE_KIND   BEHAVIORAL 3   r02 (review-evidence interface), r13 (P1-T06 producer trust),
-                             r17 (P1-T08 evidence lifecycle) — the deliverable is code the oracle runs
-              DOC_TEXT  11   the deliverable is reference text; the oracle reads it with marker
-                             groups + anti-vacuity probes (e.g. r15's test mutates each normative
-                             sentence and requires the probe to flip)
-              DOC_OR_DATA 1  r22 (experiment foundation: a corpus file + docs)
-FAMILY        8 of 15 are one family (P1 ticket doc-recipes: r10 r12 r14 r15 r16 r18 r19 r20)
-BASIS         all 15 bases are DELTA_ADDED (the historical delta authored its oracle); no
-              DELTA_FROZEN basis exists in this batch (see schema §3.3 for why)
-EXERCISED     the 14 TEST bases each ran >= 7 tests with 0 skips at the candidate; at the base,
-              13 of them fail with AssertionError (the predicate is reached) and r22's fails with
-              FileNotFoundError (its deliverable file is absent). r07's basis is a VALIDATOR, whose
-              exit code is its only report. No all-skipped PASS anywhere (see F-A2)
+                     records  valid  rejected  executions_disagree
+batch 1 (commits)       17      15       2              0
+batch 2 (frozen scan)    8       6       2              0      (75 pairs: no transition, no record)
+batch 3 (PR merges)      3       3       0              0      (8 pairs: no transition, no record)
+TOTAL                   28      24       4              0
 ```
 
-These matter for Freeze v2, not for Schema v2 — see §4.
+Records are made for every pair whose measured transition supports a class, plus the rejections
+that are named examples (r08, r11 batch 1; r23, r26 batch 2). Per-candidate fields CASE_ID …
+EVIDENCE_PATHS are in each `ledger.json`.
 
-## 2b. Batch 2 — the 83 DEFERRED_FROZEN_BASIS_SCAN pairs of batch 1's discovery
+### 3.1 What the 24 valid requests are (observations for Freeze v2, not verdicts)
 
 ```text
-MEASURED            83   every surface executed in base / candidate / mutation
-NO TRANSITION       75   72 BASE_EQUALS_CANDIDATE with no bite, 3 NO_ACCEPTANCE (no scripts/ tree)
-SUPPORTED            7   -> records r24-r30; plus r23 (825d390) as the named F-A3 negative example
-SCHEMA_V2 (2.8.1)        TASK_CLASS_VERDICT = PASS records=8 valid_requests=7 rejected=1
-A_REPAIR, FROZEN    r24 4505fae  repairs the t09 byte-budget regression introduced by 825d390
-  basis (2)                       ("repair round 2" of a review cycle)
-                    r27 7cadc9c  restores t09 after 95667e8 broke it
-                    oracle = scripts/tests/test_p1_t09_bootstrap_byte_budget.py, DELTA_FROZEN, i.e.
-                    FRAMEWORK_FROZEN: red at the base (AssertionError, 24 tests run), green at the
-                    candidate, and the worker's delta is one doc file. These are the only true
-                    "real regression, frozen oracle" repairs in the repository's history.
-B_REGRESSION_GUARD  r25 r26 r28 r29 r30 — EVERY bite is `markdown-links-resolve`
-  (5)                (validate_governance.py; test_p1_t16 fails because it runs the same validator
-                    in a scratch copy): the delta adds a document and edits others to link it, so
-                    removing it leaves a dangling link. A real guard, but a SHALLOW one: it proves
-                    the linked file exists, nothing about its content (batch-2/bite-diagnosis.json)
-REJECTED            r23 (825d390) — it adds nothing and breaks t09; 2.8.0 accepted it as a
-                    B_REGRESSION_GUARD (F-A3)
+A_REPAIR, DELTA_ADDED oracle     16   the historical delta authored its oracle
+   BEHAVIORAL 3   r02 review-evidence interface, r13 P1-T06 producer trust, r17 P1-T08 lifecycle
+   DOC_TEXT  11   reference text checked by marker groups + anti-vacuity probes; 8 of them are one
+                  family (P1 ticket doc-recipes: r10 r12 r14 r15 r16 r18 r19 r20)
+   DOC/DATA   2   r22 experiment foundation (corpus file + docs); r31 PR #1 (governance baseline;
+                  its basis is the validator it adds)
+A_REPAIR, FRAMEWORK_FROZEN oracle 2  r24 (4505fae) repairs the t09 byte-budget regression that its
+                  parent 825d390 introduced ("repair round 2" of a review cycle); r27 (7cadc9c)
+                  restores t09 after 95667e8 broke it. Oracle test_p1_t09_bootstrap_byte_budget.py
+                  is byte-identical at both revisions; the worker's delta is one doc file.
+B_REGRESSION_GUARD                6   r25 r28 r29 r30 (commits), r32 r33 (PR #40, #41): EVERY bite is
+                  validate_governance.py `markdown-links-resolve` (test_p1_t16 fails because it
+                  runs that validator in a scratch copy). Real but SHALLOW: removing the added doc
+                  leaves a dangling link; nothing about the doc's content is checked.
+EXERCISED  the 16 TEST bases each ran >= 7 tests with 0 skips at the candidate. At the base, 15
+           fail at AssertionError level (r02 also raises FileNotFoundError, r21 also IndexError);
+           r22's base fails only with FileNotFoundError (its deliverable file is absent). r07 and
+           r31 have VALIDATOR bases, whose exit code is their only report.
+OVERLAP    r31 (PR #1) contains r07's commit 295ce65; r33 (PR #41) contains r30's commit a652fd4.
+           Different task identities, correlated content (FZ-ADM-8).
+REJECTED   r08, r11  BASE_EQUALS_CANDIDATE (the added acceptance does not move)
+           r23, r26  CANDIDATE_REGRESSES_A_FROZEN_GUARD (each breaks t09; F-A3 / F-A6)
 ```
 
-## 3. Findings raised by real candidates (fact → reproducer → severity → fix → falsification)
+## 4. Findings raised by real candidates and by the fresh review of 4add2ca
+
+Each: fact → reproducer → severity → minimal fix → red-before/green-after test. The version-level
+before/after for every one is in `negative-controls/report.txt` (earlier validators loaded from
+git, not edited copies).
 
 ```text
-F-A1   P1  (validator 2.8.0; fixed in 2.8.1)
-       FACT        the controlled mutation unlinked added files but left them in git's index; an
-                   acceptance that enumerates `git ls-files` crashed, and the crash counted as a BITE
-       REPRODUCER  0007bb3 (r22): test_p1_t16_gate_cli_entrypoint.py rc=1 FileNotFoundError under
-                   the unlink mutation, rc=0 under an index-consistent one; a B_REGRESSION_GUARD
-                   request for r22 is ACCEPTED by 2.8.0 (see SEVERITY line)
-       SEVERITY    P1 — erroneously accepts a candidate; latent until the corpus grew (this stage)
-                   (output: negative-controls/nc-r22-launder-B.under-2.8.0.txt vs .under-2.8.1.txt)
-       CATEGORY    any surface that reads git's index or HEAD; at main two call `git ls-files`
-                   directly (test_p1_t16 and the frozen validate_public_release.py, which other
-                   surfaces reference) — a class, not the one demonstrated test
-       FIX         mutation = committed revision (git rm + commit, tree must be clean); `-z` paths
-       REGRESSION  MutationMaterialisation (4 tests) incl. a positive control that a real
-                   dependency on an added file still bites
-F-A1b  P1  (introduced by the first 2.8.1 draft; caught before commit by re-measurement)
-       FACT        committing under a synthetic identity made validate_governance.py's HEAD-identity
-                   check (4b) fail in every mutation -> 15/17 pairs "bit"
-       FIX         the mutation commit carries the candidate's author/committer/dates/message
-       REGRESSION  test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit (fails on the
-                   draft, passes on the fix)
-F-A1c  P2  non-ASCII added paths were quoted by `git diff --name-only` and silently not removed
-           (mutation kept the addition). Fixed with -z; regression test_a_non_ascii_added_path_...
-F-A3   P1  (validator 2.8.0 and the 2.8.1 draft; fixed in 2.8.1)
-       FACT        a bite required green at the base and red under the mutation, not green at the
-                   CANDIDATE; with no added path the mutation IS the candidate
-       REPRODUCER  825d390 (r23) adds nothing and breaks t09 (rc 0/1/1); a B_REGRESSION_GUARD
-                   request for it is ACCEPTED by 2.8.0 (negative-controls/nc-r23-launder-B.under-2.8.0.txt)
-       FIX         bite = base green AND candidate green AND mutation red AND >= 1 added path
-       REGRESSION  test_a_candidate_that_breaks_a_guard_is_not_a_bite (red before, green after)
-F-A2   P3  (latent; not observed) the validator reads exit codes only, so an all-skipped unittest
-           module would read as PASS. Not observed on any basis (probe: 0 skips everywhere).
-           Mitigation here: probe_basis.py evidence per record. Left out of the validator: no real
-           case exercises it, and the stop rule says record, don't polish.
-N2.1 P3-A / P3-B   closed while touching the same files (see eligibility-schema-v2.md §6.7).
+F-A1  P1  2.8.0  mutation unlinked added files but left them in git's index; index readers crashed
+                 and the crash counted as a bite. r22 laundered to B: SUPPORTED by 2.8.0.
+F-A1b P1  draft  a mutation commit under a synthetic identity tripped the HEAD-identity check.
+F-A1c P2  2.8.0  non-ASCII added paths were quoted by git and silently kept.
+F-A3  P1  2.8.0  a frozen surface the CANDIDATE broke counted as a bite (r23 adds nothing, breaks t09).
+F-A4  P1  2.8.1  (fresh review) the mutation was committed ON TOP of the candidate: merges stopped
+                 being merges, HEAD^ changed; PR #49's merge got a B request accepted end to end.
+                 Fix: the mutation is the candidate's own commit object with only its tree changed.
+F-A5  P2  2.8.1  (fresh review) `git rm` read a path as a glob. Fix: --literal-pathspecs + exact-diff
+                 postcondition.
+F-A6  P2  2.8.1  (fresh review) the candidate leg was checked only on the biting surface; r26 breaks
+                 t09 while a link guard bit. Fix: B refused when ANY frozen guard regresses.
+H3    P2  4add2ca (fresh review) anchors appended to H3's replay corpus changed H3's metrics. Fix:
+                 separate pinned admission/corpus.yaml; H3's file restored byte-identical.
+EVID  P2  4add2ca (fresh review) hardcoded evidence/disclosure/externalisation strings were wrong for
+                 batch 2 (said MEASURE_ADDED_ACCEPTANCE / DELTA_ADDED). Fix: derived per pair.
+F-A2  P3  latent the validator reads exit codes only; an all-skipped unittest module would read as
+                 PASS. Not observed (0 skips on every basis); probe_basis.py records it per record.
+N2.1 P3-A / P3-B closed (eligibility-schema-v2.md §6.7).
 ```
 
-## 4. What Freeze v2 must still decide or measure (Schema v2 cannot)
+## 5. What Freeze v2 must still decide or measure (Schema v2 cannot)
 
 ```text
-FZ-ADM-1 TASK_TEXT <-> ORACLE ALIGNMENT  The DOC_TEXT oracles check specific marker groups. A
-         worker that sees only a paraphrased task text cannot hit them, so both arms would fail
-         and the task carries no signal. Freeze v2 must materialise each task's text from its
-         ticket/issue and check that every literal the oracle requires is derivable from it — or
-         not select the task. (Not enforced anywhere today.)
-         MEASURED on r15 (dc7aef6, ticket = Issue #23, 7,976 chars, read-only via `gh issue view`):
-         63 of the oracle's 241 string literals occur verbatim in the ticket body, and the heading
-         the oracle locates the recipe by — `### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）`
-         — does not. A crude literal count (many literals are code, not required text), but enough
-         to show the hazard is real for this family, not hypothetical.
-FZ-ADM-2 FAMILY CONCENTRATION  8/15 valid requests are one doc-recipe family; selecting six from
-         them would measure one task shape. Selection must be stratified (BEHAVIORAL: only 3).
-         The 5 B requests (batch 2) are all link-integrity guards: shallow oracles that prove a file
-         exists. Usable as B shape only if Freeze v2 accepts that, and they do not count as
-         correctness evidence for the deliverable's content.
-FZ-ADM-3 DELIVERY ANCHORS (schema §6.4)  pre-/post-delivery acceptance not yet measured for any
-         admitted candidate; t01 showed delivery alone can flip a gate. Required per task.
-FZ-ADM-4 PER-BASE ROUTE PRECONDITIONS (protocol §10)  the candidate bases (2026-09-05 .. 10-07)
-         are not the six bases P6 verified; routes-h2.json must be re-run per selected base.
-FZ-ADM-5 ORACLE EXTERNALISATION  every basis is DELTA_ADDED: the run's worker scope must exclude
-         the oracle path and the harness must place the frozen candidate blob (sha256 in ledger).
-FZ-ADM-6 THE DOMINANT REAL-REPAIR SHAPE IS NOT ADMISSIBLE AS A HISTORICAL PAIR  98/200 commits
-         (incl. most `fix(...)` commits) edit an existing test file; Schema v2 derives
-         WORKER_MODIFIES_TEST_ORACLE for them. Admitting any of them needs a NEW task identity with
-         an externally frozen oracle (the r01 route) — a Freeze-v2 design decision, not a rescue.
-FZ-ADM-7 CROSS-REPOSITORY CANDIDATES  zhihu-grabber-toolkit, workbuddy-toolkit and webcodex hold
-         real repair history, but Schema v2 can only validate pairs in this object database
-         (EXTERNAL_UNVERIFIABLE_LOCALLY never carries a valid request) and the H2 round, routes and
-         delivery are governance-scoped (r01: ROUND_SCOPE_DECISION). Scanning them is wasted work
-         until that scope decision is made.
+FZ-ADM-1 TASK_TEXT <-> ORACLE ALIGNMENT  DOC_TEXT oracles check specific marker groups; a worker that
+         sees a paraphrased task text cannot hit them, so both arms fail and the task carries no
+         signal. MEASURED on r15 (Issue #23, 7,976 chars, read-only `gh issue view`): 63 of the
+         oracle's 241 string literals occur verbatim in the ticket, and the heading the oracle
+         locates the recipe by (`### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）`) does
+         not. Freeze v2 must derive each task text from its ticket and check that every literal the
+         oracle requires is derivable — or not select the task.
+FZ-ADM-2 STRATA  8/16 DELTA_ADDED A requests are one doc-recipe family; all 6 B requests are one
+         shallow guard kind. Selection must be stratified; BEHAVIORAL 3 + FRAMEWORK_FROZEN 2 is
+         the strongest subset today (5).
+FZ-ADM-3 DELIVERY ANCHORS (schema §6.4)  pre-/post-delivery acceptance not measured for any request.
+FZ-ADM-4 PER-BASE ROUTE PRECONDITIONS (protocol §10)  request bases are not P6's six bases.
+FZ-ADM-5 ORACLE PLACEMENT  DELTA_ADDED bases: the harness must place the frozen candidate blob
+         (sha256 in the ledger) and exclude the path from worker scope. FRAMEWORK_FROZEN bases
+         (r24, r27) and B guards: the path already exists; it must only be excluded from scope.
+FZ-ADM-6 THE DOMINANT REAL-REPAIR SHAPE  98 commits + 6 merges edit an existing test; Schema v2
+         derives WORKER_MODIFIES_TEST_ORACLE. Admitting any needs a NEW task identity with an
+         externally frozen oracle (the r01 route): a design decision, not a rescue.
+FZ-ADM-7 CROSS-REPOSITORY CANDIDATES  zhihu-grabber-toolkit, workbuddy-toolkit, webcodex hold real
+         repair history, but Schema v2 validates only pairs in this object database and the H2
+         round / routes / delivery are governance-scoped (r01: ROUND_SCOPE_DECISION).
+FZ-ADM-8 OVERLAP  never select both r31 and r07, or both r33 and r30.
 ```
 
-## 5. Admission total (both batches; governance repository; validator 2.8.1)
+## 6. Status of the admission count
 
 ```text
-SCHEMA_V2_VALID_REQUESTS   22  = 15 (batch 1) + 7 (batch 2)
-  A_REPAIR  DELTA_ADDED     15  BEHAVIORAL 3 · DOC_TEXT 11 · DOC_OR_DATA 1 (8 one P1 doc family)
-  A_REPAIR  FRAMEWORK_FROZEN 2  r24, r27 — real regressions repaired against a frozen test
-  B_REGRESSION_GUARD         5  all link-integrity guards (shallow)
-REJECTED (recorded)          3  r08, r11 (BASE_EQUALS_CANDIDATE), r23 (F-A3 example)
-H2 PROTOCOL REQUIREMENT     >= 6 real tasks  -> the COUNT requirement is met by Schema v2
-WHAT IS NOT YET SHOWN       that >= 6 of them are good H2 tasks: FZ-ADM-1..5 are open. The
-                            strongest subset today: r24, r27 (frozen oracle), r02, r13, r17
-                            (behavioural) = 5, plus the doc family only if FZ-ADM-1 passes.
-STOP RULE FOR ADMISSION     further history search is not needed for the count; it is only
-                            worth doing for the BEHAVIORAL / FROZEN strata, and the governance
-                            repository has no more of them (batch 1 + batch 2 cover all 200
-                            pairs; the 98 trigger-bearing pairs need FZ-ADM-6, a Freeze-v2
-                            design decision, not more searching).
+SCHEMA_V2_VALID_REQUESTS 24   >= 6 required by the H2 protocol: the COUNT is met by Schema v2.
+GOOD H2 TASKS            NOT YET SHOWN — FZ-ADM-1..5 and 8 are open.
+FURTHER SEARCH HERE      not useful: every non-merge and merge pair of main was routed and every
+                         routable pair executed. More strong tasks need FZ-ADM-6 (new identities
+                         with externally frozen oracles) or FZ-ADM-7 (a round-scope decision).
 ```

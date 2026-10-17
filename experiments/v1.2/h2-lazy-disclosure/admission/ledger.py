@@ -121,10 +121,16 @@ def main(argv: list[str]) -> int:
                                  if guard else "")),
             "STATE_TRANSITION": m["verdicts"]["A_REPAIR"]["reason"],
             "ORACLE_LOCATION": f"{oracle}@{cand[:12]}" if oracle else None,
-            "ORACLE_EXTERNALIZATION": ("REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle "
-                                       "(DELTA_ADDED); the frozen bytes above must be placed by "
-                                       "the acceptance harness and the path excluded from the "
-                                       "worker's scope" if basis else "N/A"),
+            "ORACLE_EXTERNALIZATION": (
+                "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the "
+                "frozen bytes above must be placed by the acceptance harness and the path "
+                "excluded from the worker's scope"
+                if basis and basis["provenance"] == "DELTA_ADDED" else
+                "FRAMEWORK_FROZEN: the oracle is byte-identical at base and candidate and is not "
+                "in the delta; Freeze v2 must still exclude its path from the worker's scope"
+                if basis else
+                f"GUARD {guard['path']} [{guard['provenance']}]: framework-frozen guard; exclude "
+                f"its path from the worker's scope" if guard else "N/A"),
             "WORKER_SCOPE": worker_scope,
             "ORACLE_IN_WORKER_SCOPE": {"historical": bool(facts.get("oracle_in_worker_scope")),
                                        "required_design": False},

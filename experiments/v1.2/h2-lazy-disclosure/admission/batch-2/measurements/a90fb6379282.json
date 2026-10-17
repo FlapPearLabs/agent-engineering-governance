@@ -1,7 +1,7 @@
 {
  "base_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
  "candidate_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
- "elapsed_s": 47.5,
+ "elapsed_s": 48.0,
  "facts": {
   "base": "0007bb3096791114d4616b599f44428e9bbfeb83",
   "candidate": "a90fb637928220396cad48d10783f9692aa70cb8",
@@ -215,6 +215,7 @@
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
+  "regressed": [],
   "baseline_oracle_status": "PASS",
   "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "PASS",
@@ -235,7 +236,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.1",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): correct c03 source anchor to P09 (independent review P3)"

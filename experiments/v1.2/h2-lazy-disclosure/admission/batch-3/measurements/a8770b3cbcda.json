@@ -1,0 +1,60 @@
+{
+ "base_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
+ "candidate_sha": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+ "elapsed_s": 0.3,
+ "facts": {
+  "base": "19a4aed0c6598117b0737058c14859d00ae1f084",
+  "candidate": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/validate_project_state.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 1,
+    "rc_mut": 1
+   }
+  ],
+  "acceptance_count": 2,
+  "frozen_count": 2,
+  "acceptance_surface_frozen": true,
+  "oracle_in_worker_scope": false,
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "regressed": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "BASE_EQUALS_CANDIDATE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "MUTATION_DOES_NOT_BITE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "Merge remote-tracking branch 'origin/main' into state/project-continuity-v1"
+}

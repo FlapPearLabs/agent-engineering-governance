@@ -20,6 +20,7 @@ Usage:  measure.py <repo_root> <discovery.json> <out_dir> [--jobs N] [--only SHA
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import platform
 import subprocess
@@ -67,6 +68,9 @@ def main(argv: list[str]) -> int:
            "git": subprocess.run(["git", "--version"], capture_output=True,
                                  text=True).stdout.strip(),
            "platform": platform.platform(), "schema_version": ctc.SCHEMA_VERSION,
+           # the exact validator bytes that produced this measurement (a version string is a
+           # claim; this is the fact)
+           "validator_sha256": hashlib.sha256(Path(ctc.__file__).read_bytes()).hexdigest(),
            "acceptance_timeout_s": ctc.ACCEPTANCE_TIMEOUT}
     print(f"MEASURE pairs={len(todo)} jobs={a.jobs}", flush=True)
     with ProcessPoolExecutor(max_workers=a.jobs) as pool:

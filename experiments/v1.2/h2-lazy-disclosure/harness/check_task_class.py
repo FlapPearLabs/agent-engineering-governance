@@ -84,13 +84,19 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.1"
+SCHEMA_VERSION = "2.8.2"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
 # exactly as the material tests pin the freeze hashes — editing the corpus without updating
 # this constant (and the test that asserts it) fails the validator, in review.
-CORPUS_SHA256 = "1b5cf80bae734ab35215e4743d5b6fddc4ed9f4d3848aa9c0afa9b7163d0cabd"
+CORPUS_SHA256 = "5d898b1a6db8fb16116a3cbec58c7078d780e379dd58d6d54553645291cda731"
+# Candidate Admission's anchors live in their OWN corpus, pinned the same way. They used to be
+# appended to replay/cases.yaml, which is also H3's replay input: H3's loader then counted 24
+# unreviewed H2 anchors as detector cases (fresh review of 4add2ca, finding 4). The identity root is
+# the union of the two files; a case id may appear in only one of them.
+H2_CORPUS = "experiments/v1.2/h2-lazy-disclosure/admission/corpus.yaml"
+H2_CORPUS_SHA256 = "3c69a9d9eaa13fa43d87387a88d8840959ca6baa97f46ba748ec9da656151d5b"
 CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD", "C_REJECT")
 ADMISSIBLE_CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD")
 TRIGGER_CODES = (
@@ -115,6 +121,7 @@ PENDING_PREFIX = "ORACLE_EXTERNALIZATION"
 TEST_PATH_RE = re.compile(r"(^|/)tests?/|\.test\.|(^|/)test_[^/]*\.py$")
 VALIDATOR_PATH_RE = re.compile(r"(^|/)validate_[^/]*\.py$|(^|/)check_[^/]*\.(sh|py)$")
 CASES_YAML = "experiments/v1.2/replay/cases.yaml"
+CORPORA = ((CASES_YAML, "CORPUS_SHA256"), (H2_CORPUS, "H2_CORPUS_SHA256"))
 REQUIRED_RECORD_KEYS = (
     "candidate_id", "corpus_case_id", "source_repository", "base_sha", "candidate_sha",
     "sha_binding", "class", "class_considered", "reject_triggers", "pending_requirements",
@@ -157,29 +164,23 @@ class Repo:
         return out
 
 
-def hashlib_digest_ok(path) -> bool:
-    """True iff the file's sha256 equals CORPUS_SHA256."""
-    return hashlib.sha256(path.read_bytes()).hexdigest() == CORPUS_SHA256
+def hashlib_digest_ok(path, constant: str = "CORPUS_SHA256") -> bool:
+    """True iff the file's sha256 equals the pinned literal named by `constant` (read at call time,
+    so a test that patches the module constant is honoured)."""
+    return hashlib.sha256(path.read_bytes()).hexdigest() == globals()[constant]
 
 
-def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
-    """case_id -> (base_sha, candidate_sha, source_repository), read from the replay corpus.
-
-    The corpus digest is checked against CORPUS_SHA256 BEFORE anything is parsed out of it:
-    without that, the identity rule would be only as strong as an unprotected write.
+def _parse_corpus(path: Path) -> tuple[dict[str, list[str]], set[str]]:
+    """(case_id -> [base, candidate, repository], every case id named) for one corpus file.
 
     Scoped to the `cases:` list on purpose. The first parser kept whatever `case_id` it saw last,
     so the `not_replay_ready:` section further down (which has its own `base_sha:` under a
     `candidate_ref:` entry) OVERWROTE the last real case's pair — the validator caught it and
-    refused, which is how it was found. Parsing now stops at the first top-level key after the
-    cases list and resets on any list item that is not a `case_id`.
+    refused, which is how it was found. Parsing stops at the first top-level key after the cases
+    list and resets on any list item that is not a `case_id`.
     """
-    path = repo.root / CASES_YAML
-    if not path.is_file():
-        return {}
-    if not hashlib_digest_ok(path):
-        return {}
     out: dict[str, list[str]] = {}
+    named: set[str] = set()
     current = None
     started = False
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -193,6 +194,7 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
         m = re.match(r"\s*-\s*case_id:\s*(\S+)\s*$", line)
         if m:
             current = m.group(1)
+            named.add(current)
             out.setdefault(current, ["", "", ""])
             continue
         if re.match(r"\s*-\s*\S+:", line):                  # a different list item: stop scoping
@@ -209,36 +211,46 @@ def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
         m = re.match(r"\s+source_repository:\s*(\S+)\s*$", line)
         if m and current:
             out[current][2] = m.group(1)
-    return {k: (v[0], v[1], v[2] if len(v) > 2 else "")
-            for k, v in out.items() if v[0] and v[1]}
+    return out, named
+
+
+def _read_corpora(repo: Repo):
+    """Parse every pinned corpus, or None when any is missing, off its pin, or two corpora name
+    the same case (a duplicate id would let one file shadow the other's pair). Digests are checked
+    BEFORE anything is parsed: without that the identity rule is only as strong as an unprotected
+    write."""
+    merged: dict[str, list[str]] = {}
+    named: set[str] = set()
+    for rel, constant in CORPORA:
+        path = repo.root / rel
+        if not path.is_file() or not hashlib_digest_ok(path, constant):
+            return None
+        pairs, ids = _parse_corpus(path)
+        if ids & named:
+            return None
+        merged.update(pairs)
+        named |= ids
+    return merged, named
+
+
+def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
+    """case_id -> (base_sha, candidate_sha, source_repository), read from the pinned corpora."""
+    read = _read_corpora(repo)
+    if read is None:
+        return {}
+    return {k: (v[0], v[1], v[2]) for k, v in read[0].items() if v[0] and v[1]}
 
 
 def corpus_incomplete_cases(repo: Repo) -> set[str]:
-    """Cases the corpus names but for which no complete pair could be parsed.
+    """Cases a corpus names but for which no complete pair could be parsed.
 
     Separated from `corpus_pairs` so the diagnosis can say WHICH of the two happened: a case id that
     is absent from the corpus is a different mistake from a case the corpus lists without a pair.
     """
-    path = repo.root / CASES_YAML
-    if not path.is_file() or not hashlib_digest_ok(path):
+    read = _read_corpora(repo)
+    if read is None:
         return set()
-    named, complete = set(), set()
-    current = None
-    started = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if re.match(r"^cases:\s*$", line):
-            started = True
-            continue
-        if started and re.match(r"^[A-Za-z_]+:", line):
-            break
-        if not started:
-            continue
-        m = re.match(r"\s*-\s*case_id:\s*(\S+)\s*$", line)
-        if m:
-            current = m.group(1)
-            named.add(current)
-    complete = set(corpus_pairs(repo))
-    return named - complete
+    return read[1] - set(corpus_pairs(repo))
 
 
 def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
@@ -259,9 +271,9 @@ def check_document(doc, repo: Repo, classification_dir: Path) -> list[str]:
     corpus = corpus_pairs(repo)
     corpus_incomplete = corpus_incomplete_cases(repo)
     if not corpus:
-        errors.append(f"the replay corpus could not be read, or its sha256 is not "
-                      f"{CORPUS_SHA256[:12]}... at {CASES_YAML} — the corpus is this scheme's "
-                      f"identity root and must match the pinned digest, so nothing here can be "
+        errors.append(f"the replay corpora could not be read, a sha256 is off its pinned "
+                      f"literal ({CASES_YAML}, {H2_CORPUS}), or two corpora name one case — the "
+                      f"corpora are this scheme's identity root, so nothing here can be "
                       f"validated (failing closed)")
 
     seen: list[str] = []
@@ -415,6 +427,49 @@ def _worktree_remove(repo: Repo, path: Path) -> None:
     repo.git("worktree", "remove", "--force", str(path))
 
 
+def _materialise_mutation(repo: Repo, cand: str, mut_wt: Path, added_paths: list[str]) -> bool:
+    """Turn the candidate worktree `mut_wt` into the controlled mutation, as a REVISION.
+
+    The mutation is the candidate's own commit object with exactly one byte range changed: the
+    `tree` header. Parents (so the parent count and HEAD^ — a merge stays a merge), author,
+    committer, dates, any signature header and the message bytes are the candidate's, verbatim, so
+    a surface that reads HEAD sees what it saw at the candidate. History of this rule, each step
+    measured on a real pair:
+      F-A1   unlinked files left in git's index -> index-reading surfaces crashed (0007bb3)
+      F-A1b  a commit under a synthetic identity -> the HEAD-identity check failed everywhere
+      F-A4   `git commit` on top of the candidate -> new parent, merges stopped being merges, and
+             the HEAD-identity check failed on PR merge 6217cc0 (fresh review of 4add2ca)
+      F-A5   `git rm <path>` reads a path as a glob, so `docs/[ab].md` also removed docs/a.md
+    Postconditions (fail closed): clean tree, parents identical to the candidate's, and
+    `git diff <cand> HEAD` is exactly one deletion per added path and nothing else.
+    """
+    mut = Repo(mut_wt)
+    quiet = ("-c", "core.hooksPath=/dev/null")
+    if mut.git(*quiet, "--literal-pathspecs", "rm", "-q", "--", *added_paths).returncode != 0:
+        return False
+    tree = mut.git("write-tree")
+    raw = subprocess.run(["git", "-C", str(repo.root), "cat-file", "commit", cand],
+                         capture_output=True)
+    if tree.returncode != 0 or raw.returncode != 0 or not raw.stdout.startswith(b"tree "):
+        return False
+    header, _, rest = raw.stdout.partition(b"\n")
+    obj = b"tree " + tree.stdout.strip().encode() + b"\n" + rest
+    written = subprocess.run(["git", "-C", str(mut_wt), "hash-object", "-t", "commit", "-w",
+                              "--stdin"], input=obj, capture_output=True)
+    if written.returncode != 0:
+        return False
+    sha = written.stdout.decode().strip()
+    if mut.git(*quiet, "update-ref", "--no-deref", "HEAD", sha).returncode != 0:
+        return False
+    parents = [mut.git("rev-parse", f"{rev}^@").stdout.split() for rev in (cand, "HEAD")]
+    delta = mut.git("diff", "--no-ext-diff", "--no-renames", "--name-status", "-z", cand, "HEAD",
+                    "--").stdout.split("\0")
+    pairs = sorted(zip(delta[0::2], delta[1::2]))
+    return (not mut.git("status", "--porcelain").stdout.strip()
+            and parents[0] == parents[1]
+            and pairs == sorted(("D", p) for p in added_paths))
+
+
 def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
     """Recompute the pair's acceptance state transition by execution, for one class.
 
@@ -446,29 +501,8 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         if added.returncode != 0:
             return {"error": "DELTA_UNREADABLE"}
         added_paths = [p for p in added.stdout.split("\0") if p]
-        if added_paths:
-            # The commit carries the CANDIDATE's own author, committer, dates and message, so the
-            # mutation differs from the candidate in its tree and nothing else a surface can read.
-            # A synthetic identity was itself a bite: validate_governance.py's HEAD-identity check
-            # (4b) failed on it for every pair (F-A1b, measured on all 15 FROZEN-bearing pairs).
-            meta = repo.git("log", "-1", "--format=%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%B",
-                            cand)
-            fields = meta.stdout.split("\0", 6) if meta.returncode == 0 else []
-            if len(fields) != 7:
-                return {"error": "MUTATION_MATERIALISATION_FAILED"}
-            env = dict(os.environ, GIT_AUTHOR_NAME=fields[0], GIT_AUTHOR_EMAIL=fields[1],
-                       GIT_AUTHOR_DATE=fields[2], GIT_COMMITTER_NAME=fields[3],
-                       GIT_COMMITTER_EMAIL=fields[4], GIT_COMMITTER_DATE=fields[5])
-            mut = Repo(mut_wt)
-            removed = mut.git("rm", "-q", "--", *added_paths)
-            committed = subprocess.run(
-                ["git", "-C", str(mut_wt), "-c", "commit.gpgsign=false",
-                 "-c", "core.hooksPath=/dev/null", "commit", "-q", "--no-verify",
-                 "--cleanup=verbatim", "-F", "-"],
-                input=fields[6], capture_output=True, text=True, env=env)
-            if removed.returncode != 0 or committed.returncode != 0 or \
-                    mut.git("status", "--porcelain").stdout.strip():
-                return {"error": "MUTATION_MATERIALISATION_FAILED"}
+        if added_paths and not _materialise_mutation(repo, cand, mut_wt, added_paths):
+            return {"error": "MUTATION_MATERIALISATION_FAILED"}
 
         for rel, kind in acceptance_surfaces(cand_wt).items():
             cb, cc = base_wt / rel, cand_wt / rel
@@ -525,18 +559,27 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
                    and e["rc_base"] == 0 and e["rc_cand"] == 0 and e["rc_mut"] != 0]
                   if added_paths else [])
         green_frozen = [e for e in frozen if measured(e["rc_base"]) and e["rc_base"] == 0]
+        # A frozen surface the candidate turns from green to red is a REGRESSION the candidate
+        # introduced. A regression-guard task protects a correct state, so a candidate that breaks
+        # any frozen guard — biting one or not — cannot be one (F-A6, fresh review of 4add2ca:
+        # r26 / 95667e8 breaks t09 0/1/1 while a link guard bit).
+        regressed = [e for e in frozen if measured(e["rc_base"], e["rc_cand"])
+                     and e["rc_base"] == 0 and e["rc_cand"] != 0]
         facts["unmeasured"] = unmeasured
         facts["discriminating"] = discriminating
         facts["biting"] = biting
+        facts["regressed"] = regressed
         if cls == "B_REGRESSION_GUARD":
             facts["baseline_oracle_status"] = "PASS" if green_frozen else "FAIL"
             facts["mutation_oracle_status"] = "FAIL" if biting else "PASS"
             facts["mutation_touches_target_predicate"] = bool(biting)
-            # N2.1 P3-A: an unmeasured rc (124/127) is not a FAIL here either — the same rule every
-            # other status in this function follows; a value no declaration can equal fails closed.
+            # FAIL iff the candidate regressed a frozen guard; a surface red at both revisions in
+            # this environment says nothing about the candidate (it made every B record "FAIL").
+            # N2.1 P3-A still holds: an unmeasured rc (124/127) is not a FAIL.
             facts["candidate_oracle_status"] = (
-                "FAIL" if any(measured(e["rc_cand"]) and e["rc_cand"] != 0 for e in frozen)
-                else "UNMEASURED" if any(not measured(e["rc_cand"]) for e in frozen)
+                "FAIL" if regressed
+                else "UNMEASURED" if any(measured(e["rc_base"]) and e["rc_base"] == 0
+                                         and not measured(e["rc_cand"]) for e in frozen)
                 else "PASS")
         else:
             facts["baseline_oracle_status"] = "FAIL" if discriminating else "PASS"
@@ -573,6 +616,8 @@ def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
     if cls == "B_REGRESSION_GUARD":
         if not facts["frozen_count"]:
             return False, "NO_FROZEN_ACCEPTANCE"
+        if facts.get("regressed"):
+            return False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
         if not facts["biting"]:
             return False, "MUTATION_DOES_NOT_BITE"
         return True, "PASS_TO_FAIL_UNDER_MUTATION"
@@ -637,7 +682,7 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
             err.append(f"{cid}: the corpus lists {case_id!r} but binds no complete revision pair "
                        f"to it (a case without a base/candidate pair cannot classify anything)")
         else:
-            err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML}")
+            err.append(f"{cid}: corpus_case_id {case_id!r} is not a case in {CASES_YAML} or {H2_CORPUS}")
     elif corpus and have_pair:
         want_base, want_cand, want_repo = corpus[case_id]
         if want_repo and rec.get("source_repository") != want_repo:
@@ -816,6 +861,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                          "validator_not_worker_controlled"):
                 if req.get(flag) is not True:
                     err.append(f"{cid}: B_REGRESSION_GUARD requires {flag} true")
+            # closed vocabulary for an optional declared status: "UNMEASURED" is a recomputed value
+            # a declaration must never be able to equal (fresh review of 4add2ca, finding 3)
+            if "candidate_oracle_status" in req and \
+                    req.get("candidate_oracle_status") not in ("PASS", "FAIL"):
+                err.append(f"{cid}: candidate_oracle_status must be 'PASS' or 'FAIL' when "
+                           f"declared (got {req.get('candidate_oracle_status')!r})")
 
     # --- RECOMPUTED STATE TRANSITION (the class claim is a claim about a transition) -----------
     # Runs only for an admissible claim over a locally resolvable pair whose record is otherwise

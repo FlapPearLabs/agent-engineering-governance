@@ -1,7 +1,7 @@
 {
  "base_sha": "71a0f6a65fac0fea55bb979e6f553b03fa910aea",
  "candidate_sha": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
- "elapsed_s": 39.9,
+ "elapsed_s": 40.3,
  "facts": {
   "base": "71a0f6a65fac0fea55bb979e6f553b03fa910aea",
   "candidate": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
@@ -207,6 +207,7 @@
   "unmeasured": [],
   "discriminating": [],
   "biting": [],
+  "regressed": [],
   "baseline_oracle_status": "PASS",
   "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "PASS",
@@ -227,7 +228,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.1",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
   "acceptance_timeout_s": 300
  },
  "subject": "docs: keep copied exercise navigation reachable"

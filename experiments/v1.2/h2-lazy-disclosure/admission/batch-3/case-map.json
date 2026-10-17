@@ -1,0 +1,9 @@
+{
+ "note": "batch 3 = merge commits of origin/main @ 5ab500e, replayed as (first parent, merge): the PR-level delta. Records for every pair whose measured transition supports an admissible class. Merges whose (base tree, candidate tree) equal a non-merge pair are DUPLICATE_TASK in the discovery file. A PR-level task can still OVERLAP a commit-level one (r31 contains r07's commit 295ce65; r33 contains r30's commit a652fd4): Freeze v2 must not select both of an overlapping pair. Full SHAs are taken from the discovery file, never typed.",
+ "discovery": "discovery-merges.json",
+ "cases": {
+  "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0": "r31-governance-pr1-global-governance-audit",
+  "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02": "r32-governance-pr40-replay-corpus",
+  "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a": "r33-governance-pr41-structure-delta-v0"
+ }
+}

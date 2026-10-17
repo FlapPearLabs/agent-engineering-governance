@@ -2,7 +2,8 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.1  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1 = admission batch-1 finding F-A1, see §6.7)
+VERSION        = 2.8.2  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.2 = defects raised by real
+                 admission candidates and the fresh review of 4add2ca, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -254,7 +255,9 @@ r06  base af4df6ae → cand 069f8be2    2 FROZEN validators, both unchanged     
 
 A FROZEN acceptance exists identically at both revisions, so on a landed pair it was already green
 at the base — which is why every frozen surface above is invariant, and why an A_REPAIR supported
-only by frozen acceptances has an EMPTY extension over this corpus. The acceptance that does move
+only by frozen acceptances has an EMPTY extension over THESE FIVE pairs. (Not over all history:
+Candidate Admission found two — r24 / 4505fae and r27 / 7cadc9c repair a t09 regression that the
+previous commit introduced, so the frozen test was red at the base.) The acceptance that does move
 is the one the fix ships, and r03's second row is exactly why a REWRITTEN one is excluded while an
 ADDED one is admissible: rewriting `validate_governance.py` is how the delta took over the thing
 that was supposed to judge it.
@@ -438,8 +441,9 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     and the record's revision pair AND source repository must EQUAL that case's. This closes the
     laundering route the second review demonstrated: a borrowed pair (or repository) no longer
     matches the borrowed identity;
-  · THE IDENTITY ROOT IS PINNED TWICE — the corpus's sha256 is a literal in the validator, and the
-    per-case pairs of ALL five cases are a literal in the test file. Editing the corpus therefore
+  · THE IDENTITY ROOT IS PINNED TWICE — each corpus's sha256 is a literal in the validator (the H3
+    replay corpus and, since 2.8.2, the separate admission corpus), and the per-case pairs of ALL
+    cases of both are a literal in the test file. Editing a corpus therefore
     means editing two reviewed files, and any case (not only the ones a fixture happens to cover)
     trips the pin;
   · THE STATE TRANSITION (§3.1) — for an admissible claim the candidate revision's own acceptance
@@ -525,7 +529,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1 — admission batch-1 finding F-A1)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.2 — findings raised by real candidates)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -539,37 +543,49 @@ index or HEAD (at main, `test_p1_t16` and the frozen `validate_public_release.py
 because no corpus case had that shape yet; admission adds cases, so it had to close first.
 
 ```text
-2.8.1  the mutation is materialised as a COMMITTED revision: `git rm` of every added path +
-       a commit in the scratch worktree (hooks disabled) that carries the CANDIDATE's own author,
-       committer, dates and message, and the tree must be clean afterwards, else
-       MUTATION_MATERIALISATION_FAILED (fail closed). Added paths are read with `-z`: the quoted
-       form of a non-ASCII path names no file, and the old loop skipped it silently, keeping the
-       very addition it claimed to remove.
-       F-A1b (found by re-measuring batch 1 on the first 2.8.1 draft): a commit under a synthetic
-       identity is ITSELF an artefact bite — validate_governance.py's HEAD-identity check (4b)
-       failed in the mutation for all 15 pairs that carry frozen surfaces. Hence the copied
-       metadata: the mutation differs from the candidate in its tree and nothing else a surface
-       can read (parent count included: one, as for the single-parent candidates admitted here).
-       Side effect, stated: the scratch commit is an unreachable object in the ODB of the
-       repository the validator runs in (no ref points to it; `git gc` prunes it).
-REGRESSION  MutationMaterialisation (4 tests): an index-enumerating frozen surface must NOT bite on
-       an unrelated addition; a HEAD-metadata surface must NOT bite on the mutation commit; a
-       frozen surface that really depends on an added file MUST still bite (positive control); a
-       non-ASCII added path must really be absent in the mutation. The three original tests fail
-       against 2.8.0; the HEAD-metadata test fails against the synthetic-identity draft; all
-       four pass against 2.8.1.
-F-A3   (found by batch 2 on the real pair 825d390) `biting` required green at the base and red
-       under the mutation, but not green at the CANDIDATE. A frozen surface the candidate itself
-       broke therefore counted as a bite — and with no added path the "mutation" IS the candidate:
-       825d390 adds nothing, breaks test_p1_t09 (rc 0/1/1), and was SUPPORTED as
-       B_REGRESSION_GUARD. A guard bites only a state it protects: 2.8.1 requires
-       base = candidate = green, mutation red, and at least one added path.
-       REGRESSION test_a_candidate_that_breaks_a_guard_is_not_a_bite (red before, green after).
-ALSO   N2.1 P3-A closed: B's reported candidate_oracle_status no longer folds an unmeasured
-       rc (124/127) into FAIL; it reports UNMEASURED, which no declaration can equal.
+2.8.1 (committed at 4add2ca)
+  F-A1   the mutation became a committed revision (`git rm` + commit), tree clean afterwards.
+  F-A1b  that commit carried the candidate's author/committer/dates/message: under a synthetic
+         identity validate_governance.py's HEAD-identity check (4b) bit in every pair.
+  F-A1c  added paths read with `-z` (a quoted non-ASCII path named no file and was kept).
+  F-A3   a bite requires base = candidate = green and mutation red, and >= 1 added path: 825d390
+         adds nothing, breaks test_p1_t09 (0/1/1) and was SUPPORTED as B_REGRESSION_GUARD.
+  P3-A   B's candidate_oracle_status no longer folded an unmeasured rc into FAIL.
+
+2.8.2 (fresh adversarial review of 4add2ca: one P1, two P2 in this function)
+  F-A4 P1  2.8.1 committed the mutation ON TOP of the candidate: a new single parent, so a PR merge
+         stopped being a merge, HEAD^ became the candidate, and the copied message gained a
+         newline. Measured on PR #49's merge 6217cc0: the HEAD-identity check bit (0/0/1) and a
+         B request was ACCEPTED end to end. 2.8.2 writes the candidate's OWN commit object with
+         exactly one change — the `tree` header — so parents, identities, dates, any signature
+         header and the message bytes are verbatim (a carried signature no longer verifies;
+         stated, not hidden). Postconditions, fail closed: clean tree, parents identical to the
+         candidate's, and `git diff <cand> HEAD` is exactly one deletion per added path.
+  F-A5 P2  `git rm <path>` read a path as a glob (`docs/[ab].md` also removed docs/a.md):
+         2.8.2 runs it with --literal-pathspecs, and the exact-diff postcondition would catch any
+         other over-removal.
+  F-A6 P2  2.8.1 checked the candidate leg only on the BITING surface: r26 (95667e8) breaks t09
+         (0/1/1) while a link guard bit, and was a valid B request. A regression-guard task
+         protects a correct state, so 2.8.2 refuses B when ANY frozen surface goes green -> red
+         at the candidate (CANDIDATE_REGRESSES_A_FROZEN_GUARD, checked before the bite).
+         B's candidate_oracle_status now means exactly that regression (it was FAIL for every B
+         record because a surface red at both revisions in this environment counted), and a
+         declared value must be PASS or FAIL (UNMEASURED can no longer be declared to match).
+  IDENTITY the admission anchors moved out of H3's replay/cases.yaml (restored byte-identical to
+         f4eb503) into admission/corpus.yaml, pinned by H2_CORPUS_SHA256; the identity root is the
+         union and a case id in both corpora fails closed (finding 4 of the same review: H3's
+         loader had counted 24 H2 anchors as detector cases).
+REGRESSION  MutationMaterialisation (9 tests). Each new test fails against the revision it targets
+         and passes against 2.8.2 (the HEAD-metadata test targets the synthetic-identity draft; the
+         merge / HEAD^ / glob / other-guard tests fail against 4add2ca). GuardUnitChecks pins both
+         corpora and the duplicate-id refusal. Real-pair before/after runs, including loading the
+         earlier validators straight from git: admission/negative_controls.py -> report.txt.
+Side effect, stated: the mutation commit is an unreachable object in the ODB of the repository the
+validator runs in (no ref points to it; `git gc` prunes it).
 STILL NOT ENFORCED  a bite proves that a frozen surface depends on SOME added path; it does not
        prove the dependency is the task's target predicate (same limit as §3.2's "single failing
-       identity" clause, which stays the reviewer's job).
+       identity" clause, which stays the reviewer's job). Every B bite admitted so far is the
+       markdown link check — a real but shallow guard (admission/README.md).
 ```
 
 ## 7. Relationship to the existing layers

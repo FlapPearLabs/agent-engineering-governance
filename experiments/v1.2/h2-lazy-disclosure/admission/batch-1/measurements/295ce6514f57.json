@@ -32,6 +32,7 @@
    }
   ],
   "biting": [],
+  "regressed": [],
   "baseline_oracle_status": "FAIL",
   "candidate_oracle_status": "PASS",
   "mutation_oracle_status": "PASS",
@@ -52,7 +53,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.1",
+  "schema_version": "2.8.2",
+  "validator_sha256": "d62a527d313a07f67ad577a4e9e979b72ee6d762861d5f6959daebe0206bfdcd",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(governance): remediate external findings F1-F7 via re-audit"

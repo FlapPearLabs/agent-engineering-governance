@@ -13,8 +13,11 @@ Class selection follows the measured transition only:
                                               measured reason as reason_code, both admissible
                                               classes BLOCKED with their measured reasons
 
-A pair whose discovery disposition is not MEASURE_ADDED_ACCEPTANCE never reaches this program, and
-a derived trigger is never cleared here: if one were present the validator would refuse the record.
+Pairs reach this program from MEASURE_ADDED_ACCEPTANCE (batch 1) or DEFERRED_FROZEN_BASIS_SCAN
+(batch 2); both dispositions mean the derived-trigger set is empty. Every evidence and disclosure
+string is DERIVED from the pair's own disposition and the basis provenance (a hardcoded string
+once told batch 2 it "adds an acceptance surface" and that its basis was DELTA_ADDED — fresh
+review of 4add2ca, finding 5). A derived trigger is never cleared here.
 
 Usage:  build_records.py <batch_dir>
           reads  <batch_dir>/case-map.json (its optional `discovery` names the discovery
@@ -41,9 +44,31 @@ def rel(path: Path) -> str:
     return path.resolve().relative_to(root).as_posix()
 
 
-def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path) -> dict:
+ROUTING = {
+    "MEASURE_ADDED_ACCEPTANCE": "its delta rewrites no test and no validator (derived triggers "
+                                "empty) and ADDS an acceptance surface",
+    "DEFERRED_FROZEN_BASIS_SCAN": "its delta rewrites no test and no validator (derived triggers "
+                                  "empty) and adds no acceptance surface, so every frozen surface "
+                                  "was executed",
+}
+
+
+def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path, pair: dict) -> dict:
     facts, verdicts = m["facts"], m["verdicts"]
     a, b = verdicts["A_REPAIR"], verdicts["B_REGRESSION_GUARD"]
+    disposition = pair["disposition"]
+    if disposition not in ROUTING or pair["derived_triggers"]:
+        raise SystemExit(f"{case_id}: disposition {disposition} / triggers "
+                         f"{pair['derived_triggers']} cannot produce a request here")
+    basis = (facts.get("discriminating") or [None])[0] if a["supported"] else None
+    guard = (facts.get("biting") or [None])[0] if (b["supported"] and not basis) else None
+    carried = basis or guard
+    provenance_note = (f"the transition is carried by {carried['path']} [{carried['provenance']}]"
+                       + (" — the historical delta introduced it; the validator binds "
+                          "oracle_in_worker_scope and oracle_authority to that provenance"
+                          if carried["provenance"] == "DELTA_ADDED" else
+                          " — identical bytes at both revisions (framework-frozen)")
+                       if carried else "no surface carries a supported transition")
     rec = {
         "candidate_id": case_id,
         "corpus_case_id": case_id,
@@ -57,14 +82,11 @@ def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path) -> dict
         # because ctc.derived_triggers() is empty for it, and the validator re-derives that fact
         "disclosures": {"historical_delta_touched_oracle": False,
                         "historical_delta_touched_validator": False,
-                        "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: "
-                        "the historical delta introduced it; the validator binds "
-                        "oracle_in_worker_scope and oracle_authority to that provenance"},
+                        "acceptance_provenance_note": provenance_note},
     }
     evidence = [
-        {"claim": "the pair was routed to measurement because its delta rewrites no test and no "
-                  "validator (derived triggers empty) and adds an acceptance surface",
-         "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+        {"claim": f"the pair was routed to measurement because {ROUTING[disposition]}",
+         "measured": f"discovery disposition {disposition}",
          "source": rel(dpath)},
         {"claim": "the acceptance transition, executed in base / candidate / controlled-mutation "
                   "trees by the validator's own recompute_transition",
@@ -78,7 +100,6 @@ def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path) -> dict
                          "source": rel(ppath)})
     rec["evidence"] = evidence
     if a["supported"]:
-        basis = facts["discriminating"][0]
         rec.update({
             "class": "A_REPAIR",
             "class_considered": [
@@ -132,13 +153,16 @@ def main(argv: list[str]) -> int:
     cmap = cdoc["cases"]
     # a batch may reuse an earlier batch's discovery (batch 2 measures batch 1's deferred pairs)
     dpath = (batch / cdoc.get("discovery", "discovery-governance.json")).resolve()
+    pairs = {p["candidate_sha"]: p for p in
+             json.loads(dpath.read_text(encoding="utf-8"))["pairs"] if "base_sha" in p}
     records = []
     for cand, case_id in sorted(cmap.items(), key=lambda kv: kv[1]):
         mpath = batch / "measurements" / f"{cand[:12]}.json"
         m = json.loads(mpath.read_text(encoding="utf-8"))
         if m["candidate_sha"] != cand:
             raise SystemExit(f"{mpath}: measures {m['candidate_sha']}, not {cand}")
-        records.append(record(case_id, m, mpath, batch / "probes" / f"{cand[:12]}.json", dpath))
+        records.append(record(case_id, m, mpath, batch / "probes" / f"{cand[:12]}.json", dpath,
+                              pairs[cand]))
     doc = {"schema": ctc.SCHEMA_ID, "schema_version": ctc.SCHEMA_VERSION,
            "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
            "record_semantics": "one record per measured historical pair; class and lifecycle "

@@ -1,0 +1,53 @@
+{
+ "schema": "ELIGIBILITY_SCHEMA_V2",
+ "schema_version": "2.8.2",
+ "records": [
+  {
+   "candidate_id": "r26-governance-portable-adoption-exercise",
+   "corpus_case_id": "r26-governance-portable-adoption-exercise",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "candidate_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=NO_DISCRIMINATING_ACCEPTANCE B=CANDIDATE_REGRESSES_A_FROZEN_GUARD over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/95667e8e3d9a.json"
+    }
+   ],
+   "class": "B_REGRESSION_GUARD",
+   "class_considered": [
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "SHAPE_SATISFIED"
+    }
+   ],
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ]
+   },
+   "class_requirements": {
+    "baseline_oracle_status": "PASS",
+    "mutation_oracle_status": "FAIL",
+    "mutation_touches_target_predicate": true,
+    "acceptance_surface_frozen": true,
+    "validator_not_worker_controlled": true
+   }
+  }
+ ]
+}

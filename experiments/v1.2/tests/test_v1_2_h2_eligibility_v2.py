@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.1", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.2", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -953,8 +953,119 @@ class MutationMaterialisation(unittest.TestCase):
         # reachability: the guard really ran and really fails at the candidate
         self.assertEqual((0, 1, 1), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
         self.assertEqual([], facts["biting"])
-        self.assertEqual((False, "MUTATION_DOES_NOT_BITE"),
+        # refused; since F-A6 the reason names the regression itself, which is checked first
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
                          self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    # ---- fresh review of 4add2ca: findings 1-3 ------------------------------------------------
+    def test_a_merge_candidate_stays_a_merge_in_the_mutation(self):
+        """F-A4: committing the mutation ON TOP of the candidate gave it a new single parent, so a
+        PR-merge candidate stopped being a merge — and a surface that reads HEAD's parents (or the
+        HEAD-identity check, measured on 6217cc0) bit on that. The mutation must keep the
+        candidate's parents exactly."""
+        merge_shape = (
+            "import subprocess, unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "def git(*a):\n"
+            "    return subprocess.run(['git', '-C', str(ROOT), *a], capture_output=True,\n"
+            "                          text=True, check=True).stdout\n"
+            "class MergeShape(unittest.TestCase):\n"
+            "    def test_a_merge_message_names_a_merge(self):\n"
+            "        parents = git('rev-list', '--parents', '-n1', 'HEAD').split()[1:]\n"
+            "        if git('log', '-1', '--format=%s').startswith('Merge'):\n"
+            "            self.assertEqual(2, len(parents))\n")
+        root = self.tmp / "repo"
+        root.mkdir()
+        self._git(root, "init", "-q", "-b", "main")
+        base = self._commit(root, {"scripts/tests/test_merge.py": merge_shape}, "base")
+        self._git(root, "checkout", "-q", "-b", "side")
+        self._commit(root, {"docs/feature.md": "side work\n"}, "side")
+        self._git(root, "checkout", "-q", "main")
+        self._git(root, "merge", "-q", "--no-ff", "--no-verify", "-m", "Merge side", "side")
+        cand = self._git(root, "rev-parse", "HEAD")
+        facts = self.mod.recompute_transition(self.mod.Repo(root), base, cand,
+                                              "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual((0, 0, 0), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
+        self.assertEqual([], facts["biting"])
+
+    def test_a_head_parent_reader_does_not_bite_on_the_mutation(self):
+        """F-A4, single-parent form: a surface that reads `git diff HEAD^ HEAD` saw the mutation's
+        own deletions when the mutation was a child of the candidate."""
+        parent_reader = (
+            "import subprocess, unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class LastChange(unittest.TestCase):\n"
+            "    def test_every_path_of_the_last_change_exists(self):\n"
+            "        out = subprocess.run(['git', '-C', str(ROOT), 'diff', '--name-only', 'HEAD^',\n"
+            "                              'HEAD'], capture_output=True, text=True,\n"
+            "                             check=True).stdout.split()\n"
+            "        for rel in out:\n"
+            "            self.assertTrue((ROOT / rel).exists(), rel)\n")
+        root = self.tmp / "repo"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        self._commit(root, {"README.md": "root\n"}, "root")
+        base = self._commit(root, {"scripts/tests/test_last.py": parent_reader}, "base")
+        cand = self._commit(root, {"docs/added.md": "added\n", "README.md": "edited\n"},
+                            "candidate")
+        facts = self.mod.recompute_transition(self.mod.Repo(root), base, cand,
+                                              "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual((0, 0, 0), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
+
+    def test_an_added_path_is_never_read_as_a_glob(self):
+        """F-A5: `git rm docs/[ab].md` removed the pre-existing docs/a.md too."""
+        exists = (
+            "import unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Exists(unittest.TestCase):\n"
+            "    def test_pre_existing_doc_is_present(self):\n"
+            "        self.assertTrue((ROOT / 'docs' / 'a.md').is_file())\n")
+        repo, base, cand = self._repo({"scripts/tests/test_exists.py": exists, "docs/a.md": "a\n"},
+                                      {"docs/[ab].md": "a file whose name is a glob\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual((0, 0, 0), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
+
+    def test_a_candidate_that_regresses_another_guard_is_not_a_regression_guard(self):
+        """F-A6 (r26 / 95667e8): a link guard bit, while the candidate broke a DIFFERENT frozen
+        guard (t09, 0/1/1). The biting surface alone was checked, so the claim was supported."""
+        link = (
+            "import re, unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Links(unittest.TestCase):\n"
+            "    def test_links_resolve(self):\n"
+            "        for target in re.findall(r'\\]\\(([^)]+)\\)', (ROOT / 'README.md').read_text()):\n"
+            "            self.assertTrue((ROOT / target).is_file(), target)\n")
+        budget = (
+            "import unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Budget(unittest.TestCase):\n"
+            "    def test_budget(self):\n"
+            "        self.assertLessEqual(len((ROOT / 'pointer.md').read_bytes()), 10)\n")
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_links.py": link, "scripts/tests/test_budget.py": budget,
+             "README.md": "start\n", "pointer.md": "short\n"},
+            {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+             "pointer.md": "now far beyond its byte budget\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        rc = {Path(e["path"]).name: (e["rc_base"], e["rc_cand"], e["rc_mut"])
+              for e in facts["surfaces"]}
+        self.assertEqual((0, 0, 1), rc["test_links.py"])        # the link guard really bites
+        self.assertEqual((0, 1, 1), rc["test_budget.py"])       # and the candidate broke this one
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+        self.assertEqual("FAIL", facts["candidate_oracle_status"])
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and
@@ -1161,6 +1272,41 @@ class GuardUnitChecks(unittest.TestCase):
             (H2 / "task-classification-v2.json").read_text(encoding="utf-8"))["schema_version"],
             "the validator and the shipped record must declare the same schema version")
 
+    def test_h2_admission_corpus_digest_is_pinned(self):
+        """The admission anchors are a second identity root, pinned exactly like the first."""
+        import hashlib
+        spec = importlib.util.spec_from_file_location("ctc_h2_pin", VALIDATOR)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_h2_pin"] = module
+        spec.loader.exec_module(module)
+        real = hashlib.sha256((ROOT / module.H2_CORPUS).read_bytes()).hexdigest()
+        self.assertEqual(module.H2_CORPUS_SHA256, real,
+                         "the pinned H2 admission corpus digest no longer matches the file")
+
+    def test_a_case_named_by_both_corpora_fails_closed(self):
+        """A duplicate id would let one corpus shadow the other's pair; the union refuses it."""
+        spec = importlib.util.spec_from_file_location("ctc_dup", VALIDATOR)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_dup"] = module
+        spec.loader.exec_module(module)
+        import hashlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body = ("cases:\n  - case_id: r99-dup\n    source_repository: x/y\n"
+                    "    base_sha: " + "a" * 40 + "\n    candidate_sha: " + "b" * 40 + "\n")
+            for rel in (module.CASES_YAML, module.H2_CORPUS):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text(body, encoding="utf-8")
+            digest = hashlib.sha256(body.encode()).hexdigest()
+            module.CORPUS_SHA256 = module.H2_CORPUS_SHA256 = digest
+            repo = module.Repo(root)
+            self.assertEqual({}, module.corpus_pairs(repo))
+            (root / module.H2_CORPUS).write_text(body.replace("r99-dup", "r98-other"),
+                                                 encoding="utf-8")
+            module.H2_CORPUS_SHA256 = hashlib.sha256(
+                (root / module.H2_CORPUS).read_bytes()).hexdigest()
+            self.assertEqual({"r99-dup", "r98-other"}, set(module.corpus_pairs(repo)))
+
     def test_every_corpus_case_pair_is_pinned(self):
         """F1, round 4: pinning only the shipped digest let an author edit the corpus AND the
         constant together and keep the validator green for cases no fixture covers (r02, r05, and
@@ -1264,6 +1410,16 @@ class GuardUnitChecks(unittest.TestCase):
             "r30-governance-h3a-replay-results":
                 ("a24231483f0046052d86b3d2b27e96b3db6b2629",
                  "a652fd44bcaa0052d3185296ef2b9efd91a14639", gov),
+            # r31-r33: candidate admission, batch 3 — PR merges vs first parent
+            "r31-governance-pr1-global-governance-audit":
+                ("8a99cbff7dfefcaca8000caafe80568c225e072b",
+                 "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0", gov),
+            "r32-governance-pr40-replay-corpus":
+                ("324fc36ec1696116c311fd440225a95aeda04a91",
+                 "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02", gov),
+            "r33-governance-pr41-structure-delta-v0":
+                ("36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+                 "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a", gov),
         }
         self.assertEqual(expected, pairs,
                          "the replay corpus's per-case pairs changed — that is an experiment-material "

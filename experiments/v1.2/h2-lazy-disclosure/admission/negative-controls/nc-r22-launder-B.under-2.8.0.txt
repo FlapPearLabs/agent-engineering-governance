@@ -1,3 +1,0 @@
-  TRANSITION r22-governance-v12-experiment-foundation class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/tests/test_p1_t16_gate_cli_entrypoint.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
-  r22-governance-v12-experiment-foundation     class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
-TASK_CLASS_VERDICT = PASS records=1 valid_requests=1 rejected=0 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)

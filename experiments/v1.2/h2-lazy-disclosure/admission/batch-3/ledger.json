@@ -1,0 +1,193 @@
+{
+ "summary": {
+  "validator_run": "PASS",
+  "records": 3,
+  "schema_v2_valid_requests": 3,
+  "executions_disagree": 0,
+  "valid_by_oracle_kind": {
+   "DOC_OR_DATA": 1,
+   "GUARD:LINK_INTEGRITY": 2
+  },
+  "valid_by_family": {
+   "P1_TICKET_DOC_RECIPE": 0,
+   "INDIVIDUAL": 3
+  }
+ },
+ "rows": [
+  {
+   "CASE_ID": "r31-governance-pr1-global-governance-audit",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05",
+   "BASE_SHA": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+   "CANDIDATE_SHA": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/validate_governance.py",
+    "candidate_blob_sha256": "84961b2d631dbe01763b86fb8b2fa17bdb0f5af0b677214771d3115d073901ba",
+    "kind": "VALIDATOR",
+    "command": "{PY} scripts/validate_governance.py"
+   },
+   "BASE_RESULT": "rc=1",
+   "CANDIDATE_RESULT": "rc=0",
+   "MUTATION_RESULT": "NO_FROZEN_ACCEPTANCE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/validate_governance.py@2359283879ce",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    ".github/workflows/governance-ci.yml",
+    "AGENTS.md",
+    "README.md",
+    "RULES.md",
+    "audit/AS_IS_WORKBUDDY.md",
+    "audit/AS_IS_WORKBUDDY_V2.md",
+    "audit/AUDIT_QUALITY_REVIEW.md",
+    "audit/AUTHORITY_MAP_V1.md",
+    "audit/AUTHORITY_MAP_V2.md",
+    "audit/GAP_MATRIX.md",
+    "audit/MIGRATION_PLAN.md",
+    "audit/PAIN_TO_POLICY_MAP.md",
+    "audit/PAIN_TO_POLICY_MAP_V2.md",
+    "audit/SCENARIO_VALIDATION.md",
+    "audit/TARGET_ARCHITECTURE_CHALLENGE.md",
+    "audit/TARGET_WORKFLOW_V1.md",
+    "audit/WORKFLOW_EVOLUTION_MAP.md",
+    "deployment/BOOTSTRAP_CONTRACT.md",
+    "deployment/MEMORY_POINTER_CANDIDATE.md",
+    "deployment/PORTABLE_SETUP.md",
+    "deployment/deployment-profile.md",
+    "mcp/README.md",
+    "mcp/example/mcp.example.json",
+    "references/codegraph-grounding.md",
+    "references/execution-stage.md",
+    "references/git-ci-integration.md",
+    "references/review-and-repair-saturation.md",
+    "references/skills-and-model-routing.md",
+    "references/ticket-lane.md",
+    "skills/README.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_OR_DATA",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/discovery-merges.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/measurements/2359283879ce.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/probes/2359283879ce.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r32-governance-pr40-replay-corpus",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "Merge pull request #40 from FlapPearLabs/experiment/v1.2-replay-corpus",
+   "BASE_SHA": "324fc36ec1696116c311fd440225a95aeda04a91",
+   "CANDIDATE_SHA": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
+   "WORKER_SCOPE": [
+    "experiments/v1.2/README.md",
+    "experiments/v1.2/evidence-lineage.md",
+    "experiments/v1.2/replay/README.md",
+    "experiments/v1.2/replay/cases.yaml"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/discovery-merges.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/measurements/36b23dc9c1a8.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r33-governance-pr41-structure-delta-v0",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "Merge pull request #41 from FlapPearLabs/experiment/v1.2-structure-delta-v0",
+   "BASE_SHA": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+   "CANDIDATE_SHA": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "GUARD scripts/validate_governance.py [DELTA_FROZEN]: framework-frozen guard; exclude its path from the worker's scope",
+   "WORKER_SCOPE": [
+    "experiments/v1.2/README.md",
+    "experiments/v1.2/evidence-lineage.md",
+    "experiments/v1.2/metrics.md",
+    "experiments/v1.2/replay/README.md",
+    "experiments/v1.2/replay/cases.yaml",
+    "experiments/v1.2/results/h3-a-structure-delta-v0.md",
+    "experiments/v1.2/structure_delta.py",
+    "experiments/v1.2/tests/test_structure_delta.py"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/discovery-merges.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/measurements/5b55b6d7c3cd.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/validator-run.txt"
+   ]
+  }
+ ]
+}
