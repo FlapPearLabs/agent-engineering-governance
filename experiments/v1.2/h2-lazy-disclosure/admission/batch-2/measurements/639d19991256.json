@@ -1,0 +1,234 @@
+{
+ "base_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
+ "candidate_sha": "639d19991256156bc9d2cec266e611931d6a8645",
+ "elapsed_s": 52.3,
+ "facts": {
+  "base": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
+  "candidate": "639d19991256156bc9d2cec266e611931d6a8645",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/validate_project_state.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 1,
+    "rc_mut": 1
+   },
+   {
+    "path": "scripts/validate_public_release.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_fixture_identity_hygiene.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_orchestrator_closure_doctrine.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t13_learning_closure.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_seam_contract_partitions.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_skill_execution.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_ticket_gate_wiring.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   }
+  ],
+  "acceptance_count": 24,
+  "frozen_count": 24,
+  "acceptance_surface_frozen": true,
+  "oracle_in_worker_scope": false,
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "BASE_EQUALS_CANDIDATE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "MUTATION_DOES_NOT_BITE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.1",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "experiment(v1.2): record H1 round-1 evidence closure ledger"
+}

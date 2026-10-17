@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.0", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.1", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -823,6 +823,186 @@ class RecomputedTransition(unittest.TestCase):
         self.assertIn("BASE_EQUALS_CANDIDATE", out)
 
 
+class MutationMaterialisation(unittest.TestCase):
+    """Admission batch-1 finding F-A1 (found by a real candidate, 0007bb3, not by a fixture).
+
+    The controlled mutation used to unlink the added paths from the working tree and leave them in
+    git's index. Any acceptance that enumerates the index (`git ls-files`) then crashes on the
+    missing file — measured on 0007bb3: test_p1_t16_gate_cli_entrypoint.py rc=1 with
+    FileNotFoundError, and rc=0 once the same deletion is index-consistent. That crash was
+    counted as a BITE, so a B_REGRESSION_GUARD claim was "supported" by a frozen test that never
+    observes the deliverable. Any surface that reads git's index or HEAD is exposed (at main,
+    test_p1_t16 and the frozen validate_public_release.py call `git ls-files` directly), so the
+    defect is a category, not an instance.
+
+    The fixture repository is synthetic on purpose: the rule under test is the construction of the
+    mutation, and both directions (a false bite must vanish, a real bite must survive) have to be
+    exercised against surfaces whose dependency on the added file is known exactly.
+    """
+
+    INVENTORY_TEST = (
+        "import subprocess, unittest\n"
+        "from pathlib import Path\n"
+        "ROOT = Path(__file__).resolve().parents[2]\n"
+        "class Inventory(unittest.TestCase):\n"
+        "    def test_every_listed_file_is_readable(self):\n"
+        "        out = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '--cached', '--others',\n"
+        "                              '--exclude-standard'], capture_output=True, text=True,\n"
+        "                             check=True).stdout.split()\n"
+        "        self.assertTrue(out)\n"
+        "        for rel in out:\n"
+        "            (ROOT / rel).read_bytes()\n"
+    )
+    IMPORT_TEST = (
+        "import sys, unittest\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, str(Path(__file__).resolve().parents[1]))\n"
+        "class Lib(unittest.TestCase):\n"
+        "    def test_lib_answers(self):\n"
+        "        import lib\n"
+        "        self.assertEqual(42, lib.answer())\n"
+    )
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+        spec = importlib.util.spec_from_file_location("ctc_mutation", VALIDATOR)
+        self.mod = importlib.util.module_from_spec(spec)
+        sys.modules["ctc_mutation"] = self.mod
+        spec.loader.exec_module(self.mod)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _git(self, root: Path, *args: str) -> str:
+        proc = subprocess.run(["git", "-C", str(root), "-c", "user.name=fixture",
+                               "-c", "user.email=fixture@invalid", "-c", "commit.gpgsign=false",
+                               *args], capture_output=True, text=True)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        return proc.stdout.strip()
+
+    def _commit(self, root: Path, files: dict[str, str], message: str) -> str:
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text, encoding="utf-8")
+        self._git(root, "add", "-A")
+        self._git(root, "commit", "-q", "--no-verify", "-m", message)
+        return self._git(root, "rev-parse", "HEAD")
+
+    def _repo(self, base_files, cand_files):
+        root = self.tmp / "repo"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        base = self._commit(root, base_files, "base")
+        cand = self._commit(root, cand_files, "candidate")
+        return self.mod.Repo(root), base, cand
+
+    def test_an_index_enumerating_surface_does_not_bite_on_an_unrelated_addition(self):
+        repo, base, cand = self._repo(
+            {"scripts/tests/test_inventory.py": self.INVENTORY_TEST, "README.md": "base\n"},
+            {"docs/unrelated.md": "an addition no frozen surface depends on\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = [e for e in facts["surfaces"] if e["path"].endswith("test_inventory.py")]
+        # reachability: the surface really ran in all three states and was green at the base
+        self.assertEqual(("DELTA_FROZEN", 0), (surface["provenance"], surface["rc_base"]))
+        self.assertEqual(0, surface["rc_mut"],
+                         "the mutation crashed an index-enumerating surface: a deletion that git "
+                         "still lists is an artefact of the mutation, not a bite")
+        self.assertEqual((False, "MUTATION_DOES_NOT_BITE"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_real_dependency_on_the_addition_still_bites(self):
+        """Positive control: the fix must not make every mutation toothless. The candidate rewrites
+        lib.py to delegate to an ADDED helper, and a frozen test imports lib — removing the helper
+        breaks a predicate the frozen surface genuinely observes."""
+        repo, base, cand = self._repo(
+            {"scripts/lib.py": "def answer():\n    return 42\n",
+             "scripts/tests/test_lib.py": self.IMPORT_TEST,
+             "scripts/tests/test_inventory.py": self.INVENTORY_TEST},
+            {"scripts/helper.py": "VALUE = 42\n",
+             "scripts/lib.py": "from helper import VALUE\n\ndef answer():\n    return VALUE\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        rc = {Path(e["path"]).name: (e["rc_base"], e["rc_mut"]) for e in facts["surfaces"]}
+        self.assertEqual(0, rc["test_lib.py"][0])
+        self.assertNotIn(rc["test_lib.py"][1], (0, None, *self.mod.UNMEASURED_RCS))
+        self.assertEqual((0, 0), rc["test_inventory.py"])      # still no artefact bite
+        self.assertEqual(["scripts/tests/test_lib.py"], [e["path"] for e in facts["biting"]])
+        self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_candidate_that_breaks_a_guard_is_not_a_bite(self):
+        """F-A3 (batch 2, real pair 825d390): a frozen surface green at the base and RED AT THE
+        CANDIDATE was counted as a bite. With no added path the 'mutation' IS the candidate, so the
+        claimed protective capability does not even hold at the candidate — the candidate broke the
+        guard. A guard can only bite a state it protects: green at base AND candidate, red under a
+        mutation that differs from the candidate."""
+        budget = (
+            "import unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Budget(unittest.TestCase):\n"
+            "    def test_doc_within_budget(self):\n"
+            "        self.assertLessEqual(len((ROOT / 'doc.md').read_bytes()), 10)\n")
+        repo, base, cand = self._repo({"scripts/tests/test_budget.py": budget, "doc.md": "short\n"},
+                                      {"doc.md": "this grew well beyond the budget\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        # reachability: the guard really ran and really fails at the candidate
+        self.assertEqual((0, 1, 1), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
+        self.assertEqual([], facts["biting"])
+        self.assertEqual((False, "MUTATION_DOES_NOT_BITE"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
+        """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and
+        validate_governance.py's HEAD-identity check (4b) then failed in the mutation for every
+        pair — a new artefact bite, found by re-measuring batch 1. The mutation commit must carry
+        the candidate's own metadata, so a surface that reads HEAD sees what it saw there."""
+        head_identity = (
+            "import subprocess, unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Head(unittest.TestCase):\n"
+            "    def test_head_identity_and_subject(self):\n"
+            "        fmt = '%an|%ae|%cn|%ce|%s'\n"
+            "        out = subprocess.run(['git', '-C', str(ROOT), 'log', '-1', '--format=' + fmt],\n"
+            "                             capture_output=True, text=True, check=True).stdout\n"
+            "        self.assertEqual('fixture|fixture@invalid|fixture|fixture@invalid',\n"
+            "                         out.rsplit('|', 1)[0])\n"
+            "        self.assertIn(out.strip().rsplit('|', 1)[1], ('base', 'candidate'))\n")
+        repo, base, cand = self._repo({"scripts/tests/test_head.py": head_identity},
+                                      {"docs/unrelated.md": "added\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual((0, 0, 0), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]))
+        self.assertEqual([], facts["biting"])
+
+    def test_a_non_ascii_added_path_is_really_removed(self):
+        """`git diff --name-only` quotes a non-ASCII path ("docs/\\346\\225\\260.md"), which names no
+        file, so the old loop skipped it and the "mutation" kept the addition. The frozen surface
+        here is green exactly when the added file is absent, so a kept file reads as a bite."""
+        absent = (
+            "import unittest\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[2]\n"
+            "class Absent(unittest.TestCase):\n"
+            "    def test_addition_is_absent(self):\n"
+            "        self.assertFalse((ROOT / 'docs' / '数据.md').exists())\n")
+        repo, base, cand = self._repo({"scripts/tests/test_absent.py": absent},
+                                      {"docs/数据.md": "added\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        (surface,) = facts["surfaces"]
+        self.assertEqual((0, 1, 0), (surface["rc_base"], surface["rc_cand"], surface["rc_mut"]),
+                         "the surface must see the addition at the candidate (reachability) and "
+                         "must not see it in the mutation")
+        self.assertEqual([], facts["biting"])
+
+
 class LaunderingVariants(unittest.TestCase):
     """Ported from the second adversarial review, which demonstrated that a six-field edit of the
     shipped r03 record was counted as an admission. These are now permanent regression tests: the
@@ -1010,6 +1190,80 @@ class GuardUnitChecks(unittest.TestCase):
             "r06-governance-zcode-adapter-reference":
                 ("af4df6ae706394db5f9dec313993312392aeb516",
                  "069f8be26cc04bb4f9bf3428c1e23b310debb984", gov),
+            # r07-r22: H2 Schema-v2 candidate admission, batch 1 (admission/batch-1/case-map.json)
+            "r07-governance-external-findings-f1-f7":
+                ("a2bfe70f6d0844012d217f340d2d2fe56f632148",
+                 "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9", gov),
+            "r08-governance-project-continuity-contract":
+                ("f40525bd9f37b883420089f0422abcedef0b7d11",
+                 "af4df6ae706394db5f9dec313993312392aeb516", gov),
+            "r09-governance-seam-contract-partitions":
+                ("8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+                 "19c2c43682b4a0b26c44520e297f32c2f5a6c650", gov),
+            "r10-governance-p1-t02-pre-ticket-record":
+                ("4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
+                 "e398dde43042e0e00ca99076aa9ecd3e4f8951dd", gov),
+            "r11-governance-p1-t05-evidence-disposition":
+                ("89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+                 "1ca93655425e07933f379b3fa30a26819a4adedd", gov),
+            "r12-governance-p1-t03-closure-evidence":
+                ("11c798b917f3807f9fce65bcf2080ca73ee36f76",
+                 "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd", gov),
+            "r13-governance-p1-t06-producer-trust":
+                ("8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+                 "5c9f6a7fcfa67e081747e418ba549eb96da39a69", gov),
+            "r14-governance-p1-t07-evidence-consumption":
+                ("51e7604be3689f31142d17144893790000efac30",
+                 "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d", gov),
+            "r15-governance-p1-t11-destructive-transaction":
+                ("127ea0b3b11df08a048d12368164d90c2c1583d4",
+                 "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48", gov),
+            "r16-governance-p1-t10-audit-visibility":
+                ("770388d7acbd9ba818d5287e6dfe7f10c2aec961",
+                 "975c559fa9cfcabc012dcb9fb96ffadf32594b03", gov),
+            "r17-governance-p1-t08-evidence-lifecycle":
+                ("6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+                 "6856a322cdbc5282242464e068e9fb841f017642", gov),
+            "r18-governance-p1-t12-single-writer":
+                ("50a022f217022c254d00a465a907fa844e56a401",
+                 "07430d179138595497ddd8c20a934a93b46620b9", gov),
+            "r19-governance-p1-t13-learning-closure":
+                ("c1681482a05e1de53b4d3c7e7619def91f94b3c6",
+                 "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6", gov),
+            "r20-governance-p1-t14-model-dispatch":
+                ("a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+                 "f1323df2670c3fa6a554ae13d50784e1f96c7603", gov),
+            "r21-governance-p1-t18-defect-promotion":
+                ("7d868db65d281ec7bd52219c5166ab7b5c96d690",
+                 "fc7ad45838a641044b7d0404d25d497d7b11b258", gov),
+            "r22-governance-v12-experiment-foundation":
+                ("0404879936a3c36f5eca2b32d36f0d664464411a",
+                 "0007bb3096791114d4616b599f44428e9bbfeb83", gov),
+            # r23-r30: candidate admission, batch 2 (admission/batch-2/case-map.json)
+            "r23-governance-bootstrap-facts-review-round-1":
+                ("cf7034cb543ce8fc60d783bcdc48f1738daf1aac",
+                 "825d3902597655c90393100281260cbba8697c07", gov),
+            "r24-governance-bootstrap-budget-repair-round-2":
+                ("825d3902597655c90393100281260cbba8697c07",
+                 "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0", gov),
+            "r25-governance-readme-design-decisions":
+                ("833046a7c440a74925773d7b4fdadbf42c745c27",
+                 "a22fe184ef783799cb1ea3ea5f7449f65a1457dd", gov),
+            "r26-governance-portable-adoption-exercise":
+                ("8c0075c5db0e06eec67d303955d13e214ba22782",
+                 "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba", gov),
+            "r27-governance-memory-preset-budget-restore":
+                ("3e92751a6e5490e826a130835598e5069d8fe8ce",
+                 "7cadc9c445180395bf8494644ab91a4d55717438", gov),
+            "r28-governance-adoption-trial-evidence":
+                ("1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
+                 "0404879936a3c36f5eca2b32d36f0d664464411a", gov),
+            "r29-governance-v12-experiment-shape-convergence":
+                ("a90fb637928220396cad48d10783f9692aa70cb8",
+                 "5205e5bd92317d9ad1ad53725dc14444f5201d32", gov),
+            "r30-governance-h3a-replay-results":
+                ("a24231483f0046052d86b3d2b27e96b3db6b2629",
+                 "a652fd44bcaa0052d3185296ef2b9efd91a14639", gov),
         }
         self.assertEqual(expected, pairs,
                          "the replay corpus's per-case pairs changed — that is an experiment-material "

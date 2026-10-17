@@ -1,0 +1,460 @@
+{
+ "summary": {
+  "validator_run": "PASS",
+  "records": 8,
+  "schema_v2_valid_requests": 7,
+  "executions_disagree": 0,
+  "valid_by_oracle_kind": {
+   "DOC_TEXT": 2,
+   "GUARD:LINK_INTEGRITY": 5
+  },
+  "valid_by_family": {
+   "P1_TICKET_DOC_RECIPE": 0,
+   "INDIVIDUAL": 7
+  }
+ },
+ "rows": [
+  {
+   "CASE_ID": "r23-governance-bootstrap-facts-review-round-1",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs(governance): finding-scoped repair of the WorkBuddy bootstrap facts change (review round 1)",
+   "BASE_SHA": "cf7034cb543ce8fc60d783bcdc48f1738daf1aac",
+   "CANDIDATE_SHA": "825d3902597655c90393100281260cbba8697c07",
+   "TASK_CLASS": "C_REJECT",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "NO_DISCRIMINATING_ACCEPTANCE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "AGENTS.md",
+    "README.md",
+    "audit/AS_IS_WORKBUDDY_V3.md",
+    "deployment/BOOTSTRAP_CONTRACT.md",
+    "references/skills-and-model-routing.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "NO_DISCRIMINATING_ACCEPTANCE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/825d39025976.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r24-governance-bootstrap-budget-repair-round-2",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs(governance): repair round 2 - restore budget OWNER self-naming, bound the unit drift",
+   "BASE_SHA": "825d3902597655c90393100281260cbba8697c07",
+   "CANDIDATE_SHA": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+    "candidate_blob_sha256": "dc5c7a0f38c339673787f7aadc1bb0d664c6350075a5afd124b9b598d686dd66",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t09_bootstrap_byte_budget.py"
+   },
+   "BASE_RESULT": "rc=1 ran=24 failures=1 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=24 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py@4505faeaaa7a",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "audit/AUDIT_QUALITY_REVIEW.md",
+    "deployment/BOOTSTRAP_CONTRACT.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/4505faeaaa7a.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/probes/4505faeaaa7a.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r25-governance-readme-design-decisions",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs: structure readme and reconstruct design decisions",
+   "BASE_SHA": "833046a7c440a74925773d7b4fdadbf42c745c27",
+   "CANDIDATE_SHA": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "README.md",
+    "docs/design-history.md",
+    "docs/design.md",
+    "docs/getting-started.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/a22fe184ef78.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r26-governance-portable-adoption-exercise",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs: make governance portable with MIT and an adoption exercise",
+   "BASE_SHA": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "CANDIDATE_SHA": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "NO_DISCRIMINATING_ACCEPTANCE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "AGENTS.md",
+    "LICENSE",
+    "README.md",
+    "RULES.md",
+    "audit/PAIN_TO_POLICY_MAP_V2.md",
+    "deployment/MEMORY_POINTER_CANDIDATE.md",
+    "deployment/PORTABLE_SETUP.md",
+    "deployment/organization-policy.md",
+    "docs/adoption-validation.md",
+    "docs/adoption-walkthrough.md",
+    "docs/adoption.md",
+    "docs/design-history.md",
+    "docs/design.md",
+    "docs/getting-started.md",
+    "examples/adoption-demo/AGENTS.md",
+    "examples/adoption-demo/README.md",
+    "examples/adoption-demo/SPEC.md",
+    "examples/adoption-demo/app.py",
+    "examples/adoption-demo/tests/test_app.py",
+    "references/git-ci-integration.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/95667e8e3d9a.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r27-governance-memory-preset-budget-restore",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs: retain the measured organization-specific MEMORY preset",
+   "BASE_SHA": "3e92751a6e5490e826a130835598e5069d8fe8ce",
+   "CANDIDATE_SHA": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+    "candidate_blob_sha256": "dc5c7a0f38c339673787f7aadc1bb0d664c6350075a5afd124b9b598d686dd66",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t09_bootstrap_byte_budget.py"
+   },
+   "BASE_RESULT": "rc=1 ran=24 failures=2 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=24 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py@7cadc9c44518",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "deployment/MEMORY_POINTER_CANDIDATE.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/7cadc9c44518.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/probes/7cadc9c44518.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r28-governance-adoption-trial-evidence",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "docs: seal adoption trial and default-branch recovery evidence",
+   "BASE_SHA": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
+   "CANDIDATE_SHA": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "README.md",
+    "docs/adoption-evidence/README.md",
+    "docs/adoption-evidence/adversarial-probes-result.txt",
+    "docs/adoption-evidence/adversarial-probes.py.txt",
+    "docs/adoption-evidence/artifact-repair.json",
+    "docs/adoption-evidence/baseline-app.txt",
+    "docs/adoption-evidence/baseline-tests.txt",
+    "docs/adoption-evidence/code-fix.diff",
+    "docs/adoption-evidence/default-head-correction.json",
+    "docs/adoption-evidence/final-checks.txt",
+    "docs/adoption-evidence/green-app.txt",
+    "docs/adoption-evidence/green-tests.txt",
+    "docs/adoption-evidence/integration-remote.json",
+    "docs/adoption-evidence/integration-skill-validation.json",
+    "docs/adoption-evidence/integration-state-flush.json",
+    "docs/adoption-evidence/recovery-behavior-probes.py.txt",
+    "docs/adoption-evidence/recovery-final-app.txt",
+    "docs/adoption-evidence/recovery-final-checks.json",
+    "docs/adoption-evidence/recovery-final-controls.json",
+    "docs/adoption-evidence/recovery-final-handoff-skill-validation.json",
+    "docs/adoption-evidence/recovery-final-remote.json",
+    "docs/adoption-evidence/recovery-final-seal.json",
+    "docs/adoption-evidence/recovery-final-skill-validation.json",
+    "docs/adoption-evidence/recovery-final-state.json",
+    "docs/adoption-evidence/recovery-final-tests.txt",
+    "docs/adoption-evidence/recovery-final-verdict.md",
+    "docs/adoption-evidence/recovery-handoff-skill-validation.json",
+    "docs/adoption-evidence/recovery-initial-default-head.txt",
+    "docs/adoption-evidence/recovery-initial-probes.txt",
+    "docs/adoption-evidence/recovery-initial-remote.json",
+    "docs/adoption-evidence/recovery-initial-seal.json",
+    "docs/adoption-evidence/recovery-initial-skill-validation.json",
+    "docs/adoption-evidence/recovery-initial-state.json",
+    "docs/adoption-evidence/recovery-initial-verdict.md",
+    "docs/adoption-evidence/recovery-receipt-controls.json",
+    "docs/adoption-evidence/recovery-repair-final-skill-validation.json",
+    "docs/adoption-evidence/recovery-repair-prepublication-skill-validation.json",
+    "docs/adoption-evidence/recovery-repair-remote.json",
+    "docs/adoption-evidence/recovery-repair-result.md",
+    "docs/adoption-evidence/recovery-repair-state-flush.json",
+    "docs/adoption-evidence/red-tests.txt",
+    "docs/adoption-evidence/repair-skill-validation.json",
+    "docs/adoption-evidence/review-seal.json",
+    "docs/adoption-evidence/review-skill-validation.json",
+    "docs/adoption-evidence/review-verdict.md",
+    "docs/adoption-evidence/skill-reports.json",
+    "docs/adoption-evidence/skill-validation.json",
+    "docs/adoption-validation.md",
+    "docs/adoption-walkthrough.md",
+    "docs/adoption.md",
+    "docs/design-history.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/0404879936a3.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r29-governance-v12-experiment-shape-convergence",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "experiment(v1.2): converge experiment shape; fix metrics semantics and seed-corpus wording",
+   "BASE_SHA": "a90fb637928220396cad48d10783f9692aa70cb8",
+   "CANDIDATE_SHA": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "experiments/v1.2/README.md",
+    "experiments/v1.2/cases.yaml",
+    "experiments/v1.2/evidence-lineage.md",
+    "experiments/v1.2/metrics.md",
+    "experiments/v1.2/tests/test_material.py",
+    "scripts/tests/test_experiment_v12_foundation.py"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/5205e5bd9231.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r30-governance-h3a-replay-results",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "experiment(v1.2): record the H3-A historical replay results + sync detector status lines",
+   "BASE_SHA": "a24231483f0046052d86b3d2b27e96b3db6b2629",
+   "CANDIDATE_SHA": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "TASK_CLASS": "B_REGRESSION_GUARD",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "PASS_TO_FAIL_UNDER_MUTATION guard=scripts/validate_governance.py rc base/cand/mut=0/0/1",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "experiments/v1.2/README.md",
+    "experiments/v1.2/evidence-lineage.md",
+    "experiments/v1.2/replay/README.md",
+    "experiments/v1.2/results/h3-a-structure-delta-v0.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": false,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "GUARD:LINK_INTEGRITY",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": {
+    "scripts/validate_governance.py": [
+     "markdown-links-resolve"
+    ],
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   },
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/a652fd44bcaa.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/bite-diagnosis.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/validator-run.txt"
+   ]
+  }
+ ]
+}

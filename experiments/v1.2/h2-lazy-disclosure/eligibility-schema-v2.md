@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.0  (2.0.0 -> … -> 2.8.0; nine review rounds)
+VERSION        = 2.8.1  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1 = admission batch-1 finding F-A1, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -519,9 +519,58 @@ this repository can recompute — the corpus identity, the delta's own file list
 graph, and the reachability of the cited evidence". It is NOT a statement that the declared oracle
 statuses are true. This is why `round_admission.verdict` has no "admitted" value: the program
 validates a REQUEST, and the grant belongs to the round freeze plus independent review. The limit
-is pinned by `test_known_boundary_declared_statuses_are_not_recomputed`, and the attack that
-motivated v2.2.0 is pinned by the `LaunderingVariants` test class, whose six variants must stay
-refused.
+is pinned by `test_known_boundary_declared_statuses_are_not_recomputed`. The shape/identity
+laundering that motivated v2.2.0 is pinned by the `LaunderingVariants` test class, whose six
+variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is pinned separately by
+`RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
+earlier wording, which credited both to `LaunderingVariants`).
+
+### 6.7 The controlled mutation is a revision (2.8.1 — admission batch-1 finding F-A1)
+
+Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
+unlinked the added paths from the working tree and left them in git's index. An acceptance that
+enumerates the index (`git ls-files`) then crashes on the missing file, and the crash was counted as
+a BITE. Measured on 0007bb3 (whose delta only adds experiment files):
+`test_p1_t16_gate_cli_entrypoint.py` rc=1 with `FileNotFoundError` under the unlink mutation, rc=0
+under an index-consistent one — so a B_REGRESSION_GUARD claim was "supported" by a frozen surface
+that never observes the deliverable. The defect is a category — any surface that reads git's
+index or HEAD (at main, `test_p1_t16` and the frozen `validate_public_release.py` call
+`git ls-files` directly) — not the one demonstrated test. It was latent only
+because no corpus case had that shape yet; admission adds cases, so it had to close first.
+
+```text
+2.8.1  the mutation is materialised as a COMMITTED revision: `git rm` of every added path +
+       a commit in the scratch worktree (hooks disabled) that carries the CANDIDATE's own author,
+       committer, dates and message, and the tree must be clean afterwards, else
+       MUTATION_MATERIALISATION_FAILED (fail closed). Added paths are read with `-z`: the quoted
+       form of a non-ASCII path names no file, and the old loop skipped it silently, keeping the
+       very addition it claimed to remove.
+       F-A1b (found by re-measuring batch 1 on the first 2.8.1 draft): a commit under a synthetic
+       identity is ITSELF an artefact bite — validate_governance.py's HEAD-identity check (4b)
+       failed in the mutation for all 15 pairs that carry frozen surfaces. Hence the copied
+       metadata: the mutation differs from the candidate in its tree and nothing else a surface
+       can read (parent count included: one, as for the single-parent candidates admitted here).
+       Side effect, stated: the scratch commit is an unreachable object in the ODB of the
+       repository the validator runs in (no ref points to it; `git gc` prunes it).
+REGRESSION  MutationMaterialisation (4 tests): an index-enumerating frozen surface must NOT bite on
+       an unrelated addition; a HEAD-metadata surface must NOT bite on the mutation commit; a
+       frozen surface that really depends on an added file MUST still bite (positive control); a
+       non-ASCII added path must really be absent in the mutation. The three original tests fail
+       against 2.8.0; the HEAD-metadata test fails against the synthetic-identity draft; all
+       four pass against 2.8.1.
+F-A3   (found by batch 2 on the real pair 825d390) `biting` required green at the base and red
+       under the mutation, but not green at the CANDIDATE. A frozen surface the candidate itself
+       broke therefore counted as a bite — and with no added path the "mutation" IS the candidate:
+       825d390 adds nothing, breaks test_p1_t09 (rc 0/1/1), and was SUPPORTED as
+       B_REGRESSION_GUARD. A guard bites only a state it protects: 2.8.1 requires
+       base = candidate = green, mutation red, and at least one added path.
+       REGRESSION test_a_candidate_that_breaks_a_guard_is_not_a_bite (red before, green after).
+ALSO   N2.1 P3-A closed: B's reported candidate_oracle_status no longer folds an unmeasured
+       rc (124/127) into FAIL; it reports UNMEASURED, which no declaration can equal.
+STILL NOT ENFORCED  a bite proves that a frozen surface depends on SOME added path; it does not
+       prove the dependency is the task's target predicate (same limit as §3.2's "single failing
+       identity" clause, which stays the reviewer's job).
+```
 
 ## 7. Relationship to the existing layers
 

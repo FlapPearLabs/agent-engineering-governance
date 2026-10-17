@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Build Schema-v2 classification RECORDS (requests) for a measured admission batch (pre-freeze).
+
+Every measured pair gets exactly one record. The record is a REQUEST, never a verdict: the
+validator (harness/check_task_class.py) re-executes the transition from scratch and binds every
+declared status to its own measurement, so a record built from a stale or flaky measurement is
+refused rather than believed. Nothing here can make a pair valid that the validator would not.
+
+Class selection follows the measured transition only:
+  A supported (FAIL_TO_PASS)               -> A_REPAIR, request REQUEST_VALID
+  else B supported (PASS_TO_FAIL_UNDER_..) -> B_REGRESSION_GUARD, request REQUEST_VALID
+  else                                     -> C_REJECT with OBSERVATION_COVERAGE_UNPROVEN, the
+                                              measured reason as reason_code, both admissible
+                                              classes BLOCKED with their measured reasons
+
+A pair whose discovery disposition is not MEASURE_ADDED_ACCEPTANCE never reaches this program, and
+a derived trigger is never cleared here: if one were present the validator would refuse the record.
+
+Usage:  build_records.py <batch_dir>
+          reads  <batch_dir>/case-map.json (its optional `discovery` names the discovery
+                 file, default discovery-governance.json), measurements/*.json, probes/*.json
+          writes <batch_dir>/classification.json
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / "harness"))
+
+import check_task_class as ctc  # noqa: E402
+
+REPO = "FlapPearLabs/agent-engineering-governance"
+
+
+def rel(path: Path) -> str:
+    """Repository-relative citation (the validator resolves evidence inside the repository)."""
+    root = HERE.parents[3]
+    return path.resolve().relative_to(root).as_posix()
+
+
+def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path) -> dict:
+    facts, verdicts = m["facts"], m["verdicts"]
+    a, b = verdicts["A_REPAIR"], verdicts["B_REGRESSION_GUARD"]
+    rec = {
+        "candidate_id": case_id,
+        "corpus_case_id": case_id,
+        "source_repository": REPO,
+        "base_sha": m["base_sha"],
+        "candidate_sha": m["candidate_sha"],
+        "sha_binding": "LOCAL_REPO_VERIFIED",
+        "reject_triggers": [],
+        "pending_requirements": [],
+        # the delta rewrites no test and no validator: discovery routed this pair here only
+        # because ctc.derived_triggers() is empty for it, and the validator re-derives that fact
+        "disclosures": {"historical_delta_touched_oracle": False,
+                        "historical_delta_touched_validator": False,
+                        "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: "
+                        "the historical delta introduced it; the validator binds "
+                        "oracle_in_worker_scope and oracle_authority to that provenance"},
+    }
+    evidence = [
+        {"claim": "the pair was routed to measurement because its delta rewrites no test and no "
+                  "validator (derived triggers empty) and adds an acceptance surface",
+         "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+         "source": rel(dpath)},
+        {"claim": "the acceptance transition, executed in base / candidate / controlled-mutation "
+                  "trees by the validator's own recompute_transition",
+         "measured": f"A={a['reason']} B={b['reason']} over {facts.get('acceptance_count')} "
+                     f"surface(s), {facts.get('frozen_count')} frozen",
+         "source": rel(mpath)},
+    ]
+    if ppath.is_file():
+        evidence.append({"claim": "the basis acceptance exercised tests (not skipped, not empty)",
+                         "measured": "unittest-reported ran/skipped/failures/errors per state",
+                         "source": rel(ppath)})
+    rec["evidence"] = evidence
+    if a["supported"]:
+        basis = facts["discriminating"][0]
+        rec.update({
+            "class": "A_REPAIR",
+            "class_considered": [
+                {"class": "A_REPAIR", "verdict": "SHAPE_SATISFIED"},
+                {"class": "B_REGRESSION_GUARD", "verdict": "BLOCKED",
+                 "reason": f"measured {b['reason']}"}],
+            "class_requirements": {
+                "baseline_oracle_status": "FAIL", "candidate_oracle_status": "PASS",
+                "oracle_in_worker_scope": bool(facts["oracle_in_worker_scope"]),
+                "oracle_authority": ("FRAMEWORK_FROZEN" if basis["provenance"] == "DELTA_FROZEN"
+                                     else "DELTA_AUTHORED_DISCRIMINATING")},
+            "round_admission": {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"],
+                                "note": "a valid REQUEST is not an admission; the grant is "
+                                        "Freeze v2 plus independent review"},
+        })
+    elif b["supported"]:
+        rec.update({
+            "class": "B_REGRESSION_GUARD",
+            "class_considered": [
+                {"class": "B_REGRESSION_GUARD", "verdict": "SHAPE_SATISFIED"},
+                {"class": "A_REPAIR", "verdict": "BLOCKED", "reason": f"measured {a['reason']}"}],
+            "class_requirements": {
+                "baseline_oracle_status": "PASS", "mutation_oracle_status": "FAIL",
+                "mutation_touches_target_predicate": True, "acceptance_surface_frozen": True,
+                "validator_not_worker_controlled": True},
+            "round_admission": {"verdict": "REQUEST_VALID", "reason_codes": ["SHAPE_COMPLETE"]},
+        })
+    else:
+        rec.update({
+            "class": "C_REJECT",
+            "class_considered": [
+                {"class": "A_REPAIR", "verdict": "BLOCKED", "reason": f"measured {a['reason']}"},
+                {"class": "B_REGRESSION_GUARD", "verdict": "BLOCKED",
+                 "reason": f"measured {b['reason']}"}],
+            "reject_triggers": [{"trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+                                 "reason_code": a["reason"],
+                                 "detail": "no acceptance surface of the candidate moves FAIL->PASS "
+                                           "against the base, and no frozen surface bites under the "
+                                           "controlled mutation (measured, see evidence)"}],
+            "round_admission": {"verdict": "NOT_ADMITTED", "reason_codes": [a["reason"]]},
+        })
+    return rec
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print(__doc__, file=sys.stderr)
+        return 2
+    batch = Path(argv[1]).resolve()
+    cdoc = json.loads((batch / "case-map.json").read_text(encoding="utf-8"))
+    cmap = cdoc["cases"]
+    # a batch may reuse an earlier batch's discovery (batch 2 measures batch 1's deferred pairs)
+    dpath = (batch / cdoc.get("discovery", "discovery-governance.json")).resolve()
+    records = []
+    for cand, case_id in sorted(cmap.items(), key=lambda kv: kv[1]):
+        mpath = batch / "measurements" / f"{cand[:12]}.json"
+        m = json.loads(mpath.read_text(encoding="utf-8"))
+        if m["candidate_sha"] != cand:
+            raise SystemExit(f"{mpath}: measures {m['candidate_sha']}, not {cand}")
+        records.append(record(case_id, m, mpath, batch / "probes" / f"{cand[:12]}.json", dpath))
+    doc = {"schema": ctc.SCHEMA_ID, "schema_version": ctc.SCHEMA_VERSION,
+           "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
+           "record_semantics": "one record per measured historical pair; class and lifecycle "
+                               "statuses follow the measured transition and are re-executed and "
+                               "bound by the validator. REQUEST_VALID is a request to Freeze v2, "
+                               "not an admission.",
+           "records": records}
+    (batch / "classification.json").write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n",
+                                               encoding="utf-8")
+    counts: dict[str, int] = {}
+    for r in records:
+        counts[r["class"]] = counts.get(r["class"], 0) + 1
+    print(f"RECORDS {len(records)} {counts}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

@@ -1,0 +1,33 @@
+  TRANSITION r02-governance-review-evidence-interface class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_review_evidence_contract.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r07-governance-external-findings-f1-f7 class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/validate_governance.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r09-governance-seam-contract-partitions class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_seam_contract_partitions.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r10-governance-p1-t02-pre-ticket-record class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r12-governance-p1-t03-closure-evidence class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r13-governance-p1-t06-producer-trust class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t06_producer_trust_boundary.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r14-governance-p1-t07-evidence-consumption class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t07_evidence_consumption_separation.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r15-governance-p1-t11-destructive-transaction class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t11_destructive_workspace_transaction.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r16-governance-p1-t10-audit-visibility class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t10_audit_visibility_recipe.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r17-governance-p1-t08-evidence-lifecycle class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t08_evidence_lifecycle.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r18-governance-p1-t12-single-writer class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t12_shared_file_single_writer.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r19-governance-p1-t13-learning-closure class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t13_learning_closure.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r20-governance-p1-t14-model-dispatch class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t14_model_dispatch_metadata.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r21-governance-p1-t18-defect-promotion class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  TRANSITION r22-governance-v12-experiment-foundation class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_experiment_v12_foundation.py provenance=DELTA_ADDED base_rc=1 cand_rc=0 mut_rc=None
+  r02-governance-review-evidence-interface     class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r07-governance-external-findings-f1-f7       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r08-governance-project-continuity-contract   class=C_REJECT             binding=LOCAL_REPO_VERIFIED              triggers=1 request=NOT_ADMITTED
+  r09-governance-seam-contract-partitions      class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r10-governance-p1-t02-pre-ticket-record      class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r11-governance-p1-t05-evidence-disposition   class=C_REJECT             binding=LOCAL_REPO_VERIFIED              triggers=1 request=NOT_ADMITTED
+  r12-governance-p1-t03-closure-evidence       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r13-governance-p1-t06-producer-trust         class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r14-governance-p1-t07-evidence-consumption   class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r15-governance-p1-t11-destructive-transaction class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r16-governance-p1-t10-audit-visibility       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r17-governance-p1-t08-evidence-lifecycle     class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r18-governance-p1-t12-single-writer          class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r19-governance-p1-t13-learning-closure       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r20-governance-p1-t14-model-dispatch         class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r21-governance-p1-t18-defect-promotion       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r22-governance-v12-experiment-foundation     class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+TASK_CLASS_VERDICT = PASS records=17 valid_requests=15 rejected=2 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)

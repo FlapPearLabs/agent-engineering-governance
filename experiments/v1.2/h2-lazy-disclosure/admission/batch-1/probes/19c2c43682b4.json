@@ -1,0 +1,31 @@
+{
+ "base_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+ "candidate_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+ "probes": [
+  {
+   "path": "scripts/tests/test_seam_contract_partitions.py",
+   "kind": "TEST",
+   "provenance": "DELTA_ADDED",
+   "base": {
+    "rc": 1,
+    "ran": 23,
+    "verdict_line": "FAILED",
+    "failures": 54,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 23,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

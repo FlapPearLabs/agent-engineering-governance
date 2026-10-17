@@ -1,0 +1,5 @@
+  r08-governance-project-continuity-contract   class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  ERROR r08-governance-project-continuity-contract: declared baseline_oracle_status='FAIL' but the acceptance recomputed 'PASS' over 2 surface(s) at f40525bd9f37 and af4df6ae7063
+  ERROR r08-governance-project-continuity-contract: declared candidate_oracle_status='PASS' but the acceptance recomputed 'FAIL' over 2 surface(s) at f40525bd9f37 and af4df6ae7063
+  ERROR r08-governance-project-continuity-contract: the A_REPAIR state transition is not supported by execution (BASE_EQUALS_CANDIDATE) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_ADDED] base=1 cand=1
+TASK_CLASS_VERDICT = FAIL records=1 errors=3

@@ -1,0 +1,764 @@
+{
+ "summary": {
+  "validator_run": "PASS",
+  "records": 17,
+  "schema_v2_valid_requests": 15,
+  "executions_disagree": 0,
+  "valid_by_oracle_kind": {
+   "BEHAVIORAL": 3,
+   "DOC_OR_DATA": 1,
+   "DOC_TEXT": 11
+  },
+  "valid_by_family": {
+   "P1_TICKET_DOC_RECIPE": 8,
+   "INDIVIDUAL": 7
+  }
+ },
+ "rows": [
+  {
+   "CASE_ID": "r02-governance-review-evidence-interface",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(review-evidence): land the Review Evidence interface foundation",
+   "BASE_SHA": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+   "CANDIDATE_SHA": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "candidate_blob_sha256": "674f9abfe1548f09709c060cdeb9df9f421b377be8e0038c15dfe8591c46a032",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
+   },
+   "BASE_RESULT": "rc=1 ran=41 failures=65 errors=1 skipped=0 types=['AssertionError', 'FileNotFoundError']",
+   "CANDIDATE_RESULT": "rc=0 ran=41 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_review_evidence_contract.py@2ed08f6f7ddf",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/review-evidence.md",
+    "schemas/review-evidence.schema.json",
+    "scripts/review_evidence.py",
+    "templates/review-evidence.json"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/2ed08f6f7ddf.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/2ed08f6f7ddf.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r07-governance-external-findings-f1-f7",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "fix(governance): remediate external findings F1-F7 via re-audit",
+   "BASE_SHA": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+   "CANDIDATE_SHA": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/validate_governance.py",
+    "candidate_blob_sha256": "f2eeeb8b32e04035d15649ef7ac96617a1c560fc731236ce596778f4afa61ef6",
+    "kind": "VALIDATOR",
+    "command": "{PY} scripts/validate_governance.py"
+   },
+   "BASE_RESULT": "rc=1",
+   "CANDIDATE_RESULT": "rc=0",
+   "MUTATION_RESULT": "NO_FROZEN_ACCEPTANCE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/validate_governance.py@295ce6514f57",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "AGENTS.md",
+    "README.md",
+    "RULES.md",
+    "audit/AS_IS_WORKBUDDY.md",
+    "audit/AS_IS_WORKBUDDY_V2.md",
+    "audit/GAP_MATRIX.md",
+    "audit/MIGRATION_PLAN.md",
+    "deployment/BOOTSTRAP_CONTRACT.md",
+    "deployment/MEMORY_POINTER_CANDIDATE.md",
+    "deployment/deployment-profile.md",
+    "references/codegraph-grounding.md",
+    "references/execution-stage.md",
+    "references/git-ci-integration.md",
+    "references/review-and-repair-saturation.md",
+    "references/skills-and-model-routing.md",
+    "references/ticket-lane.md",
+    "skills/README.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/295ce6514f57.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/295ce6514f57.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r08-governance-project-continuity-contract",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(contract): PROJECT_CONTINUITY_CONTRACT_V1 — fixed project-state index, initialization, write events, codegraph lifecycle, grounding",
+   "BASE_SHA": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "CANDIDATE_SHA": "af4df6ae706394db5f9dec313993312392aeb516",
+   "TASK_CLASS": "C_REJECT",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "references/project-continuity-contract.md",
+    "schemas/project-state.schema.json",
+    "scripts/validate_project_state.py",
+    "templates/project-state.json"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [
+    "scripts/validate_project_state.py"
+   ],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "BASE_EQUALS_CANDIDATE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/af4df6ae7063.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/af4df6ae7063.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r09-governance-seam-contract-partitions",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(ticket-lane): land seam contract design/authority and closure-evidence partitions",
+   "BASE_SHA": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+   "CANDIDATE_SHA": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_seam_contract_partitions.py",
+    "candidate_blob_sha256": "661140fb7ef241d2625f66fcb7a29b8b4819d71b5ae9f50a0b0d7c9316110eb7",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_seam_contract_partitions.py"
+   },
+   "BASE_RESULT": "rc=1 ran=23 failures=54 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=23 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_seam_contract_partitions.py@19c2c43682b4",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/ticket-lane.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/19c2c43682b4.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/19c2c43682b4.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r10-governance-p1-t02-pre-ticket-record",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage2/lane-a): P1-T02 pre-ticket identification record (execution-stage.md §6.6)",
+   "BASE_SHA": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
+   "CANDIDATE_SHA": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+    "candidate_blob_sha256": "6e78cc5215be4bf9f81d8618534771c10b3836d4bb22cf634d01749b3b092dca",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t02_execution_stage_pre_ticket_record.py"
+   },
+   "BASE_RESULT": "rc=1 ran=7 failures=16 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=7 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py@e398dde43042",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/execution-stage.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/e398dde43042.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/e398dde43042.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r11-governance-p1-t05-evidence-disposition",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(review-evidence): land P1-T05 three-axis verification disposition (Issue #18)",
+   "BASE_SHA": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "CANDIDATE_SHA": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "TASK_CLASS": "C_REJECT",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "BASE_EQUALS_CANDIDATE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
+   "WORKER_SCOPE": [
+    "references/review-evidence.md",
+    "scripts/review_evidence.py",
+    "scripts/tests/test_p1_t05_evidence_disposition.py"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "BASE_EQUALS_CANDIDATE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/1ca93655425e.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/1ca93655425e.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r12-governance-p1-t03-closure-evidence",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage3/lane-a): extend git-ci-integration with the P1-T03 integration closure-evidence requirement (Issue #17)",
+   "BASE_SHA": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+   "CANDIDATE_SHA": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+    "candidate_blob_sha256": "5464fab8eb1a87b8293a4d47c21eea65bd0e9e788180542bcb658917a8379dbe",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t03_git_ci_integration_closure_evidence.py"
+   },
+   "BASE_RESULT": "rc=1 ran=17 failures=26 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=17 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py@8ae4e6058bbb",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/git-ci-integration.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/8ae4e6058bbb.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/8ae4e6058bbb.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r13-governance-p1-t06-producer-trust",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage3/lane-b): enforce the P1-T06 evidence producer trust and retrieval boundary (Issue #21)",
+   "BASE_SHA": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "CANDIDATE_SHA": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+    "candidate_blob_sha256": "df83f729942f9862513ca643ff06ab9103bffb73116d3b99b274e3be5166d398",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t06_producer_trust_boundary.py"
+   },
+   "BASE_RESULT": "rc=1 ran=30 failures=26 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=30 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t06_producer_trust_boundary.py@5c9f6a7fcfa6",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/review-evidence.md",
+    "scripts/review_evidence.py"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/5c9f6a7fcfa6.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/5c9f6a7fcfa6.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r14-governance-p1-t07-evidence-consumption",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage3/lane-c): state the evidence consumption and reviewer-authority separation rule (Issue #19)",
+   "BASE_SHA": "51e7604be3689f31142d17144893790000efac30",
+   "CANDIDATE_SHA": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+    "candidate_blob_sha256": "81530ba04776ae966ddd12487b8e16f50d11127bc0126b34e9977ea3ed29bcd9",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t07_evidence_consumption_separation.py"
+   },
+   "BASE_RESULT": "rc=1 ran=15 failures=24 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=15 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t07_evidence_consumption_separation.py@05d7c99e255f",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/review-and-repair-saturation.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/05d7c99e255f.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/05d7c99e255f.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r15-governance-p1-t11-destructive-transaction",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage4/lane-a): add the P1-T11 destructive workspace transaction recipe to git-ci-integration (Issue #23)",
+   "BASE_SHA": "127ea0b3b11df08a048d12368164d90c2c1583d4",
+   "CANDIDATE_SHA": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+    "candidate_blob_sha256": "74b78b21c31c8dc02bef802cf61944e6bd87d217fcd5c4dbf177ef8534b6b6f8",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t11_destructive_workspace_transaction.py"
+   },
+   "BASE_RESULT": "rc=1 ran=35 failures=48 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=35 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py@dc7aef63001e",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/git-ci-integration.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/dc7aef63001e.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/dc7aef63001e.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r16-governance-p1-t10-audit-visibility",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage4/lane-c): add the P1-T10 on-demand audit visibility recipe to review-and-repair-saturation (Issue #22)",
+   "BASE_SHA": "770388d7acbd9ba818d5287e6dfe7f10c2aec961",
+   "CANDIDATE_SHA": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+    "candidate_blob_sha256": "ef76ef60c8dbb6dac8bb97d50a08b66680d224b1e346456135f9d303e68bb817",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t10_audit_visibility_recipe.py"
+   },
+   "BASE_RESULT": "rc=1 ran=19 failures=13 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=19 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t10_audit_visibility_recipe.py@975c559fa9cf",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/review-and-repair-saturation.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/975c559fa9cf.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/975c559fa9cf.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r17-governance-p1-t08-evidence-lifecycle",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage5/lane-a): implement P1-T08 evidence lifecycle consumption over the declared reuse descriptor (Issue #24)",
+   "BASE_SHA": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+   "CANDIDATE_SHA": "6856a322cdbc5282242464e068e9fb841f017642",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+    "candidate_blob_sha256": "40861d1bab08194a923bc9fffacaa4b4ad998b812dee88d2bfcfca33b8ea7851",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t08_evidence_lifecycle.py"
+   },
+   "BASE_RESULT": "rc=1 ran=16 failures=12 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=16 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t08_evidence_lifecycle.py@6856a322cdbc",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/git-ci-integration.md",
+    "scripts/review_evidence.py"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/6856a322cdbc.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/6856a322cdbc.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r18-governance-p1-t12-single-writer",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage5/lane-c): add the shared-file single-writer and final-readback recipe to ticket-lane (Issue #20)",
+   "BASE_SHA": "50a022f217022c254d00a465a907fa844e56a401",
+   "CANDIDATE_SHA": "07430d179138595497ddd8c20a934a93b46620b9",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+    "candidate_blob_sha256": "19efdcd0b4f96f960c2def1b184f6279110b8a13f87f97ed475486ef7e721ded",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t12_shared_file_single_writer.py"
+   },
+   "BASE_RESULT": "rc=1 ran=30 failures=32 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=30 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t12_shared_file_single_writer.py@07430d179138",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/ticket-lane.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/07430d179138.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/07430d179138.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r19-governance-p1-t13-learning-closure",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage6/lane-b): add the on-demand learning-closure recipe to the engineering-memory owner (Issue #13)",
+   "BASE_SHA": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
+   "CANDIDATE_SHA": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t13_learning_closure.py",
+    "candidate_blob_sha256": "89e391568ebe24dd56c2cd13d250096b4511321c7519220e2c984637ee053eef",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t13_learning_closure.py"
+   },
+   "BASE_RESULT": "rc=1 ran=27 failures=29 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=27 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t13_learning_closure.py@a1cf096ae790",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/engineering-memory.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/a1cf096ae790.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/a1cf096ae790.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r20-governance-p1-t14-model-dispatch",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(stage6/lane-c): add the risk-first model-dispatch metadata recipe to the routing owner (Issue #14)",
+   "BASE_SHA": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "CANDIDATE_SHA": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+    "candidate_blob_sha256": "0552e2aa76519820fe159fa5b32a7571b75872c84deee10d3994ad3228d4d13b",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t14_model_dispatch_metadata.py"
+   },
+   "BASE_RESULT": "rc=1 ran=33 failures=20 errors=0 skipped=0 types=['AssertionError']",
+   "CANDIDATE_RESULT": "rc=0 ran=33 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t14_model_dispatch_metadata.py@f1323df2670c",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "references/skills-and-model-routing.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "P1_TICKET_DOC_RECIPE",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/f1323df2670c.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/f1323df2670c.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r21-governance-p1-t18-defect-promotion",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "feat(governance): defect-to-gate promotion + FAST/FULL gate execution model",
+   "BASE_SHA": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
+   "CANDIDATE_SHA": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+    "candidate_blob_sha256": "5d5b3274834babf767b0310084b74c7d4d2e39e80b3b807c19aa3277d0665b6f",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
+   },
+   "BASE_RESULT": "rc=1 ran=64 failures=71 errors=1 skipped=0 types=['AssertionError', 'IndexError']",
+   "CANDIDATE_RESULT": "rc=0 ran=64 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@fc7ad45838a6",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "AGENTS.md",
+    "README.md",
+    "audit/PAIN_TO_POLICY_MAP_V2.md",
+    "references/git-ci-integration.md",
+    "references/review-and-repair-saturation.md",
+    "references/static-analysis-and-code-intelligence.md",
+    "references/ticket-lane.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_TEXT",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/fc7ad45838a6.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/fc7ad45838a6.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  },
+  {
+   "CASE_ID": "r22-governance-v12-experiment-foundation",
+   "REPOSITORY": "FlapPearLabs/agent-engineering-governance",
+   "TASK_DESCRIPTION": "experiment(v1.2): add non-canonical experiment foundation with real historical cases",
+   "BASE_SHA": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "CANDIDATE_SHA": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "TASK_CLASS": "A_REPAIR",
+   "FROZEN_ACCEPTANCE_DEFINITION": {
+    "path": "scripts/tests/test_experiment_v12_foundation.py",
+    "candidate_blob_sha256": "48a2a145c07b4ef8a2453e50c356dcb198f05913d35d155970e83417c280ab73",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_experiment_v12_foundation.py"
+   },
+   "BASE_RESULT": "rc=1 ran=10 failures=0 errors=10 skipped=0 types=['FileNotFoundError']",
+   "CANDIDATE_RESULT": "rc=0 ran=10 skipped=0",
+   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
+   "STATE_TRANSITION": "FAIL_TO_PASS",
+   "ORACLE_LOCATION": "scripts/tests/test_experiment_v12_foundation.py@0007bb309679",
+   "ORACLE_EXTERNALIZATION": "REQUIRED_AT_FREEZE_V2: historical delta AUTHORED the oracle (DELTA_ADDED); the frozen bytes above must be placed by the acceptance harness and the path excluded from the worker's scope",
+   "WORKER_SCOPE": [
+    "experiments/v1.2/README.md",
+    "experiments/v1.2/cases.yaml",
+    "experiments/v1.2/evidence-lineage.md",
+    "experiments/v1.2/metrics.md"
+   ],
+   "ORACLE_IN_WORKER_SCOPE": {
+    "historical": true,
+    "required_design": false
+   },
+   "VALIDATOR_IN_WORKER_SCOPE": [],
+   "DERIVED_TRIGGERS": {},
+   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
+   "REJECTION_REASON": null,
+   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "OBSERVATION_ORACLE_KIND": "DOC_OR_DATA",
+   "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
+   "OBSERVATION_GUARD_CHECKS": null,
+   "EVIDENCE_PATHS": [
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/0007bb309679.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/0007bb309679.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/validator-run.txt"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,74 @@
+{
+ "base_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
+ "candidate_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+ "elapsed_s": 4.0,
+ "facts": {
+  "base": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
+  "candidate": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/validate_project_state.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 1,
+    "rc_mut": 1
+   },
+   {
+    "path": "scripts/validate_public_release.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_ticket_gate_wiring.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   }
+  ],
+  "acceptance_count": 4,
+  "frozen_count": 4,
+  "acceptance_surface_frozen": true,
+  "oracle_in_worker_scope": false,
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "BASE_EQUALS_CANDIDATE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "MUTATION_DOES_NOT_BITE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.1",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "chore(state): flush recovery snapshot after P1 implementation authorization"
+}

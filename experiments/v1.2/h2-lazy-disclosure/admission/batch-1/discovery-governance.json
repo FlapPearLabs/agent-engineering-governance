@@ -1,0 +1,6038 @@
+{
+ "program": "admission/discover.py",
+ "schema_version_consulted": "2.8.0",
+ "repository_remote": "https://github.com/FlapPearLabs/agent-engineering-governance.git",
+ "ref": "origin/main",
+ "ref_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+ "pairs_total": 200,
+ "funnel": {
+  "DEFERRED_FROZEN_BASIS_SCAN": 83,
+  "DERIVED_TRIGGER_PRESENT": 98,
+  "MEASURE_ADDED_ACCEPTANCE": 17,
+  "NO_PARENT": 2
+ },
+ "pairs": [
+  {
+   "base_sha": "3decab09776f89799d5e4c43e81306d265d617d0",
+   "candidate_sha": "f551e925913862640f0d213f760260e8283bcc81",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 precondition — record the round-11 fix battery as [16]",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "606107903e5f28e5c30572e7fbeb14f4bf345a56",
+   "candidate_sha": "3decab09776f89799d5e4c43e81306d265d617d0",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 collect — close the plan-less receipt gap in R11-5 revalidation",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "72bcb9d9c995a5961fc98dc272fd1b6f13fe5155",
+   "candidate_sha": "606107903e5f28e5c30572e7fbeb14f4bf345a56",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/h2_hot_inventory.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 11 (7 findings: 4xP1 + 3xP2)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "921be3e7e87fafa34855403ee317173210edc69b",
+   "candidate_sha": "72bcb9d9c995a5961fc98dc272fd1b6f13fe5155",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — remove duplicate PROTOCOL_HASH literal (round-10 hash-patch defect)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "143196e592dec60e919b9b68f21571fd0fb14dd2",
+   "candidate_sha": "921be3e7e87fafa34855403ee317173210edc69b",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 10 (8 findings: 5xP1 + 3xP2); convergence head",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "70fd289774fd3f8ab7e18ca6df10d031d6870a85",
+   "candidate_sha": "143196e592dec60e919b9b68f21571fd0fb14dd2",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/h2_hot_inventory.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/list_changes.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 9 (13 findings: 8xP1 + 5xP2)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "44953909789ded27e8a8ed9e3dde5eaf773f9e46",
+   "candidate_sha": "70fd289774fd3f8ab7e18ca6df10d031d6870a85",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — [13a]/[13b] evidence corrections (re-applied)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "da1cd4c49406b9218d06733ed5908a49dffe2195",
+   "candidate_sha": "44953909789ded27e8a8ed9e3dde5eaf773f9e46",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — [13] battery evidence (round-8 countermeasures)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "d4b47a76b17f93c9aa846b0ea487d29c210593b1",
+   "candidate_sha": "da1cd4c49406b9218d06733ed5908a49dffe2195",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 8 (9 findings: 4xP1 + 5xP2)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "fe8a0c164a664d3e77227cbab0e01350b31551bf",
+   "candidate_sha": "d4b47a76b17f93c9aa846b0ea487d29c210593b1",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — scope the MATERIALS_DIRTY guard to delivery sources",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "fa6e131346e19d42bab47bcc63a77a190b598a46",
+   "candidate_sha": "fe8a0c164a664d3e77227cbab0e01350b31551bf",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_release_scan_on.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — [12] battery evidence + scan-helper residue hardening",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "4c712e75e43cf7783297d0b2d3ed4498fa3c67e0",
+   "candidate_sha": "fa6e131346e19d42bab47bcc63a77a190b598a46",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/list_changes.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_release_scan_on.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 6 (12 findings: 7xP1 + 5xP2)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "3d0c5fcf4a1fd13f78c0b811cda34fec73507ca3",
+   "candidate_sha": "4c712e75e43cf7783297d0b2d3ed4498fa3c67e0",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-brief-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — v5 consistency fixes (delta review of 3d0c5fc)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "1e77b43e587f041f768aa992564082596ff947b4",
+   "candidate_sha": "3d0c5fcf4a1fd13f78c0b811cda34fec73507ca3",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/list_changes.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run-plan.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_release_scan_on.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-brief-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of bot review round 5 (8xP1) — delivery v5",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "2a1a4e78ed5f1597921251ccd2aea469f252f684",
+   "candidate_sha": "1e77b43e587f041f768aa992564082596ff947b4",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/h2_hot_inventory.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_t02_gate_teeth.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/list_changes.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run-plan.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-brief-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/run-registry.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — disposition of the Codex bot review (rounds 1-4, 32 findings)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
+   "candidate_sha": "2a1a4e78ed5f1597921251ccd2aea469f252f684",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): guard v3 — OS temp roots, whitespace trim, absolute-root requirement",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "728e9b0007e71089c36f92cd95972065240c3ce2",
+   "candidate_sha": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — delta-review fixes before merge (P3s from 728e9b0 review)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "352631e9c76bfebb9ad9aa7be11d99fce61cb3a3",
+   "candidate_sha": "728e9b0007e71089c36f92cd95972065240c3ce2",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-summary.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiments(v1.2): H2 freeze — address pre-merge review findings (0xP0, 2xP2, 5xP3)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
+   "candidate_sha": "352631e9c76bfebb9ad9aa7be11d99fce61cb3a3",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/h2_hot_inventory.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run-plan.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-brief-template.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-n8-frozen-9494de8.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-015780be.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-0a180fee.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-9494de8e.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-af4df6ae.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-c08f6f8b.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-e1da1541.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-summary.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-gates.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-t01-base-protocol.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-t01-fullsuite-base.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/results.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/routes-h2.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/run-registry.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiments(v1.2): H2 freeze — lazy-disclosure protocol, carrier, task registry, scoring, route manifest; N2 -> ACTIVE",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "1e1fb65edb3cad428b0b713bb8df43583533c08f",
+   "candidate_sha": "e0f6343c79e3588338bbfdf9484e02b31caf734f",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): reconcile the closure ledger's state snapshots",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "2e3b3c5a8a57638b8f60958eeb8a0ae2d4a100a5",
+   "candidate_sha": "faacd04254932a0286b2ae7ce5f09bc737ac10d4",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/route-reachability/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): correct the provenance of the external review findings",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+   "candidate_sha": "2e3b3c5a8a57638b8f60958eeb8a0ae2d4a100a5",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/route-reachability/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): harden route validator against malformed manifests (post-merge findings)",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "e8530e6f541c44083a073a811d3971e22bae3a94",
+   "candidate_sha": "1e1fb65edb3cad428b0b713bb8df43583533c08f",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): scope the closure ledger's branch-count statement",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+   "candidate_sha": "e8530e6f541c44083a073a811d3971e22bae3a94",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): record N8 closure ledger (route-reachability merged)",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "87f6f7805720825163147c893e0bc715b06559fc",
+   "candidate_sha": "0a180fee4dca9800df1691990293adb083458226",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/route-reachability/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): fix two P3 nits from the N8 fresh review",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
+   "candidate_sha": "87f6f7805720825163147c893e0bc715b06559fc",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/route-reachability/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): defer the #46 review-status wording to the GitHub record",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "b839a8e9bb6d080b6b88f2c1fccb407ebf5ce7e3",
+   "candidate_sha": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): rescope the N6 slice check to its frozen range",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+   "candidate_sha": "b839a8e9bb6d080b6b88f2c1fccb407ebf5ce7e3",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/routes.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): N8 route-reachability validator for #46 (experimental mechanism)",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "dec29b6c3a3bdc1324d6486da238717dc70a413c",
+   "candidate_sha": "5c12d5a0a984f577cc9794236efcafa5195de6af",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): close the three P3 nits from the N6 delta review",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+   "candidate_sha": "dec29b6c3a3bdc1324d6486da238717dc70a413c",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): address N6 delta-review findings",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
+   "candidate_sha": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/experiment-protocols.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/failure-mechanism-map.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): address N6 mechanization-gap review findings",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "69012c38a2070e6f7e013dd3acc5fe7b25e2b1ad",
+   "candidate_sha": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): fix tree-ledger self-reference and status honesty",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "c028a719ba27ab7aff3035c6269e477491983219",
+   "candidate_sha": "69012c38a2070e6f7e013dd3acc5fe7b25e2b1ad",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/experiment-protocols.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/failure-mechanism-map.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/longhorizon-mechanism-map.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): N6 mechanization gap analysis (rule migration + protocol freeze)",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
+   "candidate_sha": "639d19991256156bc9d2cec266e611931d6a8645",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): record H1 round-1 evidence closure ledger",
+   "date": "2026-10-09"
+  },
+  {
+   "base_sha": "fc5c3e4184ac9863f90f0bbe2fb0bd5c5b7980e1",
+   "candidate_sha": "d9c809e151eac23140d2f29c7e272efbeda9d5b4",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/hot_inventory.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/runs/RUN_P3.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_h1_material.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_h1_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): address H1 evidence review findings",
+   "date": "2026-10-09"
+  },
+  {
+   "base_sha": "562cb5ccb38846cd635851c13d8998e83a027f29",
+   "candidate_sha": "fc5c3e4184ac9863f90f0bbe2fb0bd5c5b7980e1",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/hot_inventory.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/lean/CODEBUDDY.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_A.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B9.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_K7.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_M4.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_P3.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_Q2.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_T1.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_W6.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_Z8.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/tasks.yaml"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_h1_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): record H1 hot-context ablation round-1 evidence",
+   "date": "2026-10-09"
+  },
+  {
+   "base_sha": "205dea848e5918c06f24991b389a19ccb2d3fb60",
+   "candidate_sha": "562cb5ccb38846cd635851c13d8998e83a027f29",
+   "changed": [
+    [
+     "D",
+     "tmp-do-not-create"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore: remove accidental empty file",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "a7f9e7c1fb2b868ffae9627825c9d1953b36956d",
+   "candidate_sha": "205dea848e5918c06f24991b389a19ccb2d3fb60",
+   "changed": [
+    [
+     "A",
+     "tmp-do-not-create"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "noop",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "6e85097fa0ff2def2e8cb43f8d278a3c08f37548",
+   "candidate_sha": "06e9cb873818ad9018c3585f267873891a4f25a7",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the fresh-agent delta review of the H3-B1 protocol (6 findings)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "56dec23e190b28cdf69730dec1ce5c099e23e64b",
+   "candidate_sha": "6e85097fa0ff2def2e8cb43f8d278a3c08f37548",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the fourth codex review of the H3-B1 protocol (2 findings, README only)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "34551b27565165328d0f29b17d75330eac50b823",
+   "candidate_sha": "56dec23e190b28cdf69730dec1ce5c099e23e64b",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the third codex review of the H3-B1 protocol (2 findings, README only)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "4cbc5855a00ceac9321a1c913af2dec5e1671c16",
+   "candidate_sha": "34551b27565165328d0f29b17d75330eac50b823",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the second codex review of the H3-B1 protocol (6 findings, README only)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "f29a3c6cf4c9a43130f1fab5bc3f7225ff8bc88c",
+   "candidate_sha": "4cbc5855a00ceac9321a1c913af2dec5e1671c16",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the codex review of the H3-B1 protocol (5 findings, README only)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "56a68b216e2cf3f1fd2c4b5ee9961766ea381d51",
+   "candidate_sha": "f29a3c6cf4c9a43130f1fab5bc3f7225ff8bc88c",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): anchor the prospective epoch at the protocol freeze commit (method fix)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "6b9ba7314c4e82e809dca1d965edd4b3ed1889b6",
+   "candidate_sha": "56a68b216e2cf3f1fd2c4b5ee9961766ea381d51",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): establish the H3-B1 prospective live-shadow protocol",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "843828b3f090cc56b00cfdc2a1ba6843e36551a0",
+   "candidate_sha": "8aff541f027b4c8729078e099771818827f2f656",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): H3-B0 retrospective calibration in README + rubric boundary + convergence log",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "59bf724d9aa88c0d0da1ad1ae12d3deb7bc92793",
+   "candidate_sha": "843828b3f090cc56b00cfdc2a1ba6843e36551a0",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/check_observations.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/live-shadow/observations.jsonl"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/live-shadow/check_observations.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): H3-B0 reclassification + per-signal dispositions + checker hardening",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "11a46e0db8b6a41de4db564c0c5473867232287f",
+   "candidate_sha": "59bf724d9aa88c0d0da1ad1ae12d3deb7bc92793",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): fix the batch-1 sampling-surface count (evaluator F1) + record the evaluator round",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "e66ad217329d70e9406fb607d7c4ddc362163aef",
+   "candidate_sha": "11a46e0db8b6a41de4db564c0c5473867232287f",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/live-shadow/observations.jsonl"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): H3-B batch 1 — 7 live observations on real tickets (no unique value observed)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
+   "candidate_sha": "e66ad217329d70e9406fb607d7c4ddc362163aef",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/live-shadow/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/live-shadow/check_observations.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/live-shadow/observations.jsonl"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): H3-B live-shadow protocol + frozen candidate matrix (pre-registration)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "candidate_sha": "eb2f51f58f7d63dc1bbe872b4bf71d8488894835",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ],
+    [
+     "M",
+     "experiments/v1.2/structure_delta.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_structure_delta.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_structure_delta.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "experiment(v1.2): close the two reader false-green paths (H3-A review fixes)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "a24231483f0046052d86b3d2b27e96b3db6b2629",
+   "candidate_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/results/h3-a-structure-delta-v0.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): record the H3-A historical replay results + sync detector status lines",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+   "candidate_sha": "a24231483f0046052d86b3d2b27e96b3db6b2629",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/structure_delta.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_structure_delta.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): implement STRUCTURE_DELTA_SHADOW v0 — three deterministic signals (shadow only)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "0ab24f5e4a6ad76b0c5f2fa5436dd11df069184e",
+   "candidate_sha": "f84d4ae6dd976fbc5f88616c4289e93d0e5e9422",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): drop the stale corpus-size fact from evidence-lineage",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "f73ad1c8fe062a72a04fed1287aebcba1f617603",
+   "candidate_sha": "0ab24f5e4a6ad76b0c5f2fa5436dd11df069184e",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): apply the f73ad1c delta-review corrections (1xP2 + 4xP3)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "b5ae51b2087347e6a64619fbb56166fe892a9d4b",
+   "candidate_sha": "f73ad1c8fe062a72a04fed1287aebcba1f617603",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge two post-b5ae51b P2s — reproducible cheap check + NEW_DIRECTORY positive coverage",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "37d76fbe79191d016c24d43a3e8dcd6b29d19bbc",
+   "candidate_sha": "b5ae51b2087347e6a64619fbb56166fe892a9d4b",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge the PR #40 review P2s — diff binding, deterministic signals, authority, durability",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "cad7507f282e2e94f77fd12690fa9db3745dee47",
+   "candidate_sha": "37d76fbe79191d016c24d43a3e8dcd6b29d19bbc",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): apply the r01 structure-rationale correction (delta review P3)",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "9bbe931be662171d003d81eaa5c476bf3396e7aa",
+   "candidate_sha": "cad7507f282e2e94f77fd12690fa9db3745dee47",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): split replay-corpus disposition into orthogonal structure/behavior axes",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "00cc088fba72ca2d3946093b885bd59702caa529",
+   "candidate_sha": "9bbe931be662171d003d81eaa5c476bf3396e7aa",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): apply the replay-corpus P3 wording corrections (provenance review)",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "324fc36ec1696116c311fd440225a95aeda04a91",
+   "candidate_sha": "00cc088fba72ca2d3946093b885bd59702caa529",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): add the real historical replay corpus (4 provenance-resolved cases)",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
+   "candidate_sha": "56769cf1b31f076ceccc56077bf3ae3258ed3dbe",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): close status-vocabulary wording tension flagged by delta review (P3 hygiene)",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
+   "candidate_sha": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/cases.yaml"
+    ],
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_material.py"
+    ],
+    [
+     "D",
+     "scripts/tests/test_experiment_v12_foundation.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): converge experiment shape; fix metrics semantics and seed-corpus wording",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "candidate_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "experiment(v1.2): correct c03 source anchor to P09 (independent review P3)",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "candidate_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/cases.yaml"
+    ],
+    [
+     "A",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_experiment_v12_foundation.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_experiment_v12_foundation.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "experiment(v1.2): add non-canonical experiment foundation with real historical cases",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
+   "candidate_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/README.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/adversarial-probes-result.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/adversarial-probes.py.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/artifact-repair.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/baseline-app.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/baseline-tests.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/code-fix.diff"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/default-head-correction.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/final-checks.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/green-app.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/green-tests.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/integration-remote.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/integration-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/integration-state-flush.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-behavior-probes.py.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-app.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-checks.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-controls.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-handoff-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-remote.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-seal.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-state.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-tests.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-final-verdict.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-handoff-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-default-head.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-probes.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-remote.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-seal.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-state.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-initial-verdict.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-receipt-controls.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-repair-final-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-repair-prepublication-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-repair-remote.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-repair-result.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/recovery-repair-state-flush.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/red-tests.txt"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/repair-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/review-seal.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/review-skill-validation.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/review-verdict.md"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/skill-reports.json"
+    ],
+    [
+     "A",
+     "docs/adoption-evidence/skill-validation.json"
+    ],
+    [
+     "M",
+     "docs/adoption-validation.md"
+    ],
+    [
+     "M",
+     "docs/adoption-walkthrough.md"
+    ],
+    [
+     "M",
+     "docs/adoption.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: seal adoption trial and default-branch recovery evidence",
+   "date": "2026-10-04"
+  },
+  {
+   "base_sha": "71a0f6a65fac0fea55bb979e6f553b03fa910aea",
+   "candidate_sha": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
+   "changed": [
+    [
+     "M",
+     "examples/adoption-demo/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: keep copied exercise navigation reachable",
+   "date": "2026-10-03"
+  },
+  {
+   "base_sha": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "candidate_sha": "71a0f6a65fac0fea55bb979e6f553b03fa910aea",
+   "changed": [
+    [
+     "M",
+     "docs/adoption-walkthrough.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: preserve the MIT notice in copied exercise material",
+   "date": "2026-10-03"
+  },
+  {
+   "base_sha": "3e92751a6e5490e826a130835598e5069d8fe8ce",
+   "candidate_sha": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "changed": [
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: retain the measured organization-specific MEMORY preset",
+   "date": "2026-10-03"
+  },
+  {
+   "base_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
+   "candidate_sha": "3e92751a6e5490e826a130835598e5069d8fe8ce",
+   "changed": [
+    [
+     "M",
+     "docs/adoption-walkthrough.md"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/.gitignore"
+    ],
+    [
+     "M",
+     "examples/adoption-demo/AGENTS.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: give the local adoption remote an explicit synthetic identity",
+   "date": "2026-10-03"
+  },
+  {
+   "base_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "candidate_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "A",
+     "LICENSE"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "A",
+     "deployment/organization-policy.md"
+    ],
+    [
+     "A",
+     "docs/adoption-validation.md"
+    ],
+    [
+     "A",
+     "docs/adoption-walkthrough.md"
+    ],
+    [
+     "A",
+     "docs/adoption.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "docs/design.md"
+    ],
+    [
+     "M",
+     "docs/getting-started.md"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/AGENTS.md"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/README.md"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/SPEC.md"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/app.py"
+    ],
+    [
+     "A",
+     "examples/adoption-demo/tests/test_app.py"
+    ],
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: make governance portable with MIT and an adoption exercise",
+   "date": "2026-10-03"
+  },
+  {
+   "base_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "candidate_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_skill_execution.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix: apply Skill receipt checks at input acquisition",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_skill_execution.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix: preserve the consumer specified skill evidence root",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26",
+   "candidate_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_skill_execution.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix: bind skill evidence reads to safe directory handles",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "7738cb1107ee6b629b75b2a61ccec1c503fbd454",
+   "candidate_sha": "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "docs/design.md"
+    ],
+    [
+     "M",
+     "docs/getting-started.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "schemas/skill-execution.schema.json"
+    ],
+    [
+     "A",
+     "scripts/skill_execution.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_skill_execution.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ],
+    [
+     "A",
+     "templates/skill-execution.json"
+    ],
+    [
+     "A",
+     "templates/skill-report.json"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat: integrate skill selection evidence and post-use reporting",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
+   "candidate_sha": "7738cb1107ee6b629b75b2a61ccec1c503fbd454",
+   "changed": [
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "docs/design.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: restore audit visibility and repository-role lessons",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "833046a7c440a74925773d7b4fdadbf42c745c27",
+   "candidate_sha": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "A",
+     "docs/design-history.md"
+    ],
+    [
+     "A",
+     "docs/design.md"
+    ],
+    [
+     "A",
+     "docs/getting-started.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs: structure readme and reconstruct design decisions",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "200679649f1ff3fe78cad53fd1006b83ddf792aa",
+   "candidate_sha": "833046a7c440a74925773d7b4fdadbf42c745c27",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(testing): define hermetic test engineering contract",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48",
+   "candidate_sha": "200679649f1ff3fe78cad53fd1006b83ddf792aa",
+   "changed": [
+    [
+     "A",
+     "scripts/tests/test_fixture_identity_hygiene.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_fixture_identity_hygiene.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(public-release): catch a real identity hidden in fixture fragments",
+   "date": "2026-10-02"
+  },
+  {
+   "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+   "candidate_sha": "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(tests): establish the local-only precondition instead of assuming it",
+   "date": "2026-10-01"
+  },
+  {
+   "base_sha": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+   "candidate_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(tests): strip the real host login from the surface-scope regression",
+   "date": "2026-10-01"
+  },
+  {
+   "base_sha": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+   "candidate_sha": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+   "changed": [
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "docs(deployment): record git credential precedence, and fix the surface it exposed",
+   "date": "2026-10-01"
+  },
+  {
+   "base_sha": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+   "candidate_sha": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(audit): correct ancestor label and narrow the self-reference claim",
+   "date": "2026-09-30"
+  },
+  {
+   "base_sha": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+   "candidate_sha": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): drop two claims the evidence does not support",
+   "date": "2026-09-30"
+  },
+  {
+   "base_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+   "candidate_sha": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): make the ledger say only what the evidence supports",
+   "date": "2026-09-30"
+  },
+  {
+   "base_sha": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+   "candidate_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): a false negative is still a false claim",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+   "candidate_sha": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): close the findings the contract pass raised",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "candidate_sha": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): saturation is not a review gate",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "0fe2d765158fe34cd20955972176d7d5ac9ba45d",
+   "candidate_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): roll P22 up, and stop the guard that forbade it",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "a0c30e137be2fb73449bc6a2bbbb56e9276c9575",
+   "candidate_sha": "0fe2d765158fe34cd20955972176d7d5ac9ba45d",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "fix(governance): a true finding is not repair authority",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "c7058214e8b467afeb42f5b062992af41427007a",
+   "candidate_sha": "a0c30e137be2fb73449bc6a2bbbb56e9276c9575",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): encode the swap mutation instead of asserting it by hand",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "f7fc998e62356603d4350db2de1d3213a802b090",
+   "candidate_sha": "c7058214e8b467afeb42f5b062992af41427007a",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): assert the conditions are lines of the conjunction",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+   "candidate_sha": "f7fc998e62356603d4350db2de1d3213a802b090",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): guard all seven PROMOTE_NOW conditions, not five",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+   "candidate_sha": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): make the round-4 fixes falsifiable instead of asserted",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+   "candidate_sha": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): close the four holes the fourth review found",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "3918a930b79a8747f7c741dace56e499a6443908",
+   "candidate_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): close the three guard holes the third review found",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "candidate_sha": "3918a930b79a8747f7c741dace56e499a6443908",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): build detectors for the two domains nobody guarded",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "candidate_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): the AGENTS guard was pinning a duplicate in place",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "candidate_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): close the guard-strength gaps found by the second review",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "candidate_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): close an evidence-orphaning bug and make the negative controls real",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "candidate_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): converge the P1/P2 findings from both independent reviews",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
+   "candidate_sha": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(governance): defect-to-gate promotion + FAST/FULL gate execution model",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "9bc3d951320165de573e9655b0093442617a72c1",
+   "candidate_sha": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): harden the static-gate CI predicate and the B-layer guard",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "65113de69bda6802a476eefa033cf00439d49f04",
+   "candidate_sha": "9bc3d951320165de573e9655b0093442617a72c1",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "audit/AUTHORITY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/static-tooling-profiles.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "ruff.toml"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_project_state.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_project_state.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): converge the P2 findings from both independent reviews",
+   "date": "2026-09-29"
+  },
+  {
+   "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
+   "candidate_sha": "65113de69bda6802a476eefa033cf00439d49f04",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "A",
+     "references/static-tooling-profiles.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "requirements-dev.txt"
+    ],
+    [
+     "A",
+     "ruff.toml"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t12_shared_file_single_writer.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_review_evidence_contract.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_project_state.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py",
+     "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+     "scripts/tests/test_review_evidence_contract.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_project_state.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t17_static_gate_framework_semantics.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(governance): cross-language static gate framework + dogfooded Python static gate",
+   "date": "2026-09-28"
+  },
+  {
+   "base_sha": "3d5818e713d6f0acd5edf626aa1311ed902243ce",
+   "candidate_sha": "015780be7a3f863c05509b437e4e586b4f388794",
+   "changed": [
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(governance): close the competing UNKNOWN on hook wiring in BOOTSTRAP_CONTRACT section 5",
+   "date": "2026-09-28"
+  },
+  {
+   "base_sha": "cea9acc4989d982e0717486687713fcbc5a01297",
+   "candidate_sha": "3d5818e713d6f0acd5edf626aa1311ed902243ce",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "audit/MIGRATION_PLAN.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(adapters): closeout - align current-state with observed deployment evidence",
+   "date": "2026-09-28"
+  },
+  {
+   "base_sha": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+   "candidate_sha": "cea9acc4989d982e0717486687713fcbc5a01297",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "docs(adapters): retract the last residual closure claim; name today's open instances",
+   "date": "2026-09-28"
+  },
+  {
+   "base_sha": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+   "candidate_sha": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): catch quoting / option-arity / plumbing bypasses, and stop claiming closure",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+   "candidate_sha": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): match the force-carrier KEY instead of enumerating injection spellings",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+   "candidate_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): close --config-env, drop --force-if-includes, disclose the section 5.2 divergence",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "353988771bf75e5dde2db890259038298a6c4113",
+   "candidate_sha": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): re-derive the deny set from measurement; close --mirror, drop the falsified vector family",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+   "candidate_sha": "353988771bf75e5dde2db890259038298a6c4113",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): close the cross-statement env force vector and correct a false review finding",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "37416f8481ae601fa4d725b59e3deb5141934419",
+   "candidate_sha": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/install.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/tests/test_install.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(adapters): close in-command force vectors and disclose the shell-evaluation blind spot",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "candidate_sha": "37416f8481ae601fa4d725b59e3deb5141934419",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/install.py"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/tests/test_git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "feat(adapters): minimal WorkBuddy hard-safety hook adapter (V1)",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "825d3902597655c90393100281260cbba8697c07",
+   "candidate_sha": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "changed": [
+    [
+     "M",
+     "audit/AUDIT_QUALITY_REVIEW.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(governance): repair round 2 - restore budget OWNER self-naming, bound the unit drift",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "cf7034cb543ce8fc60d783bcdc48f1738daf1aac",
+   "candidate_sha": "825d3902597655c90393100281260cbba8697c07",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY_V3.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(governance): finding-scoped repair of the WorkBuddy bootstrap facts change (review round 1)",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "a94f509490c2816e37c0c4b638cd1a458c6cc47f",
+   "candidate_sha": "cf7034cb543ce8fc60d783bcdc48f1738daf1aac",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "A",
+     "audit/AS_IS_WORKBUDDY_V3.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(governance): correct WorkBuddy injection facts, define external-review barrier, extend write-surface manifest",
+   "date": "2026-09-27"
+  },
+  {
+   "base_sha": "a0068745f268b777c5cbb270366072e420e737ba",
+   "candidate_sha": "a94f509490c2816e37c0c4b638cd1a458c6cc47f",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): record Product Owner P1 milestone acceptance and freeze P1 as historical baseline",
+   "date": "2026-09-24"
+  },
+  {
+   "base_sha": "2323a39ba33ebf9d3bfaf502d6dd4405bfd2a9e6",
+   "candidate_sha": "a0068745f268b777c5cbb270366072e420e737ba",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): require distinct merge parents",
+   "date": "2026-09-23"
+  },
+  {
+   "base_sha": "f2e3a52cb32d441c9179d4b40ab105dac32b2307",
+   "candidate_sha": "2323a39ba33ebf9d3bfaf502d6dd4405bfd2a9e6",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): validate structured parent records",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "c36f096c189f77c9213598c89b98e07add79b5c9",
+   "candidate_sha": "f2e3a52cb32d441c9179d4b40ab105dac32b2307",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): execute merge identity regression and parse parent headers",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "5ee1a20433e045417dca3d2edb30ba27231c820d",
+   "candidate_sha": "c36f096c189f77c9213598c89b98e07add79b5c9",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 6 completion - all P1 tickets terminal",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "b0ea50033f3cb04980dcf2957d9298739dd98917",
+   "candidate_sha": "9fa8713637547471097cc0e8cb234b9589ca3e46",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(release-gate): use cat-file parent detection in commit_metadata_gate",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "681000fe7dfb7978b6625e9954293dea039376e3",
+   "candidate_sha": "b0ea50033f3cb04980dcf2957d9298739dd98917",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(release-gate): detect merge commit parents via cat-file to support shallow CI checkouts",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "ed00e5df38d71e8cee32ac12e80a391661110e09",
+   "candidate_sha": "681000fe7dfb7978b6625e9954293dea039376e3",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(release-gate): wire is_merge_commit parameter in commit_metadata_gate",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "2b514e2c85c6881b49bc34f8b389676dc9274c5d",
+   "candidate_sha": "ed00e5df38d71e8cee32ac12e80a391661110e09",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(release-gate): wire is_merge_commit detection into commit_metadata_gate",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "1a0207334a8c372a45a1345ac61cbf717e2ff9c0",
+   "candidate_sha": "2b514e2c85c6881b49bc34f8b389676dc9274c5d",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(release-gate): recognize legitimate multi-parent merge committers while preserving strict single-parent commit identity",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "candidate_sha": "a920c6b35840d52990a93663a02686ae4b66feb4",
+   "changed": [
+    [
+     "M",
+     "references/engineering-memory.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(governance): persist ORCHESTRATOR_CLOSURE_DOCTRINE (M1-M9) and machine-enforce closure predicates",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "candidate_sha": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "changed": [
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t14_model_dispatch_metadata.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t14_model_dispatch_metadata.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage6/lane-c): add the risk-first model-dispatch metadata recipe to the routing owner (Issue #14)",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
+   "candidate_sha": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "changed": [
+    [
+     "M",
+     "references/engineering-memory.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t13_learning_closure.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t13_learning_closure.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage6/lane-b): add the on-demand learning-closure recipe to the engineering-memory owner (Issue #13)",
+   "date": "2026-09-21"
+  },
+  {
+   "base_sha": "66b09c17174bbb11c324d05b9b83c2139901a9c6",
+   "candidate_sha": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(stage6/lane-a): add real gate CLI entrypoint self-tests, a machine-readable gate result and CONSUMER_UNSATISFIED handling (Issue #25)",
+   "date": "2026-09-21"
+  },
+  {
+   "base_sha": "07430d179138595497ddd8c20a934a93b46620b9",
+   "candidate_sha": "66b09c17174bbb11c324d05b9b83c2139901a9c6",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 5 execution and lane closure",
+   "date": "2026-09-21"
+  },
+  {
+   "base_sha": "50a022f217022c254d00a465a907fa844e56a401",
+   "candidate_sha": "07430d179138595497ddd8c20a934a93b46620b9",
+   "changed": [
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t12_shared_file_single_writer.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t12_shared_file_single_writer.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage5/lane-c): add the shared-file single-writer and final-readback recipe to ticket-lane (Issue #20)",
+   "date": "2026-09-21"
+  },
+  {
+   "base_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+   "candidate_sha": "50a022f217022c254d00a465a907fa844e56a401",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/tests/test_p1_t15_guard_deny_mapping.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "feat(stage5/lane-b): state the guard exit-code contract and the ENFORCED-versus-ADVISORY deny-mapping rule (Issue #15)",
+   "date": "2026-09-21"
+  },
+  {
+   "base_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "candidate_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+   "changed": [
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage5/lane-a): ground the reuse blank test in the declared ECMA-262 whitespace set and make the 9.6.1 guard discriminating (Issue #24)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "6856a322cdbc5282242464e068e9fb841f017642",
+   "candidate_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage5/lane-a): treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration (Issue #24)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+   "candidate_sha": "6856a322cdbc5282242464e068e9fb841f017642",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage5/lane-a): implement P1-T08 evidence lifecycle consumption over the declared reuse descriptor (Issue #24)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
+   "candidate_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): sync recovery snapshot to the P1-T09 closure and Stage-4 full terminal state",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
+   "candidate_sha": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "test(p1-t09): enforce README.md as the fifth REQ-W4-01 convergence surface",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "c6e50aefd5c08bf88db24d25553673c251a0ba61",
+   "candidate_sha": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): sync recovery snapshot to the P1-T09 bootstrap-surface reconciliation",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "e87eb234523c990fcdf8085ce308b6068383a900",
+   "candidate_sha": "c6e50aefd5c08bf88db24d25553673c251a0ba61",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "fix(p1-t09): state the memory-pointer budget by pointer in README instead of characters (Issue #12)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "candidate_sha": "e87eb234523c990fcdf8085ce308b6068383a900",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 4 execution and lane integration",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "candidate_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage4/lane-c): scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand (Issue #22)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "770388d7acbd9ba818d5287e6dfe7f10c2aec961",
+   "candidate_sha": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage4/lane-c): add the P1-T10 on-demand audit visibility recipe to review-and-repair-saturation (Issue #22)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+   "candidate_sha": "770388d7acbd9ba818d5287e6dfe7f10c2aec961",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage4/lane-b): measure the memory-pointer budget in UTF-8 bytes and converge all four surfaces on the frozen byte budget (Issue #12)",
+   "date": "2026-09-20"
+  },
+  {
+   "base_sha": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "127ea0b3b11df08a048d12368164d90c2c1583d4",
+   "candidate_sha": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage4/lane-a): add the P1-T11 destructive workspace transaction recipe to git-ci-integration (Issue #23)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "candidate_sha": "127ea0b3b11df08a048d12368164d90c2c1583d4",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 3 execution and lane closure",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "51e7604be3689f31142d17144893790000efac30",
+   "candidate_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t07_evidence_consumption_separation.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t07_evidence_consumption_separation.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage3/lane-c): state the evidence consumption and reviewer-authority separation rule (Issue #19)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "candidate_sha": "51e7604be3689f31142d17144893790000efac30",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage3/lane-b): refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode (Issue #21)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "candidate_sha": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage3/lane-b): enforce the P1-T06 evidence producer trust and retrieval boundary (Issue #21)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+   "candidate_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage3/lane-a): extend git-ci-integration with the P1-T03 integration closure-evidence requirement (Issue #17)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "a2ec79458a165e3ebcf33531edc683310df49c0e",
+   "candidate_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): sync recovery snapshot to the P1-T03 authority reconciliation and frozen remaining plan",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+   "candidate_sha": "a2ec79458a165e3ebcf33531edc683310df49c0e",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 2 execution and lane closure",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t05_evidence_disposition.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t05_evidence_disposition.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-evidence): remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate (Issue #18)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "candidate_sha": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t05_evidence_disposition.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t05_evidence_disposition.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(review-evidence): land P1-T05 three-axis verification disposition (Issue #18)",
+   "date": "2026-09-19"
+  },
+  {
+   "base_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "candidate_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "changed": [
+    [
+     "M",
+     "references/execution-stage.md"
+    ],
+    [
+     "M",
+     "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(stage2/lane-a): make the P1-T02 mandatory base record unambiguously eight fields (Issue #16)",
+   "date": "2026-09-18"
+  },
+  {
+   "base_sha": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
+   "candidate_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "changed": [
+    [
+     "M",
+     "references/execution-stage.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(stage2/lane-a): P1-T02 pre-ticket identification record (execution-stage.md §6.6)",
+   "date": "2026-09-18"
+  },
+  {
+   "base_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+   "candidate_sha": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 Stage 1 execution and lane closure",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "candidate_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+   "changed": [
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-evidence): evaluate character classes with ECMA-262 semantics",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "candidate_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-evidence): evaluate declared patterns with ECMA-262 semantics end to end and fail closed",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "candidate_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "schemas/review-evidence.schema.json"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "M",
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_review_evidence_contract.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-evidence): enforce anchored schema patterns and declared failure envelope",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+   "candidate_sha": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "changed": [
+    [
+     "A",
+     "references/review-evidence.md"
+    ],
+    [
+     "A",
+     "schemas/review-evidence.schema.json"
+    ],
+    [
+     "A",
+     "scripts/review_evidence.py"
+    ],
+    [
+     "A",
+     "scripts/tests/test_review_evidence_contract.py"
+    ],
+    [
+     "A",
+     "templates/review-evidence.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(review-evidence): land the Review Evidence interface foundation",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "candidate_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_seam_contract_partitions.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_seam_contract_partitions.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "test(ticket-lane): bind seam counterexample checks to the canonical contract document",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+   "candidate_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "changed": [
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_seam_contract_partitions.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_seam_contract_partitions.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(ticket-lane): land seam contract design/authority and closure-evidence partitions",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
+   "candidate_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush recovery snapshot after P1 implementation authorization",
+   "date": "2026-09-17"
+  },
+  {
+   "base_sha": "d56d437f0cae6d431f66ef032bfd0bc4611fac7c",
+   "candidate_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(state): flush project-state recovery snapshot after main integration",
+   "date": "2026-09-16"
+  },
+  {
+   "base_sha": "50b353b8da8c50c48fbd1feb50f60b7cdb80b719",
+   "candidate_sha": "d56d437f0cae6d431f66ef032bfd0bc4611fac7c",
+   "changed": [
+    [
+     "M",
+     ".agent/project-state.json"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "audit/SPEC_TICKET_GATE_IMPLEMENTATION.md"
+    ],
+    [
+     "M",
+     "scripts/validate_project_state.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_project_state.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix: enforce repository-relative canonical document pointers",
+   "date": "2026-09-16"
+  },
+  {
+   "base_sha": "0ba2c7351d45dba1459a391b0d43e418ecf55280",
+   "candidate_sha": "50b353b8da8c50c48fbd1feb50f60b7cdb80b719",
+   "changed": [
+    [
+     "A",
+     ".agent/project-state.json"
+    ],
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "A",
+     "audit/SPEC_TICKET_GATE_IMPLEMENTATION.md"
+    ],
+    [
+     "M",
+     "references/execution-stage.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_ticket_gate_wiring.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_ticket_gate_wiring.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "governance: gate spec re-entry and ticket composition",
+   "date": "2026-09-16"
+  },
+  {
+   "base_sha": "b23714dd19acc2020d4e442591f60255826a10eb",
+   "candidate_sha": "d8632efba814b0151003078353d394db64773e53",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/bash_preflight_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "security(R6.2): remove `find` from the pre-grounding read-only allowlist",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "231d9bd3f8ca7df202615132f1532e10271b6259",
+   "candidate_sha": "b23714dd19acc2020d4e442591f60255826a10eb",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/bash_preflight_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "PR5 R6.1: bash receipt gate + mode A review coherence + unapproved-delta runtime gate",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "c6e970b895f129aeaa6ef994ed03fcf4a38248d3",
+   "candidate_sha": "cf02ea8ea2b384963e61a4e9808d2dafced6645a",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "security: close public-release audit finding F7 (index+worktree surfaces, symlinks, bounded reads)",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "e0e8d955fc1f936ea5928a0b058a0d902623975b",
+   "candidate_sha": "231d9bd3f8ca7df202615132f1532e10271b6259",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/bash_preflight_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r6): PR5 convergence repair F1-F7 (append-only on e0e8d95)",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "28b33665dc5f86d8a6465aa8bf77100a07c010ca",
+   "candidate_sha": "c6e970b895f129aeaa6ef994ed03fcf4a38248d3",
+   "changed": [
+    [
+     "M",
+     ".gitignore"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "security: close public-release audit findings F5-F6",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "7803333d73d5a0b06d9e655562038f7a9b89cdd1",
+   "candidate_sha": "28b33665dc5f86d8a6465aa8bf77100a07c010ca",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "A",
+     ".github/workflows/public-release-audit.yml"
+    ],
+    [
+     "A",
+     ".gitignore"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY_V2.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "A",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/validate_public_release.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "security: close external audit findings F1-F4 for public release",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+   "candidate_sha": "e0e8d955fc1f936ea5928a0b058a0d902623975b",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r5): close core-continuity invariants F1-F6 (append-only on 82ce11a)",
+   "date": "2026-09-08"
+  },
+  {
+   "base_sha": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+   "candidate_sha": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r4): reconcile main + close external-review A1/A2/B1/B2/B3/B4",
+   "date": "2026-09-07"
+  },
+  {
+   "base_sha": "bc561a6ae5a804ed42f2befd6a8e054d47936543",
+   "candidate_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/project_state_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r3): resolve external-review F1-F7 (append-only repair on bc561a6)",
+   "date": "2026-09-07"
+  },
+  {
+   "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "candidate_sha": "6a2e05c0d3b082328ac6f612c4bd56d7972fd2c2",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(readme): rewrite README as detailed standard onboarding guide",
+   "date": "2026-09-07"
+  },
+  {
+   "base_sha": "f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0",
+   "candidate_sha": "bc561a6ae5a804ed42f2befd6a8e054d47936543",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/project_state_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_project_state.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_project_state.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(lifecycle): canonical lifecycle decision surface (contract §6.7) + review-r2 repairs",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "790e0dca930a526d10f28b794f34cca55a8a9e4c",
+   "candidate_sha": "f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0",
+   "changed": [
+    [
+     "A",
+     ".gitignore"
+    ],
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "D",
+     "adapters/zcode/hooks/__pycache__/_continuity_state.cpython-312.pyc"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/governance_sync.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/project_state_guard.py"
+    ],
+    [
+     "D",
+     "adapters/zcode/tests/__pycache__/test_project_continuity.cpython-312.pyc"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ],
+    [
+     "M",
+     "schemas/project-state.schema.json"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_project_state.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_project_state.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r1): resolve Reviewer A F1-F7 + SC-1 (append-only repair)",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "8688e084b74227ab7e7a3554762e69fd6e3d6d61",
+   "candidate_sha": "790e0dca930a526d10f28b794f34cca55a8a9e4c",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "chore(governance): wire continuity contract into validator, CI and entry docs",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "069f8be26cc04bb4f9bf3428c1e23b310debb984",
+   "candidate_sha": "8688e084b74227ab7e7a3554762e69fd6e3d6d61",
+   "changed": [
+    [
+     "A",
+     "adapters/zcode/tests/__pycache__/test_project_continuity.cpython-312.pyc"
+    ],
+    [
+     "A",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "test(continuity): synthetic matrix PS1-15 / CG1-12 / cross-agent restore",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+   "candidate_sha": "069f8be26cc04bb4f9bf3428c1e23b310debb984",
+   "changed": [
+    [
+     "A",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/__pycache__/_continuity_state.cpython-312.pyc"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/_continuity_state.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/governance_sync.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/project_state_guard.py"
+    ],
+    [
+     "A",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "feat(adapter): ZCode hook reference implementation for the continuity contract",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "candidate_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+   "changed": [
+    [
+     "A",
+     "references/project-continuity-contract.md"
+    ],
+    [
+     "A",
+     "schemas/project-state.schema.json"
+    ],
+    [
+     "A",
+     "scripts/validate_project_state.py"
+    ],
+    [
+     "A",
+     "templates/project-state.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/validate_project_state.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "feat(contract): PROJECT_CONTINUITY_CONTRACT_V1 — fixed project-state index, initialization, write events, codegraph lifecycle, grounding",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "3e1e44cb87c8dd4ea3c20366eda773a40e1143fe",
+   "candidate_sha": "4b5d9ac589630d57003c7bdfcce7ec7dfcd37c90",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "references/engineering-memory.md"
+    ],
+    [
+     "A",
+     "references/project-state-persistence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(state): project-state persistence + cross-agent continuity (V1.1.2)",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "3f05077683660675340ae0929f908e8f35e77b71",
+   "candidate_sha": "fe7cc0bd00ba07aa8e142cad164a67aa11dafbd4",
+   "changed": [
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r1): resolve Reviewer B MEDIUM - PORTABLE_SETUP version template + title synced to V1.1.1; check 19 stale scan extended to references/ + skills/README (closes coverage asymmetry)",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "893990c8766d390005c03313027e41b191c88cf4",
+   "candidate_sha": "3f05077683660675340ae0929f908e8f35e77b71",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "release(governance): V1.1.1 canonicalization closure",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "2051126eab121d95bd1baff0f1af15fd712e773f",
+   "candidate_sha": "43d37e650cd1796c5d1f2cfb852cbcd2e4848c9e",
+   "changed": [
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(review-r1): resolve MEDIUM finding - remove stale deployment-blocker pointer in skills-and-model-routing.md; extend stale-phrase scan to routing reference",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "candidate_sha": "2051126eab121d95bd1baff0f1af15fd712e773f",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "A",
+     "audit/PORTABILITY_HARDENING_EVIDENCE.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "A",
+     "references/engineering-memory.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "A",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "feat(portability): hardening - static-analysis hierarchy, evidence routing, test-first closure, skills statuses, capability matrix",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "5e98003322d265690cb3b5ae6577c364f76465f6",
+   "candidate_sha": "5ae3e3c8e54e5fafe0cb908708f98e2b0d1512ae",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "A",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "mcp/README.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "release(governance): AGENT_ENGINEERING_GOVERNANCE_V1 finalization",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "9380d791ea32d01afc36ff2ed1a2003efef07d78",
+   "candidate_sha": "5e98003322d265690cb3b5ae6577c364f76465f6",
+   "changed": [
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/MIGRATION_PLAN.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): bounded final repair round - B1 CodeGraph Mode B probe evidence + B2 archive policy",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "candidate_sha": "9380d791ea32d01afc36ff2ed1a2003efef07d78",
+   "changed": [
+    [
+     "A",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/MIGRATION_PLAN.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "mcp/README.md"
+    ],
+    [
+     "M",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "subject": "fix(governance): delta repairs R1-R3 + machine-specific policy per fresh review @295ce65",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+   "candidate_sha": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY_V2.md"
+    ],
+    [
+     "M",
+     "audit/GAP_MATRIX.md"
+    ],
+    [
+     "M",
+     "audit/MIGRATION_PLAN.md"
+    ],
+    [
+     "A",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "A",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "A",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "M",
+     "references/execution-stage.md"
+    ],
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/validate_governance.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "subject": "fix(governance): remediate external findings F1-F7 via re-audit",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "e5a4871de6404f1a64ff013e0c3aa8f079c934ee",
+   "candidate_sha": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+   "changed": [
+    [
+     "A",
+     "audit/AS_IS_WORKBUDDY_V2.md"
+    ],
+    [
+     "A",
+     "audit/AUDIT_QUALITY_REVIEW.md"
+    ],
+    [
+     "A",
+     "audit/AUTHORITY_MAP_V2.md"
+    ],
+    [
+     "A",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "A",
+     "audit/TARGET_ARCHITECTURE_CHALLENGE.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "docs(audit): re-audit of the first audit - quality classification + frozen AS-IS/authority/pain/challenge V2",
+   "date": "2026-09-05"
+  },
+  {
+   "candidate_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+   "disposition": "NO_PARENT"
+  },
+  {
+   "base_sha": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
+   "candidate_sha": "47c2aef6b21f0d0c75a4a5d5365e6e6caefc3b82",
+   "changed": [
+    [
+     "A",
+     "README.md"
+    ],
+    [
+     "A",
+     "mcp/README.md"
+    ],
+    [
+     "A",
+     "mcp/example/mcp.example.json"
+    ],
+    [
+     "A",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "chore(governance): repo README, skills governance manifest, mcp intent + example config",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
+   "candidate_sha": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
+   "changed": [
+    [
+     "A",
+     "AGENTS.md"
+    ],
+    [
+     "A",
+     "RULES.md"
+    ],
+    [
+     "A",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "A",
+     "references/execution-stage.md"
+    ],
+    [
+     "A",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "A",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "A",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "A",
+     "references/ticket-lane.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "subject": "feat(governance): candidate global AGENTS.md + RULES.md + six canonical references",
+   "date": "2026-09-05"
+  },
+  {
+   "candidate_sha": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
+   "disposition": "NO_PARENT"
+  }
+ ]
+}

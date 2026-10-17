@@ -1,0 +1,31 @@
+{
+ "base_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+ "candidate_sha": "6856a322cdbc5282242464e068e9fb841f017642",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+   "kind": "TEST",
+   "provenance": "DELTA_ADDED",
+   "base": {
+    "rc": 1,
+    "ran": 16,
+    "verdict_line": "FAILED",
+    "failures": 12,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 16,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

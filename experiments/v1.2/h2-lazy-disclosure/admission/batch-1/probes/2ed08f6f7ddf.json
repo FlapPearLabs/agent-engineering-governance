@@ -1,0 +1,32 @@
+{
+ "base_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+ "candidate_sha": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+ "probes": [
+  {
+   "path": "scripts/tests/test_review_evidence_contract.py",
+   "kind": "TEST",
+   "provenance": "DELTA_ADDED",
+   "base": {
+    "rc": 1,
+    "ran": 41,
+    "verdict_line": "FAILED",
+    "failures": 65,
+    "errors": 1,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError",
+     "FileNotFoundError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 41,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

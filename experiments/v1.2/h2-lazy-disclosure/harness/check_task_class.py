@@ -84,13 +84,13 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.0"
+SCHEMA_VERSION = "2.8.1"
 # The identity rule reads experiments/v1.2/replay/cases.yaml, and nothing else in this
 # repository pins that file: it is in no freeze hash and no test checks its SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
 # exactly as the material tests pin the freeze hashes — editing the corpus without updating
 # this constant (and the test that asserts it) fails the validator, in review.
-CORPUS_SHA256 = "5d898b1a6db8fb16116a3cbec58c7078d780e379dd58d6d54553645291cda731"
+CORPUS_SHA256 = "1b5cf80bae734ab35215e4743d5b6fddc4ed9f4d3848aa9c0afa9b7163d0cabd"
 CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD", "C_REJECT")
 ADMISSIBLE_CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD")
 TRIGGER_CODES = (
@@ -436,14 +436,39 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # the controlled mutation: the candidate tree with every path the delta ADDS removed.
         # Modified paths keep their candidate content on purpose — reverting them wholesale would
         # rebuild the base tree and make the mutation a no-op by construction.
-        added = repo.git("diff", "--no-ext-diff", "--name-only", "--diff-filter=A",
+        # The mutation is a coherent REVISION (index, tree and HEAD agree), not files unlinked under
+        # an index that still lists them: an acceptance that enumerates `git ls-files` crashes on
+        # such a tree, and that crash was counted as a bite (admission finding F-A1, measured on
+        # 0007bb3). `-z` keeps paths raw — the quoted form of a non-ASCII path names no file, so
+        # it used to be skipped silently and the mutation kept the very file it claimed to remove.
+        added = repo.git("diff", "--no-ext-diff", "--name-only", "-z", "--diff-filter=A",
                          base, cand, "--")
         if added.returncode != 0:
             return {"error": "DELTA_UNREADABLE"}
-        for rel in [p for p in added.stdout.split() if p]:
-            target = mut_wt / rel
-            if target.is_file():
-                target.unlink()
+        added_paths = [p for p in added.stdout.split("\0") if p]
+        if added_paths:
+            # The commit carries the CANDIDATE's own author, committer, dates and message, so the
+            # mutation differs from the candidate in its tree and nothing else a surface can read.
+            # A synthetic identity was itself a bite: validate_governance.py's HEAD-identity check
+            # (4b) failed on it for every pair (F-A1b, measured on all 15 FROZEN-bearing pairs).
+            meta = repo.git("log", "-1", "--format=%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%B",
+                            cand)
+            fields = meta.stdout.split("\0", 6) if meta.returncode == 0 else []
+            if len(fields) != 7:
+                return {"error": "MUTATION_MATERIALISATION_FAILED"}
+            env = dict(os.environ, GIT_AUTHOR_NAME=fields[0], GIT_AUTHOR_EMAIL=fields[1],
+                       GIT_AUTHOR_DATE=fields[2], GIT_COMMITTER_NAME=fields[3],
+                       GIT_COMMITTER_EMAIL=fields[4], GIT_COMMITTER_DATE=fields[5])
+            mut = Repo(mut_wt)
+            removed = mut.git("rm", "-q", "--", *added_paths)
+            committed = subprocess.run(
+                ["git", "-C", str(mut_wt), "-c", "commit.gpgsign=false",
+                 "-c", "core.hooksPath=/dev/null", "commit", "-q", "--no-verify",
+                 "--cleanup=verbatim", "-F", "-"],
+                input=fields[6], capture_output=True, text=True, env=env)
+            if removed.returncode != 0 or committed.returncode != 0 or \
+                    mut.git("status", "--porcelain").stdout.strip():
+                return {"error": "MUTATION_MATERIALISATION_FAILED"}
 
         for rel, kind in acceptance_surfaces(cand_wt).items():
             cb, cc = base_wt / rel, cand_wt / rel
@@ -491,9 +516,14 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         discriminating = [e for e in eligible
                           if measured(e["rc_base"], e["rc_cand"])
                           and e["rc_base"] != 0 and e["rc_cand"] == 0]
-        biting = [e for e in frozen
-                  if measured(e["rc_base"], e["rc_mut"])
-                  and e["rc_base"] == 0 and e["rc_mut"] != 0]
+        # A guard bites only a state it PROTECTS: green at the base AND at the candidate, red under
+        # a mutation that differs from the candidate. Without the candidate leg, a frozen surface
+        # the candidate itself broke counted as a bite — and with no added path the "mutation" IS
+        # the candidate (admission finding F-A3, measured on 825d390: t09 0/1/1 read as a bite).
+        biting = ([e for e in frozen
+                   if measured(e["rc_base"], e["rc_cand"], e["rc_mut"])
+                   and e["rc_base"] == 0 and e["rc_cand"] == 0 and e["rc_mut"] != 0]
+                  if added_paths else [])
         green_frozen = [e for e in frozen if measured(e["rc_base"]) and e["rc_base"] == 0]
         facts["unmeasured"] = unmeasured
         facts["discriminating"] = discriminating
@@ -502,8 +532,12 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
             facts["baseline_oracle_status"] = "PASS" if green_frozen else "FAIL"
             facts["mutation_oracle_status"] = "FAIL" if biting else "PASS"
             facts["mutation_touches_target_predicate"] = bool(biting)
-            facts["candidate_oracle_status"] = ("FAIL" if any(e["rc_cand"] != 0 for e in frozen)
-                                                else "PASS")
+            # N2.1 P3-A: an unmeasured rc (124/127) is not a FAIL here either — the same rule every
+            # other status in this function follows; a value no declaration can equal fails closed.
+            facts["candidate_oracle_status"] = (
+                "FAIL" if any(measured(e["rc_cand"]) and e["rc_cand"] != 0 for e in frozen)
+                else "UNMEASURED" if any(not measured(e["rc_cand"]) for e in frozen)
+                else "PASS")
         else:
             facts["baseline_oracle_status"] = "FAIL" if discriminating else "PASS"
             facts["candidate_oracle_status"] = "PASS" if discriminating else "FAIL"

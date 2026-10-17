@@ -1,0 +1,41 @@
+{
+ "base_sha": "e5a4871de6404f1a64ff013e0c3aa8f079c934ee",
+ "candidate_sha": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+ "elapsed_s": 0.2,
+ "facts": {
+  "base": "e5a4871de6404f1a64ff013e0c3aa8f079c934ee",
+  "candidate": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+  "class": "A_REPAIR",
+  "surfaces": [],
+  "acceptance_count": 0,
+  "frozen_count": 0,
+  "acceptance_surface_frozen": false,
+  "oracle_in_worker_scope": false,
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "NO_ACCEPTANCE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "NO_ACCEPTANCE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.1",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "docs(audit): re-audit of the first audit - quality classification + frozen AS-IS/authority/pain/challenge V2"
+}

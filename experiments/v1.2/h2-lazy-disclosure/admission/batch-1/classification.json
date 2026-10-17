@@ -1,0 +1,977 @@
+{
+ "schema": "ELIGIBILITY_SCHEMA_V2",
+ "schema_version": "2.8.1",
+ "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
+ "record_semantics": "one record per measured historical pair; class and lifecycle statuses follow the measured transition and are re-executed and bound by the validator. REQUEST_VALID is a request to Freeze v2, not an admission.",
+ "records": [
+  {
+   "candidate_id": "r02-governance-review-evidence-interface",
+   "corpus_case_id": "r02-governance-review-evidence-interface",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+   "candidate_sha": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 6 surface(s), 5 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/2ed08f6f7ddf.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/2ed08f6f7ddf.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r07-governance-external-findings-f1-f7",
+   "corpus_case_id": "r07-governance-external-findings-f1-f7",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "a2bfe70f6d0844012d217f340d2d2fe56f632148",
+   "candidate_sha": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=NO_FROZEN_ACCEPTANCE over 1 surface(s), 0 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/295ce6514f57.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/295ce6514f57.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured NO_FROZEN_ACCEPTANCE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r08-governance-project-continuity-contract",
+   "corpus_case_id": "r08-governance-project-continuity-contract",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "candidate_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "BASE_EQUALS_CANDIDATE",
+     "detail": "no acceptance surface of the candidate moves FAIL->PASS against the base, and no frozen surface bites under the controlled mutation (measured, see evidence)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=MUTATION_DOES_NOT_BITE over 2 surface(s), 1 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/af4df6ae7063.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/af4df6ae7063.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "BASE_EQUALS_CANDIDATE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r09-governance-seam-contract-partitions",
+   "corpus_case_id": "r09-governance-seam-contract-partitions",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "8c78e987cbf3007f69876d28c5e3b22ff92c124c",
+   "candidate_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 5 surface(s), 4 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/19c2c43682b4.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/19c2c43682b4.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r10-governance-p1-t02-pre-ticket-record",
+   "corpus_case_id": "r10-governance-p1-t02-pre-ticket-record",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
+   "candidate_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 7 surface(s), 6 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/e398dde43042.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/e398dde43042.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r11-governance-p1-t05-evidence-disposition",
+   "corpus_case_id": "r11-governance-p1-t05-evidence-disposition",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "candidate_sha": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "BASE_EQUALS_CANDIDATE",
+     "detail": "no acceptance surface of the candidate moves FAIL->PASS against the base, and no frozen surface bites under the controlled mutation (measured, see evidence)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=MUTATION_DOES_NOT_BITE over 8 surface(s), 7 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/1ca93655425e.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/1ca93655425e.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "BASE_EQUALS_CANDIDATE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r12-governance-p1-t03-closure-evidence",
+   "corpus_case_id": "r12-governance-p1-t03-closure-evidence",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+   "candidate_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 9 surface(s), 8 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/8ae4e6058bbb.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/8ae4e6058bbb.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r13-governance-p1-t06-producer-trust",
+   "corpus_case_id": "r13-governance-p1-t06-producer-trust",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "candidate_sha": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 10 surface(s), 9 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/5c9f6a7fcfa6.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/5c9f6a7fcfa6.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r14-governance-p1-t07-evidence-consumption",
+   "corpus_case_id": "r14-governance-p1-t07-evidence-consumption",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "51e7604be3689f31142d17144893790000efac30",
+   "candidate_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 11 surface(s), 10 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/05d7c99e255f.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/05d7c99e255f.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r15-governance-p1-t11-destructive-transaction",
+   "corpus_case_id": "r15-governance-p1-t11-destructive-transaction",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "127ea0b3b11df08a048d12368164d90c2c1583d4",
+   "candidate_sha": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 12 surface(s), 11 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/dc7aef63001e.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/dc7aef63001e.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r16-governance-p1-t10-audit-visibility",
+   "corpus_case_id": "r16-governance-p1-t10-audit-visibility",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "770388d7acbd9ba818d5287e6dfe7f10c2aec961",
+   "candidate_sha": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 14 surface(s), 13 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/975c559fa9cf.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/975c559fa9cf.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r17-governance-p1-t08-evidence-lifecycle",
+   "corpus_case_id": "r17-governance-p1-t08-evidence-lifecycle",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
+   "candidate_sha": "6856a322cdbc5282242464e068e9fb841f017642",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 15 surface(s), 14 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/6856a322cdbc.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/6856a322cdbc.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r18-governance-p1-t12-single-writer",
+   "corpus_case_id": "r18-governance-p1-t12-single-writer",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "50a022f217022c254d00a465a907fa844e56a401",
+   "candidate_sha": "07430d179138595497ddd8c20a934a93b46620b9",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 16 surface(s), 15 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/07430d179138.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/07430d179138.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r19-governance-p1-t13-learning-closure",
+   "corpus_case_id": "r19-governance-p1-t13-learning-closure",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "c1681482a05e1de53b4d3c7e7619def91f94b3c6",
+   "candidate_sha": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 18 surface(s), 17 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/a1cf096ae790.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/a1cf096ae790.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r20-governance-p1-t14-model-dispatch",
+   "corpus_case_id": "r20-governance-p1-t14-model-dispatch",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "candidate_sha": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 19 surface(s), 18 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/f1323df2670c.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/f1323df2670c.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r21-governance-p1-t18-defect-promotion",
+   "corpus_case_id": "r21-governance-p1-t18-defect-promotion",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "7d868db65d281ec7bd52219c5166ab7b5c96d690",
+   "candidate_sha": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 21 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/fc7ad45838a6.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/fc7ad45838a6.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r22-governance-v12-experiment-foundation",
+   "corpus_case_id": "r22-governance-v12-experiment-foundation",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "candidate_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the basis acceptance (if any) is DELTA_ADDED: the historical delta introduced it; the validator binds oracle_in_worker_scope and oracle_authority to that provenance"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 25 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/0007bb309679.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/0007bb309679.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  }
+ ]
+}

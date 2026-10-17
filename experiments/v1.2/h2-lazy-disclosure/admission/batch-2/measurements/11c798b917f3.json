@@ -1,0 +1,106 @@
+{
+ "base_sha": "a2ec79458a165e3ebcf33531edc683310df49c0e",
+ "candidate_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+ "elapsed_s": 9.5,
+ "facts": {
+  "base": "a2ec79458a165e3ebcf33531edc683310df49c0e",
+  "candidate": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/validate_project_state.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 1,
+    "rc_mut": 1
+   },
+   {
+    "path": "scripts/validate_public_release.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_seam_contract_partitions.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   },
+   {
+    "path": "scripts/tests/test_ticket_gate_wiring.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0
+   }
+  ],
+  "acceptance_count": 8,
+  "frozen_count": 8,
+  "acceptance_surface_frozen": true,
+  "oracle_in_worker_scope": false,
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "BASE_EQUALS_CANDIDATE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "MUTATION_DOES_NOT_BITE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.1",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "chore(state): sync recovery snapshot to the P1-T03 authority reconciliation and frozen remaining plan"
+}

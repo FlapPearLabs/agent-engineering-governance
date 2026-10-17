@@ -1,0 +1,3 @@
+  TRANSITION r23-governance-bootstrap-facts-review-round-1 class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/tests/test_p1_t09_bootstrap_byte_budget.py provenance=DELTA_FROZEN base_rc=0 cand_rc=1 mut_rc=1
+  r23-governance-bootstrap-facts-review-round-1 class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+TASK_CLASS_VERDICT = PASS records=1 valid_requests=1 rejected=0 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)
