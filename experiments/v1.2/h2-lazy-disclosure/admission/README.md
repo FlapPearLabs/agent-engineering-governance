@@ -25,8 +25,8 @@ probe_basis.py     what the basis acceptance EXERCISED (unittest ran/skipped/fai
 diagnose_bites.py  which named check BIT, rebuilt with the validator's own _materialise_mutation()
 corpus_cases.py    renders identity anchors for admission/corpus.yaml (NOT H3's corpus); signal
                    counts computed independently of the H3 detector and cross-checked by tests
-build_records.py   one Schema-v2 record (request) per routed pair; every evidence/disclosure string
-                   derived from the pair's disposition and basis provenance
+build_records.py   one Schema-v2 record (request) per routed pair; every evidence, disclosure and
+                   rejection string derived from the pair's disposition and measured facts
 check_task_class.py THE VERDICT: re-executes every transition and binds every declared status
 ledger.py          all required per-candidate fields from the files above; asserts the two
                    independent executions (measure.py vs the validator) agree
@@ -45,9 +45,10 @@ for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (111) was produced by validator **2.8.3** — `environment.validator_sha256`
+Every measurement file (111) was produced by validator **2.8.4** — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
-edited.
+edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
+and fail CLOSED (WORKTREE_MATERIALISATION_FAILED) — re-run that pair serially; it is never a pass.
 
 ## 2. Coverage — governance repository, `origin/main` @ `5ab500e`
 
@@ -64,7 +65,7 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.3; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.4; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
@@ -111,7 +112,7 @@ REJECTED   r08, r11  BASE_EQUALS_CANDIDATE (the added acceptance does not move)
                      candidate (F-A8); the only pair of the 111 that deletes an acceptance surface
 ```
 
-## 4. Findings raised by real candidates and by the fresh reviews of 4add2ca and f2c48a0
+## 4. Findings raised by real candidates and by the fresh reviews of 4add2ca, f2c48a0, ceb3a72
 
 Each: fact → reproducer → severity → minimal fix → red-before/green-after test. The version-level
 before/after for every one is in `negative-controls/report.txt` (earlier validators loaded from
@@ -144,6 +145,12 @@ F-A9  P3  2.8.2  (review of f2c48a0) name-status read without -z: a non-ASCII re
 P3    2.8.2      (review of f2c48a0) postconditions had no test (mutants survived) -> perturbation
                  test; EVID fix had no regression test -> test_evidence_strings_match_each_pairs_own_facts;
                  stale docstrings; discovery files regenerated under 2.8.3 (routing identical).
+F-A10 P2  2.8.3  (review of ceb3a72) surfaces came from the FILESYSTEM, triggers from GIT: a guard
+                 re-added through a symlinked or case-folded directory evaded every rule. Fix:
+                 surfaces from `git ls-tree` (regular files, blob provenance) + alias fail-closed.
+P3    2.8.3      (review of ceb3a72) C-record details/reason codes derived from facts; explicit
+                 rename policy (-M for triggers, --no-renames for added paths); refusal messages
+                 name the regressed guard; mutants M3 M8 M10 M13 now killed.
 F-A2  P3  latent the validator reads exit codes only; an all-skipped unittest module would read as
                  PASS. Not observed (0 skips on every basis); probe_basis.py records it per record.
 N2.1 P3-A / P3-B closed (eligibility-schema-v2.md §6.7).
@@ -175,8 +182,10 @@ FZ-ADM-7 CROSS-REPOSITORY CANDIDATES  zhihu-grabber-toolkit, workbuddy-toolkit, 
          repair history, but Schema v2 validates only pairs in this object database and the H2
          round / routes / delivery are governance-scoped (r01: ROUND_SCOPE_DECISION).
 FZ-ADM-8 OVERLAP  never select both r31 and r07, or both r33 and r30.
-FZ-ADM-9 DELETED ACCEPTANCE  any admitted task must show an empty DELETED_ACCEPTANCE_SURFACES in
-         the ledger, or Freeze v2 must justify the deletion.
+FZ-ADM-9 DELETED / REGRESSED GUARDS  Schema v2 refuses them only for B. Any task Freeze v2 admits
+         (A included) must show empty DELETED_ACCEPTANCE_SURFACES and REGRESSED_GUARDS in the
+         ledger, or Freeze v2 must justify them (a reference solution that breaks a guard is a
+         flawed reference). All 23 valid requests have both empty.
 ```
 
 ## 6. Status of the admission count

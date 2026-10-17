@@ -1,4 +1,4 @@
-NEGATIVE CONTROLS — current validator 2.8.3
+NEGATIVE CONTROLS — current validator 2.8.4
 
 [RECORDS] r08-as-A (control) rc=1 REFUSED
       ERROR r08-governance-project-continuity-contract: declared baseline_oracle_status='FAIL' but the acceptance recomputed 'PASS' over 2 surface(s) at f40525bd9f37 and af4df6ae7063
@@ -13,13 +13,13 @@ NEGATIVE CONTROLS — current validator 2.8.3
 [RECORDS] r23-as-B (F-A3) rc=1 REFUSED
       ERROR r23-governance-bootstrap-facts-review-round-1: declared mutation_oracle_status='FAIL' but the recomputation gives 'PASS'
       ERROR r23-governance-bootstrap-facts-review-round-1: declared mutation_touches_target_predicate=True but the recomputation gives False
-      ERROR r23-governance-bootstrap-facts-review-round-1: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0; scripts/tests/test_p1_orchestrator_closure_doctrine.py [DELTA_FROZEN] base=0 cand=0
+      ERROR r23-governance-bootstrap-facts-review-round-1: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] base=0 cand=1; scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0
     TASK_CLASS_VERDICT = FAIL records=1 errors=3
 [RECORDS] r26-as-B (F-A6) rc=1 REFUSED
-      ERROR r26-governance-portable-adoption-exercise: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0; scripts/tests/test_fixture_identity_hygiene.py [DELTA_FROZEN] base=0 cand=0
+      ERROR r26-governance-portable-adoption-exercise: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] base=0 cand=1; scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0
     TASK_CLASS_VERDICT = FAIL records=1 errors=1
 [RECORDS] r29-as-B (F-A8) rc=1 REFUSED
-      ERROR r29-governance-v12-experiment-shape-convergence: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0; scripts/tests/test_fixture_identity_hygiene.py [DELTA_FROZEN] base=0 cand=0
+      ERROR r29-governance-v12-experiment-shape-convergence: the B_REGRESSION_GUARD state transition is not supported by execution (CANDIDATE_REGRESSES_A_FROZEN_GUARD) — recomputed, not read from the record: scripts/tests/test_experiment_v12_foundation.py [DELTA_DELETED] base=0 cand=1; scripts/validate_governance.py [DELTA_FROZEN] base=0 cand=0; scripts/validate_project_state.py [DELTA_FROZEN] base=1 cand=1; scripts/validate_public_release.py [DELTA_FROZEN] base=0 cand=0
     TASK_CLASS_VERDICT = FAIL records=1 errors=1
 
 [VERSIONS] F-A1 r22           f4eb503  B=(True, 'PASS_TO_FAIL_UNDER_MUTATION') biting=[('test_p1_t16_gate_cli_entrypoint.py', 0, 0, 1)]

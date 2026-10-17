@@ -1,7 +1,7 @@
 {
  "base_sha": "44953909789ded27e8a8ed9e3dde5eaf773f9e46",
  "candidate_sha": "70fd289774fd3f8ab7e18ca6df10d031d6870a85",
- "elapsed_s": 62.1,
+ "elapsed_s": 63.1,
  "facts": {
   "base": "44953909789ded27e8a8ed9e3dde5eaf773f9e46",
   "candidate": "70fd289774fd3f8ab7e18ca6df10d031d6870a85",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiments(v1.2): H2 freeze — [13a]/[13b] evidence corrections (re-applied)"

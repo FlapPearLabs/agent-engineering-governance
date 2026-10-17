@@ -140,7 +140,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.3", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.4", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1197,6 +1197,124 @@ class MutationMaterialisation(unittest.TestCase):
         rc, out = run_validator(document(rec), self.tmp)
         self.assertEqual(1, rc, out)
         self.assertIn("candidate_oracle_status must be 'PASS' or 'FAIL' when declared", out)
+
+    # ---- fresh review of ceb3a72: finding 1 (aliasing) and the surviving mutants -------------
+    def _alias_repo(self, how: str):
+        """Base guard scripts/tests/test_budget.py; the candidate re-adds it as a vacuous copy
+        reached through an ALIAS of its directory (symlink, or a case-folded spelling), adds a
+        linked doc and breaks the budget."""
+        root = self.tmp / f"alias-{how}"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        base = self._commit(root, {"scripts/tests/test_links.py": self.LINKS,
+                                   "scripts/tests/test_budget.py":
+                                       self._budget("self.fail('over budget')"),
+                                   "README.md": "start\n", "pointer.md": "short\n"}, "base")
+        self._git(root, "rm", "-q", "-r", "scripts/tests")
+        vacuous = "import unittest\nclass Budget(unittest.TestCase):\n    def test_budget(self):\n        pass\n"
+        files = {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n",
+                 "pointer.md": "now far beyond its byte budget\n"}
+        if how == "symlink":
+            files["tests_v2/test_links.py"] = self.LINKS.replace("parents[2]", "parents[1]")
+            files["tests_v2/test_budget.py"] = vacuous
+            for rel, text in files.items():
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text(text, encoding="utf-8")
+            (root / "scripts").mkdir(exist_ok=True)
+            (root / "scripts" / "tests").symlink_to("../tests_v2")
+        else:
+            files["scripts/Tests/test_links.py"] = self.LINKS
+            files["scripts/Tests/test_budget.py"] = vacuous
+            for rel, text in files.items():
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text(text, encoding="utf-8")
+        self._git(root, "add", "-A")
+        self._git(root, "commit", "-q", "--no-verify", "-m", "candidate")
+        return self.mod.Repo(root), base, self._git(root, "rev-parse", "HEAD")
+
+    def test_a_guard_re_added_through_a_symlinked_directory_fails_closed(self):
+        """Finding 1: filesystem discovery saw scripts/tests/test_budget.py at the candidate (via
+        the symlink) while git reported it deleted, so no rule fired and B was a valid request."""
+        repo, base, cand = self._alias_repo("symlink")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertEqual("SURFACE_PATH_ALIASED", facts.get("error"), facts)
+        self.assertFalse(self.mod.transition_verdict("B_REGRESSION_GUARD", facts)[0])
+
+    def test_a_guard_re_added_under_a_case_folded_directory_is_refused(self):
+        """Finding 1, case variant. On a case-insensitive filesystem the spelling alias fails
+        closed; on a case-sensitive one the guard is simply DELTA_DELETED and regressed. Either
+        way B must be refused — the verdict may not depend on the filesystem."""
+        repo, base, cand = self._alias_repo("case")
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        ok, reason = self.mod.transition_verdict("B_REGRESSION_GUARD", facts)
+        self.assertFalse(ok)
+        self.assertIn(reason, ("SURFACE_PATH_ALIASED", "CANDIDATE_REGRESSES_A_FROZEN_GUARD"))
+
+    def test_a_deleted_guard_that_hangs_is_unmeasured_not_ignored(self):
+        """Mutant M3: guard_unmeasured over frozen surfaces only survived the suite."""
+        saved = self.mod.ACCEPTANCE_TIMEOUT
+        self.mod.ACCEPTANCE_TIMEOUT = 5
+        try:
+            repo, base, cand = self._guarded_repo("while True: pass", delete_budget=True)
+            facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        finally:
+            self.mod.ACCEPTANCE_TIMEOUT = saved
+        (deleted,) = facts["deleted_surfaces"]
+        self.assertEqual((0, 124), (deleted["rc_base"], deleted["rc_cand"]))
+        self.assertEqual((False, "CANDIDATE_GUARD_UNMEASURED"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_base_red_guard_neither_regresses_nor_counts_as_unmeasured(self):
+        """Mutants M10 / M13: a guard already red at the base protects nothing, so its candidate
+        verdict (hang, or failure after deletion) must not refuse an otherwise supported B."""
+        saved = self.mod.ACCEPTANCE_TIMEOUT
+        self.mod.ACCEPTANCE_TIMEOUT = 5
+        red_then_hang = ("import unittest\nfrom pathlib import Path\n"
+                         "ROOT = Path(__file__).resolve().parents[2]\n"
+                         "class Odd(unittest.TestCase):\n"
+                         "    def test_odd(self):\n"
+                         "        if (ROOT / 'docs' / 'new.md').exists():\n"
+                         "            while True: pass\n"
+                         "        self.fail('red at the base')\n")
+        try:
+            for name, deleted in (("hang", False), ("gone", True)):
+                repo, base, cand = self._repo(
+                    {"scripts/tests/test_links.py": self.LINKS, "scripts/tests/test_odd.py":
+                        red_then_hang, "README.md": "start\n"},
+                    {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n"},
+                    name=f"red-{name}")
+                if deleted:
+                    self._git(repo.root, "rm", "-q", "scripts/tests/test_odd.py")
+                    self._git(repo.root, "commit", "-q", "--amend", "--no-edit", "--no-verify")
+                    cand = self._git(repo.root, "rev-parse", "HEAD")
+                facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+                odd = [e for e in facts["surfaces"] + facts["deleted_surfaces"]
+                       if e["path"].endswith("test_odd.py")]
+                self.assertEqual(1, odd[0]["rc_base"], name)          # red at the base
+                self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                                 self.mod.transition_verdict("B_REGRESSION_GUARD", facts), name)
+        finally:
+            self.mod.ACCEPTANCE_TIMEOUT = saved
+
+    def test_a_renamed_oracle_is_a_rewrite_whatever_the_rename_config(self):
+        """Mutant M8 + finding 4: rename records carry two paths; and with diff.renames=false a
+        renamed-and-edited test came back as D + A and derived no trigger."""
+        body = "import unittest\nclass T(unittest.TestCase):\n" + "".join(
+            f"    def test_{i}(self):\n        self.assertTrue(True)\n" for i in range(20))
+        root = self.tmp / "rename"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        base = self._commit(root, {"scripts/tests/test_old.py": body}, "base")
+        self._git(root, "mv", "scripts/tests/test_old.py", "scripts/tests/test_new.py")
+        cand = self._commit(root, {"scripts/tests/test_new.py": body + "# edited\n"},
+                            "candidate")
+        repo = self.mod.Repo(root)
+        self._git(repo.root, "config", "diff.renames", "false")
+        changed = repo.changed_paths_with_status(base, cand)
+        self.assertEqual(1, len(changed), changed)
+        self.assertTrue(changed[0][0].startswith("R"))
+        self.assertEqual("scripts/tests/test_new.py", changed[0][1])
+        self.assertIn("WORKER_MODIFIES_TEST_ORACLE", self.mod.derived_triggers(changed))
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

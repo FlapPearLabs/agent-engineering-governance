@@ -179,6 +179,13 @@ class BatchIdentityAndLedger(unittest.TestCase):
                 ext = ledger[rec["corpus_case_id"]]["ORACLE_EXTERNALIZATION"]
                 if carried is None:
                     self.assertIn("no surface carries", note)
+                    detail = rec["reject_triggers"][0]["detail"]
+                    for cls_key in ("A_REPAIR", "B_REGRESSION_GUARD"):
+                        reason = m["verdicts"][cls_key]["reason"]
+                        self.assertIn(reason, detail, rec["corpus_case_id"])
+                        self.assertIn(reason, rec["round_admission"]["reason_codes"])
+                    for e in m["facts"].get("biting") or []:
+                        self.assertIn(e["path"], detail, rec["corpus_case_id"])
                     continue
                 self.assertIn(f"{carried['path']} [{carried['provenance']}]", note)
                 if rec["class"] == "A_REPAIR":

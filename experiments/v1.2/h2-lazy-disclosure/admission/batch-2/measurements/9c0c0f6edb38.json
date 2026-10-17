@@ -1,7 +1,7 @@
 {
  "base_sha": "d56d437f0cae6d431f66ef032bfd0bc4611fac7c",
  "candidate_sha": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
- "elapsed_s": 3.7,
+ "elapsed_s": 3.8,
  "facts": {
   "base": "d56d437f0cae6d431f66ef032bfd0bc4611fac7c",
   "candidate": "9c0c0f6edb388ad33e7ead096a82b9c6190ff050",
@@ -70,8 +70,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): flush project-state recovery snapshot after main integration"

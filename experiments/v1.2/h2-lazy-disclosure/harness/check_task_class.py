@@ -85,7 +85,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.3"
+SCHEMA_VERSION = "2.8.4"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -158,7 +158,10 @@ class Repo:
         review of f2c48a0, finding 5 — the same class as F-A1c). A rename/copy entry carries two
         paths; the NEW one is reported, as before.
         """
-        r = self.git("diff", "--no-ext-diff", "--name-status", "-z", base, candidate, "--")
+        # -M explicitly: a renamed (and edited) oracle stays a REWRITE whatever the user's
+        # diff.renames config says (fresh review of ceb3a72, finding 4)
+        r = self.git("diff", "--no-ext-diff", "-M", "--name-status", "-z", base, candidate,
+                     "--")
         if r.returncode != 0:
             return None
         fields = r.stdout.split("\0")
@@ -405,6 +408,51 @@ def acceptance_surfaces(root: Path) -> dict[str, str]:
     return out
 
 
+SURFACE_RE = re.compile(r"^scripts/validate_[^/]*\.py$|^scripts/tests/test_[^/]*\.py$")
+
+
+def tracked_surfaces(repo: Repo, sha: str):
+    """path -> (kind, blob id) for every acceptance surface TRACKED at `sha` as a regular file.
+
+    Git is the identity of a surface (2.8.4). Discovering surfaces from a worktree's filesystem let
+    a guard reached through a symlinked directory, or through a case-folded spelling on a
+    case-insensitive filesystem, count as present at the candidate while git reported it deleted —
+    so neither the derived trigger nor the deleted-surface check fired (fresh review of ceb3a72,
+    finding 1). Same convention and the same order as acceptance_surfaces(): validators first,
+    then tests, each sorted. None when the tree cannot be read (failing closed).
+    """
+    r = repo.git("ls-tree", "-r", "-z", "--full-tree", sha)
+    if r.returncode != 0:
+        return None
+    out: dict[str, tuple[str, str]] = {}
+    for entry in r.stdout.split("\0"):
+        if not entry:
+            continue
+        meta, _, path = entry.partition("\t")
+        parts = meta.split()
+        if len(parts) != 3:
+            return None
+        mode, typ, obj = parts
+        if typ == "blob" and mode in ("100644", "100755") and SURFACE_RE.match(path):
+            out[path] = ("VALIDATOR" if path.startswith("scripts/validate_") else "TEST", obj)
+    return dict(sorted(out.items(), key=lambda kv: (kv[1][0] != "VALIDATOR", kv[0])))
+
+
+def _aliased(root: Path, rel: str) -> bool:
+    """True when `rel` under `root` does not name its own plain path: some component is a symlink,
+    or (case-insensitive filesystem) an existing entry is spelled differently."""
+    cur = root
+    for part in rel.split("/"):
+        if cur.is_dir() and not cur.is_symlink():
+            names = os.listdir(cur)
+            if part not in names and any(n.casefold() == part.casefold() for n in names):
+                return True
+        cur = cur / part
+        if cur.is_symlink():
+            return True
+    return False
+
+
 def acceptance_command(rel: str, kind: str, interpreter: str) -> list[str]:
     if kind == "TEST":
         return [interpreter, "-m", "unittest", "discover", "-s", "scripts/tests",
@@ -505,19 +553,29 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # such a tree, and that crash was counted as a bite (admission finding F-A1, measured on
         # 0007bb3). `-z` keeps paths raw — the quoted form of a non-ASCII path names no file, so
         # it used to be skipped silently and the mutation kept the very file it claimed to remove.
-        added = repo.git("diff", "--no-ext-diff", "--name-only", "-z", "--diff-filter=A",
-                         base, cand, "--")
+        # --no-renames: what counts as ADDED must not depend on the user's diff.renames config
+        added = repo.git("diff", "--no-ext-diff", "--no-renames", "--name-only", "-z",
+                         "--diff-filter=A", base, cand, "--")
         if added.returncode != 0:
             return {"error": "DELTA_UNREADABLE"}
         added_paths = [p for p in added.stdout.split("\0") if p]
         if added_paths and not _materialise_mutation(repo, cand, mut_wt, added_paths):
             return {"error": "MUTATION_MATERIALISATION_FAILED"}
 
-        for rel, kind in acceptance_surfaces(cand_wt).items():
+        base_s, cand_s = tracked_surfaces(repo, base), tracked_surfaces(repo, cand)
+        if base_s is None or cand_s is None:
+            return {"error": "TREE_UNREADABLE"}
+        # every surface path must name itself in every tree it is run in or carried into
+        for rel in set(base_s) | set(cand_s):
+            if any(_aliased(wt, rel) for wt in (base_wt, cand_wt, mut_wt)):
+                return {"error": "SURFACE_PATH_ALIASED", "path": rel}
+        for rel, (kind, blob) in cand_s.items():
             cb, cc = base_wt / rel, cand_wt / rel
-            if not cb.is_file():
+            if rel not in base_s:
                 provenance = "DELTA_ADDED"
-            elif cb.read_bytes() == cc.read_bytes():
+                if os.path.lexists(cb):          # git says absent, the filesystem disagrees
+                    return {"error": "SURFACE_PATH_ALIASED", "path": rel}
+            elif base_s[rel][1] == blob:
                 provenance = "DELTA_FROZEN"
             else:
                 provenance = "DELTA_MODIFIED"
@@ -543,13 +601,14 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # deleting it and re-adding a weaker copy elsewhere) was therefore invisible to the
         # regression rule (fresh review of f2c48a0, finding 2; real case r29 / 5205e5b). Each one
         # is run with its BASE bytes against the base tree and, carried in, the candidate tree.
-        cand_set = set(acceptance_surfaces(cand_wt))
         facts["deleted_surfaces"] = []
-        for rel, kind in acceptance_surfaces(base_wt).items():
-            if rel in cand_set:
+        for rel, (kind, _blob) in base_s.items():
+            if rel in cand_s:
                 continue
-            rc_base = run_acceptance(base_wt, rel, kind, interpreter)
             target = cand_wt / rel
+            if os.path.lexists(target):          # git says deleted, the filesystem disagrees
+                return {"error": "SURFACE_PATH_ALIASED", "path": rel}
+            rc_base = run_acceptance(base_wt, rel, kind, interpreter)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(base_wt / rel, target)
             try:
@@ -945,9 +1004,12 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                                f"(got {declared.get('oracle_authority')!r}) — the authority is "
                                f"derived from the acceptance provenance, not chosen")
         if not ok:
+            named = (list(facts.get("regressed") or []) + list(facts.get("guard_unmeasured") or [])
+                     + [e for e in facts.get("surfaces", []) + facts.get("deleted_surfaces", [])
+                        if e not in (facts.get("regressed") or [])])
             detail = "; ".join(
                 f"{e['path']} [{e['provenance']}] base={e['rc_base']} cand={e['rc_cand']}"
-                for e in facts.get("surfaces", [])[:4]) or "no acceptance surface"
+                for e in named[:4]) or facts.get("path") or "no acceptance surface"
             err.append(f"{cid}: the {cls} state transition is not supported by execution "
                        f"({reason}) — recomputed, not read from the record: {detail}")
         else:

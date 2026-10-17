@@ -1,7 +1,7 @@
 {
  "base_sha": "9bbe931be662171d003d81eaa5c476bf3396e7aa",
  "candidate_sha": "cad7507f282e2e94f77fd12690fa9db3745dee47",
- "elapsed_s": 53.1,
+ "elapsed_s": 50.2,
  "facts": {
   "base": "9bbe931be662171d003d81eaa5c476bf3396e7aa",
   "candidate": "cad7507f282e2e94f77fd12690fa9db3745dee47",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): split replay-corpus disposition into orthogonal structure/behavior axes"

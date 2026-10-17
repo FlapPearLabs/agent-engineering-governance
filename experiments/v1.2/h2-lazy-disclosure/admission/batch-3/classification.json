@@ -1,6 +1,6 @@
 {
  "schema": "ELIGIBILITY_SCHEMA_V2",
- "schema_version": "2.8.3",
+ "schema_version": "2.8.4",
  "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
  "record_semantics": "one record per measured historical pair; class and lifecycle statuses follow the measured transition and are re-executed and bound by the validator. REQUEST_VALID is a request to Freeze v2, not an admission.",
  "records": [

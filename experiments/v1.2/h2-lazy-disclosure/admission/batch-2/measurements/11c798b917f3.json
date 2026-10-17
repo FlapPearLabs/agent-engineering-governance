@@ -1,7 +1,7 @@
 {
  "base_sha": "a2ec79458a165e3ebcf33531edc683310df49c0e",
  "candidate_sha": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
- "elapsed_s": 9.5,
+ "elapsed_s": 9.4,
  "facts": {
   "base": "a2ec79458a165e3ebcf33531edc683310df49c0e",
   "candidate": "11c798b917f3807f9fce65bcf2080ca73ee36f76",
@@ -102,8 +102,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): sync recovery snapshot to the P1-T03 authority reconciliation and frozen remaining plan"

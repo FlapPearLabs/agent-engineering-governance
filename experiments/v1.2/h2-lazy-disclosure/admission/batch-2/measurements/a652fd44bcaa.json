@@ -1,7 +1,7 @@
 {
  "base_sha": "a24231483f0046052d86b3d2b27e96b3db6b2629",
  "candidate_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
- "elapsed_s": 50.3,
+ "elapsed_s": 49.5,
  "facts": {
   "base": "a24231483f0046052d86b3d2b27e96b3db6b2629",
   "candidate": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
@@ -247,8 +247,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): record the H3-A historical replay results + sync detector status lines"

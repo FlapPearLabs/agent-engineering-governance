@@ -53,6 +53,19 @@ ROUTING = {
 }
 
 
+def reject_detail(facts: dict, a: dict, b: dict) -> str:
+    """Why neither class holds, from the measured facts (a fixed sentence was false for r26/r29:
+    their link guard DID bite, and B was refused for a regression — fresh review of ceb3a72)."""
+    def names(entries):
+        return ", ".join(f"{e['path']} [{e['provenance']}] {e['rc_base']}->{e['rc_cand']}"
+                         for e in entries) or "none"
+    return (f"A: {a['reason']} (surfaces moving FAIL->PASS: "
+            f"{names(facts.get('discriminating') or [])}); "
+            f"B: {b['reason']} (biting: {names(facts.get('biting') or [])}; "
+            f"regressed guards: {names(facts.get('regressed') or [])}; "
+            f"unmeasured guards: {names(facts.get('guard_unmeasured') or [])})")
+
+
 def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path, pair: dict) -> dict:
     facts, verdicts = m["facts"], m["verdicts"]
     a, b = verdicts["A_REPAIR"], verdicts["B_REGRESSION_GUARD"]
@@ -136,10 +149,9 @@ def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path, pair: d
                  "reason": f"measured {b['reason']}"}],
             "reject_triggers": [{"trigger": "OBSERVATION_COVERAGE_UNPROVEN",
                                  "reason_code": a["reason"],
-                                 "detail": "no acceptance surface of the candidate moves FAIL->PASS "
-                                           "against the base, and no frozen surface bites under the "
-                                           "controlled mutation (measured, see evidence)"}],
-            "round_admission": {"verdict": "NOT_ADMITTED", "reason_codes": [a["reason"]]},
+                                 "detail": reject_detail(facts, a, b)}],
+            "round_admission": {"verdict": "NOT_ADMITTED",
+                                "reason_codes": sorted({a["reason"], b["reason"]})},
         })
     return rec
 

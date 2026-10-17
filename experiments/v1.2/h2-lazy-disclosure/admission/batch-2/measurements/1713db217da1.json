@@ -1,7 +1,7 @@
 {
  "base_sha": "69012c38a2070e6f7e013dd3acc5fe7b25e2b1ad",
  "candidate_sha": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
- "elapsed_s": 53.3,
+ "elapsed_s": 53.9,
  "facts": {
   "base": "69012c38a2070e6f7e013dd3acc5fe7b25e2b1ad",
   "candidate": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): fix tree-ledger self-reference and status honesty"

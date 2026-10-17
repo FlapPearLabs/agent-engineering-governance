@@ -1,7 +1,7 @@
 {
  "base_sha": "50a022f217022c254d00a465a907fa844e56a401",
  "candidate_sha": "07430d179138595497ddd8c20a934a93b46620b9",
- "elapsed_s": 16.8,
+ "elapsed_s": 16.9,
  "facts": {
   "base": "50a022f217022c254d00a465a907fa844e56a401",
   "candidate": "07430d179138595497ddd8c20a934a93b46620b9",
@@ -175,8 +175,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage5/lane-c): add the shared-file single-writer and final-readback recipe to ticket-lane (Issue #20)"

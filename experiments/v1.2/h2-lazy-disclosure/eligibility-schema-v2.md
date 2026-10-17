@@ -2,8 +2,8 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.3  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.3 = defects raised by real
-                 admission candidates and the fresh reviews of 4add2ca and f2c48a0, see §6.7)
+VERSION        = 2.8.4  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.4 = defects raised by real
+                 admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -180,18 +180,23 @@ FOR EVERY CLASS
 ### 3.1 The recomputed transition
 
 ```text
-ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces, discovered from that tree by the
-              repository's own path conventions (scripts/validate_*.py, scripts/tests/test_*.py).
-              They are carried byte-identically into the base tree, so the BASE verdict cannot be
-              produced by editing the acceptance between the two runs.
+ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces: the regular files TRACKED at that
+              revision (git ls-tree; since 2.8.4, not a filesystem glob) under the repository's
+              path conventions (scripts/validate_*.py, scripts/tests/test_*.py). They are carried
+              byte-identically into the base tree, so the BASE verdict cannot be produced by editing
+              the acceptance between the two runs. A surface path that resolves through a symlink
+              or a case-folded spelling in any tree is SURFACE_PATH_ALIASED (fail closed).
+GUARDS     := the frozen surfaces plus every surface tracked at the BASE and absent at the
+              candidate (DELTA_DELETED, run with its base bytes in both trees; since 2.8.3).
 
 STATES := base tree · candidate tree · CONTROLLED MUTATION (the candidate tree with every path the
           delta ADDS removed — modified paths keep their candidate content, because reverting them
           wholesale would rebuild the base tree and make the mutation a no-op by construction)
 
 PROVENANCE (recomputed from the object database, per surface)
-  DELTA_FROZEN    identical bytes at both revisions
+  DELTA_FROZEN    identical blob at both revisions
   DELTA_ADDED     the delta introduces it
+  DELTA_DELETED   the delta removes it (a guard only: never a basis, never a bite)
   DELTA_MODIFIED  the delta rewrites it        <- NEVER a basis: the delta rewrote the thing that
                                                   judges it, which is the shape every vacuity
                                                   attack takes (`select = []` on r03 is this shape)
@@ -199,8 +204,11 @@ PROVENANCE (recomputed from the object database, per surface)
 DERIVED
   A_REPAIR           supported  <=>  some DELTA_FROZEN or DELTA_ADDED surface reports FAIL at the
                                      base and PASS at the candidate
-  B_REGRESSION_GUARD supported  <=>  some DELTA_FROZEN surface is GREEN at the base and RED under
-                                     the controlled mutation
+  B_REGRESSION_GUARD supported  <=>  some DELTA_FROZEN surface is GREEN at the base AND at the
+                                     candidate and RED under the controlled mutation (>= 1 added
+                                     path), AND no guard regresses (green -> red at the candidate:
+                                     CANDIDATE_REGRESSES_A_FROZEN_GUARD) AND no base-green guard is
+                                     unmeasured at the candidate (CANDIDATE_GUARD_UNMEASURED)
   otherwise                      =>  REQUEST_VALID is forbidden (fail closed): BASE_EQUALS_CANDIDATE
                                      when nothing moves, NO_DISCRIMINATING_ACCEPTANCE when surfaces
                                      move but not in the claimed direction, NO_ACCEPTANCE when the
@@ -454,7 +462,10 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     object database per surface. A REWRITTEN acceptance is never a basis — the delta rewrote the
     thing that judges it — and `oracle_authority` is DERIVED from the basis provenance rather than
     chosen;
-  · DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a REWRITTEN
+  · DERIVED TRIGGERS — the pair's changed-file list is read from the object database (with -z and
+    explicit rename detection -M since 2.8.3/2.8.4, so neither a non-ASCII name nor the user's
+    diff.renames config can hide a rewrite; a guard re-added through a path ALIAS fails closed
+    instead, see §3.1); a REWRITTEN
     test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives
     WORKER_MODIFIES_VALIDATOR. Neither can be talked away INTO A VALID REQUEST: silencing one
     requires externalising every derived path, which requires the ORACLE_EXTERNALIZATION pending
@@ -529,7 +540,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.3 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.4 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -591,6 +602,19 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          non-ASCII validator came back quoted and derived no trigger (same class as F-A1c).
   P3     postconditions of _materialise_mutation now have a perturbation test (over-removal,
          lost parent) that kills the `return True` mutants; the closed vocabulary has a record test.
+2.8.4 (fresh adversarial review of ceb3a72: one P2, four P3)
+  F-A10 P2 surface discovery used the FILESYSTEM while triggers used GIT: a guard re-added through a
+         symlinked directory (or a case-folded spelling on a case-insensitive filesystem) counted
+         as present-and-modified while git reported delete + add, so no trigger, no deleted-guard
+         check and no regression rule fired, and B was a valid request whose candidate fails the
+         base guard. 2.8.4 takes surfaces from `git ls-tree` (regular files only; provenance by
+         blob id) and fails closed when any surface path is aliased in any tree.
+  P3     C-record trigger detail and reason codes are derived from the measured facts (the fixed
+         sentence was false for r26 / r29); explicit -M for trigger derivation and --no-renames
+         for the added-path list (no dependence on diff.renames); refusal messages name the
+         regressed / unmeasured guard first; tests kill the surviving mutants M3 M8 M10 M13.
+REGRESSION (2.8.4)  MutationMaterialisation (20 tests); the three 2.8.4 attack tests fail against
+         ceb3a72; each of M3 M8 M10 M13 fails a test.
 REGRESSION (2.8.3)  MutationMaterialisation (15 tests); the four new 2.8.3 tests fail against
          f2c48a0 and pass against 2.8.3; the postcondition test fails against the two surviving
          mutants the review exhibited.

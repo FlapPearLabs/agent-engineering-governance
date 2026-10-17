@@ -1,7 +1,7 @@
 {
  "base_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
  "candidate_sha": "3e92751a6e5490e826a130835598e5069d8fe8ce",
- "elapsed_s": 40.9,
+ "elapsed_s": 40.6,
  "facts": {
   "base": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
   "candidate": "3e92751a6e5490e826a130835598e5069d8fe8ce",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "docs: give the local adoption remote an explicit synthetic identity"

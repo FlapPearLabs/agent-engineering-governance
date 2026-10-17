@@ -1,7 +1,7 @@
 {
  "base_sha": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
  "candidate_sha": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
- "elapsed_s": 14.7,
+ "elapsed_s": 14.8,
  "facts": {
   "base": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
   "candidate": "6fd9e3eb74b36649a86572d7d20b2662bcf9863f",
@@ -150,8 +150,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): sync recovery snapshot to the P1-T09 closure and Stage-4 full terminal state"

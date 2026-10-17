@@ -1,7 +1,7 @@
 {
  "base_sha": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
  "candidate_sha": "e66ad217329d70e9406fb607d7c4ddc362163aef",
- "elapsed_s": 50.7,
+ "elapsed_s": 49.3,
  "facts": {
   "base": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
   "candidate": "e66ad217329d70e9406fb607d7c4ddc362163aef",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): H3-B live-shadow protocol + frozen candidate matrix (pre-registration)"

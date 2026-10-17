@@ -1,7 +1,7 @@
 {
  "base_sha": "f29a3c6cf4c9a43130f1fab5bc3f7225ff8bc88c",
  "candidate_sha": "4cbc5855a00ceac9321a1c913af2dec5e1671c16",
- "elapsed_s": 50.1,
+ "elapsed_s": 49.9,
  "facts": {
   "base": "f29a3c6cf4c9a43130f1fab5bc3f7225ff8bc88c",
   "candidate": "4cbc5855a00ceac9321a1c913af2dec5e1671c16",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): converge the codex review of the H3-B1 protocol (5 findings, README only)"

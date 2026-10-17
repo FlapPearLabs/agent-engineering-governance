@@ -137,6 +137,10 @@ def main(argv: list[str]) -> int:
             "VALIDATOR_IN_WORKER_SCOPE": [x for x in worker_scope
                                           if re.search(r"(^|/)(validate|check)_[^/]*\.(py|sh)$", x)],
             "DERIVED_TRIGGERS": p["derived_triggers"],
+            # frozen or deleted guards green at the base and red at the candidate (any class)
+            "REGRESSED_GUARDS": [{"path": e["path"], "provenance": e["provenance"],
+                                  "rc_base": e["rc_base"], "rc_cand": e["rc_cand"]}
+                                 for e in facts.get("regressed", [])],
             # acceptance surfaces the delta deletes, with their base bytes run at base/candidate
             "DELETED_ACCEPTANCE_SURFACES": [
                 {"path": e["path"], "rc_base": e["rc_base"], "rc_cand": e["rc_cand"]}

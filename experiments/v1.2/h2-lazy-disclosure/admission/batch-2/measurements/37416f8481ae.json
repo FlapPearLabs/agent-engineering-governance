@@ -1,7 +1,7 @@
 {
  "base_sha": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
  "candidate_sha": "37416f8481ae601fa4d725b59e3deb5141934419",
- "elapsed_s": 21.7,
+ "elapsed_s": 21.8,
  "facts": {
   "base": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
   "candidate": "37416f8481ae601fa4d725b59e3deb5141934419",
@@ -198,8 +198,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(adapters): minimal WorkBuddy hard-safety hook adapter (V1)"

@@ -41,9 +41,18 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [
+    {
+     "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+     "provenance": "DELTA_FROZEN",
+     "rc_base": 0,
+     "rc_cand": 1
+    }
+   ],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
    "REJECTION_REASON": [
+    "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
     "NO_DISCRIMINATING_ACCEPTANCE"
    ],
    "EXECUTION_AGREEMENT": "N/A (no supported transition)",
@@ -86,6 +95,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
    "REJECTION_REASON": null,
@@ -127,6 +137,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,
@@ -194,9 +205,18 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [
+    {
+     "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+     "provenance": "DELTA_FROZEN",
+     "rc_base": 0,
+     "rc_cand": 1
+    }
+   ],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
    "REJECTION_REASON": [
+    "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
     "NO_DISCRIMINATING_ACCEPTANCE"
    ],
    "EXECUTION_AGREEMENT": "N/A (no supported transition)",
@@ -238,6 +258,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
    "REJECTION_REASON": null,
@@ -326,6 +347,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,
@@ -379,6 +401,14 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [
+    {
+     "path": "scripts/tests/test_experiment_v12_foundation.py",
+     "provenance": "DELTA_DELETED",
+     "rc_base": 0,
+     "rc_cand": 1
+    }
+   ],
    "DELETED_ACCEPTANCE_SURFACES": [
     {
      "path": "scripts/tests/test_experiment_v12_foundation.py",
@@ -388,7 +418,8 @@
    ],
    "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
    "REJECTION_REASON": [
-    "BASE_EQUALS_CANDIDATE"
+    "BASE_EQUALS_CANDIDATE",
+    "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
    ],
    "EXECUTION_AGREEMENT": "N/A (no supported transition)",
    "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
@@ -427,6 +458,7 @@
    },
    "VALIDATOR_IN_WORKER_SCOPE": [],
    "DERIVED_TRIGGERS": {},
+   "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
    "SCHEMA_V2_RESULT": "B_REGRESSION_GUARD / REQUEST_VALID",
    "REJECTION_REASON": null,

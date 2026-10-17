@@ -1,7 +1,7 @@
 {
  "base_sha": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
  "candidate_sha": "7738cb1107ee6b629b75b2a61ccec1c503fbd454",
- "elapsed_s": 37.8,
+ "elapsed_s": 37.2,
  "facts": {
   "base": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
   "candidate": "7738cb1107ee6b629b75b2a61ccec1c503fbd454",
@@ -222,8 +222,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.3",
-  "validator_sha256": "b372d36bd945f688b83af1571055e9e3654cd63cb51be6784f86836ba939bc58",
+  "schema_version": "2.8.4",
+  "validator_sha256": "7c756a88b807058d3797b93fbcb835bf340a33c11d10c45f3b3f43de7ab99c07",
   "acceptance_timeout_s": 300
  },
  "subject": "docs: restore audit visibility and repository-role lessons"
