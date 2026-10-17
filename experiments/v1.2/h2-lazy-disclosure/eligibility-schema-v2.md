@@ -505,6 +505,18 @@ RECOMPUTED BY THE VALIDATOR (facts it does not read from the record)
     records as structured errors, no early return that masks a record's other defects).
 
 NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken for a proof
+  · THE EXECUTION BOUNDARY (stated in 2.8.6). The recomputation EXECUTES the candidate's code with
+    the operator's privileges. Its checks defend against mis-measurement of real history (index,
+    HEAD, alias, filter, bytecode, import-path and cross-run artefacts — every one found on a real
+    or minimal pair and pinned by a test) and against record-level laundering. They are NOT a
+    sandbox: code that deliberately writes outside its own run (another worktree, the object
+    database, the validator itself), or that subverts the interpreter from a path no acceptance is
+    expected to import, can defeat any in-process check. The defence against a deliberately hostile
+    pair is the identity root, not the execution: a case enters a corpus only through a
+    review-visible edit of two pinned files, and must be a real, main-reachable commit pair whose
+    diff the reviewer reads. A finding of the form "a crafted pair can escape the run" is a
+    statement about this boundary; it becomes a defect when it changes a verdict on a real pair
+    or on an artefact a real pair can produce without intent;
   · (2.7.0 said the lifecycle statuses were "never recomputed". That stopped being true in 2.8.0:
     they are recomputed by execution, and a declared value that disagrees is an error. What is
     STILL not recomputed is whether the acceptance's own semantics are sound — a DELTA_ADDED
