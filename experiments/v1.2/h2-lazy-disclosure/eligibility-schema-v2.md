@@ -2,9 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.7  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.7 = defects raised by real
+VERSION        = 2.8.8  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.8 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
-                 72f0bb4, 617ba01, see §6.7)
+                 72f0bb4, 617ba01, 1e8ac1f, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -168,8 +168,9 @@ FOR EVERY CLASS
     An ADDED acceptance surface derives no rewrite trigger — it does not rewrite an oracle that
     already existed — and is held to §3.1 instead (it must demonstrably fail against the unfixed
     base). An added or rewritten NON-surface file that decides what an acceptance imports (a
-    module shadowing an importable name on an import root, a package under scripts/tests, committed
-    bytecode) derives ACCEPTANCE_SURFACE_IN_WORKER_SCOPE (2.8.5-2.8.6, §6.7)
+    module shadowing an importable name on an import root, any __init__.py under scripts/tests,
+    scripts/__init__.py, sourceless bytecode on an import path) derives
+    ACCEPTANCE_SURFACE_IN_WORKER_SCOPE (2.8.5-2.8.8, §6.7)
   · THE TRANSITION IS RECOMPUTED BY EXECUTION (§3.1). Nothing the record declares substitutes it:
     the declared lifecycle statuses are BOUND to the measured verdicts, and an admissible claim
     whose transition cannot be computed fails closed
@@ -190,7 +191,8 @@ ACCEPTANCE := the CANDIDATE revision's own acceptance surfaces: the regular file
               byte-identically into the base tree, so the BASE verdict cannot be produced by editing
               the acceptance between the two runs. A surface path that resolves through a symlink
               or a case-folded spelling in any tree is SURFACE_PATH_ALIASED, and a surface whose
-              checked-out bytes do not hash (unfiltered) to its tracked blob in any tree is
+              checked-out bytes do not hash (unfiltered) to its tracked blob, or whose exec bit
+              differs from its tracked mode (2.8.7; not compared on Windows), in any tree is
               SURFACE_BYTES_DIVERGE (2.8.5: a checkout filter had rewritten a "frozen" guard) —
               both fail closed. Since 2.8.6 EVERY execution starts from a tree reset to its pinned
               revision, carried bytes come from the object database, the identity checks are
@@ -206,7 +208,7 @@ STATES := base tree · candidate tree · CONTROLLED MUTATION (the candidate tree
           wholesale would rebuild the base tree and make the mutation a no-op by construction)
 
 PROVENANCE (recomputed from the object database, per surface)
-  DELTA_FROZEN    identical blob at both revisions
+  DELTA_FROZEN    identical blob AND mode at both revisions (2.8.7)
   DELTA_ADDED     the delta introduces it
   DELTA_DELETED   the delta removes it (a guard only: never a basis, never a bite)
   DELTA_MODIFIED  the delta rewrites it        <- NEVER a basis: the delta rewrote the thing that
@@ -514,8 +516,10 @@ NOT ENFORCED — out-of-band obligations, named so that a PASS is not mistaken f
     expected to import, can defeat any in-process check. The defence against a deliberately hostile
     pair is the identity root, not the execution: a case enters a corpus only through a
     review-visible edit of three files (the corpus, the validator's digest literal, the test's
-    per-case pair literal), and every LOCAL case must be a first-parent pair on the pinned main —
-    checked mechanically by test_v1_2_h2_admission.CorpusPairsAreMainHistory since 2.8.7. A finding
+    per-case pair literal), and every LOCAL case (both revisions resolve here) must have its base
+    equal to the candidate's first parent and its candidate reachable from the pinned main —
+    checked mechanically by test_v1_2_h2_admission.CorpusPairsAreMainHistory (2.8.7; local is
+    decided by resolvability since 2.8.8, as the validator decides it). A finding
     of the form "a crafted pair can escape the run" is a statement about this boundary; it becomes
     a defect when it changes a verdict on a real pair or on an artefact a real pair can produce
     without intent (as 2.8.7's carried-mode fix did). PRECONDITION: the boundary assumes the inputs
@@ -569,7 +573,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.7 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.8 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -695,6 +699,17 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          differs between Python minor versions (measurements record python_version), a root-level
          `scripts.py` is not flagged (crafted shape), and an __init__.py under a non-package
          directory below scripts/tests is over-refused (fail-closed).
+2.8.8 (Freeze v2 entry: the five P3s the review of 1e8ac1f left open, closure-report P3-1..5)
+  P3-1   scripts/tests/__init__.py is flagged again: 2.8.7 exempted it on a FALSE premise (frozen
+         test_p1_t18 imports scripts.tests.<x>, which runs it). The executor's error, corrected.
+  P3-2   tests for the branches 2.8.7 left untested: mode-only change -> DELTA_MODIFIED; exec bit
+         flipped on disk -> divergence; deleted 100755 guard carried with its mode; PYTHONPATH
+         scrubbed from acceptances.
+  P3-3   checkouts and resets run with core.fileMode=true; the exec-bit comparison is skipped on
+         Windows, where the bit cannot be represented.
+  P3-4   the main-history test selects local cases by resolvability, as the validator does.
+  P3-5   wording (§3, §3.1, §6.6) and a component-exact __pycache__ match.
+REGRESSION (2.8.8)  MutationMaterialisation (34 tests).
 REGRESSION (2.8.7)  MutationMaterialisation (30 tests); the mode test fails against b0c7529; the
          carry-over test kills no_clean.
 REGRESSION (2.8.6)  MutationMaterialisation (28 tests); the four 2.8.6 tests fail against 72f0bb4;
@@ -718,6 +733,33 @@ STILL NOT ENFORCED  a bite proves that a frozen surface depends on SOME added pa
        prove the dependency is the task's target predicate (same limit as §3.2's "single failing
        identity" clause, which stays the reviewer's job). Every B bite admitted so far is the
        markdown link check — a real but shallow guard (admission/README.md).
+```
+
+### 6.8 EXTERNALIZED_ORACLE identities (2.8.8 — Freeze v2's route for real repairs)
+
+The dominant real repair rewrites an existing test, so its historical pair (B, C) derives
+WORKER_MODIFIES_TEST_ORACLE and can never carry a valid request. N2.1's closure fixed the only legal
+route: a NEW task identity with a NEW revision whose oracle is framework-owned — never a silent
+rescue of the old pair. Admission builds exactly that, and the validator checks it rather than
+believing it:
+
+```text
+B'        = B with C's blob AND mode for every rewritten test file, single parent B, fixed
+            metadata (identity FlapPearLabs, dates = C's committer date) — DETERMINISTIC: the same
+            history always yields the same SHA (admission/externalize.py)
+IDENTITY  corpus case (B', C) with kind EXTERNALIZED_ORACLE, original_base B, externalized_paths P.
+VERIFIED  verify_externalized(): B == C^1; B'^@ == [B]; diff(B, B') == {M p : p in P} exactly;
+          each p is mode- and byte-identical in B' and C. Any other byte in B' is refused.
+ANCESTRY  admissible claims need C to descend from B (the original base), since B' is C's sibling.
+ELIGIBLE  only pairs whose derived triggers are exactly WORKER_MODIFIES_TEST_ORACLE on MODIFIED
+          paths; a pair that rewrites a validator stays rejected (externalising it would freeze the
+          fix itself); the new pair (B', C) must derive no trigger of its own.
+CLASS     decided by the recomputed transition as for any pair: A_REPAIR needs the now-frozen
+          oracle red at B' and green at C (FRAMEWORK_FROZEN basis, visible to the worker).
+DURABLE   every B' is reachable from refs/heads/admission/externalized-oracles-v1 (one anchor
+          commit, all B' as parents), pushed with the stage.
+NOT A RESCUE  the historical record of (B, C) is untouched; t02 stays NOT_ADMITTED; the new
+          identity is a different case id with its own measurement.
 ```
 
 ## 7. Relationship to the existing layers

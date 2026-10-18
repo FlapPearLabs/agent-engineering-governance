@@ -1,7 +1,7 @@
 {
  "base_sha": "ca9affe4c58cfaccc2db157e78144f75cac9c601",
  "candidate_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
- "elapsed_s": 77.5,
+ "elapsed_s": 78.1,
  "facts": {
   "base": "ca9affe4c58cfaccc2db157e78144f75cac9c601",
   "candidate": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.7",
-  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
+  "schema_version": "2.8.8",
+  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge pull request #51 from FlapPearLabs/experiment/v1.2-n8-closure-ledger"

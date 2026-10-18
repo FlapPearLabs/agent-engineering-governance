@@ -1,0 +1,25 @@
+{
+ "note": "batch 4 = EXTERNALIZED_ORACLE identities (admission/externalize.py) of the real repairs whose only derived trigger was WORKER_MODIFIES_TEST_ORACLE. Records for every identity whose measured transition supports a class. Full SHAs from the measurement files, never typed.",
+ "discovery": "discovery-externalized.json",
+ "cases": {
+  "b88df0313b3b921978a9869b9422beb686d21f3c": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+  "0ec774f06882b923fd89b2bb52784538a3367477": "r35-governance-ext-evaluate-character-classes-with-ecma",
+  "1b48d2bb44e56c453a97b82bf5c88df2e89d0791": "r36-governance-ext-evaluate-declared-patterns-with-ecma",
+  "89b97e3b65d3f13ec21d2b837457f63f8aff7c02": "r37-governance-ext-make-the-p1-t02-mandatory",
+  "33cfcc890e38032ba932e8de30fa30d5721d737a": "r38-governance-ext-remove-local-digest-fallback-use",
+  "51e7604be3689f31142d17144893790000efac30": "r39-governance-ext-refuse-every-scheme-form-evidence",
+  "12c32f41898a5cec8db9346637c78800978f7549": "r40-governance-ext-make-the-p1-t11-pre",
+  "0046c3648c4e6b2530c06cfce80df30c64d66ab6": "r41-governance-ext-scope-the-not-auditable-rule",
+  "1eaaea2c97bfe6ef36ae811298a68a52e04b554a": "r42-governance-ext-treat-a-partially-populated-reuse",
+  "b03d1811f63a6dbc4f8a983c336518df6bfd492c": "r43-governance-ext-ground-the-reuse-blank-test",
+  "579f6d5e7762610382e4362f668efaffc51f04ce": "r44-governance-ext-converge-the-p1-p2-findings",
+  "58870aaebfbd5f9051fed65865a69f5f664814ae": "r45-governance-ext-close-an-evidence-orphaning-bug",
+  "16e30499fcb0bd45abd47f063763708662c12e65": "r46-governance-ext-close-the-guard-strength-gaps",
+  "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481": "r47-governance-ext-the-agents-guard-was-pinning",
+  "4935283172615de9e0954b67fee710c3b96eb549": "r48-governance-ext-close-the-three-guard-holes",
+  "97ec8027d4744219e41e993ce5da361f99cda087": "r49-governance-ext-roll-p22-up-and-stop",
+  "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e": "r50-governance-ext-bind-skill-evidence-reads-to",
+  "f2f95f1d67cd903f8a3029b88abe62b6975b10ce": "r51-governance-ext-preserve-the-consumer-specified-skill",
+  "8c0075c5db0e06eec67d303955d13e214ba22782": "r52-governance-ext-apply-skill-receipt-checks-at"
+ }
+}

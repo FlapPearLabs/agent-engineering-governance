@@ -1,0 +1,31 @@
+{
+ "base_sha": "f1953504789df6a0733646a2a36f5c5461805184",
+ "candidate_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+   "kind": "TEST",
+   "provenance": "DELTA_FROZEN",
+   "base": {
+    "rc": 1,
+    "ran": 29,
+    "verdict_line": "FAILED",
+    "failures": 3,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 29,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

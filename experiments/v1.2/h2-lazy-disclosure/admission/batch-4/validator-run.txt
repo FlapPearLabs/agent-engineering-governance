@@ -1,0 +1,39 @@
+  TRANSITION r34-governance-ext-enforce-anchored-schema-patterns-and class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_review_evidence_contract.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r35-governance-ext-evaluate-character-classes-with-ecma class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_review_evidence_contract.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r36-governance-ext-evaluate-declared-patterns-with-ecma class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_review_evidence_contract.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r37-governance-ext-make-the-p1-t02-mandatory class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r38-governance-ext-remove-local-digest-fallback-use class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t05_evidence_disposition.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r39-governance-ext-refuse-every-scheme-form-evidence class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t06_producer_trust_boundary.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r40-governance-ext-make-the-p1-t11-pre class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t11_destructive_workspace_transaction.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r41-governance-ext-scope-the-not-auditable-rule class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t10_audit_visibility_recipe.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r42-governance-ext-treat-a-partially-populated-reuse class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t08_evidence_lifecycle.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r43-governance-ext-ground-the-reuse-blank-test class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t08_evidence_lifecycle.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r44-governance-ext-converge-the-p1-p2-findings class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r45-governance-ext-close-an-evidence-orphaning-bug class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r46-governance-ext-close-the-guard-strength-gaps class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r47-governance-ext-the-agents-guard-was-pinning class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r48-governance-ext-close-the-three-guard-holes class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r49-governance-ext-roll-p22-up-and-stop class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t18_defect_promotion_fast_full.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r50-governance-ext-bind-skill-evidence-reads-to class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_skill_execution.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r51-governance-ext-preserve-the-consumer-specified-skill class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_skill_execution.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r52-governance-ext-apply-skill-receipt-checks-at class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_skill_execution.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  r34-governance-ext-enforce-anchored-schema-patterns-and class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r35-governance-ext-evaluate-character-classes-with-ecma class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r36-governance-ext-evaluate-declared-patterns-with-ecma class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r37-governance-ext-make-the-p1-t02-mandatory class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r38-governance-ext-remove-local-digest-fallback-use class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r39-governance-ext-refuse-every-scheme-form-evidence class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r40-governance-ext-make-the-p1-t11-pre       class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r41-governance-ext-scope-the-not-auditable-rule class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r42-governance-ext-treat-a-partially-populated-reuse class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r43-governance-ext-ground-the-reuse-blank-test class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r44-governance-ext-converge-the-p1-p2-findings class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r45-governance-ext-close-an-evidence-orphaning-bug class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r46-governance-ext-close-the-guard-strength-gaps class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r47-governance-ext-the-agents-guard-was-pinning class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r48-governance-ext-close-the-three-guard-holes class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r49-governance-ext-roll-p22-up-and-stop      class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r50-governance-ext-bind-skill-evidence-reads-to class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r51-governance-ext-preserve-the-consumer-specified-skill class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r52-governance-ext-apply-skill-receipt-checks-at class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+TASK_CLASS_VERDICT = PASS records=19 valid_requests=19 rejected=0 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)

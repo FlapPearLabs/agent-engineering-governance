@@ -73,7 +73,7 @@ class AdmissionCorpusStaysOutOfH3(unittest.TestCase):
         sys.path.insert(0, str(ROOT / "experiments" / "v1.2"))
         import structure_delta
         cases = structure_delta.load_replay_cases(ADM / "corpus.yaml")
-        self.assertEqual(27, len(cases))
+        self.assertEqual(46, len(cases))
         for c in cases:
             self.assertEqual(
                 structure_delta._aligned(c["expected_signals"]),
@@ -82,8 +82,9 @@ class AdmissionCorpusStaysOutOfH3(unittest.TestCase):
 
 
 class CorpusPairsAreMainHistory(unittest.TestCase):
-    """The execution boundary (schema §6.6) rests on every LOCAL corpus case being a real
-    main-reachable pair whose base is the candidate's first parent; review of 617ba01 noted this
+    """The execution boundary (schema §6.6) rests on every LOCAL corpus case (one whose revisions
+    resolve here — the validator's own test) having a candidate reachable from main and a base that
+    is the candidate's first parent; review of 617ba01 noted this
     was a review obligation only. It is now checked for both corpora."""
 
     MAIN = "5ab500e5478b671f43df80a78730ca172da6cf2b"
@@ -93,8 +94,12 @@ class CorpusPairsAreMainHistory(unittest.TestCase):
         pairs = ctc.corpus_pairs(ctc.Repo(ROOT))
         self.assertTrue(pairs)
         local = 0
+        repo_view = ctc.Repo(ROOT)
+        meta_all = ctc.corpus_meta(repo_view)
+        externalized = 0
         for case_id, (base, cand, repo) in pairs.items():
-            if repo != "FlapPearLabs/agent-engineering-governance":
+            # LOCAL exactly as the validator decides it — by resolvability, not by the label
+            if not (repo_view.has_commit(base) and repo_view.has_commit(cand)):
                 continue                          # external (r01): verified out of band
             local += 1
             self.assertEqual(0, subprocess.run(["git", "-C", str(ROOT), "merge-base",
@@ -102,8 +107,16 @@ class CorpusPairsAreMainHistory(unittest.TestCase):
                              f"{case_id}: candidate not reachable from main {self.MAIN[:12]}")
             first = subprocess.run(["git", "-C", str(ROOT), "rev-parse", cand + "^1"],
                                    capture_output=True, text=True, check=True).stdout.strip()
-            self.assertEqual(first, base, f"{case_id}: base is not the first parent")
-        self.assertEqual(31, local)
+            meta = meta_all.get(case_id, {})
+            if meta.get("kind") == "EXTERNALIZED_ORACLE":
+                # a NEW revision: its ORIGINAL base is the first parent, and the validator
+                # verifies the externalised base against it (verify_externalized)
+                self.assertEqual(first, meta.get("original_base"), case_id)
+                self.assertEqual([], ctc.verify_externalized(repo_view, case_id, base, cand, meta))
+                externalized += 1
+            else:
+                self.assertEqual(first, base, f"{case_id}: base is not the first parent")
+        self.assertEqual(31 + externalized, local)
 
 
 class DiscoveryIsReproducible(unittest.TestCase):
@@ -143,7 +156,7 @@ class BatchIdentityAndLedger(unittest.TestCase):
         self.corpus = self.ctc.corpus_pairs(self.ctc.Repo(ROOT))
 
     def test_batches_exist(self):
-        self.assertEqual(["batch-1", "batch-2", "batch-3"], [b.name for b in BATCHES])
+        self.assertEqual(["batch-1", "batch-2", "batch-3", "batch-4"], [b.name for b in BATCHES])
 
     def test_every_claimed_case_is_that_corpus_case(self):
         self.assertTrue(self.corpus, "the corpus did not load under its pinned digest")
@@ -159,7 +172,11 @@ class BatchIdentityAndLedger(unittest.TestCase):
                 self.assertEqual(cand, want_cand, case_id)
                 parent = subprocess.run(["git", "-C", str(ROOT), "rev-parse", cand + "^"],
                                         capture_output=True, text=True, check=True).stdout.strip()
-                self.assertEqual(parent, base, case_id)
+                meta = self.ctc.corpus_meta(self.ctc.Repo(ROOT)).get(case_id, {})
+                if meta.get("kind") == "EXTERNALIZED_ORACLE":
+                    self.assertEqual(parent, meta.get("original_base"), case_id)
+                else:
+                    self.assertEqual(parent, base, case_id)
                 self.assertEqual("FlapPearLabs/agent-engineering-governance", repo)
             self.assertEqual(sorted(cmap.values()),
                              sorted(r["corpus_case_id"] for r in doc["records"]))
@@ -218,11 +235,13 @@ class BatchIdentityAndLedger(unittest.TestCase):
                                                    if carried["provenance"] == "DELTA_ADDED"
                                                    else "FRAMEWORK_FROZEN"), rec["corpus_case_id"])
 
-    # one record per stratum: A on an added oracle, A on a frozen oracle, B, C, A on a PR merge.
+    # one record per stratum: A on an added oracle, A on a frozen oracle, B, C, A on a PR merge,
+    # A on an EXTERNALIZED_ORACLE identity.
     # The full re-validation of every record is the reviewer command in admission/README.md.
     SAMPLE = ("r09-governance-seam-contract-partitions", "r24-governance-bootstrap-budget-repair-round-2",
               "r30-governance-h3a-replay-results", "r08-governance-project-continuity-contract",
-              "r31-governance-pr1-global-governance-audit")
+              "r31-governance-pr1-global-governance-audit",
+              "r34-governance-ext-enforce-anchored-schema-patterns-and")
 
     def test_a_stratified_sample_revalidates_exactly_as_recorded(self):
         records, recorded = [], {}

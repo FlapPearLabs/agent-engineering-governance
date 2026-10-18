@@ -1,7 +1,7 @@
 {
  "base_sha": "51e7604be3689f31142d17144893790000efac30",
  "candidate_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
- "elapsed_s": 26.2,
+ "elapsed_s": 26.8,
  "facts": {
   "base": "51e7604be3689f31142d17144893790000efac30",
   "candidate": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
@@ -135,8 +135,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.7",
-  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
+  "schema_version": "2.8.8",
+  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage3/lane-c): state the evidence consumption and reviewer-authority separation rule (Issue #19)"

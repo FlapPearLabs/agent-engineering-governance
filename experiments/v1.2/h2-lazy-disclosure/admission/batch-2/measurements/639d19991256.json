@@ -1,7 +1,7 @@
 {
  "base_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
  "candidate_sha": "639d19991256156bc9d2cec266e611931d6a8645",
- "elapsed_s": 76.3,
+ "elapsed_s": 75.9,
  "facts": {
   "base": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
   "candidate": "639d19991256156bc9d2cec266e611931d6a8645",
@@ -230,8 +230,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.7",
-  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
+  "schema_version": "2.8.8",
+  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): record H1 round-1 evidence closure ledger"

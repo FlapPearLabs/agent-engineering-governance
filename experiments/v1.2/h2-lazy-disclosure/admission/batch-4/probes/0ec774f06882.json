@@ -1,0 +1,31 @@
+{
+ "base_sha": "ffb8db0dd2122a56004dea40f492fb87a0d0dbb9",
+ "candidate_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+ "probes": [
+  {
+   "path": "scripts/tests/test_review_evidence_contract.py",
+   "kind": "TEST",
+   "provenance": "DELTA_FROZEN",
+   "base": {
+    "rc": 1,
+    "ran": 53,
+    "verdict_line": "FAILED",
+    "failures": 28,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 53,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

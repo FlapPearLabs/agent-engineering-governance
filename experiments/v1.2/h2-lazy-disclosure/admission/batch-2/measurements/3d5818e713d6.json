@@ -1,7 +1,7 @@
 {
  "base_sha": "cea9acc4989d982e0717486687713fcbc5a01297",
  "candidate_sha": "3d5818e713d6f0acd5edf626aa1311ed902243ce",
- "elapsed_s": 40.6,
+ "elapsed_s": 40.9,
  "facts": {
   "base": "cea9acc4989d982e0717486687713fcbc5a01297",
   "candidate": "3d5818e713d6f0acd5edf626aa1311ed902243ce",
@@ -198,8 +198,8 @@
   "python_version": "3.13.12",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.7",
-  "validator_sha256": "6f9e807340c9dd828f88d25d38acd2ce611c8b44a669a006f471b17961a856cb",
+  "schema_version": "2.8.8",
+  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
   "acceptance_timeout_s": 300
  },
  "subject": "docs(adapters): closeout - align current-state with observed deployment evidence"

@@ -45,7 +45,7 @@ for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (111) was produced by validator **2.8.7** — `environment.validator_sha256`
+Every measurement file (168) was produced by validator **2.8.8** — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
 and fail CLOSED (WORKTREE_MATERIALISATION_FAILED) — re-run that pair serially; it is never a pass.
@@ -65,14 +65,15 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.7; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.8; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
 batch 1 (commits)       17      15       2              0
 batch 2 (frozen scan)    8       5       3              0      (75 pairs: no transition, no record)
 batch 3 (PR merges)      3       3       0              0      (8 pairs: no transition, no record)
-TOTAL                   28      23       5              0
+batch 4 (externalized)  19      19       0              0      (57 identities built; 38 no transition)
+TOTAL                   47      42       5              0
 ```
 
 Records are made for every pair whose measured transition supports a class, plus the rejections
@@ -220,4 +221,31 @@ GOOD H2 TASKS            NOT YET SHOWN — FZ-ADM-1..5, 8, 9 are open; the stron
 FURTHER SEARCH HERE      not useful: every non-merge and merge pair of main was routed and every
                          routable pair executed. More strong tasks need FZ-ADM-6 (new identities
                          with externally frozen oracles) or FZ-ADM-7 (a round-scope decision).
+```
+
+## 7. Freeze v2 inputs (the governance-repo route the user chose on 2026-10-18)
+
+```text
+EXTERNALIZED_ORACLE  57 real repairs whose ONLY derived trigger was WORKER_MODIFIES_TEST_ORACLE were
+                     given new identities (B', C) by externalize.py (schema §6.8); B' is
+                     deterministic and verified by the validator; all B' are reachable from the
+                     pushed branch admission/externalized-oracles-v1. 19 measure A_REPAIR on a
+                     FRAMEWORK_FROZEN oracle (batch 4); one of them (r46) regresses another guard.
+ALIGNMENT            alignment.py over every hidden-oracle doc request: 7 NOT_ALIGNED, 6 NO_TICKET,
+                     0 ALIGNED -> the doc-recipe family drops out (freeze-v2-input/alignment.json).
+SHORTLIST            select.py rules S1-S5 (freeze-v2-input/shortlist.json): 10 tasks, every one a
+                     real repair judged by a VISIBLE, framework-frozen test, one per oracle file:
+  r34-governance-ext-enforce-anchored-schema-patterns- test_review_evidence_contract.py
+  r37-governance-ext-make-the-p1-t02-mandatory         test_p1_t02_execution_stage_pre_ticket_record.py
+  r38-governance-ext-remove-local-digest-fallback-use  test_p1_t05_evidence_disposition.py
+  r39-governance-ext-refuse-every-scheme-form-evidence test_p1_t06_producer_trust_boundary.py
+  r40-governance-ext-make-the-p1-t11-pre               test_p1_t11_destructive_workspace_transaction.py
+  r41-governance-ext-scope-the-not-auditable-rule      test_p1_t10_audit_visibility_recipe.py
+  r42-governance-ext-treat-a-partially-populated-reuse test_p1_t08_evidence_lifecycle.py
+  r24-governance-bootstrap-budget-repair-round-2       test_p1_t09_bootstrap_byte_budget.py
+  r44-governance-ext-converge-the-p1-p2-findings       test_p1_t18_defect_promotion_fast_full.py
+  r50-governance-ext-bind-skill-evidence-reads-to      test_skill_execution.py
+STILL TO DO IN FREEZE V2   delivery anchors per task (schema §6.4), route preconditions per base
+                     (protocol §10), task texts ("make <oracle> pass without modifying tests"), the
+                     counterbalanced run plan, the frozen surface, and the fresh review.
 ```

@@ -87,7 +87,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.7"
+SCHEMA_VERSION = "2.8.8"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -99,7 +99,7 @@ CORPUS_SHA256 = "5d898b1a6db8fb16116a3cbec58c7078d780e379dd58d6d54553645291cda73
 # unreviewed H2 anchors as detector cases (fresh review of 4add2ca, finding 4). The identity root is
 # the union of the two files; a case id may appear in only one of them.
 H2_CORPUS = "experiments/v1.2/h2-lazy-disclosure/admission/corpus.yaml"
-H2_CORPUS_SHA256 = "3c69a9d9eaa13fa43d87387a88d8840959ca6baa97f46ba748ec9da656151d5b"
+H2_CORPUS_SHA256 = "7a54a805d1a1b52c364cef42dae31e38351d2e08124fec29e7c0e16d949749ee"
 CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD", "C_REJECT")
 ADMISSIBLE_CLASSES = ("A_REPAIR", "B_REGRESSION_GUARD")
 TRIGGER_CODES = (
@@ -184,6 +184,9 @@ def hashlib_digest_ok(path, constant: str = "CORPUS_SHA256") -> bool:
     return hashlib.sha256(path.read_bytes()).hexdigest() == globals()[constant]
 
 
+_CORPUS_META: dict[str, dict[str, dict[str, str]]] = {}
+
+
 def _parse_corpus(path: Path) -> tuple[dict[str, list[str]], set[str]]:
     """(case_id -> [base, candidate, repository], every case id named) for one corpus file.
 
@@ -193,6 +196,7 @@ def _parse_corpus(path: Path) -> tuple[dict[str, list[str]], set[str]]:
     refused, which is how it was found. Parsing stops at the first top-level key after the cases
     list and resets on any list item that is not a `case_id`.
     """
+    _CORPUS_META[str(path)] = {}         # reset: a re-read never keeps stale fields
     out: dict[str, list[str]] = {}
     named: set[str] = set()
     current = None
@@ -225,6 +229,11 @@ def _parse_corpus(path: Path) -> tuple[dict[str, list[str]], set[str]]:
         m = re.match(r"\s+source_repository:\s*(\S+)\s*$", line)
         if m and current:
             out[current][2] = m.group(1)
+            continue
+        # externalised-oracle identities (2.8.8): kind, original_base, externalized_paths
+        m = re.match(r"\s+(kind|original_base|externalized_paths):\s*(.+?)\s*$", line)
+        if m and current:
+            _CORPUS_META.setdefault(str(path), {}).setdefault(current, {})[m.group(1)] = m.group(2)
     return out, named
 
 
@@ -245,6 +254,60 @@ def _read_corpora(repo: Repo):
         merged.update(pairs)
         named |= ids
     return merged, named
+
+
+def corpus_meta(repo: Repo) -> dict[str, dict[str, str]]:
+    """case_id -> the extra identity fields a case declares (kind, original_base,
+    externalized_paths); empty for an ordinary historical pair. Read under the same pins."""
+    if _read_corpora(repo) is None:
+        return {}
+    merged: dict[str, dict[str, str]] = {}
+    for rel, _constant in CORPORA:
+        merged.update(_CORPUS_META.get(str(repo.root / rel), {}))
+    return merged
+
+
+EXTERNALIZED_KIND = "EXTERNALIZED_ORACLE"
+
+
+def verify_externalized(repo: Repo, case_id: str, base: str, cand: str,
+                        meta: dict[str, str]) -> list[str]:
+    """An EXTERNALIZED_ORACLE identity is a NEW revision B' built from a real pair (B, C): B' is B
+    with C's version of every externalised test file. Everything about B' is checked from the
+    object database, so the identity cannot carry anything but those bytes (2.8.8):
+      B is a 40-hex revision and is C's FIRST parent; B' has exactly one parent, B; the tree
+      difference B -> B' is exactly one modification per externalised path and nothing else; and
+      each externalised path is byte- and mode-identical in B' and C."""
+    errs: list[str] = []
+    orig = meta.get("original_base", "")
+    try:
+        paths = json.loads(meta.get("externalized_paths", "null"))
+    except ValueError:
+        paths = None
+    if not SHA_RE.match(orig):
+        return [f"{case_id}: an {EXTERNALIZED_KIND} case needs a 40-hex original_base"]
+    if not isinstance(paths, list) or not paths or not all(isinstance(x, str) and x for x in paths):
+        return [f"{case_id}: an {EXTERNALIZED_KIND} case needs a non-empty externalized_paths list"]
+    first = repo.git("rev-parse", "--verify", "-q", f"{cand}^1")
+    if first.stdout.strip() != orig:
+        errs.append(f"{case_id}: original_base {orig[:12]} is not the candidate's first parent")
+    parents = repo.git("rev-list", "--parents", "-n1", base).stdout.split()[1:]
+    if parents != [orig]:
+        errs.append(f"{case_id}: the externalised base {base[:12]} must have exactly one parent, "
+                    f"the original base (has {[x[:12] for x in parents]})")
+    delta = repo.git("diff", "--no-ext-diff", "--no-renames", "--name-status", "-z", orig, base,
+                     "--").stdout.split("\0")
+    got = sorted(zip(delta[0::2], delta[1::2]))
+    if got != sorted(("M", x) for x in paths):
+        errs.append(f"{case_id}: the externalised base differs from the original base by {got}, "
+                    f"not by exactly the externalised paths {sorted(paths)}")
+    for x in paths:
+        a = repo.git("ls-tree", base, "--", x).stdout.split("\t")[0]
+        b = repo.git("ls-tree", cand, "--", x).stdout.split("\t")[0]
+        if not a or a != b:
+            errs.append(f"{case_id}: externalised path {x} is not mode- and byte-identical in the "
+                        f"externalised base and the candidate")
+    return errs
 
 
 def corpus_pairs(repo: Repo) -> dict[str, tuple[str, str, str]]:
@@ -387,10 +450,11 @@ def derived_triggers(changed) -> dict[str, list[str]]:
 #              Cached bytecode under __pycache__/ is inert — acceptances run with a fresh
 #              PYTHONPYCACHEPREFIX — and real history commits some (under adapters/), so it is
 #              not flagged (2.8.7).
-#   PACKAGE    an __init__.py strictly BELOW scripts/tests/ (discovery imports package dirs; the
-#              start dir's own scripts/tests/__init__.py is not imported), and scripts/__init__.py
-#              (it turns the `scripts` namespace that frozen tests import into a regular package
-#              whose __init__ runs first)
+#   PACKAGE    any __init__.py under scripts/tests/ (discovery imports package dirs below the start
+#              dir, and a frozen test that imports `scripts.tests.<x>` — test_p1_t18 does — runs
+#              scripts/tests/__init__.py itself; 2.8.7 wrongly exempted it, restored in 2.8.8), and
+#              scripts/__init__.py (it turns the `scripts` namespace that frozen tests import into a
+#              regular package whose __init__ runs first)
 #   SHADOW     a top-level module (<n>.py, <n>.<abi>.so/.pyd, <n>/__init__.py) on any import root
 #              whose name the acceptance interpreter can otherwise import
 IMPORT_ROOTS = ("scripts/tests/", "scripts/", "")
@@ -460,10 +524,10 @@ def shadow_paths(paths: list[str]) -> dict[str, str]:
     out: dict[str, str] = {}
     named: dict[str, str] = {}
     for path in paths:
-        if BYTECODE_RE.search(path) and "__pycache__/" not in path and _on_import_path(path):
+        if (BYTECODE_RE.search(path) and "__pycache__" not in path.split("/")
+                and _on_import_path(path)):
             out[path] = "BYTECODE"
-        elif (path.startswith("scripts/tests/") and path.endswith("/__init__.py")
-              and path != "scripts/tests/__init__.py"):
+        elif path.startswith("scripts/tests/") and path.endswith("/__init__.py"):
             out[path] = "PACKAGE_IMPORTED_BY_DISCOVERY"
         elif path == "scripts/__init__.py":
             out[path] = "PACKAGE_MARKER:scripts"
@@ -581,9 +645,12 @@ def _bytes_diverge(wt: Path, expected: dict[str, tuple[str, str]]) -> str | None
         return None
     rels = sorted(expected)
     for rel in rels:
-        executable = bool((wt / rel).stat().st_mode & 0o100) if (wt / rel).is_file() else None
-        if executable is None or executable != (expected[rel][1] == "100755"):
+        if not (wt / rel).is_file():
             return rel
+        if os.name != "nt":                  # Windows cannot represent the exec bit (P3-3)
+            executable = bool((wt / rel).stat().st_mode & 0o100)
+            if executable != (expected[rel][1] == "100755"):
+                return rel
     r = subprocess.run(["git", "-C", str(wt), "hash-object", "--no-filters", "--stdin-paths"],
                        input="\n".join(rels) + "\n", capture_output=True, text=True)
     got = r.stdout.split()
@@ -644,15 +711,17 @@ class _IsolationFailure(Exception):
         self.token, self.path = token, path
 
 
-# Checkouts must not transform bytes on the way out (core.autocrlf=true is Git for Windows'
-# default and rewrote every surface; fresh review of 72f0bb4, finding 4).
-NEUTRAL_CHECKOUT = ("-c", "core.autocrlf=false", "-c", "core.eol=lf")
+# Checkouts must not transform bytes or modes on the way out (core.autocrlf=true is Git for
+# Windows' default and rewrote every surface; fresh review of 72f0bb4, finding 4; fileMode: 2.8.8).
+NEUTRAL_CHECKOUT = ("-c", "core.autocrlf=false", "-c", "core.eol=lf", "-c", "core.fileMode=true")
 
 
 def _reset(wt: Path, rev: str) -> bool:
     """Put a worktree back to exactly revision `rev` — pinned when the tree was materialised, NOT
     read from HEAD, because a run can stage, commit or move HEAD: index, HEAD and tracked files
     restored, every untracked or ignored file (written by a run, or carried in) removed."""
+    # NEUTRAL_CHECKOUT carries core.fileMode=true: a run may chmod a file, and with
+    # fileMode=false reset would not restore the mode (review of 1e8ac1f, P3-3)
     restore = subprocess.run(["git", "-C", str(wt), *NEUTRAL_CHECKOUT,
                               "-c", "core.hooksPath=/dev/null", "reset", "-q", "--hard", rev],
                              capture_output=True)
@@ -1001,6 +1070,16 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                        f"{base[:12]} -> {cand[:12]}) — identity is recomputed from the corpus, not "
                        f"taken from the record")
 
+    # --- externalised-oracle identity (2.8.8): the new revision is checked, not believed ---------
+    if case_id and isinstance(case_id, str) and have_pair and corpus and case_id in corpus:
+        meta = corpus_meta(repo).get(case_id, {})
+        kind = meta.get("kind")
+        if kind is not None and kind != EXTERNALIZED_KIND:
+            err.append(f"{cid}: unknown corpus case kind {kind!r}")
+        elif kind == EXTERNALIZED_KIND:
+            err.extend(f"{cid}: {e}" for e in
+                       verify_externalized(repo, case_id, base, cand, meta))
+
     # --- revision binding ----------------------------------------------------------------------
     binding = rec.get("sha_binding")
     if binding not in SHA_BINDINGS:
@@ -1016,10 +1095,20 @@ def check_record(rec: dict, repo: Repo, classification_dir: Path,
                 err.append(f"{cid}: the pair is degenerate (base == candidate) — a revision is its "
                            f"own ancestor, so an equal pair would otherwise pass the ancestry test "
                            f"while describing no delta at all")
-            elif admissible_claim and not repo.is_ancestor(base, cand):
-                err.append(f"{cid}: a claim of {cls} requires the candidate to descend from the "
-                           f"base, and {cand[:12]} does not descend from {base[:12]} — recomputed "
-                           f"from the object database, not read from the record")
+            elif admissible_claim:
+                # An EXTERNALIZED_ORACLE base B' is a SIBLING of the candidate (both children of
+                # the original base B), never its ancestor. For that identity the ancestry is
+                # required of B — which verify_externalized() has proven is the candidate's first
+                # parent, with B' = B + exactly the externalised oracle files (2.8.8).
+                meta = (corpus_meta(repo).get(case_id, {})
+                        if isinstance(case_id, str) else {})
+                ext = meta.get("kind") == EXTERNALIZED_KIND
+                anchor = meta.get("original_base", "") if ext else base
+                if not (SHA_RE.match(anchor or "") and repo.is_ancestor(anchor, cand)):
+                    err.append(f"{cid}: a claim of {cls} requires the candidate to descend from "
+                               f"the {'original ' if ext else ''}base, and {cand[:12]} does not "
+                               f"descend from {str(anchor)[:12]} — recomputed from the object "
+                               f"database, not read from the record")
         elif True in local_pair:
             err.append(f"{cid}: exactly one of the two revisions resolves here — an inconsistent "
                        f"pair cannot be a basis for classification")

@@ -1,0 +1,31 @@
+{
+ "base_sha": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+ "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+   "kind": "TEST",
+   "provenance": "DELTA_FROZEN",
+   "base": {
+    "rc": 1,
+    "ran": 38,
+    "verdict_line": "FAILED",
+    "failures": 17,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 38,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,246 @@
+{
+ "program": "admission/alignment.py",
+ "min_len": 6,
+ "summary": {
+  "NO_TICKET": 6,
+  "NOT_ALIGNED": 7,
+  "VISIBLE_FROZEN_ORACLE": 11
+ },
+ "rows": [
+  {
+   "CASE_ID": "r07-governance-external-findings-f1-f7",
+   "CANDIDATE_SHA": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "ORACLE": "scripts/validate_governance.py",
+   "REQUIRED_LITERALS": 24,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r09-governance-seam-contract-partitions",
+   "CANDIDATE_SHA": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "ORACLE": "scripts/tests/test_seam_contract_partitions.py",
+   "REQUIRED_LITERALS": 71,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r10-governance-p1-t02-pre-ticket-record",
+   "CANDIDATE_SHA": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "ORACLE": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+   "REQUIRED_LITERALS": 20,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r12-governance-p1-t03-closure-evidence",
+   "CANDIDATE_SHA": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "ORACLE": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+   "REQUIRED_LITERALS": 21,
+   "TICKETS": [
+    "17"
+   ],
+   "MISSING": 7,
+   "MISSING_SAMPLE": [
+    "ENTRYPOINT_DISCONNECTED",
+    "REAL_ENTRYPOINT -> 真实入口",
+    "不存在合法生产调用者路径",
+    "不通过本条证据路径关闭",
+    "也不得关闭该集成票"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r14-governance-p1-t07-evidence-consumption",
+   "CANDIDATE_SHA": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "ORACLE": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+   "REQUIRED_LITERALS": 26,
+   "TICKETS": [
+    "19"
+   ],
+   "MISSING": 20,
+   "MISSING_SAMPLE": [
+    "## 1. 评审分级（L0/L1/L2）",
+    "## 4. PASS 语义与 findings 处置",
+    "AC-44-P",
+    "CE-28-D",
+    "CE-35-A"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r15-governance-p1-t11-destructive-transaction",
+   "CANDIDATE_SHA": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "ORACLE": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+   "REQUIRED_LITERALS": 79,
+   "TICKETS": [
+    "23"
+   ],
+   "MISSING": 38,
+   "MISSING_SAMPLE": [
+    "## 4. Scope 核验（L0；语义优先）",
+    "## 5. Exact-SHA 评审协议",
+    "### 5.1 集成关闭证据（INTEGRATION CLOSURE EVIDENCE）",
+    "### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）",
+    "CLOSURE-REQUIRED"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r16-governance-p1-t10-audit-visibility",
+   "CANDIDATE_SHA": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "ORACLE": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+   "REQUIRED_LITERALS": 59,
+   "TICKETS": [
+    "22"
+   ],
+   "MISSING": 38,
+   "MISSING_SAMPLE": [
+    "## 1. 评审分级（L0/L1/L2）",
+    "## 4. PASS 语义与 findings 处置",
+    "### 6.1",
+    "### 6.2",
+    "### 6.3"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r18-governance-p1-t12-single-writer",
+   "CANDIDATE_SHA": "07430d179138595497ddd8c20a934a93b46620b9",
+   "ORACLE": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+   "REQUIRED_LITERALS": 41,
+   "TICKETS": [
+    "20"
+   ],
+   "MISSING": 35,
+   "MISSING_SAMPLE": [
+    "## 1. Lane 契约（默认；仓政策可定义例外）",
+    "## 2. 读权威与 Relevant Surface Manifest",
+    "## 3. Contract Extraction（MEDIUM/HIGH 必备字段块）",
+    "## 4. Counterexample-first TDD",
+    "## 5. 实现与自审"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r19-governance-p1-t13-learning-closure",
+   "CANDIDATE_SHA": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "ORACLE": "scripts/tests/test_p1_t13_learning_closure.py",
+   "REQUIRED_LITERALS": 36,
+   "TICKETS": [
+    "13",
+    "25"
+   ],
+   "MISSING": 26,
+   "MISSING_SAMPLE": [
+    "## 1. 晋升判定",
+    "## 2. 已晋升内容（V1.1，源自原始 MEMORY 的 durable 工程知识）",
+    "## 3. 原始 MEMORY 的其余内容",
+    "## 4. Learning 关闭条件（按需 recipe；非每票模板）",
+    "### 记忆路由（V1.1.2，与 project-state-persistence §9 同步）"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r20-governance-p1-t14-model-dispatch",
+   "CANDIDATE_SHA": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "ORACLE": "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+   "REQUIRED_LITERALS": 34,
+   "TICKETS": [
+    "14"
+   ],
+   "MISSING": 26,
+   "MISSING_SAMPLE": [
+    "## 1. Skill 路由表（按流程阶段；2026-09-05 安装与契约核验）",
+    "## 2. 模型路由（RISK FIRST, MODEL SECOND；D 层默认）",
+    "## 3. 平台映射备注",
+    "## 4. 派发元数据 recipe（MODEL_DISPATCH_METADATA；RISK FIRST, MODEL SECOND）",
+    "**profile / 可更新值，不是不变量**"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r21-governance-p1-t18-defect-promotion",
+   "CANDIDATE_SHA": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "REQUIRED_LITERALS": 119,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r22-governance-v12-experiment-foundation",
+   "CANDIDATE_SHA": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "ORACLE": "scripts/tests/test_experiment_v12_foundation.py",
+   "REQUIRED_LITERALS": 49,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r24-governance-bootstrap-budget-repair-round-2",
+   "CANDIDATE_SHA": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "ORACLE": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r27-governance-memory-preset-budget-restore",
+   "CANDIDATE_SHA": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "ORACLE": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r31-governance-pr1-global-governance-audit",
+   "CANDIDATE_SHA": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "ORACLE": "scripts/validate_governance.py",
+   "REQUIRED_LITERALS": 53,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "CANDIDATE_SHA": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "ORACLE": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r40-governance-ext-make-the-p1-t11-pre",
+   "CANDIDATE_SHA": "12c32f41898a5cec8db9346637c78800978f7549",
+   "ORACLE": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r41-governance-ext-scope-the-not-auditable-rule",
+   "CANDIDATE_SHA": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "ORACLE": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r44-governance-ext-converge-the-p1-p2-findings",
+   "CANDIDATE_SHA": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r45-governance-ext-close-an-evidence-orphaning-bug",
+   "CANDIDATE_SHA": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r46-governance-ext-close-the-guard-strength-gaps",
+   "CANDIDATE_SHA": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r47-governance-ext-the-agents-guard-was-pinning",
+   "CANDIDATE_SHA": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r48-governance-ext-close-the-three-guard-holes",
+   "CANDIDATE_SHA": "4935283172615de9e0954b67fee710c3b96eb549",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r49-governance-ext-roll-p22-up-and-stop",
+   "CANDIDATE_SHA": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  }
+ ]
+}

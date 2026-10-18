@@ -50,6 +50,9 @@ ROUTING = {
     "DEFERRED_FROZEN_BASIS_SCAN": "its delta rewrites no test and no validator (derived triggers "
                                   "empty) and adds no acceptance surface, so every frozen surface "
                                   "was executed",
+    "EXTERNALIZED_ORACLE": "it is a NEW identity (B', C): B' is the original base plus the "
+                           "candidate's version of the rewritten tests (admission/externalize.py), "
+                           "so the oracle is framework-frozen and the delta derives no trigger",
 }
 
 
@@ -94,6 +97,12 @@ def record(case_id: str, m: dict, mpath: Path, ppath: Path, dpath: Path, pair: d
         # the delta rewrites no test and no validator: discovery routed this pair here only
         # because ctc.derived_triggers() is empty for it, and the validator re-derives that fact
         "disclosures": {"historical_delta_touched_oracle": False,
+                        **({"identity_note": f"EXTERNALIZED_ORACLE of the real pair "
+                                             f"{pair['original_base'][:12]} -> "
+                                             f"{m['candidate_sha'][:12]}; externalized "
+                                             f"{pair['externalized_paths']} (the historical "
+                                             f"delta DID rewrite them; this pair does not)"}
+                           if disposition == "EXTERNALIZED_ORACLE" else {}),
                         "historical_delta_touched_validator": False,
                         "acceptance_provenance_note": provenance_note},
     }

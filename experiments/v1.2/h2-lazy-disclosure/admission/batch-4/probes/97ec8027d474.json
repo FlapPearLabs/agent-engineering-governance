@@ -1,0 +1,31 @@
+{
+ "base_sha": "e1262d527d6b26acdc08a6a0b52cdb619575e11f",
+ "candidate_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "kind": "TEST",
+   "provenance": "DELTA_FROZEN",
+   "base": {
+    "rc": 1,
+    "ran": 102,
+    "verdict_line": "FAILED",
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 102,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

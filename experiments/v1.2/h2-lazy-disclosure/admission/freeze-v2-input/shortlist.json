@@ -1,0 +1,193 @@
+{
+ "program": "admission/select.py",
+ "rules": [
+  "S1",
+  "S2",
+  "S3",
+  "S4",
+  "S5"
+ ],
+ "pool_after_S1_S4": 20,
+ "shortlist_count": 10,
+ "shortlist": [
+  {
+   "CASE_ID": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+   "CANDIDATE_SHA": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "BASE_SHA": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+   "ORACLE": {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "candidate_blob_sha256": "69f124f40d4b8a90c906f7a41458e18e7bbf3d7ab98e3873c3fa9d3d973ce953",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
+   },
+   "TASK_DESCRIPTION": "fix(review-evidence): enforce anchored schema patterns and declared failure envelope",
+   "DATE": "2026-09-17T14:53:34+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "CANDIDATE_SHA": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "BASE_SHA": "a97595229f11cd7262f6a49abb433de408e94ca4",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+    "candidate_blob_sha256": "84995aeebc1bc30612b9fad7a67e36e02bdff4158450b3accae3ec8495158806",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t02_execution_stage_pre_ticket_record.py"
+   },
+   "TASK_DESCRIPTION": "fix(stage2/lane-a): make the P1-T02 mandatory base record unambiguously eight fields (Issue #16)",
+   "DATE": "2026-09-18T21:53:03+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r38-governance-ext-remove-local-digest-fallback-use",
+   "CANDIDATE_SHA": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+   "BASE_SHA": "990177774cc4b906ec95146422356c97928b05fc",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
+    "candidate_blob_sha256": "79a80756105cc0bd4af89588e61412790b81a1330873eb7eb5afa89c92e0e3a8",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t05_evidence_disposition.py"
+   },
+   "TASK_DESCRIPTION": "fix(review-evidence): remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate (Issue #18)",
+   "DATE": "2026-09-19T13:12:21+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r39-governance-ext-refuse-every-scheme-form-evidence",
+   "CANDIDATE_SHA": "51e7604be3689f31142d17144893790000efac30",
+   "BASE_SHA": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+    "candidate_blob_sha256": "a7d3431ad6053f28960f2ed3666f03ed45393ecb9ac950e31eb3ce8152e2867a",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t06_producer_trust_boundary.py"
+   },
+   "TASK_DESCRIPTION": "fix(stage3/lane-b): refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode (Issue #21)",
+   "DATE": "2026-09-19T16:43:57+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r40-governance-ext-make-the-p1-t11-pre",
+   "CANDIDATE_SHA": "12c32f41898a5cec8db9346637c78800978f7549",
+   "BASE_SHA": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+    "candidate_blob_sha256": "8dfc6024e69ff2b4364b921da19dc2fb57278e40d39b95bdd142327fbda77753",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t11_destructive_workspace_transaction.py"
+   },
+   "TASK_DESCRIPTION": "fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)",
+   "DATE": "2026-09-19T23:47:14+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r41-governance-ext-scope-the-not-auditable-rule",
+   "CANDIDATE_SHA": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "BASE_SHA": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+    "candidate_blob_sha256": "237b3c78496ac0065dec90b30b75241ff3ca15a1ec923cbae35beefa9b73ccb5",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t10_audit_visibility_recipe.py"
+   },
+   "TASK_DESCRIPTION": "fix(stage4/lane-c): scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand (Issue #22)",
+   "DATE": "2026-09-20T01:36:40+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r42-governance-ext-treat-a-partially-populated-reuse",
+   "CANDIDATE_SHA": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "BASE_SHA": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+    "candidate_blob_sha256": "f0637113dc278d6b8c169105484f0d249d0ac105df6e6b00839c2bf3a43807aa",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t08_evidence_lifecycle.py"
+   },
+   "TASK_DESCRIPTION": "fix(stage5/lane-a): treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration (Issue #24)",
+   "DATE": "2026-09-20T17:11:50+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r24-governance-bootstrap-budget-repair-round-2",
+   "CANDIDATE_SHA": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "BASE_SHA": "825d3902597655c90393100281260cbba8697c07",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+    "candidate_blob_sha256": "dc5c7a0f38c339673787f7aadc1bb0d664c6350075a5afd124b9b598d686dd66",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t09_bootstrap_byte_budget.py"
+   },
+   "TASK_DESCRIPTION": "docs(governance): repair round 2 - restore budget OWNER self-naming, bound the unit drift",
+   "DATE": "2026-09-27T22:09:52+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r44-governance-ext-converge-the-p1-p2-findings",
+   "CANDIDATE_SHA": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "BASE_SHA": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+   "ORACLE": {
+    "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+    "candidate_blob_sha256": "13dbf2b9cc58418d3e1a7c89c967fd1c0307ee75f2a6d036b9466999318147c1",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
+   },
+   "TASK_DESCRIPTION": "fix(governance): converge the P1/P2 findings from both independent reviews",
+   "DATE": "2026-09-29T02:12:37+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  },
+  {
+   "CASE_ID": "r50-governance-ext-bind-skill-evidence-reads-to",
+   "CANDIDATE_SHA": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "BASE_SHA": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+   "ORACLE": {
+    "path": "scripts/tests/test_skill_execution.py",
+    "candidate_blob_sha256": "b5eb1b24c7d55534e20a655e12db615ca3e9c73ba7b883dfa08aed81c5ed1694",
+    "kind": "TEST",
+    "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
+   },
+   "TASK_DESCRIPTION": "fix: bind skill evidence reads to safe directory handles",
+   "DATE": "2026-10-02T19:13:28+08:00",
+   "VISIBLE_FROZEN_ORACLE": true
+  }
+ ],
+ "excluded": {
+  "r02-governance-review-evidence-interface": "S3:HIDDEN_ORACLE_NOT_CHECKED",
+  "r07-governance-external-findings-f1-f7": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r08-governance-project-continuity-contract": "S1:C_REJECT / NOT_ADMITTED",
+  "r09-governance-seam-contract-partitions": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r10-governance-p1-t02-pre-ticket-record": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r11-governance-p1-t05-evidence-disposition": "S1:C_REJECT / NOT_ADMITTED",
+  "r12-governance-p1-t03-closure-evidence": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r13-governance-p1-t06-producer-trust": "S3:HIDDEN_ORACLE_NOT_CHECKED",
+  "r14-governance-p1-t07-evidence-consumption": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r15-governance-p1-t11-destructive-transaction": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r16-governance-p1-t10-audit-visibility": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r17-governance-p1-t08-evidence-lifecycle": "S3:HIDDEN_ORACLE_NOT_CHECKED",
+  "r18-governance-p1-t12-single-writer": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r19-governance-p1-t13-learning-closure": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r20-governance-p1-t14-model-dispatch": "S3:HIDDEN_ORACLE_NOT_ALIGNED",
+  "r21-governance-p1-t18-defect-promotion": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r22-governance-v12-experiment-foundation": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r23-governance-bootstrap-facts-review-round-1": "S1:C_REJECT / NOT_ADMITTED",
+  "r25-governance-readme-design-decisions": "S1:B_REGRESSION_GUARD / REQUEST_VALID",
+  "r26-governance-portable-adoption-exercise": "S1:C_REJECT / NOT_ADMITTED",
+  "r27-governance-memory-preset-budget-restore": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+  "r28-governance-adoption-trial-evidence": "S1:B_REGRESSION_GUARD / REQUEST_VALID",
+  "r29-governance-v12-experiment-shape-convergence": "S1:C_REJECT / NOT_ADMITTED",
+  "r30-governance-h3a-replay-results": "S1:B_REGRESSION_GUARD / REQUEST_VALID",
+  "r31-governance-pr1-global-governance-audit": "S3:HIDDEN_ORACLE_NO_TICKET",
+  "r32-governance-pr40-replay-corpus": "S1:B_REGRESSION_GUARD / REQUEST_VALID",
+  "r33-governance-pr41-structure-delta-v0": "S1:B_REGRESSION_GUARD / REQUEST_VALID",
+  "r35-governance-ext-evaluate-character-classes-with-ecma": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_review_evidence_contract.py",
+  "r36-governance-ext-evaluate-declared-patterns-with-ecma": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_review_evidence_contract.py",
+  "r43-governance-ext-ground-the-reuse-blank-test": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t08_evidence_lifecycle.py",
+  "r45-governance-ext-close-an-evidence-orphaning-bug": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+  "r46-governance-ext-close-the-guard-strength-gaps": "S2:GUARD_REGRESSED_OR_DELETED",
+  "r47-governance-ext-the-agents-guard-was-pinning": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+  "r48-governance-ext-close-the-three-guard-holes": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+  "r49-governance-ext-roll-p22-up-and-stop": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+  "r51-governance-ext-preserve-the-consumer-specified-skill": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_skill_execution.py",
+  "r52-governance-ext-apply-skill-receipt-checks-at": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_skill_execution.py"
+ }
+}

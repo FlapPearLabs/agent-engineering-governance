@@ -15,11 +15,12 @@ implementations case by case, so an expected count that merely echoed the detect
 Cases rendered here carry class H2_ADMISSION_CANDIDATE: they enter the corpus as identity anchors
 for H2, and the H3 axes are NOT adjudicated for them (no seam-drift or structure verdict is made).
 
-Usage:  corpus_cases.py <repo_root> <case_id>=<candidate_sha> [...]
+Usage:  corpus_cases.py <repo_root> [--externalized=<externalized.json>] <case_id>=<candidate_sha> [...]
 """
 from __future__ import annotations
 
 import fnmatch
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -53,7 +54,8 @@ def signals(root: Path, base: str, cand: str) -> dict[str, int]:
             "NEW_DEPENDENCY": deps}
 
 
-def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
+def block(root: Path, case_id: str, cand: str, verified_main: str,
+          external: dict | None = None) -> str:
     cand = git(root, "rev-parse", f"{cand}^{{commit}}").strip()
     parents = git(root, "rev-list", "--parents", "-n1", cand).split()[1:]
     if not parents:
@@ -62,6 +64,10 @@ def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
     if subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", cand,
                        verified_main]).returncode != 0:
         raise SystemExit(f"{case_id}: {cand} is not reachable from {verified_main}")
+    if external:                         # an EXTERNALIZED_ORACLE identity: base is B', not B
+        if external["original_base"] != base:
+            raise SystemExit(f"{case_id}: externalized original_base is not the first parent")
+        base = external["base_prime"]
     subject = git(root, "log", "-1", "--format=%s", cand).strip().replace("'", "''")
     sig = signals(root, base, cand)
     stat = git(root, "diff", "--shortstat", base, cand).strip()
@@ -72,6 +78,10 @@ def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
              f"    base_sha: {base}",
              f"    candidate_sha: {cand}",
              f"    historical_diff: 'git diff {base} {cand}'"]
+    if external:
+        lines += ["    kind: EXTERNALIZED_ORACLE",
+                  f"    original_base: {external['original_base']}",
+                  "    externalized_paths: " + json.dumps(sorted(external["externalized_paths"]))]
     nonzero = [(k, v) for k, v in sig.items() if v]
     if not nonzero:
         lines.append("    expected_mechanical_signals: []")
@@ -102,7 +112,10 @@ def block(root: Path, case_id: str, cand: str, verified_main: str) -> str:
         "      related_refs:",
         f"        - 'candidate subject: {subject}'",
         "      notes: |",
-        (f"        candidate^ == base (single parent); {stat}." if len(parents) == 1 else
+        (f"        EXTERNALIZED_ORACLE: base = original base {external['original_base'][:12]} + the "
+         f"candidate's version of the externalized paths (admission/externalize.py); {stat}."
+         if external else
+         f"        candidate^ == base (single parent); {stat}." if len(parents) == 1 else
          f"        merge commit; base = first parent ({len(parents)} parents); {stat}."),
         f"        Reachable from origin/main={verified_main}.",
         "",
@@ -116,9 +129,14 @@ def main(argv: list[str]) -> int:
         return 2
     root = Path(argv[1]).resolve()
     main_sha = git(root, "rev-parse", "origin/main").strip()
-    for spec in argv[2:]:
+    external_map: dict = {}
+    specs = argv[2:]
+    if specs and specs[0].startswith("--externalized="):
+        external_map = json.loads(Path(specs[0].split("=", 1)[1]).read_text())["externalized"]
+        specs = specs[1:]
+    for spec in specs:
         case_id, cand = spec.split("=", 1)
-        sys.stdout.write(block(root, case_id, cand, main_sha))
+        sys.stdout.write(block(root, case_id, cand, main_sha, external_map.get(cand)))
     return 0
 
 

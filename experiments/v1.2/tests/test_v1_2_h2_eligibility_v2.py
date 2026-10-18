@@ -141,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.7", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.8", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1403,6 +1403,7 @@ class MutationMaterialisation(unittest.TestCase):
         whether ADDED or REWRITTEN, and an ordinary new module must not."""
         shaped = ["scripts/tests/zz_helpers/__init__.py", "unittest.py", "json.py",
                   "scripts/json.pyc", "json.pyc", "pkg/__init__.pyc", "scripts/__init__.py",
+                  "scripts/tests/__init__.py",   # restored in 2.8.8: test_p1_t18 imports it
                   "scripts/_json.cpython-313-darwin.so",
                   "scripts/pip.py"]            # pip: importable but NOT stdlib (find_spec half)
         changed = [("A", p) for p in shaped] + [("M", "scripts/os.py"),
@@ -1410,7 +1411,6 @@ class MutationMaterialisation(unittest.TestCase):
                                                  ("A", "scripts/tests/helper_like.py"),
                                                  ("A", "setup.py"),
                                                  # inert or not imported (review of 617ba01)
-                                                 ("A", "scripts/tests/__init__.py"),
                                                  ("A", "scripts/__main__.py"),
                                                  ("A", "scripts/tests/__pycache__/"
                                                        "test_budget.cpython-313.pyc"),
@@ -1545,6 +1545,144 @@ class MutationMaterialisation(unittest.TestCase):
         self.assertEqual((0, 1), rc["test_budget.py"])
         self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
                          self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    # ---- review of 1e8ac1f: open P3-2 (branches 2.8.7 left untested) ---------------------------
+    def _mode_repo(self, name: str):
+        root = self.tmp / name
+        root.mkdir()
+        self._git(root, "init", "-q")
+        return root
+
+    def test_a_mode_only_change_is_delta_modified(self):
+        root = self._mode_repo("modeonly")
+        base = self._commit(root, {"scripts/tests/test_m.py":
+                                   "import unittest\nclass M(unittest.TestCase):\n"
+                                   "    def test_m(self):\n        pass\n"}, "base")
+        os.chmod(root / "scripts/tests/test_m.py", 0o755)
+        self._git(root, "add", "-A")
+        self._git(root, "commit", "-q", "--no-verify", "-m", "candidate")
+        cand = self._git(root, "rev-parse", "HEAD")
+        facts = self.mod.recompute_transition(self.mod.Repo(root), base, cand, "A_REPAIR")
+        self.assertNotIn("error", facts, facts)
+        self.assertEqual(["DELTA_MODIFIED"], [e["provenance"] for e in facts["surfaces"]])
+
+    def test_an_exec_bit_flipped_on_disk_diverges(self):
+        root = self._mode_repo("execflip")
+        self._commit(root, {"scripts/validate_x.py": "print(1)\n"}, "base")
+        blob = self._git(root, "rev-parse", "HEAD:scripts/validate_x.py")
+        self.assertIsNone(self.mod._bytes_diverge(root, {"scripts/validate_x.py":
+                                                         (blob, "100644")}))
+        os.chmod(root / "scripts/validate_x.py", 0o755)
+        self.assertEqual("scripts/validate_x.py",
+                         self.mod._bytes_diverge(root, {"scripts/validate_x.py": (blob, "100644")}))
+
+    def test_a_deleted_executable_guard_is_carried_with_its_mode(self):
+        """The deleted leg carries (blob, mode) too: a 100755 guard that checks its own exec bit
+        must still pass at the candidate, not read as a regression."""
+        selfcheck = ("import os, unittest\n"
+                     "class Self(unittest.TestCase):\n"
+                     "    def test_self_executable(self):\n"
+                     "        self.assertTrue(os.access(__file__, os.X_OK))\n")
+        root = self._mode_repo("deleted755")
+        (root / "scripts/tests").mkdir(parents=True)
+        (root / "scripts/tests/test_self.py").write_text(selfcheck, encoding="utf-8")
+        os.chmod(root / "scripts/tests/test_self.py", 0o755)
+        base = self._commit(root, {"scripts/tests/test_links.py": self.LINKS,
+                                   "README.md": "start\n"}, "base")
+        self._git(root, "rm", "-q", "scripts/tests/test_self.py")
+        cand = self._commit(root, {"docs/new.md": "new\n", "README.md": "see [new](docs/new.md)\n"},
+                            "candidate")
+        facts = self.mod.recompute_transition(self.mod.Repo(root), base, cand,
+                                              "B_REGRESSION_GUARD")
+        (deleted,) = facts["deleted_surfaces"]
+        self.assertEqual((0, 0), (deleted["rc_base"], deleted["rc_cand"]))
+        self.assertEqual((True, "PASS_TO_FAIL_UNDER_MUTATION"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_pythonpath_never_reaches_an_acceptance(self):
+        """The acceptance imports from the same places the isolated name lookup resolves: a module
+        reachable only through the operator's PYTHONPATH must not decide a verdict."""
+        tree = self.tmp / "pp"
+        (tree / "scripts").mkdir(parents=True)
+        (tree / "scripts/validate_x.py").write_text(
+            "import sys\ntry:\n    import h2_pythonpath_probe\nexcept ImportError:\n"
+            "    sys.exit(1)\nsys.exit(0)\n", encoding="utf-8")
+        extra = self.tmp / "extra"
+        extra.mkdir()
+        (extra / "h2_pythonpath_probe.py").write_text("X = 1\n", encoding="utf-8")
+        saved = os.environ.get("PYTHONPATH")
+        os.environ["PYTHONPATH"] = str(extra)
+        try:
+            control = subprocess.run([sys.executable, "scripts/validate_x.py"], cwd=str(tree))
+            self.assertEqual(0, control.returncode, "positive control: PYTHONPATH is honoured")
+            self.assertEqual(1, self.mod.run_acceptance(tree, "scripts/validate_x.py",
+                                                        "VALIDATOR", sys.executable))
+        finally:
+            if saved is None:
+                os.environ.pop("PYTHONPATH", None)
+            else:
+                os.environ["PYTHONPATH"] = saved
+
+    # ---- 2.8.8: externalised-oracle identities are verified from the object database ----------
+    def _externalisable(self):
+        """A real-repair shape: C fixes lib.py AND rewrites the existing test (the historical delta
+        contains its oracle). B' = B + C's test file, built the way admission/externalize.py does."""
+        root = self.tmp / "ext"
+        root.mkdir()
+        self._git(root, "init", "-q")
+        b = self._commit(root, {"scripts/lib.py": "def f():\n    return 1\n",
+                                "scripts/tests/test_lib.py": "import unittest\n"}, "base")
+        c = self._commit(root, {"scripts/lib.py": "def f():\n    return 2\n",
+                                "scripts/tests/test_lib.py": "import unittest  # now checks f\n"},
+                         "candidate")
+        spec = importlib.util.spec_from_file_location(
+            "adm_externalize", H2 / "admission" / "externalize.py")
+        ext = importlib.util.module_from_spec(spec)
+        sys.modules["adm_externalize"] = ext
+        spec.loader.exec_module(ext)
+        prime = ext.build_base_prime(root, b, c, ["scripts/tests/test_lib.py"])
+        return self.mod.Repo(root), root, b, c, prime, ext
+
+    def test_a_correctly_externalised_base_verifies(self):
+        repo, _root, b, c, prime, _ext = self._externalisable()
+        meta = {"kind": "EXTERNALIZED_ORACLE", "original_base": b,
+                "externalized_paths": '["scripts/tests/test_lib.py"]'}
+        self.assertEqual([], self.mod.verify_externalized(repo, "x", prime, c, meta))
+        # and the new pair derives no trigger: the oracle is no longer in the delta
+        self.assertEqual({}, self.mod.derived_triggers(repo.changed_paths_with_status(prime, c)))
+
+    def test_a_forged_externalised_base_is_refused(self):
+        repo, root, b, c, prime, ext = self._externalisable()
+        meta = {"kind": "EXTERNALIZED_ORACLE", "original_base": b,
+                "externalized_paths": '["scripts/tests/test_lib.py"]'}
+        # (1) B' also smuggles the FIX in (an extra changed path)
+        smuggled = ext.build_base_prime(root, b, c, ["scripts/tests/test_lib.py", "scripts/lib.py"])
+        self.assertTrue(self.mod.verify_externalized(repo, "x", smuggled, c, meta))
+        # (2) B' whose parent is not the original base
+        wrong_parent = ext.build_base_prime(root, c, c, ["scripts/tests/test_lib.py"])
+        self.assertTrue(self.mod.verify_externalized(repo, "x", wrong_parent, c, meta))
+        # (3) the declared original base is not the candidate's first parent
+        self.assertTrue(self.mod.verify_externalized(repo, "x", prime, c,
+                                                     dict(meta, original_base=c)))
+        # (4) the oracle path in B' is not C's bytes (a weakened oracle) — right parent, right
+        #     path set, so ONLY the byte-identity rule can refuse it
+        weak_blob = subprocess.run(["git", "-C", str(root), "hash-object", "-w", "--stdin"],
+                                   input="import unittest  # weak\n", capture_output=True,
+                                   text=True, check=True).stdout.strip()
+        index = self.tmp / "weak.index"
+        env = dict(os.environ, GIT_INDEX_FILE=str(index))
+        subprocess.run(["git", "-C", str(root), "read-tree", b], env=env, check=True)
+        subprocess.run(["git", "-C", str(root), "update-index", "--cacheinfo",
+                        f"100644,{weak_blob},scripts/tests/test_lib.py"], env=env, check=True)
+        tree = subprocess.run(["git", "-C", str(root), "write-tree"], env=env, capture_output=True,
+                              text=True, check=True).stdout.strip()
+        weakened = self._git(root, "commit-tree", tree, "-p", b, "-m", "weakened")
+        errs = self.mod.verify_externalized(repo, "x", weakened, c, meta)
+        self.assertEqual(1, len(errs), errs)
+        self.assertIn("not mode- and byte-identical", errs[0])
+        # (5) malformed declarations
+        self.assertTrue(self.mod.verify_externalized(repo, "x", prime, c,
+                                                     dict(meta, externalized_paths="[]")))
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and
@@ -1899,6 +2037,64 @@ class GuardUnitChecks(unittest.TestCase):
             "r33-governance-pr41-structure-delta-v0":
                 ("36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
                  "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a", gov),
+            # r34-r52: candidate admission, batch 4 — EXTERNALIZED_ORACLE identities (base = B')
+            "r34-governance-ext-enforce-anchored-schema-patterns-and":
+                ("e11a8461e3cb906f1321c95589eb88256ae1a213",
+                 "b88df0313b3b921978a9869b9422beb686d21f3c", gov),
+            "r35-governance-ext-evaluate-character-classes-with-ecma":
+                ("ffb8db0dd2122a56004dea40f492fb87a0d0dbb9",
+                 "0ec774f06882b923fd89b2bb52784538a3367477", gov),
+            "r36-governance-ext-evaluate-declared-patterns-with-ecma":
+                ("4c104decd9fd969303c099f5c4bdc8a6eb331013",
+                 "1b48d2bb44e56c453a97b82bf5c88df2e89d0791", gov),
+            "r37-governance-ext-make-the-p1-t02-mandatory":
+                ("a97595229f11cd7262f6a49abb433de408e94ca4",
+                 "89b97e3b65d3f13ec21d2b837457f63f8aff7c02", gov),
+            "r38-governance-ext-remove-local-digest-fallback-use":
+                ("990177774cc4b906ec95146422356c97928b05fc",
+                 "33cfcc890e38032ba932e8de30fa30d5721d737a", gov),
+            "r39-governance-ext-refuse-every-scheme-form-evidence":
+                ("698cd1468f33410800dad3af2972a7bc8b317d7b",
+                 "51e7604be3689f31142d17144893790000efac30", gov),
+            "r40-governance-ext-make-the-p1-t11-pre":
+                ("072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+                 "12c32f41898a5cec8db9346637c78800978f7549", gov),
+            "r41-governance-ext-scope-the-not-auditable-rule":
+                ("7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+                 "0046c3648c4e6b2530c06cfce80df30c64d66ab6", gov),
+            "r42-governance-ext-treat-a-partially-populated-reuse":
+                ("e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+                 "1eaaea2c97bfe6ef36ae811298a68a52e04b554a", gov),
+            "r43-governance-ext-ground-the-reuse-blank-test":
+                ("f1953504789df6a0733646a2a36f5c5461805184",
+                 "b03d1811f63a6dbc4f8a983c336518df6bfd492c", gov),
+            "r44-governance-ext-converge-the-p1-p2-findings":
+                ("ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+                 "579f6d5e7762610382e4362f668efaffc51f04ce", gov),
+            "r45-governance-ext-close-an-evidence-orphaning-bug":
+                ("d453ec549bea6375564ac943ed35fc0b13e5e9cf",
+                 "58870aaebfbd5f9051fed65865a69f5f664814ae", gov),
+            "r46-governance-ext-close-the-guard-strength-gaps":
+                ("2219e31686c92e58ea77def33ab98cad3d1e1608",
+                 "16e30499fcb0bd45abd47f063763708662c12e65", gov),
+            "r47-governance-ext-the-agents-guard-was-pinning":
+                ("6dffa981941668e70062beb2922e0d2f51d47c2b",
+                 "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481", gov),
+            "r48-governance-ext-close-the-three-guard-holes":
+                ("743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
+                 "4935283172615de9e0954b67fee710c3b96eb549", gov),
+            "r49-governance-ext-roll-p22-up-and-stop":
+                ("e1262d527d6b26acdc08a6a0b52cdb619575e11f",
+                 "97ec8027d4744219e41e993ce5da361f99cda087", gov),
+            "r50-governance-ext-bind-skill-evidence-reads-to":
+                ("41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+                 "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e", gov),
+            "r51-governance-ext-preserve-the-consumer-specified-skill":
+                ("042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
+                 "f2f95f1d67cd903f8a3029b88abe62b6975b10ce", gov),
+            "r52-governance-ext-apply-skill-receipt-checks-at":
+                ("5abdc296c7beebf2416ce41d4d952ddaab756d75",
+                 "8c0075c5db0e06eec67d303955d13e214ba22782", gov),
         }
         self.assertEqual(expected, pairs,
                          "the replay corpus's per-case pairs changed — that is an experiment-material "

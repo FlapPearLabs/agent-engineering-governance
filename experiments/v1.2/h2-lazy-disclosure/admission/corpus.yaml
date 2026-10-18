@@ -1,7 +1,9 @@
 # experiments/v1.2/h2-lazy-disclosure/admission/corpus.yaml — H2 ADMISSION CORPUS (non-canonical)
 #
-# The Schema-v2 identity anchors for Candidate Admission (r07-r33; r31-r33 are PR merges,
-# replayed against their first parent). Same case format as
+# The Schema-v2 identity anchors for Candidate Admission (r07-r52; r31-r33 are PR merges,
+# replayed against their first parent; r34-r52 are EXTERNALIZED_ORACLE identities whose base is a
+# deterministic revision B' = original base + the candidate's rewritten tests, verified by the
+# validator's verify_externalized). Same case format as
 # experiments/v1.2/replay/cases.yaml (the H3 replay corpus), but a SEPARATE file: H3's loader
 # reads every `cases:` entry of replay/cases.yaml as a detector case, so anchors appended there
 # changed H3's metrics (fresh review of 4add2ca, finding 4). Nothing in H3 reads this file.
@@ -966,4 +968,631 @@ cases:
         - 'candidate subject: Merge pull request #41 from FlapPearLabs/experiment/v1.2-structure-delta-v0'
       notes: |
         merge commit; base = first parent (2 parents); 8 files changed, 951 insertions(+), 21 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r34-governance-ext-enforce-anchored-schema-patterns-and
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: e11a8461e3cb906f1321c95589eb88256ae1a213
+    candidate_sha: b88df0313b3b921978a9869b9422beb686d21f3c
+    historical_diff: 'git diff e11a8461e3cb906f1321c95589eb88256ae1a213 b88df0313b3b921978a9869b9422beb686d21f3c'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 2ed08f6f7ddf58b234b54afb8334e6fae32cd768
+    externalized_paths: ["scripts/tests/test_review_evidence_contract.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse e11a8461e3cb906f1321c95589eb88256ae1a213 b88df0313b3b921978a9869b9422beb686d21f3c'
+          - 'git diff e11a8461e3cb906f1321c95589eb88256ae1a213 b88df0313b3b921978a9869b9422beb686d21f3c --stat'
+          - 'git merge-base --is-ancestor b88df0313b3b921978a9869b9422beb686d21f3c origin/main'
+      related_refs:
+        - 'candidate subject: fix(review-evidence): enforce anchored schema patterns and declared failure envelope'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 2ed08f6f7ddf + the candidate's version of the externalized paths (admission/externalize.py); 3 files changed, 231 insertions(+), 46 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r35-governance-ext-evaluate-character-classes-with-ecma
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: ffb8db0dd2122a56004dea40f492fb87a0d0dbb9
+    candidate_sha: 0ec774f06882b923fd89b2bb52784538a3367477
+    historical_diff: 'git diff ffb8db0dd2122a56004dea40f492fb87a0d0dbb9 0ec774f06882b923fd89b2bb52784538a3367477'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 1b48d2bb44e56c453a97b82bf5c88df2e89d0791
+    externalized_paths: ["scripts/tests/test_review_evidence_contract.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse ffb8db0dd2122a56004dea40f492fb87a0d0dbb9 0ec774f06882b923fd89b2bb52784538a3367477'
+          - 'git diff ffb8db0dd2122a56004dea40f492fb87a0d0dbb9 0ec774f06882b923fd89b2bb52784538a3367477 --stat'
+          - 'git merge-base --is-ancestor 0ec774f06882b923fd89b2bb52784538a3367477 origin/main'
+      related_refs:
+        - 'candidate subject: fix(review-evidence): evaluate character classes with ECMA-262 semantics'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 1b48d2bb44e5 + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 30 insertions(+), 8 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r36-governance-ext-evaluate-declared-patterns-with-ecma
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 4c104decd9fd969303c099f5c4bdc8a6eb331013
+    candidate_sha: 1b48d2bb44e56c453a97b82bf5c88df2e89d0791
+    historical_diff: 'git diff 4c104decd9fd969303c099f5c4bdc8a6eb331013 1b48d2bb44e56c453a97b82bf5c88df2e89d0791'
+    kind: EXTERNALIZED_ORACLE
+    original_base: b88df0313b3b921978a9869b9422beb686d21f3c
+    externalized_paths: ["scripts/tests/test_review_evidence_contract.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 4c104decd9fd969303c099f5c4bdc8a6eb331013 1b48d2bb44e56c453a97b82bf5c88df2e89d0791'
+          - 'git diff 4c104decd9fd969303c099f5c4bdc8a6eb331013 1b48d2bb44e56c453a97b82bf5c88df2e89d0791 --stat'
+          - 'git merge-base --is-ancestor 1b48d2bb44e56c453a97b82bf5c88df2e89d0791 origin/main'
+      related_refs:
+        - 'candidate subject: fix(review-evidence): evaluate declared patterns with ECMA-262 semantics end to end and fail closed'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base b88df0313b3b + the candidate's version of the externalized paths (admission/externalize.py); 2 files changed, 236 insertions(+), 37 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r37-governance-ext-make-the-p1-t02-mandatory
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: a97595229f11cd7262f6a49abb433de408e94ca4
+    candidate_sha: 89b97e3b65d3f13ec21d2b837457f63f8aff7c02
+    historical_diff: 'git diff a97595229f11cd7262f6a49abb433de408e94ca4 89b97e3b65d3f13ec21d2b837457f63f8aff7c02'
+    kind: EXTERNALIZED_ORACLE
+    original_base: e398dde43042e0e00ca99076aa9ecd3e4f8951dd
+    externalized_paths: ["scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse a97595229f11cd7262f6a49abb433de408e94ca4 89b97e3b65d3f13ec21d2b837457f63f8aff7c02'
+          - 'git diff a97595229f11cd7262f6a49abb433de408e94ca4 89b97e3b65d3f13ec21d2b837457f63f8aff7c02 --stat'
+          - 'git merge-base --is-ancestor 89b97e3b65d3f13ec21d2b837457f63f8aff7c02 origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage2/lane-a): make the P1-T02 mandatory base record unambiguously eight fields (Issue #16)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base e398dde43042 + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 10 insertions(+), 8 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r38-governance-ext-remove-local-digest-fallback-use
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 990177774cc4b906ec95146422356c97928b05fc
+    candidate_sha: 33cfcc890e38032ba932e8de30fa30d5721d737a
+    historical_diff: 'git diff 990177774cc4b906ec95146422356c97928b05fc 33cfcc890e38032ba932e8de30fa30d5721d737a'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 1ca93655425e07933f379b3fa30a26819a4adedd
+    externalized_paths: ["scripts/tests/test_p1_t05_evidence_disposition.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 990177774cc4b906ec95146422356c97928b05fc 33cfcc890e38032ba932e8de30fa30d5721d737a'
+          - 'git diff 990177774cc4b906ec95146422356c97928b05fc 33cfcc890e38032ba932e8de30fa30d5721d737a --stat'
+          - 'git merge-base --is-ancestor 33cfcc890e38032ba932e8de30fa30d5721d737a origin/main'
+      related_refs:
+        - 'candidate subject: fix(review-evidence): remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate (Issue #18)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 1ca93655425e + the candidate's version of the externalized paths (admission/externalize.py); 2 files changed, 164 insertions(+), 101 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r39-governance-ext-refuse-every-scheme-form-evidence
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 698cd1468f33410800dad3af2972a7bc8b317d7b
+    candidate_sha: 51e7604be3689f31142d17144893790000efac30
+    historical_diff: 'git diff 698cd1468f33410800dad3af2972a7bc8b317d7b 51e7604be3689f31142d17144893790000efac30'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 5c9f6a7fcfa67e081747e418ba549eb96da39a69
+    externalized_paths: ["scripts/tests/test_p1_t06_producer_trust_boundary.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 698cd1468f33410800dad3af2972a7bc8b317d7b 51e7604be3689f31142d17144893790000efac30'
+          - 'git diff 698cd1468f33410800dad3af2972a7bc8b317d7b 51e7604be3689f31142d17144893790000efac30 --stat'
+          - 'git merge-base --is-ancestor 51e7604be3689f31142d17144893790000efac30 origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage3/lane-b): refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode (Issue #21)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 5c9f6a7fcfa6 + the candidate's version of the externalized paths (admission/externalize.py); 2 files changed, 109 insertions(+), 28 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r40-governance-ext-make-the-p1-t11-pre
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2
+    candidate_sha: 12c32f41898a5cec8db9346637c78800978f7549
+    historical_diff: 'git diff 072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2 12c32f41898a5cec8db9346637c78800978f7549'
+    kind: EXTERNALIZED_ORACLE
+    original_base: dc7aef63001e998d4e0de1fc59d3cfe310ed2a48
+    externalized_paths: ["scripts/tests/test_p1_t11_destructive_workspace_transaction.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2 12c32f41898a5cec8db9346637c78800978f7549'
+          - 'git diff 072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2 12c32f41898a5cec8db9346637c78800978f7549 --stat'
+          - 'git merge-base --is-ancestor 12c32f41898a5cec8db9346637c78800978f7549 origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base dc7aef63001e + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 6 insertions(+), 3 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r41-governance-ext-scope-the-not-auditable-rule
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01
+    candidate_sha: 0046c3648c4e6b2530c06cfce80df30c64d66ab6
+    historical_diff: 'git diff 7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01 0046c3648c4e6b2530c06cfce80df30c64d66ab6'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 975c559fa9cfcabc012dcb9fb96ffadf32594b03
+    externalized_paths: ["scripts/tests/test_p1_t10_audit_visibility_recipe.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01 0046c3648c4e6b2530c06cfce80df30c64d66ab6'
+          - 'git diff 7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01 0046c3648c4e6b2530c06cfce80df30c64d66ab6 --stat'
+          - 'git merge-base --is-ancestor 0046c3648c4e6b2530c06cfce80df30c64d66ab6 origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage4/lane-c): scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand (Issue #22)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 975c559fa9cf + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 4 insertions(+), 2 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r42-governance-ext-treat-a-partially-populated-reuse
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3
+    candidate_sha: 1eaaea2c97bfe6ef36ae811298a68a52e04b554a
+    historical_diff: 'git diff e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3 1eaaea2c97bfe6ef36ae811298a68a52e04b554a'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 6856a322cdbc5282242464e068e9fb841f017642
+    externalized_paths: ["scripts/tests/test_p1_t08_evidence_lifecycle.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3 1eaaea2c97bfe6ef36ae811298a68a52e04b554a'
+          - 'git diff e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3 1eaaea2c97bfe6ef36ae811298a68a52e04b554a --stat'
+          - 'git merge-base --is-ancestor 1eaaea2c97bfe6ef36ae811298a68a52e04b554a origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage5/lane-a): treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration (Issue #24)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 6856a322cdbc + the candidate's version of the externalized paths (admission/externalize.py); 3 files changed, 26 insertions(+), 10 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r43-governance-ext-ground-the-reuse-blank-test
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: f1953504789df6a0733646a2a36f5c5461805184
+    candidate_sha: b03d1811f63a6dbc4f8a983c336518df6bfd492c
+    historical_diff: 'git diff f1953504789df6a0733646a2a36f5c5461805184 b03d1811f63a6dbc4f8a983c336518df6bfd492c'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 1eaaea2c97bfe6ef36ae811298a68a52e04b554a
+    externalized_paths: ["scripts/tests/test_p1_t08_evidence_lifecycle.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse f1953504789df6a0733646a2a36f5c5461805184 b03d1811f63a6dbc4f8a983c336518df6bfd492c'
+          - 'git diff f1953504789df6a0733646a2a36f5c5461805184 b03d1811f63a6dbc4f8a983c336518df6bfd492c --stat'
+          - 'git merge-base --is-ancestor b03d1811f63a6dbc4f8a983c336518df6bfd492c origin/main'
+      related_refs:
+        - 'candidate subject: fix(stage5/lane-a): ground the reuse blank test in the declared ECMA-262 whitespace set and make the 9.6.1 guard discriminating (Issue #24)'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 1eaaea2c97bf + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 39 insertions(+), 8 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r44-governance-ext-converge-the-p1-p2-findings
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: ade16de80c1deb47b776874f0f1a2b10e8f7e16c
+    candidate_sha: 579f6d5e7762610382e4362f668efaffc51f04ce
+    historical_diff: 'git diff ade16de80c1deb47b776874f0f1a2b10e8f7e16c 579f6d5e7762610382e4362f668efaffc51f04ce'
+    kind: EXTERNALIZED_ORACLE
+    original_base: fc7ad45838a641044b7d0404d25d497d7b11b258
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse ade16de80c1deb47b776874f0f1a2b10e8f7e16c 579f6d5e7762610382e4362f668efaffc51f04ce'
+          - 'git diff ade16de80c1deb47b776874f0f1a2b10e8f7e16c 579f6d5e7762610382e4362f668efaffc51f04ce --stat'
+          - 'git merge-base --is-ancestor 579f6d5e7762610382e4362f668efaffc51f04ce origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): converge the P1/P2 findings from both independent reviews'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base fc7ad45838a6 + the candidate's version of the externalized paths (admission/externalize.py); 3 files changed, 5 insertions(+), 2 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r45-governance-ext-close-an-evidence-orphaning-bug
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: d453ec549bea6375564ac943ed35fc0b13e5e9cf
+    candidate_sha: 58870aaebfbd5f9051fed65865a69f5f664814ae
+    historical_diff: 'git diff d453ec549bea6375564ac943ed35fc0b13e5e9cf 58870aaebfbd5f9051fed65865a69f5f664814ae'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 579f6d5e7762610382e4362f668efaffc51f04ce
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse d453ec549bea6375564ac943ed35fc0b13e5e9cf 58870aaebfbd5f9051fed65865a69f5f664814ae'
+          - 'git diff d453ec549bea6375564ac943ed35fc0b13e5e9cf 58870aaebfbd5f9051fed65865a69f5f664814ae --stat'
+          - 'git merge-base --is-ancestor 58870aaebfbd5f9051fed65865a69f5f664814ae origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): close an evidence-orphaning bug and make the negative controls real'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 579f6d5e7762 + the candidate's version of the externalized paths (admission/externalize.py); 2 files changed, 21 insertions(+), 21 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r46-governance-ext-close-the-guard-strength-gaps
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 2219e31686c92e58ea77def33ab98cad3d1e1608
+    candidate_sha: 16e30499fcb0bd45abd47f063763708662c12e65
+    historical_diff: 'git diff 2219e31686c92e58ea77def33ab98cad3d1e1608 16e30499fcb0bd45abd47f063763708662c12e65'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 58870aaebfbd5f9051fed65865a69f5f664814ae
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 2219e31686c92e58ea77def33ab98cad3d1e1608 16e30499fcb0bd45abd47f063763708662c12e65'
+          - 'git diff 2219e31686c92e58ea77def33ab98cad3d1e1608 16e30499fcb0bd45abd47f063763708662c12e65 --stat'
+          - 'git merge-base --is-ancestor 16e30499fcb0bd45abd47f063763708662c12e65 origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): close the guard-strength gaps found by the second review'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 58870aaebfbd + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 20 insertions(+), 20 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r47-governance-ext-the-agents-guard-was-pinning
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 6dffa981941668e70062beb2922e0d2f51d47c2b
+    candidate_sha: 2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481
+    historical_diff: 'git diff 6dffa981941668e70062beb2922e0d2f51d47c2b 2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 16e30499fcb0bd45abd47f063763708662c12e65
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 6dffa981941668e70062beb2922e0d2f51d47c2b 2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481'
+          - 'git diff 6dffa981941668e70062beb2922e0d2f51d47c2b 2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481 --stat'
+          - 'git merge-base --is-ancestor 2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481 origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): the AGENTS guard was pinning a duplicate in place'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 16e30499fcb0 + the candidate's version of the externalized paths (admission/externalize.py); 3 files changed, 3 insertions(+), 2 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r48-governance-ext-close-the-three-guard-holes
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 743235ce2c7bccbc3e3f0d58d22c51b96e199e71
+    candidate_sha: 4935283172615de9e0954b67fee710c3b96eb549
+    historical_diff: 'git diff 743235ce2c7bccbc3e3f0d58d22c51b96e199e71 4935283172615de9e0954b67fee710c3b96eb549'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 3918a930b79a8747f7c741dace56e499a6443908
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 743235ce2c7bccbc3e3f0d58d22c51b96e199e71 4935283172615de9e0954b67fee710c3b96eb549'
+          - 'git diff 743235ce2c7bccbc3e3f0d58d22c51b96e199e71 4935283172615de9e0954b67fee710c3b96eb549 --stat'
+          - 'git merge-base --is-ancestor 4935283172615de9e0954b67fee710c3b96eb549 origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): close the three guard holes the third review found'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 3918a930b79a + the candidate's version of the externalized paths (admission/externalize.py); 1 file changed, 1 insertion(+), 1 deletion(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r49-governance-ext-roll-p22-up-and-stop
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: e1262d527d6b26acdc08a6a0b52cdb619575e11f
+    candidate_sha: 97ec8027d4744219e41e993ce5da361f99cda087
+    historical_diff: 'git diff e1262d527d6b26acdc08a6a0b52cdb619575e11f 97ec8027d4744219e41e993ce5da361f99cda087'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 0fe2d765158fe34cd20955972176d7d5ac9ba45d
+    externalized_paths: ["scripts/tests/test_p1_t18_defect_promotion_fast_full.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse e1262d527d6b26acdc08a6a0b52cdb619575e11f 97ec8027d4744219e41e993ce5da361f99cda087'
+          - 'git diff e1262d527d6b26acdc08a6a0b52cdb619575e11f 97ec8027d4744219e41e993ce5da361f99cda087 --stat'
+          - 'git merge-base --is-ancestor 97ec8027d4744219e41e993ce5da361f99cda087 origin/main'
+      related_refs:
+        - 'candidate subject: fix(governance): roll P22 up, and stop the guard that forbade it'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 0fe2d765158f + the candidate's version of the externalized paths (admission/externalize.py); 2 files changed, 6 insertions(+), 5 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r50-governance-ext-bind-skill-evidence-reads-to
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 41cd7f59ca2afe6d4cb44ff5e4bce169108db340
+    candidate_sha: 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e
+    historical_diff: 'git diff 41cd7f59ca2afe6d4cb44ff5e4bce169108db340 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e'
+    kind: EXTERNALIZED_ORACLE
+    original_base: abad56b51ef8cad899fca2aaee3ae39c3f2ffc26
+    externalized_paths: ["scripts/tests/test_skill_execution.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 41cd7f59ca2afe6d4cb44ff5e4bce169108db340 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e'
+          - 'git diff 41cd7f59ca2afe6d4cb44ff5e4bce169108db340 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e --stat'
+          - 'git merge-base --is-ancestor 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e origin/main'
+      related_refs:
+        - 'candidate subject: fix: bind skill evidence reads to safe directory handles'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base abad56b51ef8 + the candidate's version of the externalized paths (admission/externalize.py); 4 files changed, 60 insertions(+), 6 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r51-governance-ext-preserve-the-consumer-specified-skill
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 042be40ae27fb8b3da6a941120e9ec5504cf5d3d
+    candidate_sha: f2f95f1d67cd903f8a3029b88abe62b6975b10ce
+    historical_diff: 'git diff 042be40ae27fb8b3da6a941120e9ec5504cf5d3d f2f95f1d67cd903f8a3029b88abe62b6975b10ce'
+    kind: EXTERNALIZED_ORACLE
+    original_base: 5d61ad139ceb5408a6d96ce269f9a76f89df8b4e
+    externalized_paths: ["scripts/tests/test_skill_execution.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 042be40ae27fb8b3da6a941120e9ec5504cf5d3d f2f95f1d67cd903f8a3029b88abe62b6975b10ce'
+          - 'git diff 042be40ae27fb8b3da6a941120e9ec5504cf5d3d f2f95f1d67cd903f8a3029b88abe62b6975b10ce --stat'
+          - 'git merge-base --is-ancestor f2f95f1d67cd903f8a3029b88abe62b6975b10ce origin/main'
+      related_refs:
+        - 'candidate subject: fix: preserve the consumer specified skill evidence root'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base 5d61ad139ceb + the candidate's version of the externalized paths (admission/externalize.py); 4 files changed, 14 insertions(+), 9 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+
+  - case_id: r52-governance-ext-apply-skill-receipt-checks-at
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 5abdc296c7beebf2416ce41d4d952ddaab756d75
+    candidate_sha: 8c0075c5db0e06eec67d303955d13e214ba22782
+    historical_diff: 'git diff 5abdc296c7beebf2416ce41d4d952ddaab756d75 8c0075c5db0e06eec67d303955d13e214ba22782'
+    kind: EXTERNALIZED_ORACLE
+    original_base: f2f95f1d67cd903f8a3029b88abe62b6975b10ce
+    externalized_paths: ["scripts/tests/test_skill_execution.py"]
+    expected_mechanical_signals: []
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 5abdc296c7beebf2416ce41d4d952ddaab756d75 8c0075c5db0e06eec67d303955d13e214ba22782'
+          - 'git diff 5abdc296c7beebf2416ce41d4d952ddaab756d75 8c0075c5db0e06eec67d303955d13e214ba22782 --stat'
+          - 'git merge-base --is-ancestor 8c0075c5db0e06eec67d303955d13e214ba22782 origin/main'
+      related_refs:
+        - 'candidate subject: fix: apply Skill receipt checks at input acquisition'
+      notes: |
+        EXTERNALIZED_ORACLE: base = original base f2f95f1d67cd + the candidate's version of the externalized paths (admission/externalize.py); 4 files changed, 17 insertions(+), 13 deletions(-).
         Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
