@@ -88,7 +88,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.10"
+SCHEMA_VERSION = "2.8.11"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -939,13 +939,18 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
                                                   "rc_mut": None})
                 legs[rel] = ("DELETED_SURFACE", (blob, mode))
 
-            # ENVIRONMENT INVARIANCE (2.8.10): every surface whose verdict MOVES is run again with
-            # a SYMLINKED temp root. A surface that answers differently is environment-sensitive:
-            # it can be neither a basis nor a bite, and a regression it shows in EITHER spelling
-            # still counts (DeepSeek review of 667ffe4, finding 1: r51/r52).
+            # ENVIRONMENT INVARIANCE (2.8.10, 2.8.11): every surface whose verdict MOVES, and every
+            # GUARD (DELTA_FROZEN or DELTA_DELETED — the set the regression rule consults) whether
+            # it moves or not, is run again with a SYMLINKED temp root. A surface that answers
+            # differently is environment-sensitive: it can be neither a basis nor a bite, and a
+            # regression it shows in EITHER spelling still counts (DeepSeek review of 667ffe4,
+            # finding 1: r51/r52). 2.8.10 skipped non-moving guards, so a guard green at 0/0/0
+            # under the resolved spelling that regressed only under the symlinked one was never
+            # seen and B accepted the candidate (DeepSeek review of 83cb72d, finding 1).
             for e in facts["surfaces"] + facts["deleted_surfaces"]:
                 rcs = (e["rc_base"], e["rc_cand"], e["rc_mut"])
-                if len({rc for rc in rcs if rc is not None}) < 2:
+                guard = e["provenance"] in ("DELTA_FROZEN", "DELTA_DELETED")
+                if not guard and len({rc for rc in rcs if rc is not None}) < 2:
                     continue
                 leg, carried = legs[e["path"]]
                 alt_base = _run_isolated(repo, base_wt, e["path"], e["kind"], interpreter,
@@ -983,9 +988,16 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         unmeasured = [e for e in surfaces
                       if not measured(e["rc_base"], e["rc_cand"])
                       or (e["provenance"] == "DELTA_FROZEN" and not measured(e["rc_mut"]))]
-        # an environment-sensitive surface (2.8.10) is never a basis and never a bite
+        # an environment-sensitive surface (2.8.10) is never a basis and never a bite. Only one
+        # whose verdict MOVES in at least one spelling could have been either, so only those name
+        # the verdict ENVIRONMENT_SENSITIVE_ACCEPTANCE; a guard that is still in both spellings
+        # (0/0/0 resolved, 1/1/1 symlinked: main's test_skill_execution.py) decides nothing but a
+        # regression, which `regressed` reads from rc_alt (2.8.11)
+        def moves(rcs):
+            return len({rc for rc in rcs if rc is not None}) > 1
         sensitive = [e for e in surfaces + facts.get("deleted_surfaces", [])
-                     if e.get("environment_sensitive")]
+                     if e.get("environment_sensitive")
+                     and (moves((e["rc_base"], e["rc_cand"], e["rc_mut"])) or moves(e["rc_alt"]))]
         facts["environment_sensitive"] = sensitive
         discriminating = [e for e in eligible
                           if measured(e["rc_base"], e["rc_cand"])

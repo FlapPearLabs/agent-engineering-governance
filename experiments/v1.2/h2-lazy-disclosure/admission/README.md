@@ -47,8 +47,9 @@ $PY $A/select.py $A/batch-{1,2,3,4}/ledger.json --alignment $A/freeze-v2-input/a
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (168) was produced by validator **2.8.10**, under the operator's DEFAULT temp
-root (acceptances get their own pinned, realpath-resolved TMPDIR; it is not an input) — `environment.validator_sha256`
+Every measurement file (168) was produced by validator **2.8.11**, under the operator's DEFAULT temp
+root (acceptances get their own fresh TMPDIR — realpath-resolved, and again symlinked for every
+moving surface and every guard; the inherited one is not an input) — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
 and fail CLOSED (WORKTREE_MATERIALISATION_FAILED) — re-run that pair serially; it is never a pass.
@@ -68,7 +69,7 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.10; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.11; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree

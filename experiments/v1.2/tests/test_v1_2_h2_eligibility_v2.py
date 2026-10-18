@@ -141,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.10", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.11", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1750,6 +1750,68 @@ class MutationMaterialisation(unittest.TestCase):
             (surface,) = facts["surfaces"]
             self.assertEqual((1, 0), (surface["rc_base"], surface["rc_cand"]), name)
             self.assertEqual(want, self.mod.transition_verdict("A_REPAIR", facts), name)
+
+    def test_a_guard_that_regresses_only_under_a_symlinked_temp_root_is_a_regression(self):
+        """2.8.10 re-ran only MOVING surfaces under the symlinked spelling, so a frozen guard that
+        reads 0/0/0 under the resolved spelling and regresses only under the symlinked one was
+        never seen, and B accepted the candidate on another guard's bite (DeepSeek review of
+        83cb72d, finding 1). Every guard is now re-run; its regression in either spelling counts."""
+        guard = ("import os, sys, tempfile, unittest\n"
+                 "from pathlib import Path\n"
+                 "sys.path.insert(0, str(Path(__file__).resolve().parents[1]))\n"
+                 "import feature\n"
+                 "class T(unittest.TestCase):\n"
+                 "    def test_g(self):\n"
+                 "        r = tempfile.gettempdir()\n"
+                 "        if os.path.realpath(r) != os.path.abspath(r):\n"
+                 "            self.assertFalse(feature.ok())\n")
+        bite = ("import unittest\n"
+                "from pathlib import Path\n"
+                "class T(unittest.TestCase):\n"
+                "    def test_h(self):\n"
+                "        root = Path(__file__).resolve().parents[2]\n"
+                "        if 'added.md' in (root / 'docs' / 'index.md').read_text():\n"
+                "            self.assertTrue((root / 'docs' / 'added.md').is_file())\n")
+        repo, base, cand = self._repo(
+            {"README.md": "base\n", "docs/index.md": "index\n",
+             "scripts/feature.py": "def ok():\n    return False\n",
+             "scripts/tests/test_g.py": guard, "scripts/tests/test_h.py": bite},
+            {"docs/index.md": "see added.md\n", "docs/added.md": "added\n",
+             "scripts/feature.py": "def ok():\n    return True\n"})
+        facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        self.assertNotIn("error", facts, facts)
+        by_path = {e["path"]: e for e in facts["surfaces"]}
+        g, h = by_path["scripts/tests/test_g.py"], by_path["scripts/tests/test_h.py"]
+        # reachability: under the resolved spelling the guard is silent and the bite is real
+        self.assertEqual((0, 0, 0), (g["rc_base"], g["rc_cand"], g["rc_mut"]))
+        self.assertEqual((0, 0, 1), (h["rc_base"], h["rc_cand"], h["rc_mut"]))
+        self.assertTrue(g.get("environment_sensitive"), g)
+        self.assertEqual(["scripts/tests/test_g.py"], [e["path"] for e in facts["regressed"]])
+        self.assertEqual((False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
+
+    def test_a_still_environment_sensitive_guard_does_not_rename_the_verdict(self):
+        """Re-measuring under 2.8.11 found main's test_skill_execution.py at 0/0/0 resolved and
+        1/1/1 symlinked in 74 pairs: environment-sensitive, but still in both spellings, so it could
+        never have been a basis or a bite. Such a guard must not turn BASE_EQUALS_CANDIDATE or
+        MUTATION_DOES_NOT_BITE into ENVIRONMENT_SENSITIVE_ACCEPTANCE: the recorded reason would be
+        false. It is still measured (flagged) and still counts if it regresses."""
+        still = ("import os, tempfile, unittest\n"
+                 "class T(unittest.TestCase):\n"
+                 "    def test_s(self):\n"
+                 "        r = tempfile.gettempdir()\n"
+                 "        self.assertEqual(os.path.realpath(r), os.path.abspath(r))\n")
+        repo, base, cand = self._repo({"README.md": "base\n", "scripts/tests/test_s.py": still},
+                                      {"docs/unrelated.md": "added\n"})
+        for cls, want in (("A_REPAIR", (False, "BASE_EQUALS_CANDIDATE")),
+                          ("B_REGRESSION_GUARD", (False, "MUTATION_DOES_NOT_BITE"))):
+            facts = self.mod.recompute_transition(repo, base, cand, cls)
+            self.assertNotIn("error", facts, facts)
+            (s,) = facts["surfaces"]
+            self.assertEqual((0, 0), (s["rc_base"], s["rc_cand"]), cls)
+            self.assertTrue(s.get("environment_sensitive"), (cls, s))
+            self.assertEqual([], facts["environment_sensitive"], cls)
+            self.assertEqual(want, self.mod.transition_verdict(cls, facts), cls)
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

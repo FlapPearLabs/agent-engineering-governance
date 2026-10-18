@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.10 (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.10 = defects raised by real
+VERSION        = 2.8.11 (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.11 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
                  72f0bb4, 617ba01, 1e8ac1f, ad87629, 667ffe4, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
@@ -573,7 +573,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.10 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.11 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -729,10 +729,27 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
            environment-sensitive — never a basis, never a bite; a regression in EITHER spelling
            counts. r51 and r52 are now refused (ENVIRONMENT_SENSITIVE_ACCEPTANCE).
   F-A18    one acceptance environment (acceptance_env) used by the validator AND the probes; the
-           ledger's EXECUTION_AGREEMENT now also compares the probe's exit codes.
+           ledger's EXECUTION_AGREEMENT now also compares the probe's exit codes — for the TEST
+           basis of an A record only (narrowed in 2.8.11; see there).
   F-A19    the batch-4 pairs view is produced by a committed program (externalize.py
            --pairs-out) and records the original pair's derived trigger alongside the new pair.
   P3       §6.8 eligibility sentence narrowed to what the name rule detects.
+2.8.11 (DeepSeek fresh review of 83cb72d: one P2, one P3)
+  F-A20    2.8.10 re-ran only surfaces whose verdict MOVES, so a GUARD reading 0/0/0 under the
+           resolved spelling that regressed only under the symlinked one was never seen, and B
+           accepted the candidate on another guard's bite — "a regression in EITHER spelling
+           counts" was false for exactly the surfaces the regression rule consults. Every
+           DELTA_FROZEN and DELTA_DELETED surface is now re-run under the symlinked spelling too.
+  P3       the probe agreement covers the TEST basis of an A record only; a VALIDATOR basis and
+           a B guard are cross-checked by the TRANSITION line alone (ledger.py, F-A18 narrowed).
+  LABEL    re-measuring with every guard re-run found main's test_skill_execution.py at 0/0/0
+           resolved and 1/1/1 symlinked in 74 pairs (the product defect of F-A17, present on main).
+           Such a guard is flagged environment_sensitive but is still in both spellings, so it
+           could never be a basis or a bite: it no longer names the verdict
+           ENVIRONMENT_SENSITIVE_ACCEPTANCE (which would replace the true reason
+           BASE_EQUALS_CANDIDATE / MUTATION_DOES_NOT_BITE); it still counts if it regresses.
+REGRESSION (2.8.11) MutationMaterialisation (41 tests); the guard test fails against 83cb72d, the
+         label test against the guard fix alone.
 REGRESSION (2.8.10) MutationMaterialisation (39 tests); the temp-root test fails against 667ffe4.
 REGRESSION (2.8.9)  MutationMaterialisation (38 tests); both 2.8.9 tests fail against ad87629.
 REGRESSION (2.8.8)  MutationMaterialisation (36 tests).

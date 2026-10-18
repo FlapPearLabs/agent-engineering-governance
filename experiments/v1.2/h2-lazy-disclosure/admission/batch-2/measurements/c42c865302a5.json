@@ -1,7 +1,7 @@
 {
  "base_sha": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
  "candidate_sha": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
- "elapsed_s": 0.3,
+ "elapsed_s": 0.2,
  "facts": {
   "base": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
   "candidate": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
@@ -39,8 +39,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.10",
-  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
+  "schema_version": "2.8.11",
+  "validator_sha256": "fb2cb4a27495e672bafa51f2d9412c1a26423f23f70867b1acef0e3438b321b2",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(governance): candidate global AGENTS.md + RULES.md + six canonical references"

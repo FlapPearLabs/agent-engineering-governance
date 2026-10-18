@@ -93,8 +93,11 @@ def main(argv: list[str]) -> int:
                      (t[5], t[6], t[7]) == tuple(str(carried[k])
                                                  for k in ("rc_base", "rc_cand", "rc_mut"))
                      else "EXECUTIONS_DISAGREE")
-            # the independent probe is a THIRD execution of the basis; it must agree too
-            # (DeepSeek review of 667ffe4, finding 2)
+            # for a TEST basis of an A record the independent probe is a THIRD execution and must
+            # agree too (DeepSeek review of 667ffe4, finding 2). It does not cover a VALIDATOR
+            # basis (the probe can only report its exit code, and records none) or a B guard (the
+            # probe runs the A basis only): those rest on the TRANSITION line alone (review of
+            # 83cb72d, finding 2)
             pbx = next((x for x in probe["probes"] if x.get("path") == carried["path"]), None)
             if pbx and "base" in pbx and (pbx["base"]["rc"], pbx["candidate"]["rc"]) != \
                     (carried["rc_base"], carried["rc_cand"]):

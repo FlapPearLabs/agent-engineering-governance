@@ -1,7 +1,7 @@
 {
  "base_sha": "daba5e4054f992a6f481f0880013595c62ad55d1",
  "candidate_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
- "elapsed_s": 43.1,
+ "elapsed_s": 86.0,
  "facts": {
   "base": "daba5e4054f992a6f481f0880013595c62ad55d1",
   "candidate": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
@@ -13,7 +13,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/validate_project_state.py",
@@ -21,7 +27,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 1,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     1,
+     1,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/validate_public_release.py",
@@ -29,7 +41,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_orchestrator_closure_doctrine.py",
@@ -37,7 +55,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
@@ -45,7 +69,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
@@ -53,7 +83,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
@@ -61,7 +97,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
@@ -69,7 +111,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
@@ -77,7 +125,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
@@ -85,7 +139,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
@@ -93,7 +153,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
@@ -101,7 +167,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
@@ -109,7 +181,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
@@ -117,7 +195,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t13_learning_closure.py",
@@ -125,7 +209,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
@@ -133,7 +223,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
@@ -141,7 +237,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
@@ -149,7 +251,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
@@ -157,7 +265,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_review_evidence_contract.py",
@@ -165,7 +279,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_seam_contract_partitions.py",
@@ -173,7 +293,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_ticket_gate_wiring.py",
@@ -181,7 +307,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    }
   ],
   "deleted_surfaces": [],
@@ -216,8 +348,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.10",
-  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
+  "schema_version": "2.8.11",
+  "validator_sha256": "fb2cb4a27495e672bafa51f2d9412c1a26423f23f70867b1acef0e3438b321b2",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(governance): a false negative is still a false claim"
