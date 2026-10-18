@@ -1,7 +1,7 @@
 {
  "base_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
  "candidate_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
- "elapsed_s": 0.4,
+ "elapsed_s": 0.6,
  "facts": {
   "base": "8a99cbff7dfefcaca8000caafe80568c225e072b",
   "candidate": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
@@ -13,7 +13,13 @@
     "provenance": "DELTA_ADDED",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": null
+    "rc_mut": null,
+    "rc_alt": [
+     1,
+     0,
+     null
+    ],
+    "environment_sensitive": false
    }
   ],
   "deleted_surfaces": [],
@@ -21,6 +27,7 @@
   "frozen_count": 0,
   "acceptance_surface_frozen": false,
   "oracle_in_worker_scope": true,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
@@ -30,7 +37,13 @@
     "provenance": "DELTA_ADDED",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": null
+    "rc_mut": null,
+    "rc_alt": [
+     1,
+     0,
+     null
+    ],
+    "environment_sensitive": false
    }
   ],
   "biting": [],
@@ -56,8 +69,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05"

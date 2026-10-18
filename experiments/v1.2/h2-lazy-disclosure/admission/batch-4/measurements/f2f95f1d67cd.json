@@ -1,7 +1,7 @@
 {
  "base_sha": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
  "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
- "elapsed_s": 62.4,
+ "elapsed_s": 63.5,
  "facts": {
   "base": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
   "candidate": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
@@ -189,7 +189,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     1,
+     1
+    ],
+    "environment_sensitive": true
    },
    {
     "path": "scripts/tests/test_ticket_gate_wiring.py",
@@ -205,33 +211,40 @@
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
-  "guard_unmeasured": [],
-  "unmeasured": [],
-  "discriminating": [
+  "environment_sensitive": [
    {
     "path": "scripts/tests/test_skill_execution.py",
     "kind": "TEST",
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     1,
+     1
+    ],
+    "environment_sensitive": true
    }
   ],
+  "guard_unmeasured": [],
+  "unmeasured": [],
+  "discriminating": [],
   "biting": [],
   "regressed": [],
-  "baseline_oracle_status": "FAIL",
-  "candidate_oracle_status": "PASS",
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
   "mutation_oracle_status": "PASS",
   "mutation_touches_target_predicate": false
  },
  "verdicts": {
   "A_REPAIR": {
-   "supported": true,
-   "reason": "FAIL_TO_PASS"
+   "supported": false,
+   "reason": "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
   },
   "B_REGRESSION_GUARD": {
    "supported": false,
-   "reason": "MUTATION_DOES_NOT_BITE"
+   "reason": "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
   }
  },
  "environment": {
@@ -240,8 +253,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "fix: preserve the consumer specified skill evidence root"

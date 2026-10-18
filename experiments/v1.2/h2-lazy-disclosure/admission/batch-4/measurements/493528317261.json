@@ -1,7 +1,7 @@
 {
  "base_sha": "743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
  "candidate_sha": "4935283172615de9e0954b67fee710c3b96eb549",
- "elapsed_s": 43.4,
+ "elapsed_s": 44.5,
  "facts": {
   "base": "743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
   "candidate": "4935283172615de9e0954b67fee710c3b96eb549",
@@ -157,7 +157,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_review_evidence_contract.py",
@@ -189,6 +195,7 @@
   "frozen_count": 22,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
@@ -198,7 +205,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    }
   ],
   "biting": [],
@@ -224,8 +237,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(governance): close the three guard holes the third review found"

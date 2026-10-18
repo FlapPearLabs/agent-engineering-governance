@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -54,6 +55,10 @@ def literals(source: str) -> set[str]:
             if len(v) >= MIN_LEN:
                 out.add(v)
     return out
+
+
+def digest(literal: str) -> str:
+    return f"{hashlib.sha256(literal.encode()).hexdigest()[:12]} len={len(literal)}"
 
 
 def main(argv: list[str]) -> int:
@@ -97,11 +102,18 @@ def main(argv: list[str]) -> int:
                 if n not in tickets:
                     view = subprocess.run(["gh", "issue", "view", n, "--repo", REPO, "--json",
                                            "title,body"], capture_output=True, text=True)
-                    tickets[n] = (norm(" ".join(json.loads(view.stdout).values()))
-                                  if view.returncode == 0 else "")
+                    # an unreadable ticket is a failed run, never an empty ticket: reading it as ""
+                    # once recorded MISSING == REQUIRED for r12 and r20 (a fact no ticket states)
+                    if view.returncode != 0:
+                        raise SystemExit(f"ticket #{n} unreadable: {view.stderr.strip()}")
+                    tickets[n] = norm(" ".join(json.loads(view.stdout).values()))
                 body += " " + tickets[n]
             missing = [x for x in required if x not in body]
-            row.update(TICKETS=numbers, MISSING=len(missing), MISSING_SAMPLE=missing[:5],
+            # a literal is recorded by digest, never verbatim: this file is a canonical text surface, and
+            # restating an oracle's literal here would make it a second declaration point of
+            # whatever that literal declares (the CE-28 single-declaration scans see it)
+            row.update(TICKETS=numbers, MISSING=len(missing),
+                       MISSING_SAMPLE_SHA256_12=[digest(x) for x in missing[:5]],
                        ALIGNMENT=("ALIGNED" if required and not missing else "NOT_ALIGNED"))
             rows.append(row)
     summary = {}

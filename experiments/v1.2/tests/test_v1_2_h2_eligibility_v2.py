@@ -141,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.9", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.10", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1722,6 +1722,34 @@ class MutationMaterialisation(unittest.TestCase):
                     "externalized_paths": json.dumps(paths)}
             errs = self.mod.verify_externalized(repo, "x", prime, c, meta)
             self.assertTrue(any("derived triggers" in e for e in errs), (paths, errs))
+
+    # ---- DeepSeek review of 667ffe4: finding 1 (the pin CHOSE the environment) ----------------
+    def test_a_verdict_that_depends_on_the_temp_root_spelling_is_refused(self):
+        """r51's shape: the candidate passes its oracle only when the temp root has no symlinked
+        component. 2.8.9 pinned exactly that spelling and called it a repair; 2.8.10 measures the
+        moving surface under a SYMLINKED root too and refuses a verdict that depends on it."""
+        oracle = ("import sys, unittest\nfrom pathlib import Path\n"
+                  "sys.path.insert(0, str(Path(__file__).resolve().parents[1]))\n"
+                  "class T(unittest.TestCase):\n"
+                  "    def test_ok(self):\n"
+                  "        import feature\n"
+                  "        self.assertTrue(feature.ok())\n")
+        fragile = ("import os, tempfile\n"
+                   "def ok():\n"
+                   "    root = tempfile.gettempdir()\n"
+                   "    return os.path.realpath(root) == os.path.abspath(root)\n")
+        robust = "def ok():\n    return True\n"
+        for name, impl, want in (("fragile", fragile, (False, "ENVIRONMENT_SENSITIVE_ACCEPTANCE")),
+                                 ("robust", robust, (True, "FAIL_TO_PASS"))):
+            repo, base, cand = self._repo({"README.md": "a\n"},
+                                          {"scripts/feature.py": impl,
+                                           "scripts/tests/test_feature.py": oracle},
+                                          name=f"env-{name}")
+            facts = self.mod.recompute_transition(repo, base, cand, "A_REPAIR")
+            self.assertNotIn("error", facts, facts)
+            (surface,) = facts["surfaces"]
+            self.assertEqual((1, 0), (surface["rc_base"], surface["rc_cand"]), name)
+            self.assertEqual(want, self.mod.transition_verdict("A_REPAIR", facts), name)
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

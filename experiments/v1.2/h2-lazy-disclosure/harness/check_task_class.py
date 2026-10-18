@@ -76,6 +76,7 @@ Usage:  python3 check_task_class.py <classification.json> [repo_root]
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -87,7 +88,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.9"
+SCHEMA_VERSION = "2.8.10"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -681,30 +682,49 @@ def acceptance_command(rel: str, kind: str, interpreter: str) -> list[str]:
     return [interpreter, "-s", rel]
 
 
-def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str) -> int:
-    """Exit code of one acceptance surface run inside a materialised tree."""
-    if not (tree / rel).is_file():
-        return 127                       # absent is unrunnable, and unrunnable is not a pass
-    # -s (no user site) and no PYTHONPATH / PYTHONHOME / startup hooks: the acceptance imports from
-    # the same places the isolated name lookup in shadow_paths() resolves against (2.8.7)
+TEMP_ROOT_STYLES = ("RESOLVED", "SYMLINKED")
+
+
+@contextlib.contextmanager
+def acceptance_env(temp_style: str = "RESOLVED"):
+    """The environment every acceptance runs in — ONE definition, used by the validator and by the
+    admission probes (a separately built probe env once disagreed with the measurement unseen;
+    DeepSeek review of 667ffe4, finding 2).
+      * -s is on the command; PYTHONPATH / PYTHONHOME / startup hooks are scrubbed (2.8.7);
+      * bytecode is never read from the tree: a fresh, empty PYTHONPYCACHEPREFIX (2.8.6);
+      * the temp root is never inherited: a fresh TMPDIR/TEMP/TMP whose SPELLING is chosen by
+        `temp_style` — RESOLVED (no symlinked component) or SYMLINKED (reached through a symlink,
+        as macOS' /var/folders and /tmp are). 2.8.9 pinned RESOLVED only, which CHOSE the
+        environment in which two candidates' bugs were invisible (review of 667ffe4, finding 1);
+        2.8.10 measures moving surfaces under both and refuses a verdict that depends on it.
+    """
+    if temp_style not in TEMP_ROOT_STYLES:
+        raise ValueError(temp_style)
     env = {k: v for k, v in os.environ.items()
            if k not in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE",
                         "PYTHONINSPECT", "PYTHONSAFEPATH")}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    # bytecode is never READ from the tree either: a committed __pycache__ entry replaced a frozen
-    # test's code while its blob stayed untouched (fresh review of 72f0bb4, finding 1d). With a
-    # fresh, empty prefix, every cached-bytecode lookup misses and the source is compiled.
-    # The temp root is PINNED, never inherited: on macOS the default TMPDIR (/var/folders/...)
-    # sits under a symlink, and a candidate that refuses symlinked path components (5d61ad1 ..
-    # f2f95f1) failed at both revisions under the default spelling and passed under the resolved
-    # one — the A_REPAIR verdict of two records was decided by the operator's environment (DeepSeek
-    # review of ad87629, finding 1). Each run gets a fresh, realpath-resolved temp root (2.8.9).
     with tempfile.TemporaryDirectory(prefix="h2-pycache-") as prefix, \
             tempfile.TemporaryDirectory(prefix="h2-tmp-") as run_tmp:
         env["PYTHONPYCACHEPREFIX"] = prefix
-        resolved = os.path.realpath(run_tmp)
+        root = os.path.realpath(run_tmp)
+        if temp_style == "SYMLINKED":
+            target = os.path.join(root, "target")
+            os.mkdir(target)
+            link = os.path.join(root, "link")
+            os.symlink(target, link)
+            root = link
         for key in ("TMPDIR", "TEMP", "TMP"):
-            env[key] = resolved
+            env[key] = root
+        yield env
+
+
+def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str,
+                   temp_style: str = "RESOLVED") -> int:
+    """Exit code of one acceptance surface run inside a materialised tree, in acceptance_env()."""
+    if not (tree / rel).is_file():
+        return 127                       # absent is unrunnable, and unrunnable is not a pass
+    with acceptance_env(temp_style) as env:
         try:
             r = subprocess.run(acceptance_command(rel, kind, interpreter), cwd=str(tree),
                                capture_output=True, text=True, env=env,
@@ -755,7 +775,7 @@ def _reset(wt: Path, rev: str) -> bool:
 
 def _run_isolated(repo: Repo, wt: Path, rel: str, kind: str, interpreter: str,
                   expected: dict[str, tuple[str, str]], carry: tuple[str, str] | None = None,
-                  rev: str = "") -> int:
+                  rev: str = "", temp_style: str = "RESOLVED") -> int:
     """Reset `wt`, optionally write blob `carry` at `rel` FROM THE OBJECT DATABASE, re-verify the
     identity of every surface the tree should hold, then run `rel`. Raises _IsolationFailure
     (fail closed) instead of running anything whose bytes are not the tracked ones."""
@@ -781,7 +801,7 @@ def _run_isolated(repo: Repo, wt: Path, rel: str, kind: str, interpreter: str,
     diverged = _bytes_diverge(wt, want)
     if diverged:
         raise _IsolationFailure("SURFACE_BYTES_DIVERGE", diverged)
-    return run_acceptance(wt, rel, kind, interpreter)
+    return run_acceptance(wt, rel, kind, interpreter, temp_style)
 
 
 def _materialise_mutation(repo: Repo, cand: str, mut_wt: Path, added_paths: list[str]) -> bool:
@@ -872,6 +892,7 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # the shared worktree, and the rewritten bytes were carried into the base tree too (fresh
         # review of 72f0bb4, finding 2).
         added_set = set(added_paths)
+        legs: dict[str, tuple[str, tuple[str, str]]] = {}
         revs = {wt: subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"],
                                    capture_output=True, text=True).stdout.strip()
                 for wt in (base_wt, cand_wt, mut_wt)}
@@ -897,6 +918,7 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
                 facts["surfaces"].append({"path": rel, "kind": kind, "provenance": provenance,
                                           "rc_base": rc_base, "rc_cand": rc_cand,
                                           "rc_mut": rc_mut})
+                legs[rel] = ("CANDIDATE_SURFACE", (blob, mode))
 
             # Acceptance surfaces the delta DELETES are not in the candidate tree, so the loop
             # above never saw them — and derived_triggers() skips a deleted path. Deleting a green
@@ -915,6 +937,31 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
                                                   "provenance": "DELTA_DELETED",
                                                   "rc_base": rc_base, "rc_cand": rc_cand,
                                                   "rc_mut": None})
+                legs[rel] = ("DELETED_SURFACE", (blob, mode))
+
+            # ENVIRONMENT INVARIANCE (2.8.10): every surface whose verdict MOVES is run again with
+            # a SYMLINKED temp root. A surface that answers differently is environment-sensitive:
+            # it can be neither a basis nor a bite, and a regression it shows in EITHER spelling
+            # still counts (DeepSeek review of 667ffe4, finding 1: r51/r52).
+            for e in facts["surfaces"] + facts["deleted_surfaces"]:
+                rcs = (e["rc_base"], e["rc_cand"], e["rc_mut"])
+                if len({rc for rc in rcs if rc is not None}) < 2:
+                    continue
+                leg, carried = legs[e["path"]]
+                alt_base = _run_isolated(repo, base_wt, e["path"], e["kind"], interpreter,
+                                         expected[base_wt],
+                                         carry=carried if leg == "CANDIDATE_SURFACE" else None,
+                                         rev=revs[base_wt], temp_style="SYMLINKED")
+                alt_cand = _run_isolated(repo, cand_wt, e["path"], e["kind"], interpreter,
+                                         expected[cand_wt],
+                                         carry=carried if leg == "DELETED_SURFACE" else None,
+                                         rev=revs[cand_wt], temp_style="SYMLINKED")
+                alt_mut = (_run_isolated(repo, mut_wt, e["path"], e["kind"], interpreter,
+                                         expected[mut_wt], rev=revs[mut_wt],
+                                         temp_style="SYMLINKED")
+                           if e["rc_mut"] is not None else None)
+                e["rc_alt"] = [alt_base, alt_cand, alt_mut]
+                e["environment_sensitive"] = (alt_base, alt_cand, alt_mut) != rcs
         except _IsolationFailure as failure:
             return {"error": failure.token, "path": failure.path}
 
@@ -936,16 +983,22 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         unmeasured = [e for e in surfaces
                       if not measured(e["rc_base"], e["rc_cand"])
                       or (e["provenance"] == "DELTA_FROZEN" and not measured(e["rc_mut"]))]
+        # an environment-sensitive surface (2.8.10) is never a basis and never a bite
+        sensitive = [e for e in surfaces + facts.get("deleted_surfaces", [])
+                     if e.get("environment_sensitive")]
+        facts["environment_sensitive"] = sensitive
         discriminating = [e for e in eligible
                           if measured(e["rc_base"], e["rc_cand"])
-                          and e["rc_base"] != 0 and e["rc_cand"] == 0]
+                          and e["rc_base"] != 0 and e["rc_cand"] == 0
+                          and not e.get("environment_sensitive")]
         # A guard bites only a state it PROTECTS: green at the base AND at the candidate, red under
         # a mutation that differs from the candidate. Without the candidate leg, a frozen surface
         # the candidate itself broke counted as a bite — and with no added path the "mutation" IS
         # the candidate (admission finding F-A3, measured on 825d390: t09 0/1/1 read as a bite).
         biting = ([e for e in frozen
                    if measured(e["rc_base"], e["rc_cand"], e["rc_mut"])
-                   and e["rc_base"] == 0 and e["rc_cand"] == 0 and e["rc_mut"] != 0]
+                   and e["rc_base"] == 0 and e["rc_cand"] == 0 and e["rc_mut"] != 0
+                   and not e.get("environment_sensitive")]
                   if added_paths else [])
         green_frozen = [e for e in frozen if measured(e["rc_base"]) and e["rc_base"] == 0]
         # A frozen surface the candidate turns from green to red is a REGRESSION the candidate
@@ -953,8 +1006,11 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         # any frozen guard — biting one or not — cannot be one (F-A6, fresh review of 4add2ca:
         # r26 / 95667e8 breaks t09 0/1/1 while a link guard bit).
         guards = frozen + facts["deleted_surfaces"]
-        regressed = [e for e in guards if measured(e["rc_base"], e["rc_cand"])
-                     and e["rc_base"] == 0 and e["rc_cand"] != 0]
+        # a regression seen under EITHER temp-root spelling is a regression (2.8.10)
+        def regresses(b, c):
+            return measured(b, c) and b == 0 and c != 0
+        regressed = [e for e in guards if regresses(e["rc_base"], e["rc_cand"])
+                     or ("rc_alt" in e and regresses(e["rc_alt"][0], e["rc_alt"][1]))]
         # a base-green guard whose candidate verdict could not be measured (timeout / absent) is
         # not a pass: B fails closed on it (fresh review of f2c48a0, finding 1)
         guard_unmeasured = [e for e in guards if measured(e["rc_base"]) and e["rc_base"] == 0
@@ -999,6 +1055,8 @@ def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
     if cls == "A_REPAIR":
         if facts["discriminating"]:
             return True, "FAIL_TO_PASS"
+        if facts.get("environment_sensitive"):
+            return False, "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
         moved = [e for e in facts["surfaces"]
                  if (e["rc_base"], e["rc_cand"]) not in ((124, 124), (127, 127))
                  and e["rc_base"] != e["rc_cand"]
@@ -1014,6 +1072,8 @@ def transition_verdict(cls: str, facts: dict) -> tuple[bool, str]:
             return False, "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
         if facts.get("guard_unmeasured"):
             return False, "CANDIDATE_GUARD_UNMEASURED"
+        if not facts["biting"] and facts.get("environment_sensitive"):
+            return False, "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
         if not facts["biting"]:
             return False, "MUTATION_DOES_NOT_BITE"
         return True, "PASS_TO_FAIL_UNDER_MUTATION"

@@ -1,7 +1,7 @@
 {
  "base_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
  "candidate_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
- "elapsed_s": 62.8,
+ "elapsed_s": 73.5,
  "facts": {
   "base": "8c0075c5db0e06eec67d303955d13e214ba22782",
   "candidate": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
@@ -13,7 +13,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     0,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/validate_project_state.py",
@@ -101,7 +107,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 1,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     1,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
@@ -149,7 +161,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     0,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
@@ -205,6 +223,7 @@
   "frozen_count": 24,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
@@ -215,7 +234,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     0,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
@@ -223,7 +248,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 0,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     0,
+     1
+    ],
+    "environment_sensitive": false
    }
   ],
   "regressed": [
@@ -233,7 +264,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 1,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     1,
+     1
+    ],
+    "environment_sensitive": false
    }
   ],
   "baseline_oracle_status": "PASS",
@@ -257,8 +294,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "docs: make governance portable with MIT and an adoption exercise"

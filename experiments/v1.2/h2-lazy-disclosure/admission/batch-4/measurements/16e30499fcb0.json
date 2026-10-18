@@ -1,7 +1,7 @@
 {
  "base_sha": "2219e31686c92e58ea77def33ab98cad3d1e1608",
  "candidate_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
- "elapsed_s": 42.5,
+ "elapsed_s": 46.6,
  "facts": {
   "base": "2219e31686c92e58ea77def33ab98cad3d1e1608",
   "candidate": "16e30499fcb0bd45abd47f063763708662c12e65",
@@ -13,7 +13,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 1,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     1,
+     1
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/validate_project_state.py",
@@ -157,7 +163,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_review_evidence_contract.py",
@@ -189,6 +201,7 @@
   "frozen_count": 22,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
@@ -198,7 +211,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    }
   ],
   "biting": [],
@@ -209,7 +228,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 0,
     "rc_cand": 1,
-    "rc_mut": 1
+    "rc_mut": 1,
+    "rc_alt": [
+     0,
+     1,
+     1
+    ],
+    "environment_sensitive": false
    }
   ],
   "baseline_oracle_status": "FAIL",
@@ -233,8 +258,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(governance): close the guard-strength gaps found by the second review"

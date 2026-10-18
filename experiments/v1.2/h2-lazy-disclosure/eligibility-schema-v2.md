@@ -2,9 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.9  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.9 = defects raised by real
+VERSION        = 2.8.10 (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.10 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
-                 72f0bb4, 617ba01, 1e8ac1f, ad87629, see §6.7)
+                 72f0bb4, 617ba01, 1e8ac1f, ad87629, 667ffe4, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -573,7 +573,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.9 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.10 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -720,6 +720,20 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          covers batch 4; counts corrected (2.8.8 added 6 tests, not 4: 36). The ancestry clause
          for externalized identities is implied by verify_externalized (original_base == C^1) —
          kept as a stated invariant, not counted as a second defence.
+2.8.10 (DeepSeek fresh review of 667ffe4: one P1-argued, two P2, one P3)
+  F-A17    2.8.9's pin CHOSE the environment: r51's candidate (f2f95f1) stopped resolving the
+           evidence root and walks it with O_NOFOLLOW, so under any symlinked temp root (macOS'
+           default /var/folders and /tmp) its own oracle fails — 2.8.9 measured only the resolved
+           spelling and recorded a repair. 2.8.10: every surface whose verdict MOVES is re-run
+           with a SYMLINKED temp root (acceptance_env); a surface answering differently is
+           environment-sensitive — never a basis, never a bite; a regression in EITHER spelling
+           counts. r51 and r52 are now refused (ENVIRONMENT_SENSITIVE_ACCEPTANCE).
+  F-A18    one acceptance environment (acceptance_env) used by the validator AND the probes; the
+           ledger's EXECUTION_AGREEMENT now also compares the probe's exit codes.
+  F-A19    the batch-4 pairs view is produced by a committed program (externalize.py
+           --pairs-out) and records the original pair's derived trigger alongside the new pair.
+  P3       §6.8 eligibility sentence narrowed to what the name rule detects.
+REGRESSION (2.8.10) MutationMaterialisation (39 tests); the temp-root test fails against 667ffe4.
 REGRESSION (2.8.9)  MutationMaterialisation (38 tests); both 2.8.9 tests fail against ad87629.
 REGRESSION (2.8.8)  MutationMaterialisation (36 tests).
 REGRESSION (2.8.7)  MutationMaterialisation (30 tests); the mode test fails against b0c7529; the
@@ -764,8 +778,13 @@ VERIFIED  verify_externalized(): B == C^1; B'^@ == [B]; diff(B, B') == {M p : p 
           each p is mode- and byte-identical in B' and C. Any other byte in B' is refused.
 ANCESTRY  admissible claims need C to descend from B (the original base), since B' is C's sibling.
 ELIGIBLE  only pairs whose derived triggers are exactly WORKER_MODIFIES_TEST_ORACLE on MODIFIED
-          paths; a pair that rewrites a validator stays rejected (externalising it would freeze the
-          fix itself); the new pair (B', C) must derive no trigger of its own.
+          paths (re-derived by verify_externalized since 2.8.9); a pair whose delta rewrites a
+          validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR and stays rejected. A validator
+          BY ROLE that the name rule does not match (scripts/review_evidence.py,
+          scripts/skill_execution.py — 10 of the 19 batch-4 identities modify one) is NOT detected:
+          the same NOT-ENFORCED limit as §6.6; there it is the code under test, judged by the
+          frozen oracle. Test-only commits give an EMPTY new delta (12 of 57) and measure as no
+          transition. The new pair (B', C) must derive no trigger of its own.
 CLASS     decided by the recomputed transition as for any pair: A_REPAIR needs the now-frozen
           oracle red at B' and green at C (FRAMEWORK_FROZEN basis, visible to the worker).
 DURABLE   every B' is reachable from refs/heads/admission/externalized-oracles-v1 (one anchor

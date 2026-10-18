@@ -1,7 +1,7 @@
 {
  "base_sha": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
  "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
- "elapsed_s": 26.9,
+ "elapsed_s": 27.8,
  "facts": {
   "base": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
   "candidate": "12c32f41898a5cec8db9346637c78800978f7549",
@@ -77,7 +77,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    },
    {
     "path": "scripts/tests/test_review_evidence_contract.py",
@@ -109,6 +115,7 @@
   "frozen_count": 12,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [
@@ -118,7 +125,13 @@
     "provenance": "DELTA_FROZEN",
     "rc_base": 1,
     "rc_cand": 0,
-    "rc_mut": 0
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
    }
   ],
   "biting": [],
@@ -144,8 +157,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)"

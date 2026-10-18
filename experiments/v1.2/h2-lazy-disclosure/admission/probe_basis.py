@@ -15,7 +15,6 @@ Usage:  probe_basis.py <repo_root> <measurement.json> <out.json>
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -50,9 +49,12 @@ def summarise(out: str, rc: int) -> dict:
 
 
 def run(tree: Path, rel: str, kind: str) -> dict:
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
-    r = subprocess.run(ctc.acceptance_command(rel, kind, sys.executable), cwd=str(tree),
-                       capture_output=True, text=True, env=env, timeout=ctc.ACCEPTANCE_TIMEOUT)
+    # the validator's OWN acceptance environment (one definition, check_task_class.acceptance_env):
+    # a separately built env once let the probe disagree with the measurement unseen
+    with ctc.acceptance_env("RESOLVED") as env:
+        r = subprocess.run(ctc.acceptance_command(rel, kind, sys.executable), cwd=str(tree),
+                           capture_output=True, text=True, env=env,
+                           timeout=ctc.ACCEPTANCE_TIMEOUT)
     return summarise(r.stdout + r.stderr, r.returncode)
 
 

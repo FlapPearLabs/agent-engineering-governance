@@ -1,7 +1,7 @@
 {
  "base_sha": "0007bb3096791114d4616b599f44428e9bbfeb83",
  "candidate_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
- "elapsed_s": 71.1,
+ "elapsed_s": 71.2,
  "facts": {
   "base": "0007bb3096791114d4616b599f44428e9bbfeb83",
   "candidate": "a90fb637928220396cad48d10783f9692aa70cb8",
@@ -213,6 +213,7 @@
   "frozen_count": 25,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
@@ -239,8 +240,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): correct c03 source anchor to P09 (independent review P3)"

@@ -1,7 +1,7 @@
 {
  "base_sha": "95b790d2dc8edff96a907815c7c0cf0db60a95d9",
  "candidate_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
- "elapsed_s": 5.6,
+ "elapsed_s": 5.7,
  "facts": {
   "base": "95b790d2dc8edff96a907815c7c0cf0db60a95d9",
   "candidate": "e1da1541eb2b11f1e44f972409abde701496f4b6",
@@ -53,6 +53,7 @@
   "frozen_count": 5,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
@@ -79,8 +80,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "test(ticket-lane): bind seam counterexample checks to the canonical contract document"

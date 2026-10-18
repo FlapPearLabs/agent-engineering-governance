@@ -2,15 +2,15 @@
  "summary": {
   "validator_run": "PASS",
   "records": 19,
-  "schema_v2_valid_requests": 19,
+  "schema_v2_valid_requests": 17,
   "executions_disagree": 0,
   "valid_by_oracle_kind": {
-   "BEHAVIORAL": 10,
+   "BEHAVIORAL": 8,
    "DOC_TEXT": 9
   },
   "valid_by_family": {
    "P1_TICKET_DOC_RECIPE": 3,
-   "INDIVIDUAL": 16
+   "INDIVIDUAL": 14
   }
  },
  "rows": [
@@ -28,7 +28,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
    },
    "BASE_RESULT": "rc=1 ran=46 failures=17 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=46 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=46 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_review_evidence_contract.py@b88df0313b3b",
@@ -74,7 +75,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
    },
    "BASE_RESULT": "rc=1 ran=53 failures=28 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=53 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=53 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_review_evidence_contract.py@0ec774f06882",
@@ -118,7 +120,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
    },
    "BASE_RESULT": "rc=1 ran=52 failures=23 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=52 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=52 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_review_evidence_contract.py@1b48d2bb44e5",
@@ -163,7 +166,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t02_execution_stage_pre_ticket_record.py"
    },
    "BASE_RESULT": "rc=1 ran=11 failures=3 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=11 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=11 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py@89b97e3b65d3",
@@ -207,7 +211,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t05_evidence_disposition.py"
    },
    "BASE_RESULT": "rc=1 ran=26 failures=12 errors=0 skipped=0 types=['AssertionError', 'TypeError']",
-   "CANDIDATE_RESULT": "rc=0 ran=26 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=26 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t05_evidence_disposition.py@33cfcc890e38",
@@ -252,7 +257,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t06_producer_trust_boundary.py"
    },
    "BASE_RESULT": "rc=1 ran=39 failures=25 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=39 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=39 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t06_producer_trust_boundary.py@51e7604be368",
@@ -297,7 +303,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t11_destructive_workspace_transaction.py"
    },
    "BASE_RESULT": "rc=1 ran=38 failures=17 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=38 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=38 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py@12c32f41898a",
@@ -341,7 +348,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t10_audit_visibility_recipe.py"
    },
    "BASE_RESULT": "rc=1 ran=21 failures=2 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=21 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=21 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t10_audit_visibility_recipe.py@0046c3648c4e",
@@ -385,7 +393,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t08_evidence_lifecycle.py"
    },
    "BASE_RESULT": "rc=1 ran=25 failures=10 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=25 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=25 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t08_evidence_lifecycle.py@1eaaea2c97bf",
@@ -431,7 +440,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t08_evidence_lifecycle.py"
    },
    "BASE_RESULT": "rc=1 ran=29 failures=3 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=29 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=29 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t08_evidence_lifecycle.py@b03d1811f63a",
@@ -475,7 +485,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=71 failures=5 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=71 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=71 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@579f6d5e7762",
@@ -521,7 +532,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=76 failures=2 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=76 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=76 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@58870aaebfbd",
@@ -566,7 +578,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=80 failures=2 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=80 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=80 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@16e30499fcb0",
@@ -617,7 +630,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=90 failures=4 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=90 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=90 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@2d4bb9dcbd3c",
@@ -663,7 +677,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=98 failures=1 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=98 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=98 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@493528317261",
@@ -707,7 +722,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
    },
    "BASE_RESULT": "rc=1 ran=102 failures=1 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=102 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=102 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py@97ec8027d474",
@@ -752,7 +768,8 @@
     "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
    },
    "BASE_RESULT": "rc=1 ran=28 failures=4 errors=1 skipped=0 types=['AssertionError', 'AttributeError']",
-   "CANDIDATE_RESULT": "rc=0 ran=28 skipped=0",
+   "CANDIDATE_RESULT": "rc=0 probe_rc=0 ran=28 failures=0 errors=0 skipped=0",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [],
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",
    "ORACLE_LOCATION": "scripts/tests/test_skill_execution.py@5d61ad139ceb",
@@ -791,19 +808,17 @@
    "TASK_DESCRIPTION": "fix: preserve the consumer specified skill evidence root",
    "BASE_SHA": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
    "CANDIDATE_SHA": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
-   "TASK_CLASS": "A_REPAIR",
-   "FROZEN_ACCEPTANCE_DEFINITION": {
-    "path": "scripts/tests/test_skill_execution.py",
-    "candidate_blob_sha256": "592ab3da08415f9749f8d924a4fa29e383d2b4f7c4187154ccb72c98de653ddf",
-    "kind": "TEST",
-    "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
-   },
-   "BASE_RESULT": "rc=1 ran=29 failures=1 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=29 skipped=0",
-   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
-   "STATE_TRANSITION": "FAIL_TO_PASS",
-   "ORACLE_LOCATION": "scripts/tests/test_skill_execution.py@f2f95f1d67cd",
-   "ORACLE_EXTERNALIZATION": "FRAMEWORK_FROZEN: the oracle is byte-identical at base and candidate and is not in the delta; Freeze v2 must still exclude its path from the worker's scope",
+   "TASK_CLASS": "C_REJECT",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "MUTATION_RESULT": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+   "STATE_TRANSITION": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
    "WORKER_SCOPE": [
     "audit/PAIN_TO_POLICY_MAP_V2.md",
     "docs/design-history.md",
@@ -818,9 +833,11 @@
    "DERIVED_TRIGGERS": {},
    "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
-   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
-   "REJECTION_REASON": null,
-   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
    "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
    "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
    "OBSERVATION_GUARD_CHECKS": null,
@@ -838,19 +855,17 @@
    "TASK_DESCRIPTION": "fix: apply Skill receipt checks at input acquisition",
    "BASE_SHA": "5abdc296c7beebf2416ce41d4d952ddaab756d75",
    "CANDIDATE_SHA": "8c0075c5db0e06eec67d303955d13e214ba22782",
-   "TASK_CLASS": "A_REPAIR",
-   "FROZEN_ACCEPTANCE_DEFINITION": {
-    "path": "scripts/tests/test_skill_execution.py",
-    "candidate_blob_sha256": "19848d52cb0747b14881041593ce063ae8f9c5f3df56f8de1a3c0d81373710fd",
-    "kind": "TEST",
-    "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
-   },
-   "BASE_RESULT": "rc=1 ran=32 failures=19 errors=0 skipped=0 types=['AssertionError']",
-   "CANDIDATE_RESULT": "rc=0 ran=32 skipped=0",
-   "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
-   "STATE_TRANSITION": "FAIL_TO_PASS",
-   "ORACLE_LOCATION": "scripts/tests/test_skill_execution.py@8c0075c5db0e",
-   "ORACLE_EXTERNALIZATION": "FRAMEWORK_FROZEN: the oracle is byte-identical at base and candidate and is not in the delta; Freeze v2 must still exclude its path from the worker's scope",
+   "TASK_CLASS": "C_REJECT",
+   "FROZEN_ACCEPTANCE_DEFINITION": null,
+   "BASE_RESULT": "no basis",
+   "CANDIDATE_RESULT": "no basis",
+   "ENVIRONMENT_SENSITIVE_SURFACES": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "MUTATION_RESULT": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+   "STATE_TRANSITION": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+   "ORACLE_LOCATION": null,
+   "ORACLE_EXTERNALIZATION": "N/A",
    "WORKER_SCOPE": [
     "audit/PAIN_TO_POLICY_MAP_V2.md",
     "docs/design-history.md",
@@ -865,9 +880,11 @@
    "DERIVED_TRIGGERS": {},
    "REGRESSED_GUARDS": [],
    "DELETED_ACCEPTANCE_SURFACES": [],
-   "SCHEMA_V2_RESULT": "A_REPAIR / REQUEST_VALID",
-   "REJECTION_REASON": null,
-   "EXECUTION_AGREEMENT": "EXECUTIONS_AGREE",
+   "SCHEMA_V2_RESULT": "C_REJECT / NOT_ADMITTED",
+   "REJECTION_REASON": [
+    "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+   ],
+   "EXECUTION_AGREEMENT": "N/A (no supported transition)",
    "OBSERVATION_ORACLE_KIND": "BEHAVIORAL",
    "OBSERVATION_TASK_FAMILY": "INDIVIDUAL",
    "OBSERVATION_GUARD_CHECKS": null,

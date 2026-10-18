@@ -1,7 +1,7 @@
 {
  "base_sha": "1518cc0c49afcc0f682eb8e0fa7684dfb8d75770",
  "candidate_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
- "elapsed_s": 40.6,
+ "elapsed_s": 40.8,
  "facts": {
   "base": "1518cc0c49afcc0f682eb8e0fa7684dfb8d75770",
   "candidate": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
@@ -173,6 +173,7 @@
   "frozen_count": 20,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
@@ -199,8 +200,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "fix(adapters): close --config-env, drop --force-if-includes, disclose the section 5.2 divergence"

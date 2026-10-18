@@ -22,7 +22,7 @@ the fix itself. This program writes objects to the object database and, with --a
 ref whose commit has every B' as a parent (so they are reachable and can be pushed); nothing else.
 
 Usage:  externalize.py <repo_root> <discovery.json> [<discovery.json> ...] --out <map.json>
-                       [--anchor refs/heads/<name>]
+                       [--anchor refs/heads/<name>] [--pairs-out <discovery-externalized.json>]
 """
 from __future__ import annotations
 
@@ -86,10 +86,13 @@ def main(argv: list[str]) -> int:
     ap.add_argument("discovery", nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument("--anchor", default="")
+    ap.add_argument("--pairs-out", default="",
+                    help="also write the measurement view of the new identities (B', C)")
     a = ap.parse_args(argv[1:])
     root = Path(a.repo_root).resolve()
     out: dict[str, dict] = {}
     skipped: dict[str, str] = {}
+    views: list[dict] = []
     for dpath in a.discovery:
         for pair in json.loads(Path(dpath).read_text(encoding="utf-8"))["pairs"]:
             if pair.get("disposition") != "DERIVED_TRIGGER_PRESENT":
@@ -112,9 +115,26 @@ def main(argv: list[str]) -> int:
                 continue
             out[cand] = {"original_base": base, "base_prime": prime,
                          "externalized_paths": sorted(paths), "subject": pair.get("subject")}
+            new_changed = ctc.Repo(root).changed_paths_with_status(prime, cand)
+            views.append({"base_sha": prime, "candidate_sha": cand,
+                          "disposition": "EXTERNALIZED_ORACLE",
+                          "changed": [[s, p] for s, p in new_changed],
+                          "derived_triggers": residual,
+                          "original_base": base, "externalized_paths": sorted(paths),
+                          "original_pair": {"base_sha": base, "candidate_sha": cand,
+                                            "disposition": pair["disposition"],
+                                            "changed": pair["changed"],
+                                            "derived_triggers": triggers},
+                          "subject": pair.get("subject")})
     doc = {"program": "admission/externalize.py", "identity": list(IDENTITY),
            "eligible": len(out), "skipped": skipped, "externalized": out}
     Path(a.out).write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    if a.pairs_out:
+        ref = json.loads(Path(a.discovery[0]).read_text(encoding="utf-8")).get("ref_sha")
+        Path(a.pairs_out).write_text(json.dumps(
+            {"program": "admission/externalize.py --pairs-out", "ref_sha": ref,
+             "pairs_total": len(views), "funnel": {"EXTERNALIZED_ORACLE": len(views)},
+             "pairs": views}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     if a.anchor and out:
         primes = sorted({v["base_prime"] for v in out.values()})
         tree = git(root, "mktree", stdin="")                      # the empty tree

@@ -93,6 +93,12 @@ def main(argv: list[str]) -> int:
                      (t[5], t[6], t[7]) == tuple(str(carried[k])
                                                  for k in ("rc_base", "rc_cand", "rc_mut"))
                      else "EXECUTIONS_DISAGREE")
+            # the independent probe is a THIRD execution of the basis; it must agree too
+            # (DeepSeek review of 667ffe4, finding 2)
+            pbx = next((x for x in probe["probes"] if x.get("path") == carried["path"]), None)
+            if pbx and "base" in pbx and (pbx["base"]["rc"], pbx["candidate"]["rc"]) != \
+                    (carried["rc_base"], carried["rc_cand"]):
+                agree = "EXECUTIONS_DISAGREE"
         pb = next((x for x in probe["probes"] if x.get("path") == oracle), None)
         blob = (hashlib.sha256(subprocess.run(["git", "-C", str(ROOT), "show", f"{cand}:{oracle}"],
                                               capture_output=True, check=True).stdout).hexdigest()
@@ -112,9 +118,14 @@ def main(argv: list[str]) -> int:
                             f"failures={pb['base']['failures']} errors={pb['base']['errors']} "
                             f"skipped={pb['base']['skipped']} types={pb['base']['first_error_types']}"
                             if pb and "base" in pb else "")) if basis else "no basis",
-            "CANDIDATE_RESULT": (f"rc={basis['rc_cand']}" + (f" ran={pb['candidate']['ran']} "
+            "CANDIDATE_RESULT": (f"rc={basis['rc_cand']}" + (f" probe_rc={pb['candidate']['rc']} "
+                                 f"ran={pb['candidate']['ran']} "
+                                 f"failures={pb['candidate']['failures']} "
+                                 f"errors={pb['candidate']['errors']} "
                                  f"skipped={pb['candidate']['skipped']}"
                                  if pb and "candidate" in pb else "")) if basis else "no basis",
+            "ENVIRONMENT_SENSITIVE_SURFACES": [e["path"] for e in
+                                               facts.get("environment_sensitive", [])],
             "MUTATION_RESULT": (m["verdicts"]["B_REGRESSION_GUARD"]["reason"] +
                                 (f" guard={guard['path']} rc base/cand/mut="
                                  f"{guard['rc_base']}/{guard['rc_cand']}/{guard['rc_mut']}"

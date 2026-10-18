@@ -47,7 +47,7 @@ $PY $A/select.py $A/batch-{1,2,3,4}/ledger.json --alignment $A/freeze-v2-input/a
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (168) was produced by validator **2.8.9**, under the operator's DEFAULT temp
+Every measurement file (168) was produced by validator **2.8.10**, under the operator's DEFAULT temp
 root (acceptances get their own pinned, realpath-resolved TMPDIR; it is not an input) — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
@@ -68,15 +68,15 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.9; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.10; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
 batch 1 (commits)       17      15       2              0
 batch 2 (frozen scan)    8       5       3              0      (75 pairs: no transition, no record)
 batch 3 (PR merges)      3       3       0              0      (8 pairs: no transition, no record)
-batch 4 (externalized)  19      19       0              0      (57 identities built; 38 no transition)
-TOTAL                   47      42       5              0
+batch 4 (externalized)  19      17       2              0      (57 identities built; 38 no transition)
+TOTAL                   47      40       7              0
 ```
 
 Records are made for every pair whose measured transition supports a class, plus the rejections
@@ -190,7 +190,7 @@ FZ-ADM-1 TASK_TEXT <-> ORACLE ALIGNMENT  DOC_TEXT oracles check specific marker 
          sees a paraphrased task text cannot hit them, so both arms fail and the task carries no
          signal. MEASURED on r15 (Issue #23, 7,976 chars, read-only `gh issue view`): 63 of the
          oracle's 241 string literals occur verbatim in the ticket, and the heading the oracle
-         locates the recipe by (`### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）`) does
+         locates the recipe by (the §5.2 heading of references/git-ci-integration.md, quoted there and nowhere else) does
          not. Freeze v2 must derive each task text from its ticket and check that every literal the
          oracle requires is derivable — or not select the task.
 FZ-ADM-2 STRATA  8/16 DELTA_ADDED A requests are one doc-recipe family; all 5 B requests are one
@@ -218,7 +218,7 @@ FZ-ADM-9 DELETED / REGRESSED GUARDS  Schema v2 refuses them only for B. Any task
 ## 6. Status of the admission count
 
 ```text
-SCHEMA_V2_VALID_REQUESTS 42   (23 before batch 4 + 19 externalized) >= 6 required: COUNT met.
+SCHEMA_V2_VALID_REQUESTS 40   (23 before batch 4 + 17 externalized) >= 6 required: COUNT met.
 GOOD H2 TASKS            the Freeze v2 shortlist (§7): 10 visible-frozen-oracle real repairs.
 FURTHER SEARCH HERE      not useful: every non-merge and merge pair of main was routed and every
                          routable pair executed. More strong tasks need FZ-ADM-6 (new identities
@@ -232,7 +232,14 @@ EXTERNALIZED_ORACLE  57 real repairs whose ONLY derived trigger was WORKER_MODIF
                      given new identities (B', C) by externalize.py (schema §6.8); B' is
                      deterministic and verified by the validator; all B' are reachable from the
                      pushed branch admission/externalized-oracles-v1. 19 measure A_REPAIR on a
-                     FRAMEWORK_FROZEN oracle (batch 4); one of them (r46) regresses another guard.
+                     FRAMEWORK_FROZEN oracle (batch 4); one of them (r46) regresses another guard,
+                     and two (r51, r52: test_skill_execution.py) are ENVIRONMENT_SENSITIVE_ACCEPTANCE
+                     (validator 2.8.10: their candidate is green only under a symlink-free temp
+                     root; f2f95f1 swapped resolve() for abspath() while reads still refuse every
+                     symlinked component) -> C_REJECT, 17 valid. r50 is stable under both spellings.
+REPRODUCE B'         externalize.py . batch-1/discovery-governance.json batch-3/discovery-merges.json
+                       --out batch-4/externalized.json --pairs-out batch-4/discovery-externalized.json
+                     (paths relative to admission/); both outputs are byte-reproducible.
 ALIGNMENT            alignment.py over every hidden-oracle doc request: 7 NOT_ALIGNED, 6 NO_TICKET,
                      0 ALIGNED -> the doc-recipe family drops out (freeze-v2-input/alignment.json).
 SHORTLIST            select.py rules S1-S5 (freeze-v2-input/shortlist.json): 10 tasks, every one a

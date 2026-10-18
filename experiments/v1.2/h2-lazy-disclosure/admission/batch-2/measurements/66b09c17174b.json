@@ -1,7 +1,7 @@
 {
  "base_sha": "07430d179138595497ddd8c20a934a93b46620b9",
  "candidate_sha": "66b09c17174bbb11c324d05b9b83c2139901a9c6",
- "elapsed_s": 32.6,
+ "elapsed_s": 32.7,
  "facts": {
   "base": "07430d179138595497ddd8c20a934a93b46620b9",
   "candidate": "66b09c17174bbb11c324d05b9b83c2139901a9c6",
@@ -141,6 +141,7 @@
   "frozen_count": 16,
   "acceptance_surface_frozen": true,
   "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
   "guard_unmeasured": [],
   "unmeasured": [],
   "discriminating": [],
@@ -167,8 +168,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.9",
-  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
+  "schema_version": "2.8.10",
+  "validator_sha256": "0f95c03d1c2664ca14edca0866096b1a2c2bf6de3b5b02db8a0b2d1dbf4c5445",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(state): flush recovery snapshot after P1 Stage 5 execution and lane closure"

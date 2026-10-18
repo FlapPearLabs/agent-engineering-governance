@@ -37,12 +37,12 @@
     "17"
    ],
    "MISSING": 7,
-   "MISSING_SAMPLE": [
-    "ENTRYPOINT_DISCONNECTED",
-    "REAL_ENTRYPOINT -> 真实入口",
-    "不存在合法生产调用者路径",
-    "不通过本条证据路径关闭",
-    "也不得关闭该集成票"
+   "MISSING_SAMPLE_SHA256_12": [
+    "0a2f1c336368 len=23",
+    "12bccaefc731 len=23",
+    "dbc6010c11a9 len=12",
+    "f35006febcc0 len=11",
+    "be80e020cd54 len=9"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -55,12 +55,12 @@
     "19"
    ],
    "MISSING": 20,
-   "MISSING_SAMPLE": [
-    "## 1. 评审分级（L0/L1/L2）",
-    "## 4. PASS 语义与 findings 处置",
-    "AC-44-P",
-    "CE-28-D",
-    "CE-35-A"
+   "MISSING_SAMPLE_SHA256_12": [
+    "84ce1635cbc2 len=20",
+    "69860f1060b0 len=26",
+    "9c4ff50d1653 len=7",
+    "13615808aad7 len=7",
+    "29288f79fe82 len=7"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -73,12 +73,12 @@
     "23"
    ],
    "MISSING": 38,
-   "MISSING_SAMPLE": [
-    "## 4. Scope 核验（L0；语义优先）",
-    "## 5. Exact-SHA 评审协议",
-    "### 5.1 集成关闭证据（INTEGRATION CLOSURE EVIDENCE）",
-    "### 5.2 破坏性工作区事务（DESTRUCTIVE_WORKSPACE_TRANSACTION）",
-    "CLOSURE-REQUIRED"
+   "MISSING_SAMPLE_SHA256_12": [
+    "c803e33852a1 len=23",
+    "9875125a3b5b len=20",
+    "e6a9c4bd1411 len=44",
+    "ab4bd757f42d len=51",
+    "a5ae7b33445c len=16"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -91,12 +91,12 @@
     "22"
    ],
    "MISSING": 38,
-   "MISSING_SAMPLE": [
-    "## 1. 评审分级（L0/L1/L2）",
-    "## 4. PASS 语义与 findings 处置",
-    "### 6.1",
-    "### 6.2",
-    "### 6.3"
+   "MISSING_SAMPLE_SHA256_12": [
+    "84ce1635cbc2 len=20",
+    "69860f1060b0 len=26",
+    "14bfd6281b89 len=7",
+    "b31a9574b167 len=7",
+    "3e5b24a3f985 len=7"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -109,12 +109,12 @@
     "20"
    ],
    "MISSING": 35,
-   "MISSING_SAMPLE": [
-    "## 1. Lane 契约（默认；仓政策可定义例外）",
-    "## 2. 读权威与 Relevant Surface Manifest",
-    "## 3. Contract Extraction（MEDIUM/HIGH 必备字段块）",
-    "## 4. Counterexample-first TDD",
-    "## 5. 实现与自审"
+   "MISSING_SAMPLE_SHA256_12": [
+    "9331d30c4003 len=26",
+    "bfcbc124073d len=36",
+    "326530e42646 len=44",
+    "6aeab2f46aa6 len=30",
+    "fd181d39c259 len=11"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -128,12 +128,12 @@
     "25"
    ],
    "MISSING": 26,
-   "MISSING_SAMPLE": [
-    "## 1. 晋升判定",
-    "## 2. 已晋升内容（V1.1，源自原始 MEMORY 的 durable 工程知识）",
-    "## 3. 原始 MEMORY 的其余内容",
-    "## 4. Learning 关闭条件（按需 recipe；非每票模板）",
-    "### 记忆路由（V1.1.2，与 project-state-persistence §9 同步）"
+   "MISSING_SAMPLE_SHA256_12": [
+    "c7dd2ec2eed1 len=10",
+    "75c24b45e1b6 len=44",
+    "5c1fc5106dab len=21",
+    "6aaa3f63dccb len=36",
+    "c5cfbab8d7a6 len=50"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },
@@ -146,12 +146,12 @@
     "14"
    ],
    "MISSING": 26,
-   "MISSING_SAMPLE": [
-    "## 1. Skill 路由表（按流程阶段；2026-09-05 安装与契约核验）",
-    "## 2. 模型路由（RISK FIRST, MODEL SECOND；D 层默认）",
-    "## 3. 平台映射备注",
-    "## 4. 派发元数据 recipe（MODEL_DISPATCH_METADATA；RISK FIRST, MODEL SECOND）",
-    "**profile / 可更新值，不是不变量**"
+   "MISSING_SAMPLE_SHA256_12": [
+    "572a5954b7cc len=41",
+    "a5a876e1c933 len=42",
+    "07d2cfd7dda8 len=12",
+    "35433944e83d len=68",
+    "bcbc3df97411 len=24"
    ],
    "ALIGNMENT": "NOT_ALIGNED"
   },

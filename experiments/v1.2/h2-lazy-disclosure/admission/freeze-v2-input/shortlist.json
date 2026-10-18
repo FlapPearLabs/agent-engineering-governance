@@ -7,7 +7,7 @@
   "S4",
   "S5"
  ],
- "pool_after_S1_S4": 20,
+ "pool_after_S1_S4": 18,
  "shortlist_count": 10,
  "shortlist": [
   {
@@ -187,7 +187,7 @@
   "r47-governance-ext-the-agents-guard-was-pinning": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
   "r48-governance-ext-close-the-three-guard-holes": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
   "r49-governance-ext-roll-p22-up-and-stop": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
-  "r51-governance-ext-preserve-the-consumer-specified-skill": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_skill_execution.py",
-  "r52-governance-ext-apply-skill-receipt-checks-at": "S5:ORACLE_ALREADY_REPRESENTED:scripts/tests/test_skill_execution.py"
+  "r51-governance-ext-preserve-the-consumer-specified-skill": "S1:C_REJECT / NOT_ADMITTED",
+  "r52-governance-ext-apply-skill-receipt-checks-at": "S1:C_REJECT / NOT_ADMITTED"
  }
 }

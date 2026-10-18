@@ -1,33 +1,5 @@
 {
  "base_sha": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
  "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
- "probes": [
-  {
-   "path": "scripts/tests/test_skill_execution.py",
-   "kind": "TEST",
-   "provenance": "DELTA_FROZEN",
-   "base": {
-    "rc": 1,
-    "ran": 29,
-    "verdict_line": "FAILED",
-    "failures": 1,
-    "errors": 0,
-    "skipped": 0,
-    "first_error_types": [
-     "AssertionError"
-    ]
-   },
-   "candidate": {
-    "rc": 1,
-    "ran": 29,
-    "verdict_line": "FAILED",
-    "failures": 16,
-    "errors": 0,
-    "skipped": 0,
-    "first_error_types": [
-     "AssertionError"
-    ]
-   }
-  }
- ]
+ "probes": []
 }
