@@ -2,9 +2,9 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.8  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.8 = defects raised by real
+VERSION        = 2.8.9  (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.9 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
-                 72f0bb4, 617ba01, 1e8ac1f, see §6.7)
+                 72f0bb4, 617ba01, 1e8ac1f, ad87629, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
 PROPOSED_IN    = N2.1 Eligibility Schema Revision
 FROZEN_ONLY_BY = H2-R2 Freeze v2  (this file has no effect on the frozen surface until then)
@@ -573,7 +573,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.8 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.9 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -709,7 +709,19 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
          Windows, where the bit cannot be represented.
   P3-4   the main-history test selects local cases by resolvability, as the validator does.
   P3-5   wording (§3, §3.1, §6.6) and a component-exact __pycache__ match.
-REGRESSION (2.8.8)  MutationMaterialisation (34 tests).
+2.8.9 (DeepSeek fresh review of ad87629: one P2, five P3)
+  F-A16 P2 acceptances inherited the operator's TMPDIR; macOS' default /var/folders/... sits under a
+         symlink, and the skill-evidence candidates (r51, r52) refuse symlinked path components, so
+         their A_REPAIR verdict was decided by the temp-root SPELLING (the recorded run had used a
+         resolved one). Every acceptance now gets a fresh, realpath-resolved TMPDIR/TEMP/TMP; the
+         whole batch set is re-measured under the operator's default temp root.
+  P3     verify_externalized re-derives eligibility (the original pair's only trigger must be
+         WORKER_MODIFIES_TEST_ORACLE on exactly the externalised, modified paths); README recipe
+         covers batch 4; counts corrected (2.8.8 added 6 tests, not 4: 36). The ancestry clause
+         for externalized identities is implied by verify_externalized (original_base == C^1) —
+         kept as a stated invariant, not counted as a second defence.
+REGRESSION (2.8.9)  MutationMaterialisation (38 tests); both 2.8.9 tests fail against ad87629.
+REGRESSION (2.8.8)  MutationMaterialisation (36 tests).
 REGRESSION (2.8.7)  MutationMaterialisation (30 tests); the mode test fails against b0c7529; the
          carry-over test kills no_clean.
 REGRESSION (2.8.6)  MutationMaterialisation (28 tests); the four 2.8.6 tests fail against 72f0bb4;
@@ -760,6 +772,10 @@ DURABLE   every B' is reachable from refs/heads/admission/externalized-oracles-v
           commit, all B' as parents), pushed with the stage.
 NOT A RESCUE  the historical record of (B, C) is untouched; t02 stays NOT_ADMITTED; the new
           identity is a different case id with its own measurement.
+DISCLOSURES  a record's `historical_delta_touched_*` fields describe the delta of ITS OWN pair
+          (B', C) — which is what the validator cross-checks; for this kind that delta does not
+          touch the oracle. The history (B, C) DID rewrite it, and every such record says so in
+          `disclosures.identity_note`. (Wording, not a gate: the eligibility rule above is the gate.)
 ```
 
 ## 7. Relationship to the existing layers

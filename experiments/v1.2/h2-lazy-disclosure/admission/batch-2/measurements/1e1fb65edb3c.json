@@ -1,7 +1,7 @@
 {
  "base_sha": "e8530e6f541c44083a073a811d3971e22bae3a94",
  "candidate_sha": "1e1fb65edb3cad428b0b713bb8df43583533c08f",
- "elapsed_s": 76.4,
+ "elapsed_s": 76.7,
  "facts": {
   "base": "e8530e6f541c44083a073a811d3971e22bae3a94",
   "candidate": "1e1fb65edb3cad428b0b713bb8df43583533c08f",
@@ -228,10 +228,11 @@
  "environment": {
   "python": "<PY>",
   "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.8",
-  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
+  "schema_version": "2.8.9",
+  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
   "acceptance_timeout_s": 300
  },
  "subject": "experiment(v1.2): scope the closure ledger's branch-count statement"

@@ -10,7 +10,7 @@
     "rc": 1,
     "ran": 32,
     "verdict_line": "FAILED",
-    "failures": 3,
+    "failures": 19,
     "errors": 0,
     "skipped": 0,
     "first_error_types": [
@@ -18,13 +18,15 @@
     ]
    },
    "candidate": {
-    "rc": 0,
+    "rc": 1,
     "ran": 32,
-    "verdict_line": "OK",
-    "failures": 0,
+    "verdict_line": "FAILED",
+    "failures": 17,
     "errors": 0,
     "skipped": 0,
-    "first_error_types": []
+    "first_error_types": [
+     "AssertionError"
+    ]
    }
   }
  ]

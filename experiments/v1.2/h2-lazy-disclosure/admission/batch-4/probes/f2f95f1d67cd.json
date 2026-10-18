@@ -18,13 +18,15 @@
     ]
    },
    "candidate": {
-    "rc": 0,
+    "rc": 1,
     "ran": 29,
-    "verdict_line": "OK",
-    "failures": 0,
+    "verdict_line": "FAILED",
+    "failures": 16,
     "errors": 0,
     "skipped": 0,
-    "first_error_types": []
+    "first_error_types": [
+     "AssertionError"
+    ]
    }
   }
  ]

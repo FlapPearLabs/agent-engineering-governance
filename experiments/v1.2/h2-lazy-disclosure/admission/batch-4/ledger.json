@@ -845,7 +845,7 @@
     "kind": "TEST",
     "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
    },
-   "BASE_RESULT": "rc=1 ran=32 failures=3 errors=0 skipped=0 types=['AssertionError']",
+   "BASE_RESULT": "rc=1 ran=32 failures=19 errors=0 skipped=0 types=['AssertionError']",
    "CANDIDATE_RESULT": "rc=0 ran=32 skipped=0",
    "MUTATION_RESULT": "MUTATION_DOES_NOT_BITE",
    "STATE_TRANSITION": "FAIL_TO_PASS",

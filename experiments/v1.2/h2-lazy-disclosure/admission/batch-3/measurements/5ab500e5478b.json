@@ -1,7 +1,7 @@
 {
  "base_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
  "candidate_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
- "elapsed_s": 79.5,
+ "elapsed_s": 79.6,
  "facts": {
   "base": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
   "candidate": "5ab500e5478b671f43df80a78730ca172da6cf2b",
@@ -228,10 +228,11 @@
  "environment": {
   "python": "<PY>",
   "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.8",
-  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
+  "schema_version": "2.8.9",
+  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
   "acceptance_timeout_s": 300
  },
  "subject": "experiments(v1.2): H2 freeze — lazy-disclosure protocol, carrier, task registry, scoring, route manifest; N2 -> ACTIVE (#53)"

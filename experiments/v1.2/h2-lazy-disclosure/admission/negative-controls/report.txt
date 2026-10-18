@@ -1,4 +1,4 @@
-NEGATIVE CONTROLS — current validator 2.8.8
+NEGATIVE CONTROLS — current validator 2.8.9
 
 [RECORDS] r08-as-A (control) rc=1 REFUSED
       ERROR r08-governance-project-continuity-contract: declared baseline_oracle_status='FAIL' but the acceptance recomputed 'PASS' over 2 surface(s) at f40525bd9f37 and af4df6ae7063

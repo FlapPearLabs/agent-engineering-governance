@@ -40,12 +40,15 @@ Reproduce (worktree root; `PY` = the pinned toolchain interpreter; `<scratch>` o
 A=experiments/v1.2/h2-lazy-disclosure/admission
 $PY $A/discover.py . 5ab500e5478b671f43df80a78730ca172da6cf2b <scratch>/d.json            # == batch-1 routing
 $PY $A/discover.py . 5ab500e5478b671f43df80a78730ca172da6cf2b <scratch>/m.json --merges   # == batch-3 routing
-for b in 1 2 3; do $PY experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py $A/batch-$b/classification.json . ; done
-for b in 1 2 3; do $PY $A/ledger.py $A/batch-$b; done
+for b in 1 2 3 4; do $PY experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py $A/batch-$b/classification.json . ; done
+for b in 1 2 3 4; do $PY $A/ledger.py $A/batch-$b; done
+$PY $A/alignment.py . $A/batch-{1,2,3,4}/ledger.json --out <scratch>/alignment.json   # == freeze-v2-input/alignment.json
+$PY $A/select.py $A/batch-{1,2,3,4}/ledger.json --alignment $A/freeze-v2-input/alignment.json --out <scratch>/s.json
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (168) was produced by validator **2.8.8** — `environment.validator_sha256`
+Every measurement file (168) was produced by validator **2.8.9**, under the operator's DEFAULT temp
+root (acceptances get their own pinned, realpath-resolved TMPDIR; it is not an input) — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
 edited. `measure.py --jobs N` runs pairs in parallel; a concurrent `git worktree add` can race
 and fail CLOSED (WORKTREE_MATERIALISATION_FAILED) — re-run that pair serially; it is never a pass.
@@ -65,7 +68,7 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.8; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.9; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
@@ -215,9 +218,8 @@ FZ-ADM-9 DELETED / REGRESSED GUARDS  Schema v2 refuses them only for B. Any task
 ## 6. Status of the admission count
 
 ```text
-SCHEMA_V2_VALID_REQUESTS 23   >= 6 required by the H2 protocol: the COUNT is met by Schema v2.
-GOOD H2 TASKS            NOT YET SHOWN — FZ-ADM-1..5, 8, 9 are open; the strongest stratum alone
-                         is 4 (FZ-ADM-2).
+SCHEMA_V2_VALID_REQUESTS 42   (23 before batch 4 + 19 externalized) >= 6 required: COUNT met.
+GOOD H2 TASKS            the Freeze v2 shortlist (§7): 10 visible-frozen-oracle real repairs.
 FURTHER SEARCH HERE      not useful: every non-merge and merge pair of main was routed and every
                          routable pair executed. More strong tasks need FZ-ADM-6 (new identities
                          with externally frozen oracles) or FZ-ADM-7 (a round-scope decision).

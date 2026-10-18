@@ -141,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.8", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.9", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1683,6 +1683,45 @@ class MutationMaterialisation(unittest.TestCase):
         # (5) malformed declarations
         self.assertTrue(self.mod.verify_externalized(repo, "x", prime, c,
                                                      dict(meta, externalized_paths="[]")))
+
+    # ---- DeepSeek review of ad87629: findings 1 and 3 -------------------------------------------
+    def test_the_operators_temp_root_never_decides_a_verdict(self):
+        """Finding 1: acceptances inherited TMPDIR; under macOS' symlinked /var/folders/... a
+        candidate refusing symlinked components failed at both revisions. 2.8.9 pins a fresh,
+        realpath-resolved temp root per run."""
+        tree = self.tmp / "tmpdir"
+        (tree / "scripts").mkdir(parents=True)
+        (tree / "scripts/validate_tmp.py").write_text(
+            "import os, sys, tempfile\nroot = tempfile.gettempdir()\n"
+            "sys.exit(0 if os.path.realpath(root) == os.path.abspath(root) else 1)\n",
+            encoding="utf-8")
+        real = self.tmp / "realtmp"
+        real.mkdir()
+        link = self.tmp / "linktmp"
+        link.symlink_to(real)
+        saved = os.environ.get("TMPDIR")
+        os.environ["TMPDIR"] = str(link)
+        try:
+            control = subprocess.run([sys.executable, "scripts/validate_tmp.py"], cwd=str(tree))
+            self.assertEqual(1, control.returncode, "positive control: the symlinked root bites")
+            self.assertEqual(0, self.mod.run_acceptance(tree, "scripts/validate_tmp.py",
+                                                        "VALIDATOR", sys.executable))
+        finally:
+            if saved is None:
+                os.environ.pop("TMPDIR", None)
+            else:
+                os.environ["TMPDIR"] = saved
+
+    def test_externalized_paths_cannot_be_inflated(self):
+        """Finding 3: verify_externalized proved B' = B + P but not that P is the eligible set, so
+        a corpus entry could externalise the fix itself (a source file) or a non-test file."""
+        repo, root, b, c, _prime, ext = self._externalisable()
+        for paths in (["scripts/tests/test_lib.py", "scripts/lib.py"], ["scripts/lib.py"]):
+            prime = ext.build_base_prime(root, b, c, paths)
+            meta = {"kind": "EXTERNALIZED_ORACLE", "original_base": b,
+                    "externalized_paths": json.dumps(paths)}
+            errs = self.mod.verify_externalized(repo, "x", prime, c, meta)
+            self.assertTrue(any("derived triggers" in e for e in errs), (paths, errs))
 
     def test_a_head_metadata_surface_does_not_bite_on_the_mutation_commit(self):
         """F-A1b: the first 2.8.1 draft committed the mutation under a synthetic identity, and

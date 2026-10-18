@@ -1,7 +1,7 @@
 {
  "base_sha": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
  "candidate_sha": "47c2aef6b21f0d0c75a4a5d5365e6e6caefc3b82",
- "elapsed_s": 0.3,
+ "elapsed_s": 0.2,
  "facts": {
   "base": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
   "candidate": "47c2aef6b21f0d0c75a4a5d5365e6e6caefc3b82",
@@ -35,10 +35,11 @@
  "environment": {
   "python": "<PY>",
   "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.8",
-  "validator_sha256": "7cb9c68ac1bfb52e4f5a25c3f33154b2786ce8eeceff4ae186cb738c91ca860c",
+  "schema_version": "2.8.9",
+  "validator_sha256": "c33c382e4cfa73f58bdff0b8b7dbf90103458419b15cd77a3e8a1ebf4794ed80",
   "acceptance_timeout_s": 300
  },
  "subject": "chore(governance): repo README, skills governance manifest, mcp intent + example config"

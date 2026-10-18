@@ -65,6 +65,9 @@ def main(argv: list[str]) -> int:
     # the interpreter is recorded by role and version, never by absolute path: a local home
     # directory in a tracked file is a public-release violation (validate_public_release.py)
     env = {"python": "<PY>", "python_version": platform.python_version(),
+           # the validator pins every acceptance's TMPDIR/TEMP/TMP to a fresh realpath'd dir
+           # (2.8.9); the operator's TMPDIR is recorded as NOT an input
+           "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
            "git": subprocess.run(["git", "--version"], capture_output=True,
                                  text=True).stdout.strip(),
            "platform": platform.platform(), "schema_version": ctc.SCHEMA_VERSION,

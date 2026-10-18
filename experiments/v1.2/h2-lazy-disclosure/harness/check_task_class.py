@@ -87,7 +87,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.8"
+SCHEMA_VERSION = "2.8.9"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -301,6 +301,18 @@ def verify_externalized(repo: Repo, case_id: str, base: str, cand: str,
     if got != sorted(("M", x) for x in paths):
         errs.append(f"{case_id}: the externalised base differs from the original base by {got}, "
                     f"not by exactly the externalised paths {sorted(paths)}")
+    # the ELIGIBILITY rule is re-derived, not trusted to the producer program: the original pair's
+    # only derived trigger must be WORKER_MODIFIES_TEST_ORACLE on exactly these MODIFIED paths, so a
+    # corpus entry cannot externalise a source file or a validator (DeepSeek review, finding 3)
+    original = repo.changed_paths_with_status(orig, cand)
+    status = dict((p, s) for s, p in (original or []))
+    want = {"WORKER_MODIFIES_TEST_ORACLE": sorted(paths)}
+    got_triggers = {k: sorted(v) for k, v in derived_triggers(original or []).items()}
+    if original is None or got_triggers != want or \
+            any(not status.get(x, "").startswith("M") for x in paths):
+        errs.append(f"{case_id}: the original pair's derived triggers are {got_triggers}, not "
+                    f"exactly {want} on modified paths — only a pair whose sole defect is a "
+                    f"rewritten test oracle can be externalised")
     for x in paths:
         a = repo.git("ls-tree", base, "--", x).stdout.split("\t")[0]
         b = repo.git("ls-tree", cand, "--", x).stdout.split("\t")[0]
@@ -682,8 +694,17 @@ def run_acceptance(tree: Path, rel: str, kind: str, interpreter: str) -> int:
     # bytecode is never READ from the tree either: a committed __pycache__ entry replaced a frozen
     # test's code while its blob stayed untouched (fresh review of 72f0bb4, finding 1d). With a
     # fresh, empty prefix, every cached-bytecode lookup misses and the source is compiled.
-    with tempfile.TemporaryDirectory(prefix="h2-pycache-") as prefix:
+    # The temp root is PINNED, never inherited: on macOS the default TMPDIR (/var/folders/...)
+    # sits under a symlink, and a candidate that refuses symlinked path components (5d61ad1 ..
+    # f2f95f1) failed at both revisions under the default spelling and passed under the resolved
+    # one — the A_REPAIR verdict of two records was decided by the operator's environment (DeepSeek
+    # review of ad87629, finding 1). Each run gets a fresh, realpath-resolved temp root (2.8.9).
+    with tempfile.TemporaryDirectory(prefix="h2-pycache-") as prefix, \
+            tempfile.TemporaryDirectory(prefix="h2-tmp-") as run_tmp:
         env["PYTHONPYCACHEPREFIX"] = prefix
+        resolved = os.path.realpath(run_tmp)
+        for key in ("TMPDIR", "TEMP", "TMP"):
+            env[key] = resolved
         try:
             r = subprocess.run(acceptance_command(rel, kind, interpreter), cwd=str(tree),
                                capture_output=True, text=True, env=env,
