@@ -45,3 +45,32 @@ the experiment's delivery, not to the tasks, and is recorded rather than normali
 Delivery must move OUT of the worktree (carrier and WARM bundle outside the repository root),
 which makes the worker runtime's guidance-loading behaviour the deciding constraint — see the
 stage report for the measured opencode behaviour and the decision it needs.
+
+## 3. Worker runtime and delivery layout (operator decision 2026-10-19)
+
+```text
+RUNTIME   opencode (CLI 2.0.25), model opencode-go/deepseek-v4.1-flash, in an ISOLATED profile
+          (HOME and XDG_* redirected to a dedicated profile directory outside every repository:
+          no user plugins, MCP servers, skills, memory or global AGENTS.md; autoupdate off;
+          `run --standalone`, so no shared background service). The profile is logged in once
+          by the operator; credentials never enter this repository.
+LAYOUT    <run>/                 worker cwd (not a git repository)
+            AGENTS.md            the arm's carrier (control: header + AGENTS.md + footer;
+                                 variant: carriers/H2_LEAN_BOOTSTRAP.md) — the ONLY guidance
+                                 opencode loads at startup (canaries; PENDING re-check in
+                                 the isolated profile once it is logged in)
+            H2_RULES.md          RULES.md at the materials commit
+            H2_WARM/             the S3 WARM owners at the materials commit
+            repo/                the task worktree at the base — NO delivered file inside it,
+                                 so §2's in-tree contamination cannot occur
+WHY       measured on 2026-10-19 with canary instruction files: opencode loads the cwd's
+          AGENTS.md at startup; a repository's own AGENTS.md (and nested ones) are ATTACHED to
+          the first read of a file beneath them; the user's normal profile also injects its
+          global AGENTS.md, MCP servers and a plugin agent.
+DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached to BOTH arms on
+          the worker's first read inside repo/. Neither arm can be kept from it under this
+          runtime. The arms therefore differ in the STARTUP carrier (full current-era HOT vs
+          lean carrier + routed WARM), not in whether any full governance text is reachable.
+          A null difference is reported as INSUFFICIENT_EVIDENCE, never as DISCLOSURE_SAFE on
+          this ground alone.
+```
