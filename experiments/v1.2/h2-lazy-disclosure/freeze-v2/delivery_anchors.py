@@ -44,6 +44,9 @@ sys.path.insert(0, str(H2 / "harness"))
 import check_task_class as ctc  # noqa: E402
 
 NOT_PASSING_RE = re.compile(r"^(?:FAIL|ERROR): \S+ \(([^)]+)\)", re.M)
+# a skip is not a pass: a PRE-passing test SKIPPED after delivery is contamination too (review of
+# 5090f44, finding 3). -v prints "name (id) ... skipped", or the docstring line in between
+SKIPPED_RE = re.compile(r"^\S+ \(([^)]+)\)(?:\n[^\n]*?)? \.\.\. skipped", re.M)
 RAN_RE = re.compile(r"^Ran (\d+) tests? in", re.M)
 TIMEOUT = 1800
 
@@ -84,8 +87,9 @@ def run_gate(wt: Path, pattern: str | None) -> dict:
                            timeout=TIMEOUT)
     out = r.stdout + r.stderr
     ran = RAN_RE.findall(out)
-    return {"rc": r.returncode, "ran": int(ran[-1]) if ran else None,
-            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)))}
+    skipped = set(SKIPPED_RE.findall(out))
+    return {"rc": r.returncode, "ran": int(ran[-1]) if ran else None, "skipped": sorted(skipped),
+            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped)}
 
 
 def reset(wt: Path, rev: str) -> None:
@@ -101,6 +105,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv[1:])
     root = Path(a.repo_root).resolve()
+    if git(root, "rev-parse", "--show-toplevel").strip() != str(root):
+        raise SystemExit("repo_root must be the repository root (run from it with '.')")
     materials = git(root, "rev-parse", "--verify", f"{a.materials}^{{commit}}").strip()
     deliveries = {arm: delivery(root, materials, arm) for arm in ("control", "variant")}
     rows = []

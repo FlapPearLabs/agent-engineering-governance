@@ -141,7 +141,7 @@ def guard_record(**over):
 
 
 def document(*records):
-    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.11", "records": list(records)}
+    return {"schema": "ELIGIBILITY_SCHEMA_V2", "schema_version": "2.8.12", "records": list(records)}
 
 
 def run_validator(doc, tmp: Path):
@@ -1118,6 +1118,29 @@ class MutationMaterialisation(unittest.TestCase):
         self.assertEqual((False, "CANDIDATE_GUARD_UNMEASURED"),
                          self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
         self.assertEqual("UNMEASURED", facts["candidate_oracle_status"])
+
+    def test_a_guard_that_hangs_only_under_a_symlinked_temp_root_fails_closed(self):
+        """DeepSeek review of 5090f44, finding 2: the guard is green at the candidate under the
+        resolved spelling and HANGS under the symlinked one. 2.8.11 re-ran it, but
+        guard_unmeasured read only the resolved legs, so the hang was a pass and B accepted the
+        candidate on the link guard's bite."""
+        saved = self.mod.ACCEPTANCE_TIMEOUT
+        self.mod.ACCEPTANCE_TIMEOUT = 5
+        try:
+            repo, base, cand = self._guarded_repo(
+                "import os, tempfile; r = tempfile.gettempdir()\n"
+                "            while os.path.realpath(r) != os.path.abspath(r): pass",
+                delete_budget=False)
+            facts = self.mod.recompute_transition(repo, base, cand, "B_REGRESSION_GUARD")
+        finally:
+            self.mod.ACCEPTANCE_TIMEOUT = saved
+        budget = [e for e in facts["surfaces"] if e["path"].endswith("test_budget.py")][0]
+        # reachability: green under the resolved spelling, a real hang under the symlinked one
+        self.assertEqual((0, 0), (budget["rc_base"], budget["rc_cand"]))
+        self.assertEqual((0, 124), tuple(budget["rc_alt"][:2]))
+        self.assertTrue(facts["biting"])                        # and the link guard really bit
+        self.assertEqual((False, "CANDIDATE_GUARD_UNMEASURED"),
+                         self.mod.transition_verdict("B_REGRESSION_GUARD", facts))
 
     def test_a_guard_the_candidate_deletes_is_still_checked(self):
         """Finding 2 (real case r29 / 5205e5b): the candidate deletes a base-green guard that its

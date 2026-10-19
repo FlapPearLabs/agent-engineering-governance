@@ -45,6 +45,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv[1:])
     root = Path(a.repo_root).resolve()
+    # a sub-directory root would limit `git diff` to that subtree and silently under-classify
+    # task-touched routes (review of 5090f44, finding 4)
+    if git(root, "rev-parse", "--show-toplevel").strip() != str(root):
+        raise SystemExit("repo_root must be the repository root (run from it with '.')")
     surface = {r["route_id"]: r["surface"]
                for r in json.loads(MANIFEST.read_text(encoding="utf-8"))["routes"]}
     rows = []

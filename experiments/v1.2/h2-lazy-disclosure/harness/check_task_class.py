@@ -88,7 +88,7 @@ import tempfile
 from pathlib import Path
 
 SCHEMA_ID = "ELIGIBILITY_SCHEMA_V2"
-SCHEMA_VERSION = "2.8.11"
+SCHEMA_VERSION = "2.8.12"
 # The identity rule reads the replay corpora (below), and nothing else in this repository pins
 # them: they are in no freeze hash and no other test checks their SHA values. A trust
 # root anyone can rewrite is not a trust root, so its digest is pinned HERE as a literal,
@@ -1024,9 +1024,15 @@ def recompute_transition(repo: Repo, base: str, cand: str, cls: str) -> dict:
         regressed = [e for e in guards if regresses(e["rc_base"], e["rc_cand"])
                      or ("rc_alt" in e and regresses(e["rc_alt"][0], e["rc_alt"][1]))]
         # a base-green guard whose candidate verdict could not be measured (timeout / absent) is
-        # not a pass: B fails closed on it (fresh review of f2c48a0, finding 1)
-        guard_unmeasured = [e for e in guards if measured(e["rc_base"]) and e["rc_base"] == 0
-                            and not measured(e["rc_cand"])]
+        # not a pass: B fails closed on it (fresh review of f2c48a0, finding 1) — in EITHER
+        # temp-root spelling (2.8.12: a guard hanging only under the symlinked one was a pass;
+        # DeepSeek review of 5090f44, finding 2)
+        def unmeasured_at_candidate(b, c):
+            return measured(b) and b == 0 and not measured(c)
+        guard_unmeasured = [e for e in guards
+                            if unmeasured_at_candidate(e["rc_base"], e["rc_cand"])
+                            or ("rc_alt" in e
+                                and unmeasured_at_candidate(e["rc_alt"][0], e["rc_alt"][1]))]
         facts["guard_unmeasured"] = guard_unmeasured
         facts["unmeasured"] = unmeasured
         facts["discriminating"] = discriminating

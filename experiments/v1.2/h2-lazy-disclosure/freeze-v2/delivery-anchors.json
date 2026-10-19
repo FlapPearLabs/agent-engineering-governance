@@ -1,6 +1,6 @@
 {
  "program": "freeze-v2/delivery_anchors.py",
- "materials_commit": "83cb72d6c125c4033e0ede42d9b992467dac429d",
+ "materials_commit": "5090f4459c039bfcda04c2c4bcd509614931df66",
  "environment": "check_task_class.acceptance_env(RESOLVED)",
  "neutral_tasks_per_slot": {
   "CODEBUDDY": 0,
@@ -15,6 +15,7 @@
     "oracle": {
      "rc": 1,
      "ran": 46,
+     "skipped": [],
      "not_passing": [
       "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
       "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -25,6 +26,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 78,
+     "skipped": [],
      "not_passing": [
       "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
       "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -38,6 +40,7 @@
      "oracle": {
       "rc": 1,
       "ran": 46,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -51,6 +54,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 78,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -69,6 +73,7 @@
      "oracle": {
       "rc": 1,
       "ran": 46,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -82,6 +87,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 78,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -100,6 +106,7 @@
      "oracle": {
       "rc": 1,
       "ran": 46,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -113,6 +120,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 78,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -131,6 +139,7 @@
      "oracle": {
       "rc": 1,
       "ran": 46,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -144,6 +153,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 78,
+      "skipped": [],
       "not_passing": [
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_41_anchored_patterns_use_ecma262_end_of_input_semantics",
        "test_review_evidence_contract.ReviewEvidenceContractTests.test_42_a_subject_verdict_requires_a_declared_target_subject",
@@ -182,6 +192,7 @@
     "oracle": {
      "rc": 1,
      "ran": 11,
+     "skipped": [],
      "not_passing": [
       "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
       "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -191,6 +202,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 96,
+     "skipped": [],
      "not_passing": [
       "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
       "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -203,6 +215,7 @@
      "oracle": {
       "rc": 1,
       "ran": 11,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -215,6 +228,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 96,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -232,6 +246,7 @@
      "oracle": {
       "rc": 1,
       "ran": 11,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -244,6 +259,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 96,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -261,6 +277,7 @@
      "oracle": {
       "rc": 1,
       "ran": 11,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -273,6 +290,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 96,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -290,6 +308,7 @@
      "oracle": {
       "rc": 1,
       "ran": 11,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -302,6 +321,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 96,
+      "skipped": [],
       "not_passing": [
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_mandatory_base_composition_is_five_plus_three_equals_eight",
        "test_p1_t02_execution_stage_pre_ticket_record.PreTicketIdentificationRecordTests.test_na_path_composition_is_eight_plus_two_equals_ten",
@@ -339,6 +359,7 @@
     "oracle": {
      "rc": 1,
      "ran": 26,
+     "skipped": [],
      "not_passing": [
       "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
       "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -353,6 +374,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 122,
+     "skipped": [],
      "not_passing": [
       "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
       "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -370,6 +392,7 @@
      "oracle": {
       "rc": 1,
       "ran": 26,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -387,6 +410,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 122,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -409,6 +433,7 @@
      "oracle": {
       "rc": 1,
       "ran": 26,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -426,6 +451,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 122,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -448,6 +474,7 @@
      "oracle": {
       "rc": 1,
       "ran": 26,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -465,6 +492,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 122,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -487,6 +515,7 @@
      "oracle": {
       "rc": 1,
       "ran": 26,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -504,6 +533,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 122,
+      "skipped": [],
       "not_passing": [
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_absent_canonical_digest_pattern_blocks_pass",
        "test_p1_t05_evidence_disposition.EvidenceDispositionTests.test_mf_2_no_local_digest_pattern_substitute_exists",
@@ -546,6 +576,7 @@
     "oracle": {
      "rc": 1,
      "ran": 39,
+     "skipped": [],
      "not_passing": [
       "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
       "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -561,6 +592,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 178,
+     "skipped": [],
      "not_passing": [
       "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
       "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -579,6 +611,7 @@
      "oracle": {
       "rc": 1,
       "ran": 39,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -597,6 +630,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 178,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -620,6 +654,7 @@
      "oracle": {
       "rc": 1,
       "ran": 39,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -638,6 +673,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 178,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -661,6 +697,7 @@
      "oracle": {
       "rc": 1,
       "ran": 39,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -679,6 +716,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 178,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -702,6 +740,7 @@
      "oracle": {
       "rc": 1,
       "ran": 39,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -720,6 +759,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 178,
+      "skipped": [],
       "not_passing": [
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_31_a_scheme_declaration_needs_no_separator_to_be_refused",
        "test_p1_t06_producer_trust_boundary.ProducerTrustBoundaryTests.test_32_whitespace_padding_cannot_hide_a_scheme_declaration",
@@ -763,6 +803,7 @@
     "oracle": {
      "rc": 1,
      "ran": 38,
+     "skipped": [],
      "not_passing": [
       "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
       "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -778,6 +819,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 231,
+     "skipped": [],
      "not_passing": [
       "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
       "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -796,6 +838,7 @@
      "oracle": {
       "rc": 1,
       "ran": 38,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -819,6 +862,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 231,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -846,6 +890,7 @@
      "oracle": {
       "rc": 1,
       "ran": 38,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -869,6 +914,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 231,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -896,6 +942,7 @@
      "oracle": {
       "rc": 1,
       "ran": 38,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -919,6 +966,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 231,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -946,6 +994,7 @@
      "oracle": {
       "rc": 1,
       "ran": 38,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -969,6 +1018,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 231,
+      "skipped": [],
       "not_passing": [
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_a_destructive_action_without_a_pre_state_record_is_invalid",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_every_probe_flips_red_under_a_targeted_mutation",
@@ -1016,6 +1066,7 @@
     "oracle": {
      "rc": 1,
      "ran": 21,
+     "skipped": [],
      "not_passing": [
       "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
       "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe"
@@ -1024,6 +1075,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 274,
+     "skipped": [],
      "not_passing": [
       "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
       "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe"
@@ -1035,6 +1087,7 @@
      "oracle": {
       "rc": 1,
       "ran": 21,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1049,6 +1102,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 274,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1071,6 +1125,7 @@
      "oracle": {
       "rc": 1,
       "ran": 21,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1085,6 +1140,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 274,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1107,6 +1163,7 @@
      "oracle": {
       "rc": 1,
       "ran": 21,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1121,6 +1178,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 274,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1143,6 +1201,7 @@
      "oracle": {
       "rc": 1,
       "ran": 21,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_missing_visibility_statement_makes_the_conclusion_non_auditable",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_not_auditable_is_scoped_to_the_enabled_recipe",
@@ -1157,6 +1216,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 274,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_does_not_restate_the_budget",
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_is_not_a_second_authority",
@@ -1205,6 +1265,7 @@
     "oracle": {
      "rc": 1,
      "ran": 25,
+     "skipped": [],
      "not_passing": [
       "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
       "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1219,6 +1280,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 301,
+     "skipped": [],
      "not_passing": [
       "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
       "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1236,6 +1298,7 @@
      "oracle": {
       "rc": 1,
       "ran": 25,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1253,6 +1316,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 301,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1281,6 +1345,7 @@
      "oracle": {
       "rc": 1,
       "ran": 25,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1298,6 +1363,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 301,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1326,6 +1392,7 @@
      "oracle": {
       "rc": 1,
       "ran": 25,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1343,6 +1410,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 301,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1371,6 +1439,7 @@
      "oracle": {
       "rc": 1,
       "ran": 25,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1388,6 +1457,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 301,
+      "skipped": [],
       "not_passing": [
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_empty_source_empty_deps_with_claim_is_rejected",
        "test_p1_t08_evidence_lifecycle.LifecycleCLITests.test_f1_whitespace_source_empty_deps_with_claim_is_rejected",
@@ -1442,6 +1512,7 @@
     "oracle": {
      "rc": 1,
      "ran": 24,
+     "skipped": [],
      "not_passing": [
       "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner"
      ]
@@ -1449,6 +1520,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 423,
+     "skipped": [],
      "not_passing": [
       "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner"
      ]
@@ -1459,6 +1531,7 @@
      "oracle": {
       "rc": 1,
       "ran": 24,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner"
       ],
@@ -1469,6 +1542,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 423,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
@@ -1506,6 +1580,7 @@
      "oracle": {
       "rc": 1,
       "ran": 24,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner"
       ],
@@ -1516,6 +1591,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 423,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
@@ -1553,6 +1629,7 @@
      "oracle": {
       "rc": 1,
       "ran": 24,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner"
       ],
@@ -1563,6 +1640,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 423,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_contract_is_the_single_semantic_owner",
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
@@ -1600,6 +1678,7 @@
      "oracle": {
       "rc": 1,
       "ran": 24,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_does_not_restate_the_budget",
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_is_not_a_second_authority",
@@ -1617,6 +1696,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 423,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_does_not_restate_the_budget",
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_is_not_a_second_authority",
@@ -1682,6 +1762,7 @@
     "oracle": {
      "rc": 1,
      "ran": 71,
+     "skipped": [],
      "not_passing": [
       "test_p1_t18_defect_promotion_fast_full.NegativeControlTests.test_receipt_restating_the_promotion_domain_is_detectable",
       "test_p1_t18_defect_promotion_fast_full.ValidatorWiringTests.test_promotion_disposition_domain_has_a_single_owner"
@@ -1690,6 +1771,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 519,
+     "skipped": [],
      "not_passing": [
       "test_p1_t18_defect_promotion_fast_full.NegativeControlTests.test_receipt_restating_the_promotion_domain_is_detectable",
       "test_p1_t18_defect_promotion_fast_full.ValidatorWiringTests.test_promotion_disposition_domain_has_a_single_owner"
@@ -1701,6 +1783,7 @@
      "oracle": {
       "rc": 1,
       "ran": 71,
+      "skipped": [],
       "not_passing": [
        "test_p1_t18_defect_promotion_fast_full.NegativeControlTests.test_receipt_restating_the_promotion_domain_is_detectable",
        "test_p1_t18_defect_promotion_fast_full.ValidatorWiringTests.test_promotion_disposition_domain_has_a_single_owner"
@@ -1712,6 +1795,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 519,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -1750,6 +1834,7 @@
      "oracle": {
       "rc": 1,
       "ran": 71,
+      "skipped": [],
       "not_passing": [
        "test_p1_t18_defect_promotion_fast_full.NegativeControlTests.test_receipt_restating_the_promotion_domain_is_detectable",
        "test_p1_t18_defect_promotion_fast_full.ValidatorWiringTests.test_promotion_disposition_domain_has_a_single_owner"
@@ -1761,6 +1846,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 519,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -1799,6 +1885,7 @@
      "oracle": {
       "rc": 1,
       "ran": 71,
+      "skipped": [],
       "not_passing": [
        "test_p1_t18_defect_promotion_fast_full.BLayerBoundaryTests.test_agents_pointer_exists_without_being_a_second_declaration",
        "test_p1_t18_defect_promotion_fast_full.NegativeControlTests.test_receipt_restating_the_promotion_domain_is_detectable",
@@ -1813,6 +1900,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 519,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -1853,6 +1941,7 @@
      "oracle": {
       "rc": 1,
       "ran": 71,
+      "skipped": [],
       "not_passing": [
        "test_p1_t18_defect_promotion_fast_full.BLayerBoundaryTests.test_agents_pointer_exists_without_being_a_second_declaration",
        "test_p1_t18_defect_promotion_fast_full.BLayerBoundaryTests.test_no_mandatory_tool_is_promoted_to_b_layer",
@@ -1873,6 +1962,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 519,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_does_not_restate_the_budget",
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_is_not_a_second_authority",
@@ -1951,6 +2041,7 @@
     "oracle": {
      "rc": 1,
      "ran": 28,
+     "skipped": [],
      "not_passing": [
       "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
       "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -1962,6 +2053,7 @@
     "full_suite": {
      "rc": 1,
      "ran": 598,
+     "skipped": [],
      "not_passing": [
       "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
       "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -1976,6 +2068,7 @@
      "oracle": {
       "rc": 1,
       "ran": 28,
+      "skipped": [],
       "not_passing": [
        "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
        "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -1990,6 +2083,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 598,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -2037,6 +2131,7 @@
      "oracle": {
       "rc": 1,
       "ran": 28,
+      "skipped": [],
       "not_passing": [
        "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
        "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -2051,6 +2146,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 598,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -2098,6 +2194,7 @@
      "oracle": {
       "rc": 1,
       "ran": 28,
+      "skipped": [],
       "not_passing": [
        "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
        "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -2112,6 +2209,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 598,
+      "skipped": [],
       "not_passing": [
        "test_p1_t10_audit_visibility_recipe.AuditVisibilityRecipeTests.test_recipe_is_declared_in_exactly_one_canonical_file",
        "test_p1_t11_destructive_workspace_transaction.DestructiveWorkspaceTransactionTests.test_the_recipe_identifier_appears_once_on_canonical_surfaces",
@@ -2159,6 +2257,7 @@
      "oracle": {
       "rc": 1,
       "ran": 28,
+      "skipped": [],
       "not_passing": [
        "test_skill_execution.SkillExecutionTests.test_directory_swap_before_open_cannot_redirect_retrieval",
        "test_skill_execution.SkillExecutionTests.test_failure_envelope_does_not_echo_producer_values",
@@ -2173,6 +2272,7 @@
      "full_suite": {
       "rc": 1,
       "ran": 598,
+      "skipped": [],
       "not_passing": [
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_does_not_restate_the_budget",
        "test_p1_t09_bootstrap_byte_budget.DocumentConvergenceTests.test_agents_section_ten_is_not_a_second_authority",

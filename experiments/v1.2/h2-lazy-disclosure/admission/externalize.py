@@ -90,6 +90,9 @@ def main(argv: list[str]) -> int:
                     help="also write the measurement view of the new identities (B', C)")
     a = ap.parse_args(argv[1:])
     root = Path(a.repo_root).resolve()
+    # git -C <subdir> prefixes every pathspec, so a sub-directory root breaks ls-tree lookups
+    if git(root, "rev-parse", "--show-toplevel") != str(root):
+        raise SystemExit("repo_root must be the repository root (run from it with '.')")
     out: dict[str, dict] = {}
     skipped: dict[str, str] = {}
     views: list[dict] = []

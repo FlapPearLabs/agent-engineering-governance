@@ -1,7 +1,7 @@
 {
  "base_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
  "candidate_sha": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
- "elapsed_s": 1.2,
+ "elapsed_s": 1.3,
  "facts": {
   "base": "19a4aed0c6598117b0737058c14859d00ae1f084",
   "candidate": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
@@ -68,8 +68,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.11",
-  "validator_sha256": "fb2cb4a27495e672bafa51f2d9412c1a26423f23f70867b1acef0e3438b321b2",
+  "schema_version": "2.8.12",
+  "validator_sha256": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
   "acceptance_timeout_s": 300
  },
  "subject": "Merge remote-tracking branch 'origin/main' into state/project-continuity-v1"

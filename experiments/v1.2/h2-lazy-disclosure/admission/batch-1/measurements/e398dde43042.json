@@ -1,7 +1,7 @@
 {
  "base_sha": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
  "candidate_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
- "elapsed_s": 33.8,
+ "elapsed_s": 34.0,
  "facts": {
   "base": "4f4fe4a1aeae6677c4ad167b2c8130ac43ccd95b",
   "candidate": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
@@ -153,8 +153,8 @@
   "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
   "git": "git version 2.53.0",
   "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
-  "schema_version": "2.8.11",
-  "validator_sha256": "fb2cb4a27495e672bafa51f2d9412c1a26423f23f70867b1acef0e3438b321b2",
+  "schema_version": "2.8.12",
+  "validator_sha256": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
   "acceptance_timeout_s": 300
  },
  "subject": "feat(stage2/lane-a): P1-T02 pre-ticket identification record (execution-stage.md §6.6)"

@@ -2,7 +2,7 @@
 
 ```text
 SCHEMA_ID      = ELIGIBILITY_SCHEMA_V2
-VERSION        = 2.8.11 (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.11 = defects raised by real
+VERSION        = 2.8.12 (2.0.0 -> … -> 2.8.0; nine review rounds; 2.8.1-2.8.12 = defects raised by real
                  admission candidates and the fresh reviews of 4add2ca, f2c48a0, ceb3a72, 6527c81,
                  72f0bb4, 617ba01, 1e8ac1f, ad87629, 667ffe4, see §6.7)
 STATUS         = PROPOSED / NOT FROZEN
@@ -573,7 +573,7 @@ variants must stay refused; the RECOMPUTATION-level r06 laundering (round 9) is 
 `RecomputedTransition.test_r06_laundering_reproduction_is_refused` (N2.1 P3-B corrected the
 earlier wording, which credited both to `LaunderingVariants`).
 
-### 6.7 The controlled mutation is a revision (2.8.1–2.8.11 — findings raised by real candidates and fresh reviews)
+### 6.7 The controlled mutation is a revision (2.8.1–2.8.12 — findings raised by real candidates and fresh reviews)
 
 Found by a real candidate during Candidate Admission, not by a fixture. Up to 2.8.0 the mutation
 unlinked the added paths from the working tree and left them in git's index. An acceptance that
@@ -748,6 +748,20 @@ because no corpus case had that shape yet; admission adds cases, so it had to cl
            could never be a basis or a bite: it no longer names the verdict
            ENVIRONMENT_SENSITIVE_ACCEPTANCE (which would replace the true reason
            BASE_EQUALS_CANDIDATE / MUTATION_DOES_NOT_BITE); it still counts if it regresses.
+2.8.12 (DeepSeek fresh review of 5090f44: two P2, three P3)
+  F-A21    guard_unmeasured read only the resolved legs, so a base-green guard that HANGS (124) or
+           is absent (127) at the candidate only under the symlinked spelling was a pass; B
+           accepted the candidate on another guard's bite. It now fails closed in EITHER
+           spelling (CANDIDATE_GUARD_UNMEASURED). Latent: 0 of 3077 recorded guards had it.
+  FREEZE   (not the validator) freeze-v2/README §2 claimed oracles were untouched by delivery;
+           the anchors JSON shows oracle contamination in 11 cells (root-wide single-declaration
+           scans inside four oracles). Re-measured and the README rewritten from the data;
+           delivery_anchors.py now counts a PRE-passing test SKIPPED after delivery as
+           contamination; route_preconditions.py, delivery_anchors.py and externalize.py refuse a
+           non-root repo_root (a sub-directory root silently narrowed `git diff`/`ls-tree`).
+  P3       admission README: recipes in repository-root form; FZ-ADM-9 counts r46.
+REGRESSION (2.8.12) MutationMaterialisation (42 tests); the unmeasured-guard test fails against
+         5090f44.
 REGRESSION (2.8.11) MutationMaterialisation (41 tests); the guard test fails against 83cb72d, the
          label test against the guard fix alone.
 REGRESSION (2.8.10) MutationMaterialisation (39 tests); the temp-root test fails against 667ffe4.

@@ -47,7 +47,7 @@ $PY $A/select.py $A/batch-{1,2,3,4}/ledger.json --alignment $A/freeze-v2-input/a
 $PY $A/negative_controls.py .
 ```
 
-Every measurement file (168) was produced by validator **2.8.11**, under the operator's DEFAULT temp
+Every measurement file (168) was produced by validator **2.8.12**, under the operator's DEFAULT temp
 root (acceptances get their own fresh TMPDIR — realpath-resolved, and again symlinked for every
 moving surface and every guard; the inherited one is not an input) — `environment.validator_sha256`
 equals the committed `harness/check_task_class.py`. Earlier measurements were regenerated, never
@@ -69,7 +69,7 @@ MERGE COMMITS        25 (first-parent pairs, batch 3)
 EXECUTED IN TOTAL              111 pairs (17 + 83 + 11)
 ```
 
-## 3. Results (validator 2.8.11; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
+## 3. Results (validator 2.8.12; `<batch>/validator-run.txt`, `<batch>/ledger.json`)
 
 ```text
                      records  valid  rejected  executions_disagree
@@ -213,7 +213,8 @@ FZ-ADM-8 OVERLAP  never select both r31 and r07, or both r33 and r30.
 FZ-ADM-9 DELETED / REGRESSED GUARDS  Schema v2 refuses them only for B. Any task Freeze v2 admits
          (A included) must show empty DELETED_ACCEPTANCE_SURFACES and REGRESSED_GUARDS in the
          ledger, or Freeze v2 must justify them (a reference solution that breaks a guard is a
-         flawed reference). All 23 valid requests have both empty.
+         flawed reference). Of the 40 valid requests all have both empty except r46
+         (REGRESSED_GUARDS: one frozen validator surface); select.py S2 excludes it.
 ```
 
 ## 6. Status of the admission count
@@ -238,9 +239,11 @@ EXTERNALIZED_ORACLE  57 real repairs whose ONLY derived trigger was WORKER_MODIF
                      (validator 2.8.10: their candidate is green only under a symlink-free temp
                      root; f2f95f1 swapped resolve() for abspath() while reads still refuse every
                      symlinked component) -> C_REJECT, 17 valid. r50 is stable under both spellings.
-REPRODUCE B'         externalize.py . batch-1/discovery-governance.json batch-3/discovery-merges.json
-                       --out batch-4/externalized.json --pairs-out batch-4/discovery-externalized.json
-                     (paths relative to admission/); both outputs are byte-reproducible.
+REPRODUCE B'         from the REPOSITORY ROOT, A=experiments/v1.2/h2-lazy-disclosure/admission:
+                     $A/externalize.py . $A/batch-1/discovery-governance.json
+                       $A/batch-3/discovery-merges.json --out $A/batch-4/externalized.json
+                       --pairs-out $A/batch-4/discovery-externalized.json
+                     both outputs are byte-reproducible; any other root is refused.
 ALIGNMENT            alignment.py over every hidden-oracle doc request: 7 NOT_ALIGNED, 6 NO_TICKET,
                      0 ALIGNED -> the doc-recipe family drops out (freeze-v2-input/alignment.json).
 SHORTLIST            select.py rules S1-S5 (freeze-v2-input/shortlist.json): 10 tasks, every one a
