@@ -155,21 +155,24 @@ hash there. Tests reject a one-byte mutation of each of these 49 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T25 re-pin commit; its parent and the shared run
-materials are `f2f9ad93187240fd35dccfb43efe7b5ef929cbf1` (the T24 commit). The delivered payload —
+The content-freeze commit at this round is the T27 re-pin commit; its parent and the shared run
+materials are `4924930b71473efcb7f7fd84973d5574f873b03c` (the T26 commit). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
 `wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
 repository), the programs/fixtures the F1/F2 fixes added (T11/T12), the F5/F6 work (T15/T16: the
 preflight attestation, its sanitised evidence fixtures and the frozen worker-profile template),
 the F8/F9 work (T21/T22: the standalone repository and the out-of-run access audit with its two
-shape fixtures) and the F10–F13 work (T24: `shell` as the real tool name, shell-punctuation
+shape fixtures), the F10–F13 work (T24: `shell` as the real tool name, shell-punctuation
 tokenisation, the effective-git-repository rule, the frozen `PYTHONDONTWRITEBYTECODE=1` worker and
-auditor environment, and the two sanitised REAL event streams that now pin those rules). The T2
+auditor environment, and the two sanitised REAL event streams that now pin those rules) and the
+F14 work (T26: the pre-registered provider-infrastructure rule in the run driver — the reachability
+probe, the before-work retry with hashed attempt archives and the attempt ledger, and the auditor's
+own counter; §5 and protocol-v2 §6.1). The T2
 delivery anchors were re-measured at the T21 materials instead of being
 carried over: [delivery-anchors.json](delivery-anchors.json) records that measurement at
 `20719b56`, identical to the T17 measurement at `a5a0354` in every PRE/POST cell, `ran` count and
-verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets); neither T23 nor T25 re-measured
+verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets); neither T23, T25 nor T27 re-measured
 it, because neither the delivered payload nor the measuring program nor the shortlist moved after
 T21, and the manifest binds precisely those three by hash. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`

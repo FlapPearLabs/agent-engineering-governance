@@ -1352,3 +1352,142 @@ T24 之后实验套件从 378 增至 383（+5），`scripts/tests` 仍为 602；
    上下文与不产生事件的次生进程不可见。
 4. 真实事件流仍在 hand-off 给出的 run root 下；仓库里只有 sanitise 后的副本。
 5. 未执行 H2-R2、未 push/PR/merge，真实 PR CI 仍为 NOT_TRIGGERED。
+
+## T26–T27（implementer: opencode deepseek-v4.1-flash）
+
+计划：[CODEX_FIXES_6.md](CODEX_FIXES_6.md)。T26 提交 `4924930`；T27 是本节所在的 re-pin 提交。
+写作用域未变；没有执行 `opencode run`、没有任何模型调用、没有跑 H2-R2、没有 push/PR。
+
+### T26 — 关闭 F14：预注册的 provider 基础设施规则（`4924930`）
+
+**F14（P1，基础设施噪声吃掉计数 run）**。live pilot #2 在 14 秒后 INVALID：worker 的首个也是
+唯一事件是 `{"type":"error","error":{"type":"provider.no-route"}}`，退出码 1，零工具调用；数分钟
+后同一 env 正常应答。这是两天内第三次短暂上游失败（401 Invalid credential、
+"stream ended without finish_reason"、`provider.no-route`）。旧规则下该 run 永远不能再跑，噪声
+而非处理本身会吃掉计数 run，且可能两臂不等。
+
+规则在 CODEX_FIXES_6 中先于任何计数 run 决定。实现全部落在 `run_h2r2.py`；每一条 launchable
+fact 仍是模块常量，CLI 仍只暴露 `--runs-root`（`run --help` 的选项集合仍为
+`{--runs-root, --help}`，`probe` 只是 `execute()` 的测试用关键字参数）。
+
+1. **REACHABILITY**。新增常量 `REACHABILITY_PROMPT = "Reply with exactly: H2_REACHABLE"`、
+   `REACHABILITY_TOKEN`、`REACHABILITY_LIMIT_SECONDS = 120`。`reachability_probe()` 用 run 自己
+   的 `command`、`model` 与 `worker_env()`（含冻结的 `PYTHONDONTWRITEBYTECODE=1`），在
+   `<runs_root>/.reachability/` 下的 scratch 目录里以单条 prompt 启动一次；worker 之前与
+   auditor 之前各一次。失败判据：超时、非零退出、`provider.*` 错误事件、空事件流、无文本回答。
+   失败 => 返回 `{"outcome": "BLOCKED", "registered": False,
+   "reason": "PROVIDER_UNREACHABLE:…"}`：删除本次 live run dir（保留更早的 `attempts/`）、
+   删除 lock、不写 registry、不写 attempt ledger —— 即"没有消耗 attempt，之后可再次 `run`
+   同一 id"。每次检查连同 started_at / finished_at / seconds / returncode / events /
+   token_seen / verdict 追加进 `<runs_root>/reachability-v2.jsonl`；scratch 目录的
+   `events.jsonl`、`stderr.txt` 保留为证据。`refusal()` 因此只把"run dir 内除 `attempts/`
+   以外还有东西"当作已启动。
+2. **BEFORE WORK**。`before_work_failure()` 只在两种形状返回原因：首个 tool_use 之前的
+   `provider.*` 错误事件；或零 tool_use 且非零退出。命中即该 **attempt** 结束：其产物（不含
+   `repo/`，与 registry 的 artifact 排除一致）归档到 `<run_id>/attempts/<n>/`，写
+   `attempt.json`（逐文件 sha256、kind、reason、时间戳），随后在全新目录上重新 `prepare`
+   （新 standalone repo、重新投放、重新 preflight）+ 重新 reachability + 再试。
+   `MAX_ATTEMPTS = 3` 以 run id 为界（`next_attempt_number()` 从 ledger 续号，跨调用也不重号）。
+   每个 attempt 是 `attempts-v2.jsonl` 的一行（attempt、kind、verdict、reason、archive、
+   manifest_sha256、artifacts）。`registry-v2.jsonl` 仍每个 run id 恰好一行终止记录，新增
+   `attempt` / `attempts` 字段说明它来自哪一次 attempt；`REGISTRY_DUPLICATE_RUN_ID` 的唯一性
+   检查没有被放宽。
+3. **AFTER WORK**。任何 tool_use 之后 `before_work_failure()` 直接返回 None：后续 provider
+   错误、非零退出或超时仍按原样 INVALID。auditor 走同一规则、独立计数器：被 block 的 audit
+   attempt 归档到 `<run_id>/attempts/audit-<n>/`，最多 3 次；机械裁定原样保留，全部 block 时
+   记 `AUDIT_BLOCKED` 且 final verdict 仍取保守者。
+4. **3 次之后**。当前 live 树归档为 `attempts/3/`，registry 写一行 `BLOCKED`
+   （`attempt` = `attempts` = 3），driver 不再发第四次启动；`next` 因 BLOCKED 是 registered 而
+   前进，但该 run id 之后不能再次 `run`。既有"blocked 与 invalid 分开、不能冒充 PASS"未变。
+5. **文档与钉版**。protocol-v2 §6.1 记录规则全文、动机、三次观测与"两臂对称 / outcome-blind"；
+   README §5 记录同一规则给操作员。manifest 与两个独立测试锚按新字节重钉（仍是 48 个冻结文件）。
+
+**新增测试（7 个，全部 stub worker / stub probe，零模型调用）**：
+
+1. `test_the_reachability_check_is_one_frozen_prompt_with_the_same_command`：prompt 恰是冻结
+   文本，token、120 秒与 3 次上限都是常量。
+2. `test_every_reachability_check_is_recorded_with_a_timestamp`：真实 `reachability_probe()`
+   对两个本地 stub 命令各跑一次；FAIL 记录含 `PROVIDER_ERROR:provider.no-route`，PASS 记录
+   `token_seen=True`；两条日志都有时间戳，命令尾部恰为 `[model, prompt]`，scratch 目录在
+   `.reachability/` 下，run dir 从未创建。
+3. `test_a_failed_reachability_check_blocks_without_consuming_an_attempt`：probe FAIL =>
+   BLOCKED，worker 未启动（marker 不存在），无 registry / attempt ledger / lock / run dir；
+   随后同一 run id 再次 `run` 直接 ACCEPT，`attempts == 1`。
+4. `test_a_provider_error_before_work_is_retried_on_a_fresh_run_dir`：stub 第一次
+   `provider.no-route`、第二次做完整的候选修复 => ACCEPT、`attempts == 2`、preflight 被调用 2 次
+   （真·重新准备）；`attempts/1/run.json` 的 worker step 为 BLOCKED、events 保留
+   `provider.no-route`、`attempt.json` 的哈希逐条复核、`repo/` 不在归档内；ledger 两行
+   （PROVIDER_FAILED_BEFORE_WORK + TERMINAL），registry 一行
+   `attempt=2 attempts=2 final=ACCEPT`，archive 的 manifest hash 与 ledger 对得上。
+5. `test_three_before_work_failures_block_the_run_and_stop_retrying`：三次失败 => registry 一行
+   `BLOCKED`（attempt/attempts = 3）、`attempts/1..3` 齐全、ledger 三行、stub 只被启动三次、
+   `next` 前进，该 id 二次启动被 `RUN_ALREADY_REGISTERED` 拒绝。
+6. `test_a_provider_error_after_a_tool_call_is_invalid_and_never_retried`：先有 tool_use 再
+   provider 错误 => INVALID、只启动一次、无 `attempts/`、ledger 一行 TERMINAL。
+7. `test_a_blocked_audit_is_retried_and_keeps_the_mechanical_verdict`：第一次 audit 的流是
+   provider 错误 => `attempts/audit-1` 归档、第二次 audit PASS、机械裁定 ACCEPT 保留。
+
+既有测试只改了两处断言（步骤表新增 `reachability` 一栏；escape stub 的事件顺序恢复为
+tool_use 在前），其余断言的语义未放宽。
+
+### T27 — re-pin 与报告
+
+从仓库根执行（`T26 = 4924930b71473efcb7f7fd84973d5574f873b03c`）：
+
+```text
+build_run_plan.py --materials <T26> --out run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+build_manifest.py build --freeze-parent <T26> --out freeze-manifest.json
+  -> FREEZE_MANIFEST files=48 delivery_payload_equivalent_to_T2=YES
+build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+两个独立锚由程序从新 manifest 重写：`EXPECTED_V2_HASHES` 的 48 条与 manifest 的 `hashes` 逐字
+相同（`freeze_is_intact()` 直接比较两个来源），`MANIFEST_SHA256`
+= `300c56e75e9635895c57f654144d2f68910553ad709054e19e7ffe1e6ce281a3`
+= `freeze-manifest.json` 的 sha256。manifest 的 `freeze_parent` 与 `materials_commit` 均为 T26，
+run plan 的 20 条 `materials_commit` 同为 T26；交付载荷仍与 T8 materials 逐字节相同，所以 T2 的
+中性测量没有被重算也没有被改写。README §4 的 re-pin 段改为本次提交与其父提交 T26，并把 T26
+列入"前移的内容"。
+
+提交前在 T26 与 T27 各跑一遍 §0 GATES（前台，逐条等待；退出码不经管道）。T26 提交链的实测：
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 21.933s / OK
+=== EXPERIMENTS_TESTS    Ran 390 tests in 820.465s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+T27 的 gates 跑了两遍：写入本节之前的记录遍（同一棵树，只差本节文本），以及随后带 commit 的
+提交链。记录遍的实测：
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 22.143s / OK
+=== EXPERIMENTS_TESTS    Ran 390 tests in 820.437s / OK
+=== NEVER_TOUCH          NEVER_TOUCH_DIFF_EMPTY
+```
+
+T26 之后实验套件从 383 增至 390（+7），`scripts/tests` 仍为 602；T27 只改 run plan、manifest、
+测试字面量与文档，计数不变。
+
+### 本轮未做、未证明与遗留缺口
+
+1. **没有真实 provider 证据。** reachability 与 before-work 规则的全部执行证据都来自 stub
+   worker / stub probe（禁止模型调用）。第一次真实裁定属于 Claude 的 live pilot。
+2. **pilot #2 的 INVALID 不回改。** 它已按 protocol-v2 §6 登记，本轮不重跑、不改写其记录；
+   T26 只规定此后如何处理同类噪声。
+3. **reachability 的判据是"runtime 有回答"，不是"回答恰好是那个 token"。** `token_seen` 被记录
+   但 PASS 只要求非空文本：若模型答了别的话，仍视为可达，以免把风格差异误判成 BLOCKED。代价是
+   一个"能回话但对真正 prompt 必失败"的 provider 仍会在 worker 侧变成 INVALID（零 tool_use、
+   退出 0 的空回答按原规则 INVALID，不重试）。
+4. **probe 不是免费的。** 每个 attempt / audit 之前各多一次模型调用；它只能降低"整个 run 被
+   上游噪声摧毁"的概率，不能保证真实 prompt 一定成功。规则只在 worker 未动作时触发，因此不能
+   用来重摇结果，也不能把 INVALID 变成 PASS。
+5. 未执行 H2-R2、未 push/PR/merge，真实 PR CI 仍为 NOT_TRIGGERED。
