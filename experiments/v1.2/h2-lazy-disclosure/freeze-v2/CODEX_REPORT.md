@@ -1229,3 +1229,126 @@ NEVER_TOUCH_DIFF_EMPTY
    "对象库里出现不可达对象"的 fsck 检查，因为正常 worker 的 `git commit --amend` / `stash`
    也会留下 dangling 对象，会产生误判。
 5. 没有执行 H2-R2、没有 push/PR/merge，真实 PR CI 状态仍为 NOT_TRIGGERED。
+
+## T24–T25（implementer: opencode deepseek-v4.1-flash）
+
+计划：[CODEX_FIXES_5.md](CODEX_FIXES_5.md)。T24 提交 `f2f9ad9`；T25 是本节所在的 re-pin 提交。
+写作用域未变；没有执行 `opencode run`、没有任何模型调用、没有跑 H2-R2、没有 push/PR。
+
+### T24 — 关闭 F10–F13（`f2f9ad9`）
+
+**F10（P1，真实工具名）**。`access_audit.TOOL_ALLOW` 与 `SHELL_TOOLS` 现在接受 `shell`，并把
+它当作 shell 工具分析（`bash` 保留，供旧事件流使用）；文件工具继续接受真实流使用的 `path`
+键。实测对照：修复前把 pilot 的真实事件流交给旧版 audit，得到 `INVALID` 与 **25 条
+`TOOL_NOT_ALLOWED`**（25 次 `shell` 调用）；修复后同一流为 `PASS`，`tool_calls = 50`。
+
+**F11（P1，worker 自己跑测试导致 REJECT）**。`run_h2r2.FROZEN_ENV = {"PYTHONDONTWRITEBYTECODE":
+"1"}`，在 profile 的 `export` 之后应用，因此 profile 无法覆盖它；`worker_env()` 的返回值同时交给
+worker 与 per-run auditor（`execute()` 把同一个 `env` 传给 auditor），`run.json` 记录
+`frozen_env` 与 `env_allow_list`。原因侧修复，规则侧不动：`repo/` 下若仍出现 `.pyc`，仍按 scope
+拒绝（`scope_v2` 的 BYTECODE 规则原样保留）。protocol-v2 §4/§5、README §3 的 ENV 段与 §4
+都记下了这条决定。
+
+**F12（P2，token 化）**。`shell_tokens()` 用 `shlex.shlex(posix=True, punctuation_chars=True)`
+切分，分隔符成为独立 token：pilot 的 `source /dev/null; <PY> -m unittest …` 不再报
+`PATH_OUTSIDE_RUN:/dev/null;`。`OPERATORS` 同时是 git 参数表的终止符。
+
+**F13（P2，temp 目录被当成外来仓库）**。`git_hits()` 现在跟踪同一命令内的 `cd`，把每个 git
+调用的 `-C` / `--git-dir` / `--work-tree` 依次应用到当前工作目录上，得到**有效仓库**；只有该
+仓库既不在 run 目录、也不在 OS temp 根之内时才记 `GIT_FOREIGN_REPOSITORY`。因此 pilot 的
+`cd <run> && … && git -C repo archive HEAD | tar -x -C <TMP>/h2-base-check && cd <TMP>/h2-base-check
+&& <PY> -m unittest …` 为 PASS；`tar` 的 `-C` 不会再被读成 git 的 `-C`（这既是 F12 的
+标点切分结果，也是 F13 的有效仓库判定）。
+
+**保留下来的拒绝**：外联/远端类 `git clone|fetch|pull|push|ls-remote|submodule` 与
+`git remote add|set-url|…`、白名单外的工具、run 与 temp 之外的任何绝对路径/`~`/`$HOME`/`..`
+逃逸、`--git-dir`/`--work-tree` 指向外部、`patch` 的错误路径，全部照旧命中。既有测试里唯一被
+改写的用例是 `git -C /tmp/other log`：按 F13，temp 根内的仓库是合法目标，该用例改为
+`/srv/other`，并新增了 temp 侧的正向断言。
+
+**真实事件流 fixtures（只读各自一次）**。两条真实记录被复制成
+`fixtures/pilot-f01-c-events.jsonl`（155 事件、50 次 tool 调用，工具集合
+`{read, write, edit, shell}`）与 `fixtures/toolname-probe-events.jsonl`（15 事件、6 次调用，每个
+真实工具各一次：`read/glob/grep/shell/write/edit`）。sanitise 只做前缀替换：
+`<RUN_ROOT>`（run 目录）、`<PY>`（固定解释器）、`<PY_ROOT>`、`<HOME>`、`<TMP>`；替换后逐行
+`json.loads` 复核，并断言不再残留 `/Users/` 或 `/private/`。测试在临时 run 目录里把这些占位符
+重新展开（`<PY>` 展开为当次 `sys.executable`，因此也落在 audit 的 allow-list 内）。
+
+**新增测试**（5 个，外加 1 个改写）：
+
+1. pilot 真实流：`PASS`，0 hit，155 事件 / 50 调用，工具集合不含 `bash`。
+2. tool-name probe：六个真实工具名全部允许，`PASS`，6 调用。
+3. pilot 的五个变异各自 `INVALID`：越界 `read`（`/etc/hosts`）、`git -C /srv/other`、
+   `cat ~/notes.txt`、`cat ../../../etc/passwd`、把 `read` 改名成 `webfetch`。变异是对真实流
+   的事件做结构改写（替换该次调用的 input 或工具名），不是另写一条想象出来的流。
+4. F12/F13 正向与反向：分隔符、temp 归档管道、temp 内 git、`cd` 进 temp 后 git 均 `PASS`；
+   `git -C /srv/other`、`cd /srv/other && git log`、`tar -x -C /srv/other` 均 `INVALID`。
+5. worker env：`FROZEN_ENV == {"PYTHONDONTWRITEBYTECODE": "1"}`；`worker_env()` 的键集不超出
+   `{PATH, LANG} ∪ profile exports ∪ {PYTHONDONTWRITEBYTECODE}`；通过 `mock.patch.object` 捕获
+   `launch()` 真正收到的 env，并捕获 auditor 收到的 env，两者都逐字等于 `worker_env()`。
+
+### T25 — re-pin 与报告
+
+`build_run_plan.py --materials f2f9ad9` 重生成 run plan（20 run、C-first = V-first = 5），
+`build_manifest.py build --freeze-parent f2f9ad9` 重生成 manifest（48 个冻结文件），
+`build_manifest.py check` 为 `PASS`，两个独立锚（`EXPECTED_V2_HASHES` 与 `MANIFEST_SHA256`）
+由程序从新 manifest 重写。README §4 的 re-pin 段改为本次提交与其父提交 `f2f9ad9`，并补记
+T24 前移的内容；§3 增补 ENV 段；§4 的冻结文件计数改为 48 / 49。
+
+交接说明：T24 提交后，上一实现会话在跑 T25 的最后几条 gate 时被中断，留下的未提交工作树
+按 T25 的范围复核后才提交。复核不是重读自己的输出，而是重新执行生成器并比对字节：
+
+```text
+build_run_plan.py --materials f2f9ad9 --out <TMP>/run-plan.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+build_manifest.py build --freeze-parent f2f9ad9 --out <TMP>/manifest.json
+  -> FREEZE_MANIFEST files=48 delivery_payload_equivalent_to_T2=YES
+build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+diff <TMP>/run-plan.json run-plan-v2.json        -> 无差异
+diff <TMP>/manifest.json freeze-manifest.json   -> 无差异
+```
+
+两个独立锚与重生成结果逐字相等：`EXPECTED_V2_HASHES` 的 48 条与 manifest 的 `hashes` 完全
+相同（程序比对），`MANIFEST_SHA256 = 82fd5e36bc57af8afb330f90d504a44777b49873b111035e748528f02526199b`
+即 `freeze-manifest.json` 的 sha256，run plan 的 `1371946a…` 同时出现在 manifest 与测试字面量里。
+manifest 的 `freeze_parent` 与 `materials_commit` 均为 `f2f9ad9`，即本次提交的父提交。
+
+提交前在 T24 与 T25 各跑一遍 §0 GATES（前台，逐条等待；退出码不经管道）。T24 的记录：
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 27.042s / OK
+=== EXPERIMENTS_TESTS    Ran 383 tests in 906.336s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+T25 提交前，被中断的会话之后由本 session 从干净状态整套重跑（下面每条都是实测；实验套件
+整套跑了两遍，两次之间只有本报告文本不同，耗时分别为 838.199s 与 786.396s，结果同为 383
+个测试 OK，故这里不把某一遍的秒数写成结论）：
+
+```text
+=== RUFF                 All checks passed!                 (exit 0)
+=== GOVERNANCE           35/35 checks passed                 (exit 0)
+=== PUBLIC               VIOLATIONS=0                        (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 24.179s / OK       (exit 0)
+=== EXPERIMENTS_TESTS    Ran 383 tests / OK                  (exit 0, 838.199s 与 786.396s 两次)
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空 (exit 0)
+```
+
+T24 之后实验套件从 378 增至 383（+5），`scripts/tests` 仍为 602；T25 只改 run plan、manifest、
+测试字面量与文档，因此计数不变。
+
+### 本轮未做、未证明与遗留缺口
+
+1. **没有真实 worker run。** pilot 的 `PASS` 是对已经记录的流做 replay，不是新 run；
+   `shell`/F12/F13 的第一次真实运行证据仍属于 Claude 的 acceptance（下一次 live pilot）。
+2. **F13 的必然放宽（已声明）**：`git -C <temp 根内仓库>` 现在合法，因此一个把 base 解到 temp
+   再在 temp 仓库里跑 git 的 worker 不会因此被判无效；逃出 temp 根、`~`、绝对路径、远端操作
+   仍会被判。这是 CODEX_FIXES_5 F13 明文要求的行为，不是实现自选。
+3. **可观测性边界不变**：audit 只看事件流记录的 tool 调用；工具内部隐式访问、隐藏 runtime
+   上下文与不产生事件的次生进程不可见。
+4. 真实事件流仍在 hand-off 给出的 run root 下；仓库里只有 sanitise 后的副本。
+5. 未执行 H2-R2、未 push/PR/merge，真实 PR CI 仍为 NOT_TRIGGERED。

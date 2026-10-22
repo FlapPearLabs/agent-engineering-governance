@@ -50,7 +50,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "ba190348f43c9a40e3733eeed760ddbdd91b9ad183fff62c92749bd277d6e918",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "1371946a635852a5169b569e1569a7804df18358eac4ae51d98fdbfef5749355",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "e928d47ff121c2f56fc2f547235ccffd509ad18855ad45a0431d736f9f6a157a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "aaef30a91e5eec176d3b808b3dd15c4fe90dbefe42eae7213b2ed09f0454beac",
@@ -67,7 +67,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "e215072826751678094cdb2eaeb5b293780001a377d8d0a76eece0a937061fa7"
+MANIFEST_SHA256 = "82fd5e36bc57af8afb330f90d504a44777b49873b111035e748528f02526199b"
 
 
 def load(name):
