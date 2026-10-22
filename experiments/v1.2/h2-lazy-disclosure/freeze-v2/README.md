@@ -1,4 +1,4 @@
-# Freeze v2 — pre-freeze measurements (in progress; nothing here is frozen)
+# Freeze v2 — pinned candidate materials (acceptance pending)
 
 Inputs: the 10-task shortlist `admission/freeze-v2-input/shortlist.json` (validator 2.8.12).
 
@@ -76,3 +76,66 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
           A null difference is reported as INSUFFICIENT_EVIDENCE, never as DISCLOSURE_SAFE on
           this ground alone.
 ```
+
+## 4. What is frozen
+
+[freeze-manifest.json](freeze-manifest.json) pins 32 files: the registry, run plan, brief,
+protocol, runtime/measurement/generator modules, route measurements, admission inputs, routes,
+carrier bytes, report template, rubric and validator. The same hashes are independent literals
+in `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
+hash there. Tests reject a one-byte mutation of each of these 33 files on a temporary copy.
+README, the implementation plan, review log and CODEX_REPORT are operator documents outside
+this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
+
+The content-freeze commit is the T8 commit first introducing this manifest (`526aa38`);
+its parent and the shared run materials are `042f2244e453c79daa0ed50d72759a4583bcc43d`.
+The T2 measurement used `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a`; generation and tests prove
+its delivered bytes, shortlist and wrapper program equal those at the final materials commit.
+T8 regenerated the run plan before hashing it. T9 changes only operator documentation.
+The final default-branch merge remains the review/history anchor; hashes alone are not acceptance.
+
+Registry scope interpretation: the plan's “allow everything else in repo/” uses round-2
+n01/n02's existing empty deny-prefix list. All base scripts/tests files and each oracle are
+individually denied, and the worker contract prohibits changing any test. Copying the old
+t01–t04 prefixes would block the shortlisted r24 deployment repair. This interpretation and
+the T8-parent definition are recorded for independent acceptance in CODEX_REPORT.md.
+
+## 5. Before the first run
+
+No H2-R2 run was executed by the implementer. All of the following remain operator/Claude work:
+
+1. **Claude runs the isolation canary in the logged-in isolated profile and records the verdict.**
+   From the repository root, with `H=experiments/v1.2/h2-lazy-disclosure`, `PY` set to the pinned
+   interpreter and `H2_RUNS_ROOT` an operator-chosen directory outside every git repository:
+
+   ```bash
+   $PY $H/freeze-v2/isolation_canary.py prepare "$H2_RUNS_ROOT/isolation-canary"
+   ```
+
+   This prints the exact `source ~/.h2-worker-profile/env.sh && opencode run --standalone
+   --format json -m opencode-go/deepseek-v4.1-flash` command, including its cwd and prompt.
+   Claude executes that printed command, checks the pinned CLI version, retains events/stderr,
+   then records the parser verdict outside the repository:
+
+   ```bash
+   $PY $H/freeze-v2/isolation_canary.py check "$H2_RUNS_ROOT/isolation-canary/events.jsonl" > "$H2_RUNS_ROOT/isolation-canary/verdict.json"
+   ```
+
+   Require wrapper-at-startup, repo-only-after-read and nested-after-read evidence, with no
+   observed MCP/plugin/global/user/Skill contamination. The parser covers observable events;
+   inspect the live evidence and profile rather than claiming visibility into hidden context.
+
+2. **Fresh DeepSeek review of the exact final freeze candidate SHA.** Review this plan, the full
+   final diff, registry/scope interpretation, declared confound, scoring deviations and both
+   anchors. Run the pinned tests and manifest check. This is an independent review, not the
+   implementer's self-check. Any repair produces a new SHA requiring a fresh matching review.
+
+3. **Merge path per [protocol.md §12](../protocol.md#12-收尾--合并门part-3032).** Enumerate the
+   applicable independent reviews, bot output, inline/conversation threads and configured CI
+   at the final SHA; disclose missing channels, settle findings, obtain lawful integration
+   authority, then follow the serial integration and remote-verification path. No push, PR,
+   merge or actual experiment is authorized by this implementation hand-off alone.
+
+The run protocol is [protocol-v2.md](protocol-v2.md), the full implementation receipt is
+[CODEX_REPORT.md](CODEX_REPORT.md). Start execution only after the external prerequisites and
+the separate run authorization are satisfied.
