@@ -697,3 +697,162 @@ OK
 十任务 unchanged-base 负向控制与真实 schema canary 用例。这段证据文字写入后又重跑了读取
 文本的门（Ruff / governance / public release / `git diff --check`），结果同为全绿，见提交
 记录；两个长套件不读本文件，故不再重复。
+
+## T15–T17（implementer: opencode deepseek-v4.1-flash）
+
+本节由第三轮实现者追加，对应 CODEX_FIXES_2（86ac104 的 acceptance round 2，F5/F6）。
+T1–T9 与 T10–T14 的记录原样保留。分支仍为 `experiment/v1.2-h2-freeze-v2`，起点 HEAD
+`73924e8`，按 T15→T17 顺序实现，每任务一个本地提交，提交身份 `FlapPearLabs`，message 结尾带
+opencode 的 Co-Authored-By。写范围不变：`freeze-v2/**` 与
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`。最终接受仍是 Claude 的独立职责，本轮没有
+自批、没有 push/PR、没有执行任何 run、没有调用模型、没有 source profile 的 env.sh、没有写
+profile 目录。
+
+### T15 — `021a16e`
+
+F5 的修法是把"运行时自述"换成"运行时自己的配置报告"，并让 canary 的三个声明只有一个可解析
+来源。
+
+- `isolation_canary.py preflight <run_dir> --profile-env <env.sh>`：解析 env 文件的 `export`
+  行（不 source、不执行），以 `os.environ` 叠加上 profile 变量，cwd = run_dir，只运行
+  `opencode debug paths` 与 `opencode debug config`；超时 120s；结论写入
+  `<run_dir>/preflight.json`，退出码只对 PASS 为 0。PASS 条件：`home/data/config/cache/state`
+  以及所有其它 status 路径都在 profile home 之下、`home` 等于 profile home、配置来源恰好是
+  profile 的 `opencode.json` 与 profile 配置目录、且该文件字节等于冻结模板。
+- `check`：MCP / plugin-agent / skill 三个声明**只**取自
+  `H2_CANARY_SOURCES mcp=<n> plugin_agents=<n> skills=<names>`；行缺失、重复或不可解析一律
+  `NO_SOURCES_LINE`，自由文本不再决定这三项。顺序、附着与指令路径规则全部保留；`mcp__` 工具
+  事件仍然直接 FAIL。canary 的 wrapper AGENTS.md 新增了产生该行的要求。
+- Fixtures（真实输出，仅做路径脱敏；公开扫描 VIOLATIONS=0，仓内无宿主路径）：
+  `fixtures/canary-86ac104-events.jsonl`（86ac104 的 live 流，`<RUN_ROOT>` 占位）与
+  `fixtures/isolation-canary-events.jsonl`（T12 的流）都是回归样本，现在只报
+  `NO_SOURCES_LINE`，不再报 MCP/PLUGIN 污染；
+  `fixtures/canary-86ac104-synthetic-sources-line.jsonl` 是**新的、命名与文档都标明 synthetic**
+  的 PASS 样本（在 live 流上加入那一行）；`fixtures/preflight-debug-paths.txt` 与
+  `fixtures/preflight-debug-config.json` 是 preflight 解析器的脱敏真实输出
+  （`<PROFILE_HOME>`、`<OS_TMPDIR>`）。
+
+一处必须公开的口径收窄：交接给的真实 `debug paths` 输出里 `tmp` 是
+`<OS_TMPDIR>/opencode`（macOS 的 per-user 临时根，env.sh 不设置 TMPDIR），它不可能在 profile
+home 之下。因此实现把 "every printed path under the profile home" 落成：`home` 必须等于 profile
+home，其它所有 status 键（data/config/cache/state/bin/log/repos/db）必须在 profile home 之下，
+未知键拒绝；`tmp` 单独只要求绝对路径并作为证据记录，不要求位于 home 下。若按字面要求，Claude
+实测的那个正确 profile 会 FAIL，这条收窄是让规则与实测一致所必需，且只能放松 tmp 一个键。
+
+开发聚焦运行（程序与测试同批写入，首次运行即 GREEN；负例由 fixture 变异承担，不是 RED 记录）：
+
+```text
+Ran 16 tests in 0.201s
+OK
+```
+
+提交前全门禁原样尾行：Ruff `All checks passed!`、governance `35/35 checks passed`、public
+`VIOLATIONS=0`、scripts `Ran 602 tests in 21.795s / OK`、experiments
+`Ran 357 tests in 755.345s / OK`；`git diff --check` 与越界 scope diff 均为空输出、exit 0。
+
+### T16 — `a5a0354`
+
+F6 的修法是把 profile 配置从"未记录的实验输入"变成冻结输入。
+
+- `worker-profile/opencode.json`：`$schema`、`autoupdate: false`、`share: "disabled"`、空
+  `plugin`、空 `mcp`，以及 `permission: {"question": "deny"}`（JSON 两空格缩进 + 结尾换行，
+  与现行 profile 文件同格式）。键名不是猜的：opencode 2.0.25 二进制内嵌的 config 校验器把
+  `permission` 对象展开成 `{action, resource: "*", effect}`，其对外的 permission 对象模式把
+  `question` 与 read/edit/bash/task/webfetch/... 并列枚举，effect 取值为
+  `ask | allow | deny`；同一构建的内置 `build` agent 正是 `action: "question"` 的授权方。
+  因此 `permission.question = "deny"` 合法且正好命中该动作。此处不声称曾用 `debug config`
+  验证过安装结果——见下面的未做项。
+- protocol-v2 §4 与 README §3：模板必须由操作员在首次 run 前逐字节安装；每次 run 之前由
+  preflight 证明字节相等；单 run wall-clock 上限 90 分钟，超时按 §6 登记为 INVALID、不静默
+  重跑、不算 worker 失败。README §5 第 1 条给出操作员的 preflight 命令与其含义。
+- 模板进 manifest 与测试独立字面量；新增测试断言模板的确切内容（键集合、各值、
+  `permission == {"question": "deny"}`）以及 `CONFIG_TEMPLATE` 正好指向该文件。
+
+开发聚焦运行：
+
+```text
+Ran 14 tests in 0.592s
+OK
+```
+
+提交前全门禁原样尾行：Ruff、governance 35/35、public VIOLATIONS=0、scripts
+`Ran 602 tests in 21.896s / OK`、experiments `Ran 359 tests in 788.572s / OK`；diff-check 与
+scope 均空。
+
+### T17 — re-pin（本节在 T17 提交前写入）
+
+按 T8/T14 的同一规则，materials 前移到 T17 提交的父提交
+`a5a03543d2ccbe4cfa727ffa0be0bf513a871a39`（T16），并重跑交付锚，而不是沿用旧测量：现在的
+测试要求 anchors 记录的 materials 等于 manifest 的 materials，且 materials 必须是 HEAD 的祖先。
+
+```bash
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials a5a0354 --out $H/freeze-v2/delivery-anchors.json
+$PY $H/freeze-v2/build_run_plan.py --materials a5a03543d2ccbe4cfa727ffa0be0bf513a871a39 \
+    --out $H/freeze-v2/run-plan-v2.json
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent a5a03543d2ccbe4cfa727ffa0be0bf513a871a39 \
+    --out $H/freeze-v2/freeze-manifest.json
+$PY $H/freeze-v2/build_manifest.py check
+```
+
+十任务全部跑完（未抽样，8:17.83），原样尾行：
+
+```text
+DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+```
+
+与上一份 anchors 的逐字段比对（不写实施者本机路径）：
+
+```text
+old materials fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9
+new materials a5a03543d2ccbe4cfa727ffa0be0bf513a871a39
+identical apart from materials_commit: True
+neutral {'CODEBUDDY': 0, 'AGENTS': 0, 'WRAPPER': 10}
+```
+
+manifest 的冻结集合从 36 增至 41：新增 T15 的四个 fixture 与 T16 的 profile 模板（T15 提交时
+已先钉四个 fixture 为 40，T16 再钉模板），manifest 自身仍是独立字面量，逐字节变异测试现在覆盖
+41 + 1 = 42 个文件。生成与 check 原样输出：
+
+```text
+RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+FREEZE_MANIFEST files=41 delivery_payload_equivalent_to_T2=YES
+{"verdict": "PASS", "mismatches": []}
+```
+
+测试里的独立字面量按文件本身重算（41 个文件哈希 + manifest 自身哈希），不是从 manifest 抄写。
+README §4 的计数与 materials 叙述、§5 的 preflight 步骤已同步。
+
+T17 提交前全门禁原样尾行（在最终代码树上执行，晚于它写入的只有本节文字）：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 23.564s
+OK
+=== EXPERIMENTS_TESTS
+Ran 359 tests in 785.552s
+OK
+=== DIFFCHECK
+（空输出，exit 0）
+=== SCOPE_EMPTY
+（空输出，exit 0）
+```
+
+### 本轮未做、未证明与遗留缺口
+
+1. **live preflight 没有跑过。** 本轮禁止调用模型与写 profile，因此 `preflight` 只用脱敏的真实
+   输出做过解析器与 CLI 测试；profile 里那份 `opencode.json` 是否已逐字节等于模板，第一次真实
+   裁定属于 Claude（README §5 第 1 条）。实现没有声称已经证明。
+2. **preflight 没有被验收程序强制消费。** `collect_v2.py` / `run_acceptance_v2.py` 不读取
+   `preflight.json`，所以"每次 run 之前 preflight 必须 PASS"是操作员义务 + 留在 run dir 的证据，
+   不是机械拒绝条件。把它升为 collection 的硬门会改变 T11 已冻结的验收语义（并需要重跑十任务
+   正向/负向控制），本轮没有做；这是 F6 闭合度的残余缺口，应作为下一轮工具票的输入。
+3. **90 分钟上限同样是操作员登记规则**，没有程序计时器；超时按 §6 登记为 INVALID。
+4. 没有执行 H2-R2、没有 push/PR/merge，真实 PR CI 状态仍为 NOT_TRIGGERED；T15–T17 的机械证据
+   全部来自本地门禁与十任务锚测量。

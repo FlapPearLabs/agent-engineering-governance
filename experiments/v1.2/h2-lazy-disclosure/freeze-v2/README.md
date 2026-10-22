@@ -114,17 +114,21 @@ hash there. Tests reject a one-byte mutation of each of these 42 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit is the T14 re-pin commit; its parent and the shared run materials are
-`fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9` (the T13 commit). The delivered payload — carrier
+The content-freeze commit is the T17 re-pin commit; its parent and the shared run materials are
+`a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (the T16 commit). The delivered payload — carrier
 bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
-materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward is `wrapper_delivery.py`
-(T13's run-root refusal) and the four programs/fixtures the F1/F2 fixes added. Because the
-runner program changed, the T2 delivery anchors were re-measured at the new materials instead of
-being carried over: [delivery-anchors.json](delivery-anchors.json) records that re-measurement
-(materials `fb9ce4f`, same 10/10 WRAPPER neutrality, same per-task PRE sets). The original T2
-measurement commit `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` is kept in the record because the
-PRE baseline itself did not move. T14 regenerated the run plan before hashing. The final
-default-branch merge remains the review/history anchor; hashes alone are not acceptance.
+materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
+`wrapper_delivery.py` (T13's run-root refusal), the programs/fixtures the F1/F2 fixes added
+(T11/T12) and the F5/F6 work (T15/T16: the preflight attestation, its sanitised evidence
+fixtures and the frozen worker-profile template). The T2 delivery anchors were re-measured at
+each new materials set instead of being carried over: [delivery-anchors.json](delivery-anchors.json)
+records the latest measurement at `a5a0354`, identical to the T14 measurement at `fb9ce4f`
+except for the recorded commit (same 10/10 WRAPPER neutrality, same per-task PRE sets, same
+`ran` counts). The earlier measurement commits `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a`
+(T2) and `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9` (T14) are kept in the record because the
+PRE baseline itself did not move. The run plan is regenerated before hashing at every re-pin.
+The final default-branch merge remains the review/history anchor; hashes alone are not
+acceptance.
 
 Registry scope interpretation (superseded by F1, CODEX_FIXES_1 T10): the earlier reading of “allow
 everything else in repo/” reused round-2 n01/n02's empty deny-prefix list. That list let an added
@@ -140,10 +144,26 @@ scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 
 No H2-R2 run was executed by the implementer. All of the following remain operator/Claude work:
 
-1. **Claude runs the isolation canary in the logged-in isolated profile and records the verdict.**
-   From the repository root, with `H=experiments/v1.2/h2-lazy-disclosure`, `PY` set to the pinned
-   interpreter and `H2_RUNS_ROOT` set to `<SHARED_RUN_ROOT>` (§3: in the macOS Shared folder,
-   outside every home, no discoverable ancestor):
+1. **Install the frozen profile template, then attest it before every run.** Install
+   `freeze-v2/worker-profile/opencode.json` as the profile's
+   `~/.config/opencode/opencode.json`, byte for byte (§3 PROFILE). From the repository root,
+   with `H=experiments/v1.2/h2-lazy-disclosure` and `PY` set to the pinned interpreter, run the
+   preflight in each prepared run directory before its worker starts:
+
+   ```bash
+   $PY $H/freeze-v2/isolation_canary.py preflight "$H2_RUNS_ROOT/<run>" \
+       --profile-env ~/.h2-worker-profile/env.sh
+   ```
+
+   It calls only `opencode debug paths` and `opencode debug config`, writes
+   `<run>/preflight.json`, and must print `"verdict": "PASS"` (exit 0). A FAIL means the run
+   does not start: the profile is not the frozen one, or a state path or config source escapes
+   it. This is the mechanical answer to F6; the implementer never ran it against the live
+   profile, so the first real verdict is Claude's.
+
+2. **Claude runs the isolation canary in the logged-in isolated profile and records the verdict.**
+   With `H2_RUNS_ROOT` set to `<SHARED_RUN_ROOT>` (§3: in the macOS Shared folder, outside every
+   home, no discoverable ancestor):
 
    ```bash
    $PY $H/freeze-v2/isolation_canary.py prepare "$H2_RUNS_ROOT/isolation-canary"
@@ -164,12 +184,12 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
    The parser covers observable events; inspect the live evidence and profile rather than
    claiming visibility into hidden context.
 
-2. **Fresh DeepSeek review of the exact final freeze candidate SHA.** Review this plan, the full
+3. **Fresh DeepSeek review of the exact final freeze candidate SHA.** Review this plan, the full
    final diff, registry/scope interpretation, declared confound, scoring deviations and both
    anchors. Run the pinned tests and manifest check. This is an independent review, not the
    implementer's self-check. Any repair produces a new SHA requiring a fresh matching review.
 
-3. **Merge path per [protocol.md §12](../protocol.md#12-收尾--合并门part-3032).** Enumerate the
+4. **Merge path per [protocol.md §12](../protocol.md#12-收尾--合并门part-3032).** Enumerate the
    applicable independent reviews, bot output, inline/conversation threads and configured CI
    at the final SHA; disclose missing channels, settle findings, obtain lawful integration
    authority, then follow the serial integration and remote-verification path. No push, PR,
