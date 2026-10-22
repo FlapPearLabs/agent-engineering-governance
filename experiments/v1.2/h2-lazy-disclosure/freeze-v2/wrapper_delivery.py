@@ -12,6 +12,37 @@ from pathlib import Path, PurePosixPath
 H2_REL = "experiments/v1.2/h2-lazy-disclosure"
 ROOT = Path(__file__).resolve().parents[4]
 DELIVERED_NAMES = {"AGENTS.md", "H2_RULES.md", "H2_WARM"}
+# F4: opencode discovers guidance by walking UP from the cwd, past a redirected HOME, so a run root
+# below any directory that carries one of these re-admits the operator's own skills/plugins/config.
+ANCESTOR_MARKERS = (".agents", ".opencode", ".claude", "AGENTS.md", "CLAUDE.md", "opencode.json")
+
+
+def operator_home() -> Path:
+    return Path.home()
+
+
+def discoverable_ancestor(run_dir: Path) -> str | None:
+    """The first marker on any ancestor of `run_dir` (the run dir's own carrier excepted)."""
+    resolved = Path(run_dir).resolve()
+    for ancestor in (resolved, *resolved.parents):
+        for marker in ANCESTOR_MARKERS:
+            if ancestor == resolved and marker == "AGENTS.md":
+                continue                      # the arm carrier prepare writes itself
+            if (ancestor / marker).exists():
+                return marker
+    return None
+
+
+def run_root_reason(run_dir: Path) -> str | None:
+    """Why `run_dir` is not an acceptable run root, or None when it is (F4 / CODEX_FIXES_1 T13)."""
+    resolved = Path(run_dir).resolve()
+    home = operator_home().resolve()
+    if resolved == home or home in resolved.parents:
+        return "RUN_DIR_UNDER_OPERATOR_HOME"
+    marker = discoverable_ancestor(resolved)
+    if marker is not None:
+        return f"RUN_DIR_UNDER_DISCOVERABLE_ROOT:{marker}"
+    return None
 
 
 def git(root: Path, *args: str, binary: bool = False):
@@ -90,6 +121,9 @@ def cleanup(root: Path, run_dir: Path) -> None:
 def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -> dict:
     root, run_dir = Path(root).resolve(), Path(run_dir).resolve()
     outside_repository(run_dir)
+    root_reason = run_root_reason(run_dir)
+    if root_reason is not None:
+        raise ValueError(root_reason)
     if run_dir.exists():
         raise ValueError("RUN_DIR_EXISTS")
     materials = git(root, "rev-parse", "--verify", f"{materials}^{{commit}}").strip()

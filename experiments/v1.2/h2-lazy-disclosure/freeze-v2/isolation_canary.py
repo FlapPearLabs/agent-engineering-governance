@@ -21,7 +21,7 @@ import shutil
 import subprocess
 from pathlib import Path, PurePosixPath
 
-from wrapper_delivery import outside_repository
+from wrapper_delivery import outside_repository, run_root_reason
 
 WRAPPER = "H2_CANARY_WRAPPER_STARTUP"
 REPO = "H2_CANARY_REPO_ATTACHED"
@@ -42,6 +42,9 @@ TOOL_SCHEMA = {"step_start", "text", "tool_use", "step_finish", "error"}
 def prepare(run_dir: Path) -> str:
     run_dir = run_dir.resolve()
     outside_repository(run_dir)
+    root_reason = run_root_reason(run_dir)
+    if root_reason is not None:
+        raise ValueError(root_reason)
     run_dir.mkdir()
     try:
         repo = run_dir / "repo"

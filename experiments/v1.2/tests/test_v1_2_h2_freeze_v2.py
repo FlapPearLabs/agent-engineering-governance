@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -33,15 +34,15 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "9f712ca9b80a7e533a27c00c4715768f90b31d64ffea9d9bef61ff5a09c35a7f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d5cced185b8790b8f9ee889ab50abd8560a81df29049743b396461ca938c2371",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "365414247910ae438f39d8c94973d076e85e7ae907b4f358c330b5f64db922ac",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "a2aa34d7bf478f5ba93629df16e21b61aa4d3821952a7dd7118168b5e95e17d2",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "bbe2b39ef03a75fa0a48a3cc42ca91a7aace0253b3470797718b51c94350abed",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "1c0c1f39ff85496c7a035df64f156ad283e67d26b46a70aaae54ecb0a7b06062",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "ca56aabb336f1f404aaa7a08304941df885bf38c2a68f4188b2afe9a56fe7bb6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "9cdc91d40e1e079f025019dc2e70cd7ed3ca1e73e1c03795d8e9e0ce28502357",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "c8a2838fbc0c2edf2fa276eeaab87964fe4457d5606dc88419d730142583cd95",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "9221d5d47b0875a390aa4e4dd378fb1181c077c03e6ae23fb28bb741501a1778",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
@@ -50,7 +51,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "0bef47f7d175a453c0ec547ccc294d4c08c3569f145bedcda6abb42d61334f53"
+MANIFEST_SHA256 = "cd9e50aae57c25dda62db1d297a460fdd878809ace121b5f10cc5af9dd7b50fb"
 
 
 def load(name):
@@ -272,6 +273,48 @@ class WrapperDelivery(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RUN_DIR_INSIDE_REPOSITORY"):
             wrapper.prepare(ROOT, FZ / "forbidden-run", "f01", "control", "HEAD")
         self.assertFalse((FZ / "forbidden-run").exists())
+
+    def test_run_root_outside_every_home_and_every_discoverable_ancestor(self):
+        """F4: opencode walks UP from the cwd past the redirected HOME."""
+        wrapper = load("wrapper_delivery")
+        for marker in (".agents", ".opencode", ".claude", "AGENTS.md", "CLAUDE.md",
+                       "opencode.json"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as tmp:
+                discovered = Path(tmp) / marker
+                if marker.startswith("."):
+                    discovered.mkdir()
+                else:
+                    discovered.write_text("# discovered guidance\n", encoding="utf-8")
+                run = Path(tmp) / "runs" / "canary"
+                with self.assertRaisesRegex(ValueError, "RUN_DIR_UNDER_DISCOVERABLE_ROOT"):
+                    wrapper.prepare(ROOT, run, "f01", "control", "HEAD")
+                self.assertFalse(run.exists())
+        with tempfile.TemporaryDirectory() as home:
+            with mock.patch.dict(os.environ, {"HOME": home}):
+                run = Path(home) / "runs" / "canary"
+                with self.assertRaisesRegex(ValueError, "RUN_DIR_UNDER_OPERATOR_HOME"):
+                    wrapper.prepare(ROOT, run, "f01", "control", "HEAD")
+                self.assertFalse(run.exists())
+        canary = load("isolation_canary")
+        with tempfile.TemporaryDirectory() as tmp:
+            discovered = Path(tmp) / ".agents"
+            discovered.mkdir()
+            with self.assertRaisesRegex(ValueError, "RUN_DIR_UNDER_DISCOVERABLE_ROOT"):
+                canary.prepare(Path(tmp) / "canary")
+
+    def test_a_clean_foreign_run_root_is_still_accepted(self):
+        wrapper = load("wrapper_delivery")
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "clean-root").mkdir()
+            run = Path(tmp) / "clean-root" / "canary"
+            try:
+                receipt = wrapper.prepare(ROOT, run, "f01", "variant", "HEAD")
+                self.assertEqual("f01", receipt["task_id"])
+                self.assertEqual("variant", receipt["arm"])
+            finally:
+                if run.exists():
+                    wrapper.cleanup(ROOT, run)
+            self.assertFalse(run.exists())
 
 
 class DeliveryAnchors(unittest.TestCase):

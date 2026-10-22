@@ -50,6 +50,14 @@ corpus_case_id 与注册表 case_id 相交；重复身份拒绝。没有另一�
 HOME/XDG 隔离、无用户插件/MCP/Skills/全局指令、关闭自动更新的实际状态必须由操作员的
 已登录 profile canary 再核验；合成 parser 测试不能替代该 live 证据。
 
+run root 是 `H2_RUNS_ROOT = <SHARED_RUN_ROOT>`：macOS Shared 目录下的操作员目录，位于所有
+home 之外，且祖先目录不得含 `.agents`、`.opencode`、`.claude`、`AGENTS.md`、`CLAUDE.md`
+或 `opencode.json`（run 自己投放的 AGENTS.md 除外）。`wrapper_delivery.py prepare` 与
+`isolation_canary.py prepare` 都拒绝 home 之下的 run root 与带上述祖先的 run root。
+原因见 F4：opencode 从 cwd 向上发现 `.agents/` 与 `.opencode/`，可越过被重定向的 HOME，
+把操作员的技能目录重新引入 worker。位于 Shared 目录的 run root 只出现两个内置 skill
+`opencode` 与 `report`，两臂完全相同；这是已披露的、臂对称的运行时事实，不是交付差异。
+
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
 从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 detached worktree。
 control carrier 的字节为薄头 + 当前 AGENTS.md 全文 + 薄尾；variant 为已钉 hash 的 lean

@@ -56,10 +56,18 @@ RUNTIME   opencode (CLI 2.0.25), model opencode-go/deepseek-v4.1-flash, in an IS
           no user plugins, MCP servers, skills, memory or global AGENTS.md; autoupdate off;
           `run --standalone`, so no shared background service). The profile is logged in once
           by the operator; credentials never enter this repository.
+RUNS_ROOT H2_RUNS_ROOT = `<SHARED_RUN_ROOT>`: an operator directory in the macOS Shared folder,
+          outside every home and every git repository, with NO ancestor carrying `.agents`,
+          `.opencode`, `.claude`, `AGENTS.md`, `CLAUDE.md` or `opencode.json`.
+          WHY (F4): opencode discovers `.agents/` and `.opencode/` by walking UP from the cwd, past
+          the redirected HOME. A run root below the operator's home re-admitted ~185 user skills;
+          with the root outside every home only the two built-in skills `opencode` and `report`
+          appear, identically in both arms. `prepare` refuses a run root that is under the
+          operator's HOME or below any such ancestor.
 LAYOUT    <run>/                 worker cwd (not a git repository)
             AGENTS.md            the arm's carrier (control: header + AGENTS.md + footer;
                                  variant: carriers/H2_LEAN_BOOTSTRAP.md) — the ONLY guidance
-                                 opencode loads at startup (canaries; PENDING re-check in
+                                 opencode loads at startup (canaries; re-checked in
                                  the isolated profile once it is logged in)
             H2_RULES.md          RULES.md at the materials commit
             H2_WARM/             the S3 WARM owners at the materials commit
@@ -110,7 +118,8 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
 
 1. **Claude runs the isolation canary in the logged-in isolated profile and records the verdict.**
    From the repository root, with `H=experiments/v1.2/h2-lazy-disclosure`, `PY` set to the pinned
-   interpreter and `H2_RUNS_ROOT` an operator-chosen directory outside every git repository:
+   interpreter and `H2_RUNS_ROOT` set to `<SHARED_RUN_ROOT>` (§3: in the macOS Shared folder,
+   outside every home, no discoverable ancestor):
 
    ```bash
    $PY $H/freeze-v2/isolation_canary.py prepare "$H2_RUNS_ROOT/isolation-canary"
@@ -126,8 +135,10 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
    ```
 
    Require wrapper-at-startup, repo-only-after-read and nested-after-read evidence, with no
-   observed MCP/plugin/global/user/Skill contamination. The parser covers observable events;
-   inspect the live evidence and profile rather than claiming visibility into hidden context.
+   observed MCP/plugin/global/user/skill contamination beyond the two built-in skills `opencode`
+   and `report` — a disclosed, arm-symmetric fact of this runtime, not a delivery difference.
+   The parser covers observable events; inspect the live evidence and profile rather than
+   claiming visibility into hidden context.
 
 2. **Fresh DeepSeek review of the exact final freeze candidate SHA.** Review this plan, the full
    final diff, registry/scope interpretation, declared confound, scoring deviations and both
