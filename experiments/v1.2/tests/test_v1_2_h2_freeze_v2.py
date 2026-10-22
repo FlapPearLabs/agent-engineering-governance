@@ -332,3 +332,42 @@ class RunPlanV2(unittest.TestCase):
         self.assertEqual(Counter({"control": 5, "variant": 5}), first)
         generated = load("build_run_plan").build(runs[0]["materials_commit"])
         self.assertEqual(plan, generated)
+
+
+class WorkerBriefV2(unittest.TestCase):
+    def test_all_pairs_differ_only_inside_delivery_block(self):
+        renderer = load("render_brief")
+        tasks = json.loads((FZ / "task-registry-v2.json").read_text())["tasks"]
+        runs = json.loads((FZ / "run-plan-v2.json").read_text())["runs"]
+        expected = json.loads((FZ / "task-registry-v2.json").read_text())["expected"]
+        for task in tasks:
+            rendered = [renderer.render(task, next(r for r in runs if r["task_id"] == task["task_id"]
+                                                   and r["arm"] == arm), "<TOOLCHAIN_PYTHON>")
+                        for arm in ("control", "variant")]
+            bodies = []
+            for text in rendered:
+                before, rest = text.split("<!-- BOOTSTRAP_DELIVERY_BEGIN -->")
+                block, after = rest.split("<!-- BOOTSTRAP_DELIVERY_END -->")
+                self.assertIn("CARRIER_SHA256", block)
+                self.assertIn("RUN_ID", block)
+                self.assertIn("git -C repo rev-parse HEAD", text)
+                self.assertIn("./.h2-telemetry.log", text)
+                self.assertIn("./report.md", text)
+                self.assertIn("freeze-v2/", text)
+                for answer in expected.values():
+                    self.assertNotIn(answer["candidate_sha"][:7], text)
+                bodies.append((before, after))
+            self.assertEqual(bodies[0], bodies[1])
+            self.assertNotEqual(rendered[0], rendered[1])
+
+    def test_cli_copies_the_report_template_outside_the_repository(self):
+        run = json.loads((FZ / "run-plan-v2.json").read_text())["runs"][0]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "contract.md"
+            subprocess.run([sys.executable, str(FZ / "render_brief.py"), "--run-id", run["run_id"],
+                            "--python", "<TOOLCHAIN_PYTHON>", "--out", str(out)],
+                           check=True, capture_output=True)
+            self.assertTrue(out.is_file())
+            self.assertEqual(git("show", f"{run['materials_commit']}:{H2_REL}/harness/"
+                                 "worker-report-template.md"),
+                             (Path(tmp) / "worker-report-template.md").read_bytes())
