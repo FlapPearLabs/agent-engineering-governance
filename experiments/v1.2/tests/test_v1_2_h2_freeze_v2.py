@@ -29,14 +29,18 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "8325afb88acc20c267cc218afa532dc348097464e27ec9dcbef397641cfa9547",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "bbfba78184cf8720da811910850e9f36ea116915b1bf05f9a1cafe856226fd5d",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "7a8631fe33dc39a71c55a90e382fbc40886b158a47f357274e4dfd8b72b3047b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "f785e15b10f67a93c72f37ca31a3092590dd2ee46060f62e190f8628d52ab438",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "365414247910ae438f39d8c94973d076e85e7ae907b4f358c330b5f64db922ac",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "1c0c1f39ff85496c7a035df64f156ad283e67d26b46a70aaae54ecb0a7b06062",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "010a89522665d6229e95e5dcb339e4039d2ae4bc3e36001929d5aabe9a927056",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "ca56aabb336f1f404aaa7a08304941df885bf38c2a68f4188b2afe9a56fe7bb6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
@@ -55,7 +59,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "7723859082ac62d83ac8bb0448cb261531bc8fc395f97375e2ab67612628ba40"
+MANIFEST_SHA256 = "22efaa0f3cc11f3838b39bd0ddb41194fb722c2ad1c5c123d830fc537e6a39ab"
 
 
 def load(name):
@@ -366,9 +370,11 @@ class DeliveryAnchors(unittest.TestCase):
 
 
 class IsolationCanary(unittest.TestCase):
+    SOURCES_LINE = "H2_CANARY_SOURCES mcp=0 plugin_agents=0 skills=opencode,report"
+
     def fixture(self):
         return [
-            {"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP"}},
+            {"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP\n" + self.SOURCES_LINE}},
             {"type": "tool_use", "part": {"tool": "read", "state": {
                 "input": {"filePath": "repo/probe.txt"}}}},
             {"type": "text", "part": {"text": "H2_CANARY_REPO_ATTACHED"}},
@@ -378,11 +384,21 @@ class IsolationCanary(unittest.TestCase):
             {"type": "step_finish", "part": {"reason": "stop"}},
         ]
 
-    def real_stream(self):
+    def t12_stream(self):
+        """The T12 fixture: a real 2.0.25 stream, sanitised; it carries no sources line."""
         return (FZ / "fixtures" / "isolation-canary-events.jsonl").read_text(encoding="utf-8")
 
-    def real_events(self):
-        return [json.loads(line) for line in self.real_stream().splitlines() if line.strip()]
+    def live_stream(self):
+        """F5's own evidence: the fresh 86ac104 live canary, sanitised, no sources line."""
+        return (FZ / "fixtures" / "canary-86ac104-events.jsonl").read_text(encoding="utf-8")
+
+    def passing_stream(self):
+        """The clearly-labelled synthetic fixture: the live stream plus the sources line."""
+        return (FZ / "fixtures" / "canary-86ac104-synthetic-sources-line.jsonl").read_text(
+            encoding="utf-8")
+
+    def passing_events(self):
+        return [json.loads(line) for line in self.passing_stream().splitlines() if line.strip()]
 
     @staticmethod
     def render(events):
@@ -395,32 +411,69 @@ class IsolationCanary(unittest.TestCase):
         return {"type": "tool_use", "part": {"type": "tool", "tool": "read", "state": {
             "status": "completed", "input": {"path": path}}}}
 
-    def test_the_real_opencode_event_stream_passes(self):
-        """The committed fixture is the real 2.0.25 stream (paths sanitised to <RUN_ROOT>)."""
+    def test_the_labelled_pass_fixture_passes_and_the_cli_agrees(self):
+        """The committed pass fixture is synthetic: the live stream plus the sources line."""
         canary = load("isolation_canary")
-        verdict = canary.check_stream(self.real_stream())
+        verdict = canary.check_stream(self.passing_stream())
         self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
         self.assertEqual(10, verdict["event_count"])
+        self.assertEqual({"mcp": 0, "plugin_agents": 0, "skills": ["opencode", "report"]},
+                         verdict["sources_line"])
         for key in ("wrapper_at_startup", "repo_after_first_read", "nested_after_read"):
             self.assertTrue(verdict[key])
-        text = self.real_stream()
+        text = self.passing_stream()
         self.assertIn("<RUN_ROOT>", text)
         for host_prefix in ("/Users/", "/private/"):
             self.assertNotIn(host_prefix, text)
-        events = self.real_events()
+        events = self.passing_events()
         self.assertEqual({"step_start", "text", "tool_use", "step_finish"},
                          {event["type"] for event in events})
         reads = [event for event in events if event["type"] == "tool_use"]
         self.assertEqual({"repo/probe.txt", "repo/nested/probe.txt"},
                          {canary.normalise_path(event["part"]["state"]["input"]["path"], Path("."))
                           for event in reads})
+        cli = subprocess.run(
+            [sys.executable, str(FZ / "isolation_canary.py"), "check",
+             str(FZ / "fixtures" / "canary-86ac104-synthetic-sources-line.jsonl")],
+            capture_output=True, text=True)
+        self.assertEqual(0, cli.returncode, cli.stdout)
+
+    def test_both_real_streams_are_regressions_for_the_f5_false_positive(self):
+        """F5: a correct live run must fail on the missing line, never on its own prose."""
+        canary = load("isolation_canary")
+        for label, stream in (("live 86ac104", self.live_stream()),
+                              ("T12 fixture", self.t12_stream())):
+            with self.subTest(label=label):
+                verdict = canary.check_stream(stream)
+                self.assertEqual("FAIL", verdict["verdict"])
+                self.assertEqual(["NO_SOURCES_LINE"], verdict["reasons"], label)
+                self.assertEqual(10, verdict["event_count"])
+        self.assertIn("Actual MCP / plugin-agent / skill sources present:", self.live_stream())
+        self.assertIn("Plugin agents: none present", self.live_stream())
+        for stream in (self.live_stream(), self.t12_stream()):
+            for host_prefix in ("/Users/", "/private/"):
+                self.assertNotIn(host_prefix, stream)
+        cli = subprocess.run(
+            [sys.executable, str(FZ / "isolation_canary.py"), "check",
+             str(FZ / "fixtures" / "canary-86ac104-events.jsonl")],
+            capture_output=True, text=True)
+        self.assertEqual(1, cli.returncode)
+        self.assertEqual(["NO_SOURCES_LINE"], json.loads(cli.stdout)["reasons"])
 
     def test_each_real_schema_refusal_is_reported(self):
         canary = load("isolation_canary")
-        base = self.real_events()
+        base = self.passing_events()
         wrapper_index = 1
         first_read = 2
         repo_text = 5
+
+        def with_line(old, new):
+            events = json.loads(json.dumps(base))
+            text = events[wrapper_index]["part"]["text"]
+            self.assertIn(old, text)
+            events[wrapper_index]["part"]["text"] = text.replace(old, new)
+            return self.render(events)
+
         mutants = {
             "marker missing": (self.render(
                 [event if index != wrapper_index else self.text_event(
@@ -435,20 +488,22 @@ class IsolationCanary(unittest.TestCase):
             "extra read": (self.render(
                 base[:repo_text + 2] + [self.read_event("repo/other.txt")] + base[repo_text + 2:]),
                 "UNEXPECTED_READ"),
-            "mcp named in text": (self.render(
-                base + [self.text_event("MCP server `remote` connected from the user profile.")]),
-                "MCP_CONTAMINATION"),
-            "plugin agent named in text": (self.render(
-                base + [self.text_event("Plugin agent `reviewer` is loaded in this profile.")]),
-                "PLUGIN_AGENT_CONTAMINATION"),
-            "skill catalogue named in text": (self.render(
-                base + [self.text_event("Skills: `alpha-skill`, `report`")]),
-                "SKILL_CATALOGUE_CONTAMINATION"),
             "non-read tool": (self.render(
                 base[:first_read] + [{"type": "tool_use", "part": {
                     "type": "tool", "tool": "bash"}}] + base[first_read:]),
                 "FORBIDDEN_TOOL_OR_AGENT"),
             "truncated stream": (self.render(base[:-1]), "INCOMPLETE_STREAM"),
+            "sources line missing": (with_line(self.SOURCES_LINE + "\n\n", ""),
+                                     "NO_SOURCES_LINE"),
+            "sources line malformed": (with_line(
+                self.SOURCES_LINE, "H2_CANARY_SOURCES mcp=none plugin_agents=0 skills="),
+                "NO_SOURCES_LINE"),
+            "mcp reported": (with_line("mcp=0", "mcp=2"), "MCP_CONTAMINATION"),
+            "plugin agent reported": (with_line("plugin_agents=0", "plugin_agents=1"),
+                                      "PLUGIN_AGENT_CONTAMINATION"),
+            "skill catalogue reported": (with_line(
+                "skills=opencode,report", "skills=opencode,report,alpha-skill"),
+                "SKILL_CATALOGUE_CONTAMINATION"),
         }
         for label, (stream, reason) in mutants.items():
             with self.subTest(label=label):
@@ -457,19 +512,23 @@ class IsolationCanary(unittest.TestCase):
                 self.assertIn(reason, verdict["reasons"], verdict["reasons"])
 
     def test_the_f4_home_run_fails_on_the_disclosed_skill_catalogue(self):
-        """F4's own evidence, reduced to its observable claim: the operator catalogue is named."""
+        """F4's observable claim, now carried by the machine-readable line only (F5)."""
         canary = load("isolation_canary")
-        stream = self.render(self.real_events() + [
-            self.text_event("**Skills:** the available-skills catalog is present in context "
-                            "(large bundled list, e.g. `alpha-skill`, `opencode`, "
-                            "`beta-skill`, …); no individual skill content is loaded yet.")])
+        stream = self.passing_stream().replace("skills=opencode,report",
+                                               "skills=opencode,report,alpha-skill,beta-skill")
         verdict = canary.check_stream(stream)
         self.assertEqual("FAIL", verdict["verdict"])
         self.assertIn("SKILL_CATALOGUE_CONTAMINATION", verdict["reasons"])
-        allowed = self.render(self.real_events() + [
-            self.text_event("two skill sources (`opencode`, `report`), no MCP or plugin-agent "
-                            "sources")])
-        self.assertEqual("PASS", canary.check_stream(allowed)["verdict"])
+        self.assertEqual(["SKILL_CATALOGUE_CONTAMINATION"], verdict["reasons"])
+
+    def test_free_prose_no_longer_decides_the_three_claims(self):
+        """F5: wording changes every run, so prose is not the instrument — the line is."""
+        canary = load("isolation_canary")
+        stream = self.render(self.passing_events() + [
+            self.text_event("MCP servers: every one of them is configured and present."),
+            self.text_event("Plugin agents: reviewer, and two more."),
+            self.text_event("Skills: `alpha-skill`, `beta-skill` are present.")])
+        self.assertEqual("PASS", canary.check_stream(stream)["verdict"])
 
     def test_positive_event_stream(self):
         canary = load("isolation_canary")
@@ -515,11 +574,163 @@ class IsolationCanary(unittest.TestCase):
             self.assertIn("source ~/.h2-worker-profile/env.sh", command)
             self.assertIn("opencode run --standalone --format json -m "
                           "opencode-go/deepseek-v4.1-flash", command)
+            wrapper = (run / "AGENTS.md").read_text()
+            self.assertIn("H2_CANARY_WRAPPER_STARTUP", wrapper)
+            self.assertIn("H2_CANARY_SOURCES mcp=<integer> plugin_agents=<integer> "
+                          "skills=<comma-separated names>", wrapper)
             for rel, token in (("AGENTS.md", "H2_CANARY_WRAPPER_STARTUP"),
                                ("repo/AGENTS.md", "H2_CANARY_REPO_ATTACHED"),
                                ("repo/nested/AGENTS.md", "H2_CANARY_NESTED_ATTACHED")):
                 self.assertIn(token, (run / rel).read_text())
             self.assertEqual(b"", git("status", "--porcelain", root=run / "repo"))
+
+
+class IsolationPreflight(unittest.TestCase):
+    """F5: the deterministic profile attestation, parsed from sanitised real output."""
+
+    def paths_text(self):
+        return (FZ / "fixtures" / "preflight-debug-paths.txt").read_text(encoding="utf-8")
+
+    def config_text(self):
+        return (FZ / "fixtures" / "preflight-debug-config.json").read_text(encoding="utf-8")
+
+    def evaluate(self, paths=None, config=None, *, template=b"template\n", config_file=b"template\n"):
+        return load("isolation_canary").evaluate_preflight(
+            self.paths_text() if paths is None else paths,
+            self.config_text() if config is None else config,
+            profile_home="<PROFILE_HOME>", template=template, config_file=config_file)
+
+    def test_the_sanitised_profile_evidence_passes(self):
+        verdict = self.evaluate()
+        self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+        self.assertEqual("<PROFILE_HOME>", verdict["paths"]["home"])
+        self.assertEqual([{"type": "document",
+                           "path": "<PROFILE_HOME>/.config/opencode/opencode.json"},
+                          {"type": "directory",
+                           "path": "<PROFILE_HOME>/.config/opencode"}],
+                         verdict["config_sources"])
+        self.assertEqual(verdict["template_sha256"], verdict["config_file_sha256"])
+        for stream in (self.paths_text(), self.config_text()):
+            for host_prefix in ("/Users/", "/private/"):
+                self.assertNotIn(host_prefix, stream)
+
+    def test_the_profile_env_file_is_parsed_not_executed(self):
+        canary = load("isolation_canary")
+        self.assertEqual({"HOME": "/profile/isolated", "XDG_CONFIG_HOME": "/profile/isolated/.config"},
+                         canary.parse_profile_env("# comment\nexport HOME=/profile/isolated\n"
+                                                  'XDG_CONFIG_HOME="/profile/isolated/.config"\n'
+                                                  "not-an-assignment\n"))
+
+    def test_a_state_path_outside_the_profile_is_refused(self):
+        paths = self.paths_text()
+        cases = {
+            "PREFLIGHT_PATH_OUTSIDE_PROFILE:cache": paths.replace(
+                "cache      <PROFILE_HOME>", "cache      <OTHER_HOME>"),
+            "PREFLIGHT_PATH_OUTSIDE_PROFILE:data": paths.replace(
+                "data       <PROFILE_HOME>/.local/share/opencode",
+                "data       /srv/shared/opencode"),
+            "PREFLIGHT_PATH_MISSING:state": "".join(
+                line for line in paths.splitlines(keepends=True)
+                if not line.startswith("state ")),
+            "PREFLIGHT_HOME_MISMATCH": paths.replace("home       <PROFILE_HOME>",
+                                                     "home       <OTHER_HOME>"),
+            "PREFLIGHT_UNKNOWN_PATH_KEY:project": paths
+            + "project    <PROFILE_HOME>/project\n",
+            "PREFLIGHT_TMP_NOT_ABSOLUTE": paths.replace("tmp        <OS_TMPDIR>/opencode",
+                                                        "tmp        opencode"),
+            "PREFLIGHT_UNPARSEABLE_PATHS": "\n\n",
+        }
+        for reason, mutated in cases.items():
+            with self.subTest(reason=reason):
+                self.assertIn(reason, self.evaluate(paths=mutated)["reasons"])
+
+    def test_extra_or_missing_config_sources_are_refused(self):
+        sources = json.loads(self.config_text())
+        for label, mutated in (
+            ("extra project source", sources + [
+                {"type": "document", "path": "<PROFILE_HOME>/project/opencode.json"}]),
+            ("extra global source", [{"type": "document",
+                                      "path": "<GLOBAL_CONFIG>/opencode.json"}] + sources),
+            ("directory source dropped", sources[:1]),
+            ("nothing loaded", []),
+        ):
+            with self.subTest(label=label):
+                self.assertIn("CONFIG_SOURCES_MISMATCH",
+                              self.evaluate(config=json.dumps(mutated))["reasons"])
+        self.assertIn("PREFLIGHT_UNPARSEABLE_CONFIG", self.evaluate(config='{"type":')["reasons"])
+
+    def test_template_and_file_drift_are_refused(self):
+        self.assertIn("CONFIG_TEMPLATE_MISMATCH",
+                      self.evaluate(template=b"frozen\n", config_file=b"edited\n")["reasons"])
+        self.assertIn("PREFLIGHT_CONFIG_UNREADABLE", self.evaluate(config_file=None)["reasons"])
+        self.assertIn("PREFLIGHT_TEMPLATE_UNAVAILABLE", self.evaluate(template=None)["reasons"])
+
+    def test_preflight_attests_the_profile_and_writes_the_verdict(self):
+        canary = load("isolation_canary")
+        template = b'{"synthetic": "template"}\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "profile" / "isolated"
+            (home / ".config" / "opencode").mkdir(parents=True)
+            (home / ".config" / "opencode" / "opencode.json").write_bytes(template)
+            template_path = root / "template.json"
+            template_path.write_bytes(template)
+            env_file = root / "env.sh"
+            env_file.write_text(f"# synthetic\nexport HOME={home}\n"
+                                f"export XDG_CONFIG_HOME={home}/.config\n", encoding="utf-8")
+            run = root / "run"
+            run.mkdir()
+            outputs = {
+                "paths": self.paths_text().replace("<PROFILE_HOME>", str(home))
+                                          .replace("<OS_TMPDIR>", "/synthetic-tmp"),
+                "config": self.config_text().replace("<PROFILE_HOME>", str(home)),
+            }
+            calls = []
+
+            def fake_run(argv, cwd, env, timeout=120):
+                calls.append((list(argv), Path(cwd), dict(env)))
+                return 0, outputs[argv[-1]]
+
+            with mock.patch.object(canary, "CONFIG_TEMPLATE", template_path), \
+                    mock.patch.object(canary, "run_command", side_effect=fake_run):
+                verdict = canary.preflight(run, env_file)
+            self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+            self.assertEqual(verdict, json.loads((run / "preflight.json").read_text()))
+            self.assertEqual([["opencode", "debug", "paths"],
+                              ["opencode", "debug", "config"]], [call[0] for call in calls])
+            for argv, cwd, env in calls:
+                self.assertEqual(run.resolve(), cwd)
+                self.assertEqual(str(home), env["HOME"])
+                self.assertNotIn("run", argv)
+            self.assertEqual(str(home), verdict["paths"]["home"])
+
+            def failing_run(argv, cwd, env, timeout=120):
+                return 1, ""
+
+            with mock.patch.object(canary, "CONFIG_TEMPLATE", template_path), \
+                    mock.patch.object(canary, "run_command", side_effect=failing_run):
+                failed = canary.preflight(run, env_file)
+            self.assertEqual("FAIL", failed["verdict"])
+            self.assertIn("PREFLIGHT_COMMAND_FAILED:paths", failed["reasons"])
+            self.assertEqual(failed, json.loads((run / "preflight.json").read_text()))
+
+    def test_preflight_cli_exits_nonzero_without_a_profile_env(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / "run"
+            run.mkdir()
+            result = subprocess.run(
+                [sys.executable, str(FZ / "isolation_canary.py"), "preflight", str(run),
+                 "--profile-env", str(Path(tmp) / "missing.sh")],
+                capture_output=True, text=True)
+            self.assertEqual(1, result.returncode)
+            verdict = json.loads((run / "preflight.json").read_text())
+            self.assertIn("PREFLIGHT_PROFILE_ENV_UNREADABLE", verdict["reasons"])
+
+    def test_preflight_refuses_a_missing_run_dir(self):
+        canary = load("isolation_canary")
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                canary.preflight(Path(tmp) / "absent", Path(tmp) / "env.sh")
 
 
 class RegistryV2(unittest.TestCase):
