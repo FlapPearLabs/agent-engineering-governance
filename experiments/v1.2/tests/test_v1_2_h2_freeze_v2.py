@@ -28,9 +28,9 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "bd85e4c3c6a63cf7cc641ec7448a37ce35b0188d5c89829c8a0080f161b569f9",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "8cce0b7ab34a975f66f6713251594374479a1be8efd0b272e1938b4319fb6fdf",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ae9159162fea297f0e2141d87ce14fc39d30038f51b2ba7446a986b7ce0e8211",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "b3f30ca7f706c2eb2fcfce5f80d58189b0cffb749c37af801ab87a14bc6b519d",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "5027d59c21a2de634c91c49efc1ea3745d5a1a5769e8475db42976d1908a5db5",
@@ -41,17 +41,19 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-f01-c-events.jsonl": "8df3d734070e50bdd6e425da3fa43f9206daa1ffa1754b7ba5c28c4867d0e099",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "010a89522665d6229e95e5dcb339e4039d2ae4bc3e36001929d5aabe9a927056",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "ce461d602b14b98953c4a2f32e9f9de3d2e16b98b610aa69c1bd9e711d4d9ce1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "ad45046426afdc2026e07c082d959f179ef4aaa5fece031e1368693dcae2ecb5",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "ba190348f43c9a40e3733eeed760ddbdd91b9ad183fff62c92749bd277d6e918",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "e928d47ff121c2f56fc2f547235ccffd509ad18855ad45a0431d736f9f6a157a",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "095632f0d019b36791266492618880c75797fab335eb284fcdd6a8f98ccbfbb1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "aaef30a91e5eec176d3b808b3dd15c4fe90dbefe42eae7213b2ed09f0454beac",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
@@ -65,7 +67,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "dfdd1e51a7040e606e2ed1090a5519934df13884f321c6ec1b6ae38b0d931420"
+MANIFEST_SHA256 = "e215072826751678094cdb2eaeb5b293780001a377d8d0a76eece0a937061fa7"
 
 
 def load(name):
@@ -791,7 +793,17 @@ class FrozenWorkerProfile(unittest.TestCase):
 
 
 class AccessAudit(unittest.TestCase):
-    """T22 / F9: out-of-run access read back out of the run's own event stream."""
+    """T22 / F9: out-of-run access read back out of the run's own event stream.
+
+    T24 / F10-F13: the fixtures that imitate opencode are the REAL recorded streams, sanitised with
+    placeholder path prefixes; the parser is exercised on them and on mutations of them, never on
+    an imagined stream (that is how `bash` slipped into the allow-list).
+    """
+
+    PILOT = "pilot-f01-c-events.jsonl"
+    PROBE = "toolname-probe-events.jsonl"
+    RUN = Path("/srv/runs/h2r2-f01-c")
+    HOME = "/srv/profile-home"
 
     def events(self, *items):
         return "\n".join(json.dumps(item) for item in items)
@@ -802,14 +814,58 @@ class AccessAudit(unittest.TestCase):
     def bash(self, command):
         return self.tool("bash", command=command)
 
-    def one(self, *events, home=None):
+    def expand(self, name, run=None, home=None):
+        """The committed stream with its placeholder prefixes re-expanded for one synthetic run."""
+        text = (FZ / "fixtures" / name).read_text(encoding="utf-8")
+        values = {"<RUN_ROOT>": str(run or self.RUN), "<PY>": sys.executable, "<TMP>": "/tmp",
+                  "<PY_ROOT>": "/srv/py-root", "<HOME>": home or self.HOME}
+        for placeholder, value in values.items():
+            text = text.replace(placeholder, value)
+        return text
+
+    def fixture_events(self, name):
+        return [json.loads(line) for line in
+                (FZ / "fixtures" / name).read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    def fixture_tools(self, name):
+        return {event["part"].get("tool") for event in self.fixture_events(name)
+                if event.get("type") == "tool_use"}
+
+    def audit_text(self, text, run=None, home=None):
         module = load("access_audit")
         with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp) / "run"
-            run.mkdir()
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(text, encoding="utf-8")
+            return module.audit(path, run or self.RUN, home=home or self.HOME,
+                                python=sys.executable)
+
+    def mutate(self, events, tool, **inputs):
+        """The first real `tool` call of the stream, with its recorded inputs replaced."""
+        for index, event in enumerate(events):
+            if event.get("type") != "tool_use" or event["part"].get("tool") != tool:
+                continue
+            part = json.loads(json.dumps(event["part"]))
+            part["state"]["input"] = inputs
+            return [*events[:index], {**event, "part": part}, *events[index + 1:]]
+        raise AssertionError(f"no {tool} call in the recorded stream")
+
+    def rename(self, events, tool, new_name):
+        for index, event in enumerate(events):
+            if event.get("type") == "tool_use" and event["part"].get("tool") == tool:
+                part = json.loads(json.dumps(event["part"]))
+                part["tool"] = new_name
+                return [*events[:index], {**event, "part": part}, *events[index + 1:]]
+        raise AssertionError(f"no {tool} call in the recorded stream")
+
+    def one(self, *events, home=None, run=None):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(run) if run is not None else Path(tmp) / "run"
+            if run is None:
+                run_dir.mkdir()
             path = Path(tmp) / "events.jsonl"
             path.write_text(self.events(*events), encoding="utf-8")
-            return module.audit(path, run, home=home, python=sys.executable)
+            return module.audit(path, run_dir, home=home, python=sys.executable)
 
     def test_the_committed_clean_stream_passes_and_the_cli_agrees(self):
         module = load("access_audit")
@@ -863,8 +919,8 @@ class AccessAudit(unittest.TestCase):
             ("git fetch", self.bash("git fetch --depth 1 /tmp/x"), "GIT_REMOTE_REPOSITORY"),
             ("git remote add", self.bash("git remote add origin /tmp/x"),
              "GIT_REMOTE_REPOSITORY"),
-            ("git -C outside", self.bash("git -C /tmp/other log"), "GIT_FOREIGN_REPOSITORY"),
-            ("git --git-dir outside", self.bash("git --git-dir=/tmp/other/.git log"),
+            ("git -C outside", self.bash("git -C /srv/other log"), "GIT_FOREIGN_REPOSITORY"),
+            ("git --git-dir outside", self.bash("git --git-dir=/srv/other/.git log"),
              "GIT_FOREIGN_REPOSITORY"),
             ("unlisted tool", self.tool("webfetch", url="https://example.invalid/"),
              "TOOL_NOT_ALLOWED"),
@@ -874,6 +930,78 @@ class AccessAudit(unittest.TestCase):
         for label, event, reason in cases:
             with self.subTest(label=label):
                 result = self.one(event)
+                self.assertEqual("INVALID", result["verdict"], label)
+                self.assertIn(reason, [hit["reason"] for hit in result["hits"]], label)
+
+    def test_the_recorded_pilot_stream_passes_the_access_audit(self):
+        """F10: `shell` is the real tool name, so a real clean run must audit as PASS."""
+        result = self.audit_text(self.expand(self.PILOT))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(155, result["events"])
+        self.assertEqual(50, result["tool_calls"])
+        self.assertEqual({"read", "write", "edit", "shell"}, self.fixture_tools(self.PILOT))
+        self.assertNotIn("bash", self.fixture_tools(self.PILOT))
+
+    def test_the_recorded_tool_name_probe_shows_every_real_tool(self):
+        """F10: the live probe used each of the six tools once; every one is allowed."""
+        tools = self.fixture_tools(self.PROBE)
+        self.assertEqual({"read", "glob", "grep", "shell", "write", "edit"}, tools)
+        result = self.audit_text(self.expand(self.PROBE))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual(6, result["tool_calls"])
+
+    def test_every_mutation_of_the_recorded_pilot_stream_is_invalid(self):
+        """A clean fixture must stay a real control: each escape shape makes it INVALID."""
+        pilot = self.fixture_events(self.PILOT)
+        cases = (
+            ("read outside the run",
+             self.mutate(pilot, "read", path="/etc/hosts"), "PATH_OUTSIDE_RUN"),
+            ("git -C another repository",
+             self.mutate(pilot, "shell", command="git -C /srv/other log --oneline"),
+             "GIT_FOREIGN_REPOSITORY"),
+            ("cat ~/x",
+             self.mutate(pilot, "shell", command="cat ~/notes.txt"), "PATH_OUTSIDE_RUN"),
+            ("a ../ escape",
+             self.mutate(pilot, "shell", command="cat ../../../etc/passwd"), "PATH_OUTSIDE_RUN"),
+            ("a tool outside the allow-list",
+             self.rename(pilot, "read", "webfetch"), "TOOL_NOT_ALLOWED"),
+        )
+        for label, events, reason in cases:
+            with self.subTest(label=label):
+                result = self.audit_text(self.events(*events))
+                self.assertEqual("INVALID", result["verdict"], label)
+                self.assertIn(reason, [hit["reason"] for hit in result["hits"]], label)
+
+    def test_shell_punctuation_and_the_effective_git_repository(self):
+        """F12: separators are tokens. F13: git is judged by its effective repository."""
+        run = self.RUN
+        for label, command in (
+            ("separator glued to a path",
+             f"cd {run}/repo && source /dev/null; {sys.executable} -m unittest "
+             "scripts.tests.test_x.SomeTests.test_y"),
+            ("temp archive pipeline",
+             f"cd {run} && rm -rf /tmp/h2-base-check && mkdir -p /tmp/h2-base-check && "
+             "git -C repo archive HEAD | tar -x -C /tmp/h2-base-check && "
+             f"cd /tmp/h2-base-check && {sys.executable} -m unittest adapters.zcode.tests.test_x"),
+            ("git in a temp repository", "git -C /tmp/scratch log --oneline"),
+            ("git after cd into a temp directory", "cd /tmp/scratch && git log --oneline"),
+        ):
+            with self.subTest(label=label):
+                result = self.one(self.tool("shell", command=command), run=run,
+                                  home=self.HOME)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+        for label, command, reason in (
+            ("git -C another repository", "git -C /srv/other log --oneline",
+             "GIT_FOREIGN_REPOSITORY"),
+            ("git after cd into another repository", "cd /srv/other && git log --oneline",
+             "GIT_FOREIGN_REPOSITORY"),
+            ("another program's -C outside the run",
+             f"cd {run} && git -C repo archive HEAD | tar -x -C /srv/other", "PATH_OUTSIDE_RUN"),
+        ):
+            with self.subTest(label=label):
+                result = self.one(self.tool("shell", command=command), run=run,
+                                  home=self.HOME)
                 self.assertEqual("INVALID", result["verdict"], label)
                 self.assertIn(reason, [hit["reason"] for hit in result["hits"]], label)
 
@@ -1466,6 +1594,46 @@ class RunDriver(unittest.TestCase):
                                    capture_output=True, text=True).stdout
         options = {token for token in help_text.split() if token.startswith("--")}
         self.assertEqual({"--runs-root", "--help"}, options)
+
+    def test_the_frozen_env_is_exactly_what_the_worker_and_the_auditor_receive(self):
+        """F11: PYTHONDONTWRITEBYTECODE=1, and nothing beyond PATH/LANG/the profile exports."""
+        driver = load("run_h2r2")
+        canary = load("isolation_canary")
+        self.assertEqual({"PYTHONDONTWRITEBYTECODE": "1"}, driver.FROZEN_ENV)
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = profile_env_file(tmp)
+            exports = canary.parse_profile_env(env_file.read_text(encoding="utf-8"))
+            allowed = {"PATH", "LANG", "PYTHONDONTWRITEBYTECODE"} | set(exports)
+            expected = driver.worker_env(env_file)
+            self.assertEqual("1", expected["PYTHONDONTWRITEBYTECODE"])
+            self.assertEqual(set(), set(expected) - allowed)
+            captured = {}
+            real_launch = driver.launch
+
+            def recording_launch(argv, cwd, env, limit, stdout_path, stderr_path):
+                captured.setdefault("worker", dict(env))
+                return real_launch(argv, cwd, env, limit, stdout_path, stderr_path)
+
+            def recording_auditor(run_dir, plan_run, task, *, launch, command, env,
+                                  limit_seconds):
+                captured["auditor"] = dict(env)
+                return stub_auditor()(run_dir, plan_run, task, launch=launch,
+                                      command=command, env=env, limit_seconds=limit_seconds)
+
+            runs = Path(tmp) / "runs"
+            with mock.patch.object(driver, "launch", recording_launch):
+                result = driver.execute(
+                    "h2r2-f01-c", runs,
+                    worker_command=(sys.executable, str(stub_worker(tmp, "noop"))),
+                    preflight=passing_preflight, auditor=recording_auditor,
+                    profile_env=env_file)
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("REJECT", result["verdict"], result["reasons"])
+                self.assertEqual(expected, captured["worker"])
+                self.assertEqual(expected, captured["auditor"])
+            finally:
+                cleanup_run(run_dir)
 
     def test_the_candidate_delta_is_accepted_end_to_end_with_every_artefact_hashed(self):
         with tempfile.TemporaryDirectory() as tmp:

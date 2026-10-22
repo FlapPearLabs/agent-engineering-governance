@@ -79,6 +79,18 @@ worker 结束后、机械验收之前，access audit 从 `events.jsonl` 复算�
 除外；试图触达其他仓库的 shell `git` 调用与白名单外的工具同样计为命中。任一命中使该 run
 为 INVALID:OUT_OF_RUN_ACCESS，按第 6 节登记且不再重跑，audit verdict 逐条保留命中原文。
 
+shell 工具在本 runtime 中名为 `shell`（`bash` 一并接受），命令按 shell 标点切分为 token 后
+再解析路径；`git` 的判定对象是它在同一命令中的**有效仓库**——先应用同一命令内的 `cd`，再应用
+该 git 调用自己的 `-C` / `--git-dir` / `--work-tree`——只有解析到 run 目录与 OS temp 根之外时
+才算 `GIT_FOREIGN_REPOSITORY`。理由：把 base 归档到 temp 目录并在其中运行 git 与测试是合法
+工作，而同一管道中其他程序的 `-C`（如 `tar -x -C`）不是 git 的。
+
+worker 与 per-run auditor 的运行环境固定为：最小基础环境（PATH、LANG）、profile env 文件的
+`export` 行，以及冻结的 `PYTHONDONTWRITEBYTECODE=1`；该变量最后应用，profile 不能覆盖。原因
+（F11）：按合同执行 oracle 与完整脚本测试会正常在 `repo/` 下写出 `__pycache__/*.pyc`，而
+`scripts/tests/` 前缀规则与 validator 的 BYTECODE 规则必须继续拒绝任何 `.pyc`——修的是原因，
+不是规则；`repo/` 下若仍出现 `.pyc` 依然是 scope 拒绝。
+
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
 从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 STANDALONE 仓库：对象库只含
 B' 及其 tree（单提交浅仓库），无 remote、无 alternates、无 reflog，HEAD detached 于 B'。因此
@@ -108,7 +120,8 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 
 按 run-plan-v2.json 串行准备和执行；前一条先完成收集或登记无效状态，才进入下一条。
 执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status`）是唯一允许启动
-worker 的程序，launch prompt、worker 命令、env allow-list 与 90 分钟上限是它的模块常量；
+worker 的程序，launch prompt、worker 命令、env allow-list（含冻结的 `PYTHONDONTWRITEBYTECODE=1`）、
+auditor 环境与 90 分钟上限是它的模块常量；
 run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
 独立评审由 `freeze-v2/run_audit_v2.py` 在盲包上执行，机械与评审两个结论都进登记，取保守者。
 每次新起 opencode 进程与 episode，不复用 session。f01 为 C,V，f02 为 V,C，依次交替。

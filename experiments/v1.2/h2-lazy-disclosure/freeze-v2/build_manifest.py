@@ -22,6 +22,8 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/canary-86ac104-synthetic-sources-line.jsonl",
         "fixtures/access-audit-clean.jsonl",
         "fixtures/access-audit-hits.jsonl",
+        "fixtures/pilot-f01-c-events.jsonl",
+        "fixtures/toolname-probe-events.jsonl",
         "fixtures/preflight-debug-paths.txt",
         "fixtures/preflight-debug-config.json",
         "worker-profile/opencode.json")]

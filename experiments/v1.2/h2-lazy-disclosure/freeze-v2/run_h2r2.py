@@ -13,8 +13,8 @@ WHY THIS FILE EXISTS. Delivery (`wrapper_delivery`), briefing (`render_brief`), 
 auditor (`run_audit_v2`) were frozen, but HOW a run is executed existed only as prose. Whatever an
 operator typed at run time would have been an unfrozen experimental input that could differ
 between arms or runs. Every launchable fact is therefore a module constant here —
-`WORKER_COMMAND`, `LAUNCH_PROMPT`, `ENV_ALLOW`, `WALL_CLOCK_LIMIT_SECONDS` — and the file is
-byte-pinned in freeze-manifest.json with an independent literal in the tests.
+`WORKER_COMMAND`, `LAUNCH_PROMPT`, `ENV_ALLOW`, `FROZEN_ENV`, `WALL_CLOCK_LIMIT_SECONDS` — and the
+file is byte-pinned in freeze-manifest.json with an independent literal in the tests.
 
 THE ORDER IS THE PLAN'S ORDER. A run starts only when every earlier run in run-plan-v2.json is
 registered (ACCEPT, REJECT, INVALID and BLOCKED all count as registered). A run id that was ever
@@ -61,6 +61,11 @@ ACCESS_NAME = "access-audit.json"
 WORKER_COMMAND = ("opencode", "run", "--standalone", "--auto", "--format", "json", "-m")
 LAUNCH_PROMPT = "Read ./CONTRACT.md and do what it asks."
 ENV_ALLOW = ("PATH", "LANG")
+# F11: the oracle and the full suite are run by the worker, as the contract instructs, and an
+# innocent `-m unittest` writes `__pycache__/*.pyc` under repo/ -- which the scope rules rightly
+# refuse (bytecode can carry code). The cause is fixed, not the rule: no worker or auditor process
+# may write bytecode. A .pyc that still appears under repo/ stays a refusal.
+FROZEN_ENV = {"PYTHONDONTWRITEBYTECODE": "1"}
 WALL_CLOCK_LIMIT_SECONDS = 90 * 60
 # The auditor is launched with the same runtime, model, limit and environment; only the cwd and
 # the prompt differ, so one run can never outlive two wall-clock limits.
@@ -172,7 +177,11 @@ def profile_env_file(plan_run: dict, profile_env: Path | None) -> Path:
 
 
 def worker_env(env_file: Path) -> dict[str, str]:
-    """`export` lines of the profile env file over a minimal base env (PATH, LANG only)."""
+    """`export` lines of the profile env file over a minimal base env (PATH, LANG only).
+
+    `FROZEN_ENV` is applied last and therefore cannot be overridden by the profile: the worker and
+    the auditor both receive exactly this environment (F11).
+    """
     try:
         exported = isolation_canary.parse_profile_env(env_file.read_text(encoding="utf-8"))
     except OSError as exc:
@@ -181,6 +190,7 @@ def worker_env(env_file: Path) -> dict[str, str]:
         raise ValueError("PROFILE_ENV_EMPTY")
     env = {key: os.environ[key] for key in ENV_ALLOW if key in os.environ}
     env.update(exported)
+    env.update(FROZEN_ENV)
     return env
 
 
@@ -331,7 +341,8 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
               "materials_commit": plan_run["materials_commit"], "model": plan_run["model"],
               "runtime": plan_run["runtime"], "profile_env": str(env_file),
               "worker_command": list(command), "launch_prompt": LAUNCH_PROMPT,
-              "env_allow_list": list(ENV_ALLOW), "limit_seconds": limit,
+              "env_allow_list": list(ENV_ALLOW), "frozen_env": dict(FROZEN_ENV),
+              "limit_seconds": limit,
               "audit_limit_seconds": audit_limit, "started_at": now(), "finished_at": None,
               "wall_clock_seconds": None, "verdict": None, "audit_verdict": None,
               "final_verdict": None, "reasons": [], "session_id": None, "steps": []}

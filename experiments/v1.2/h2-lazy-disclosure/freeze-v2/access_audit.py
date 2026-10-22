@@ -13,21 +13,28 @@ What is flagged:
   * a path argument (`path`, `filePath`, `file_path`, `directory`, `dir`) that resolves outside the
     run directory — relative paths resolve against the worker's cwd, which IS the run directory, so
     only absolute, `~`, `$HOME` and `..`-escaping values can hit;
-  * the same rule applied to every token of a `bash` command (after `--flag=value` and `KEY=value`
-    splitting). `~` and `$HOME` resolve to the profile home the worker was launched with, never to
-    the operator's; a fixture may write the neutral token `<RUN_ROOT>`, which resolves to the run
+  * the same rule applied to every token of a shell command (`shell`, and `bash` for streams that
+    still name it that way) after `--flag=value` and `KEY=value` splitting. The command is
+    tokenised with SHELL PUNCTUATION, so `a && b; c | d` yields `a`, `b`, `c`, `d`, not one token
+    whose path is glued to a separator (F12: `source /dev/null;` used to report `/dev/null;`).
+    `~` and `$HOME` resolve to the profile home the worker was launched with, never to the
+    operator's; a fixture may write the neutral token `<RUN_ROOT>`, which resolves to the run
     directory;
   * a diff path in the `patch` tool's `patchText` (`--- a/x`, `+++ b/x`, `diff --git a/x b/x`);
   * `git clone/fetch/pull/push/ls-remote/submodule`, `git remote add|set-url|update|prune|rename|
-    remove`, and any `git -C <outside>`, `--git-dir=<outside>` or `--work-tree=<outside>`;
+    remove`, and a git command whose EFFECTIVE repository — the working directory after any `cd`
+    in the same command, then every `-C`, `--git-dir` and `--work-tree` — resolves outside the run
+    directory AND outside the OS temp roots (F13: a run may legitimately archive its base into a
+    temp directory and run git and tests there; the `-C` of another program in the same pipeline,
+    such as `tar -x -C`, is not git's);
   * any tool that is not in `TOOL_ALLOW` (`webfetch`, `task`, `skill`, an `mcp__` tool …): a tool
     whose accesses this stream cannot show is not auditable from here.
 
 The allow-list is frozen to what a test run genuinely needs: the pinned interpreter (its path and
 prefix), `/usr`, `/bin`, `/sbin`, `/opt/homebrew`, `/System`, `/Library/Developer`, the OS temp
-roots and `/dev/null`. Everything else is out of run. `-C` and the git location flags are judged
-against the run directory only: a temp directory is a legitimate scratch target but not a
-legitimate repository to run git in.
+roots and `/dev/null`. Everything else is out of run. The git location flags are judged against
+the run directory and, for the F13 reason above, the temp roots: a temp directory is a legitimate
+scratch target and a legitimate place to run git in; every other repository is foreign.
 
 Scope of the verdict: OBSERVABLE tool calls only. Hidden runtime context, and any access a tool
 performs internally without reporting it, is not observable from the event stream.
@@ -44,10 +51,11 @@ import tempfile
 from pathlib import Path, PurePosixPath
 
 RUN_ROOT = "<RUN_ROOT>"
-TOOL_ALLOW = frozenset({"read", "write", "edit", "multiedit", "patch", "bash", "glob", "grep",
-                        "list", "todowrite", "todoread"})
+TOOL_ALLOW = frozenset({"read", "write", "edit", "multiedit", "patch", "bash", "shell", "glob",
+                        "grep", "list", "todowrite", "todoread"})
 PATH_TOOLS = frozenset({"read", "write", "edit", "multiedit", "patch", "glob", "grep", "list"})
-SHELL_TOOLS = frozenset({"bash"})
+# F10: opencode's isolated profile names the shell tool `shell`, not `bash` (measured live).
+SHELL_TOOLS = frozenset({"bash", "shell"})
 PATH_KEYS = ("path", "filePath", "file_path", "directory", "dir")
 COMMAND_KEYS = ("command", "cmd")
 SYSTEM_ALLOW = ("/usr", "/bin", "/sbin", "/opt/homebrew", "/System", "/Library/Developer",
@@ -59,6 +67,9 @@ TEMP_ALLOW = ("/tmp",)  # its resolved symlink target is added by allowed_roots
 GIT_ESCAPE_SUBCOMMANDS = frozenset({"clone", "fetch", "pull", "push", "ls-remote", "submodule"})
 GIT_REMOTE_SUBCOMMANDS = frozenset({"add", "set-url", "update", "prune", "rename", "remove"})
 GIT_LOCATION_FLAGS = ("--git-dir=", "--work-tree=")
+# Shell control operators: a command list is analysed segment by segment (F12), and a git argument
+# list ends at the first operator, so `tar -x -C <dir>` after a pipe is never read as git's own -C.
+OPERATORS = frozenset({";", ";;", "&", "&&", "|", "||", "(", ")", "{", "}", "\n"})
 DIFF_PATH_RE = re.compile(r"^(?:diff --git a/(?P<both>\S+)|--- a/(?P<old>\S+)|\+\+\+ b/(?P<new>\S+))$",
                           re.M)
 
@@ -72,8 +83,19 @@ def allowed_roots(python: str | None = None) -> tuple[str, ...]:
     return tuple(sorted(values))
 
 
-def resolve(value: str, run_dir: Path, home: str | None) -> str | None:
-    """An absolute path for one value, or None when `~`/`$HOME` cannot be resolved."""
+def temp_roots() -> tuple[str, ...]:
+    """The OS temp roots a run may treat as scratch, including as a git working directory (F13)."""
+    values = {*TEMP_ALLOW, str(Path(tempfile.gettempdir()).resolve())}
+    values |= {os.path.realpath(value) for value in list(values)}
+    return tuple(sorted(values))
+
+
+def resolve(value: str, run_dir: Path, home: str | None, base: str | None = None) -> str | None:
+    """An absolute path for one value, or None when `~`/`$HOME` cannot be resolved.
+
+    `base` is the directory a relative value is resolved against: the run directory by default,
+    or the working directory a preceding `cd` established inside the same shell command.
+    """
     text = value.strip().strip("'\"")
     if not text:
         return ""
@@ -92,7 +114,7 @@ def resolve(value: str, run_dir: Path, home: str | None) -> str | None:
                     return None
                 text = f"{home}{text[1:]}"
     if not os.path.isabs(text):
-        text = os.path.join(str(run_dir), text)
+        text = os.path.join(base or str(run_dir), text)
     return os.path.realpath(text)
 
 
@@ -123,50 +145,94 @@ def token_values(token: str) -> list[str]:
     return [text] if text else []
 
 
+def shell_tokens(command: str) -> list[str]:
+    """Shell tokens with punctuation split off, so a separator is never glued to a path (F12)."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
+                      home: str | None, temps: tuple[str, ...]) -> list[dict]:
+    """One git invocation: remote escapes always, and a foreign effective repository (F13)."""
+    hits: list[dict] = []
+    repo = cwd
+    unresolved: str | None = None
+    for position, argument in enumerate(args):
+        following = args[position + 1:position + 2]
+        if argument in GIT_ESCAPE_SUBCOMMANDS:
+            hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
+                         "value": command, "path": argument})
+        elif argument == "remote" and following and following[0] in GIT_REMOTE_SUBCOMMANDS:
+            hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
+                         "value": command, "path": f"remote {following[0]}"})
+        targets = []
+        if argument == "-C" and following:
+            targets.append(following[0])
+        targets.extend(argument[len(flag):] for flag in GIT_LOCATION_FLAGS
+                       if argument.startswith(flag))
+        for target in targets:
+            resolved = resolve(target, run_dir, home, base=repo)
+            if resolved is None:
+                unresolved = target
+            else:
+                repo = resolved
+    if unresolved is not None:
+        hits.append({"tool": "shell", "reason": "GIT_FOREIGN_REPOSITORY",
+                     "value": command, "path": unresolved})
+    elif not inside(repo, str(run_dir)) and not any(inside(repo, root) for root in temps):
+        hits.append({"tool": "shell", "reason": "GIT_FOREIGN_REPOSITORY",
+                     "value": command, "path": repo})
+    return hits
+
+
 def git_hits(tokens: list[str], run_dir: Path, home: str | None) -> list[dict]:
-    """Shell `git` invocations that reach another repository."""
+    """Shell `git` invocations that reach another repository.
+
+    The working directory follows a `cd` in the same command list; an argument list ends at the
+    first control operator. Both are what make a scripted `cd <run> && ... && git -C repo ...`
+    judgeable, and what keeps another program's `-C` out of git's argument list (F12 / F13).
+    """
     hits: list[dict] = []
     command = " ".join(tokens)
+    temps = temp_roots()
+    cwd = str(run_dir)
     for index, token in enumerate(tokens):
-        if PurePosixPath(token).name != "git":
+        if token in OPERATORS:
             continue
-        args = tokens[index + 1:]
-        for position, argument in enumerate(args):
-            following = args[position + 1:position + 2]
-            if argument in GIT_ESCAPE_SUBCOMMANDS:
-                hits.append({"tool": "bash", "reason": "GIT_REMOTE_REPOSITORY",
-                             "value": command, "path": argument})
-            elif argument == "remote" and following and following[0] in GIT_REMOTE_SUBCOMMANDS:
-                hits.append({"tool": "bash", "reason": "GIT_REMOTE_REPOSITORY",
-                             "value": command, "path": f"remote {following[0]}"})
-            elif argument == "-C" and following:
-                resolved = resolve(following[0], run_dir, home)
-                if resolved is None or not inside(resolved, str(run_dir)):
-                    hits.append({"tool": "bash", "reason": "GIT_FOREIGN_REPOSITORY",
-                                 "value": command, "path": following[0]})
-            for flag in GIT_LOCATION_FLAGS:
-                if argument.startswith(flag):
-                    target = argument[len(flag):]
-                    resolved = resolve(target, run_dir, home)
-                    if resolved is None or not inside(resolved, str(run_dir)):
-                        hits.append({"tool": "bash", "reason": "GIT_FOREIGN_REPOSITORY",
-                                     "value": command, "path": target})
+        name = PurePosixPath(token).name
+        if name == "cd":
+            following = tokens[index + 1:index + 2]
+            if following and following[0] not in OPERATORS:
+                resolved = resolve(following[0], run_dir, home, base=cwd)
+                if resolved:
+                    cwd = resolved
+            continue
+        if name != "git":
+            continue
+        args: list[str] = []
+        for argument in tokens[index + 1:]:
+            if argument in OPERATORS:
+                break
+            args.append(argument)
+        hits.extend(git_argument_hits(args, command, cwd, run_dir, home, temps))
     return hits
 
 
 def shell_hits(command: str, run_dir: Path, home: str | None,
                allow: tuple[str, ...]) -> list[dict]:
     """Every path-shaped token of one shell command, plus the git rules above."""
-    try:
-        tokens = shlex.split(command, comments=False, posix=True)
-    except ValueError:
-        tokens = command.split()
+    tokens = shell_tokens(command)
     hits: list[dict] = []
     for token in tokens:
         for value in token_values(token):
             reason = path_reason(value, run_dir, home, allow)
             if reason:
-                hits.append({"tool": "bash", "reason": reason, "value": command.strip(),
+                hits.append({"tool": "shell", "reason": reason, "value": command.strip(),
                              "path": value})
     hits.extend(git_hits(tokens, run_dir, home))
     return hits
@@ -213,7 +279,7 @@ def event_hits(event, index: int, run_dir: Path, home: str | None,
         for key in COMMAND_KEYS:
             command = inputs.get(key)
             if isinstance(command, str):
-                hits.extend({"event": index, **hit}
+                hits.extend({**hit, "event": index, "tool": tool}
                             for hit in shell_hits(command, run_dir, home, allow))
     if tool == "patch":
         for value in patch_paths(inputs.get("patchText")):
