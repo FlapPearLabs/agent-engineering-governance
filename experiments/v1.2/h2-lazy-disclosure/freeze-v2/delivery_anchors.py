@@ -20,6 +20,7 @@ Two slot designs are measured because the worker runtime decides which one is re
     CODEBUDDY  the protocol's slot: CODEBUDDY.md + H2_RULES.md + H2_WARM/ added; tree untouched
     AGENTS     a runtime that auto-loads AGENTS.md (opencode): the carrier REPLACES AGENTS.md,
                H2_RULES.md + H2_WARM/ added
+    WRAPPER    README §3: delivery outside repo/, with an untouched task worktree inside it
 
 Every run uses check_task_class.acceptance_env("RESOLVED") — the validator's own environment.
 
@@ -40,13 +41,19 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 H2 = HERE.parent
 sys.path.insert(0, str(H2 / "harness"))
+sys.path.insert(0, str(HERE))
 
 import check_task_class as ctc  # noqa: E402
+import wrapper_delivery as wrapper  # noqa: E402
 
 NOT_PASSING_RE = re.compile(r"^(?:FAIL|ERROR): \S+ \(([^)]+)\)", re.M)
 # a skip is not a pass: a PRE-passing test SKIPPED after delivery is contamination too (review of
 # 5090f44, finding 3). -v prints "name (id) ... skipped", or the docstring line in between
 SKIPPED_RE = re.compile(r"^\S+ \(([^)]+)\)(?:\n[^\n]*?)? \.\.\. skipped", re.M)
+EXPECTED_FAILURE_RE = re.compile(
+    r"^\S+ \(([^)]+)\)(?:\n[^\n]*?)? \.\.\. expected failure", re.M)
+UNEXPECTED_SUCCESS_RE = re.compile(
+    r"^\S+ \(([^)]+)\)(?:\n[^\n]*?)? \.\.\. unexpected success", re.M)
 RAN_RE = re.compile(r"^Ran (\d+) tests? in", re.M)
 TIMEOUT = 1800
 
@@ -88,8 +95,11 @@ def run_gate(wt: Path, pattern: str | None) -> dict:
     out = r.stdout + r.stderr
     ran = RAN_RE.findall(out)
     skipped = set(SKIPPED_RE.findall(out))
+    expected = set(EXPECTED_FAILURE_RE.findall(out))
+    unexpected = set(UNEXPECTED_SUCCESS_RE.findall(out))
     return {"rc": r.returncode, "ran": int(ran[-1]) if ran else None, "skipped": sorted(skipped),
-            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped)}
+            "expected_failures": sorted(expected), "unexpected_successes": sorted(unexpected),
+            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped | expected | unexpected)}
 
 
 def reset(wt: Path, rev: str) -> None:
@@ -112,7 +122,8 @@ def main(argv: list[str]) -> int:
     rows = []
     scratch = Path(tempfile.mkdtemp(prefix="h2-anchors-"))
     try:
-        for t in json.loads(Path(a.shortlist).read_text(encoding="utf-8"))["shortlist"]:
+        for index, t in enumerate(json.loads(Path(a.shortlist).read_text(encoding="utf-8"))
+                                  ["shortlist"], 1):
             base, oracle = t["BASE_SHA"], Path(t["ORACLE"]["path"]).name
             wt = scratch / t["CASE_ID"][:3]
             git(root, "worktree", "add", "-q", "--detach", str(wt), base)
@@ -121,15 +132,24 @@ def main(argv: list[str]) -> int:
                 reset(wt, base)
                 pre = {g: run_gate(wt, p) for g, p in gates.items()}
                 post: dict[str, dict] = {}
-                for slot in ("CODEBUDDY", "AGENTS"):
+                for slot in ("CODEBUDDY", "AGENTS", "WRAPPER"):
                     for arm, files in deliveries.items():
                         reset(wt, base)
-                        for rel, data in files.items():
-                            rel = ({"CODEBUDDY": "CODEBUDDY.md", "AGENTS": "AGENTS.md"}[slot]
-                                   if rel == "<CARRIER>" else rel)
-                            (wt / rel).parent.mkdir(parents=True, exist_ok=True)
-                            (wt / rel).write_bytes(data)
-                        res = {g: run_gate(wt, p) for g, p in gates.items()}
+                        if slot == "WRAPPER":
+                            run_dir = scratch / f"wrapper-{index}-{arm}"
+                            try:
+                                wrapper.prepare(root, run_dir, f"f{index:02d}", arm, materials)
+                                res = {g: run_gate(run_dir / "repo", p) for g, p in gates.items()}
+                            finally:
+                                if run_dir.exists():
+                                    wrapper.cleanup(root, run_dir)
+                        else:
+                            for rel, data in files.items():
+                                rel = ({"CODEBUDDY": "CODEBUDDY.md", "AGENTS": "AGENTS.md"}[slot]
+                                       if rel == "<CARRIER>" else rel)
+                                (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+                                (wt / rel).write_bytes(data)
+                            res = {g: run_gate(wt, p) for g, p in gates.items()}
                         for g in gates:
                             before, after = set(pre[g]["not_passing"]), set(res[g]["not_passing"])
                             res[g]["newly_not_passing"] = sorted(after - before)
@@ -144,11 +164,15 @@ def main(argv: list[str]) -> int:
                 contaminated = any(res[g]["newly_not_passing"] or res[g]["ran_delta"] < 0
                                    for g in res)
                 repaired = any(res[g]["newly_passing"] for g in res)
+                if key.startswith("WRAPPER/"):
+                    contaminated = contaminated or any(
+                        res[g]["ran_delta"] != 0 or not res[g]["ran"]
+                        or res[g]["rc"] != pre[g]["rc"] for g in res)
                 verdict[key] = ("DELIVERY_CONTAMINATION" if contaminated else
                                 "DELIVERY_REPAIR" if repaired else "DELIVERY_NEUTRAL")
             per_slot = {slot: ("NEUTRAL" if all(verdict[f"{slot}/{arm}"] == "DELIVERY_NEUTRAL"
                                                 for arm in deliveries) else "BLOCKED")
-                        for slot in ("CODEBUDDY", "AGENTS")}
+                        for slot in ("CODEBUDDY", "AGENTS", "WRAPPER")}
             rows.append({"CASE_ID": t["CASE_ID"], "BASE_SHA": base, "ORACLE": t["ORACLE"]["path"],
                          "pre_delivery": pre, "post_delivery": post, "verdict": verdict,
                          "SLOT_ADMISSIBLE": per_slot})
@@ -159,14 +183,14 @@ def main(argv: list[str]) -> int:
         git(root, "worktree", "prune")
         shutil.rmtree(scratch, ignore_errors=True)
     summary = {slot: sum(r["SLOT_ADMISSIBLE"][slot] == "NEUTRAL" for r in rows)
-               for slot in ("CODEBUDDY", "AGENTS")}
+               for slot in ("CODEBUDDY", "AGENTS", "WRAPPER")}
     Path(a.out).write_text(json.dumps({"program": "freeze-v2/delivery_anchors.py",
                                        "materials_commit": materials,
                                        "environment": "check_task_class.acceptance_env(RESOLVED)",
                                        "neutral_tasks_per_slot": summary, "rows": rows},
                                       indent=1) + "\n", encoding="utf-8")
     print("DELIVERY_ANCHORS neutral per slot:", json.dumps(summary))
-    return 0
+    return 0 if summary["WRAPPER"] == len(rows) == 10 else 1
 
 
 if __name__ == "__main__":

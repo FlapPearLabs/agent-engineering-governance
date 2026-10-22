@@ -141,3 +141,47 @@ class WrapperDelivery(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "RUN_DIR_INSIDE_REPOSITORY"):
             wrapper.prepare(ROOT, FZ / "forbidden-run", "f01", "control", "HEAD")
         self.assertFalse((FZ / "forbidden-run").exists())
+
+
+class DeliveryAnchors(unittest.TestCase):
+    def test_all_ten_wrapper_anchors_are_neutral_in_both_arms(self):
+        anchors = json.loads((FZ / "delivery-anchors.json").read_text())
+        self.assertEqual(10, anchors["neutral_tasks_per_slot"]["WRAPPER"])
+        self.assertEqual(10, len(anchors["rows"]))
+        for row in anchors["rows"]:
+            for arm in ("control", "variant"):
+                key = f"WRAPPER/{arm}"
+                self.assertEqual("DELIVERY_NEUTRAL", row["verdict"][key])
+                for gate in ("oracle", "full_suite"):
+                    pre, post = row["pre_delivery"][gate], row["post_delivery"][key][gate]
+                    self.assertGreater(pre["ran"], 0)
+                    self.assertEqual(pre["not_passing"], post["not_passing"])
+                    self.assertEqual(pre["rc"], post["rc"])
+                    self.assertEqual(0, post["ran_delta"])
+                    self.assertEqual([], post["newly_not_passing"])
+                    self.assertEqual([], post["newly_passing"])
+
+    def test_expected_failure_and_unexpected_success_are_not_passes(self):
+        anchors = load("delivery_anchors")
+        with tempfile.TemporaryDirectory() as tmp:
+            tests = Path(tmp) / "scripts" / "tests"
+            tests.mkdir(parents=True)
+            (tests / "test_status.py").write_text(
+                "import unittest\n"
+                "class Status(unittest.TestCase):\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_expected(self):\n"
+                "        self.fail('expected')\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_unexpected(self):\n"
+                "        pass\n"
+                "    @unittest.skip('skip')\n"
+                "    def test_skipped(self):\n"
+                "        pass\n", encoding="utf-8")
+            result = anchors.run_gate(Path(tmp), "test_status.py")
+        self.assertEqual(3, result["ran"])
+        self.assertEqual(["test_status.Status.test_expected"], result["expected_failures"])
+        self.assertEqual(["test_status.Status.test_unexpected"], result["unexpected_successes"])
+        self.assertEqual(["test_status.Status.test_skipped"], result["skipped"])
+        self.assertEqual({"test_status.Status.test_expected", "test_status.Status.test_unexpected",
+                          "test_status.Status.test_skipped"}, set(result["not_passing"]))

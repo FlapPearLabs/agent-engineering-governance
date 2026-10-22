@@ -19,32 +19,34 @@ No S3 (H2 carrier) row fails anywhere.
 ```text
 from the REPOSITORY ROOT:
 $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
-    --materials <commit> --out $H/freeze-v2/delivery-anchors.json   (recorded: 5090f44)
+    --materials <commit> --out $H/freeze-v2/delivery-anchors.json   (recorded: 1dbcf3f)
 Gates: the task oracle and the full scripts/tests suite, PRE vs POST delivery, zero worker edits,
 compared by the SET of non-passing test ids (not exit codes: every A_REPAIR oracle is red at its
 base, and round 1's t01 went 1 -> 4 failures without changing rc).
 
-RESULT  neutral tasks: CODEBUDDY slot 0/10, AGENTS slot 0/10.
-  oracle      contaminated in 11 of 40 (task x slot x arm) cells: r40 x4 and r41 x4 (every slot,
-              both arms), r44 AGENTS/{control,variant}, r24 AGENTS/variant. Four oracles contain
-              root-wide single-declaration scans of their own, so the TASK's acceptance is not
-              comparable at those bases either (review of 5090f44 corrected an earlier README
-              that said "untouched in all 40"; the JSON never did). No test is skipped PRE or
-              POST anywhere (skips now count as not passing).
-  full suite  every cell gains failures, in BOTH arms: the repository's single-declaration scans
+RESULT  neutral tasks: CODEBUDDY slot 0/10, AGENTS slot 0/10, WRAPPER slot 10/10.
+  oracle      newly-not-passing ids in 4/20 CODEBUDDY cells, 7/20 AGENTS cells, 0/20 WRAPPER
+              cells. No newly-passing ids in any slot. Every cell has ran_delta = 0.
+  full suite  newly-not-passing ids in all 20 CODEBUDDY and all 20 AGENTS cells, in BOTH arms:
+              the repository's single-declaration scans
               (test_seam_contract_partitions, test_p1_t10/t11/t12 "declared exactly once") read
               every non-test text file under the root, so the in-tree copies — H2_WARM/ reference
               copies and a carrier that restates AGENTS.md — become second declaration points.
               Replacing AGENTS.md (AGENTS slot) additionally breaks the tests that read AGENTS.md
               (test_ticket_gate_wiring, test_p1_t09 section-ten checks).
+  WRAPPER     every oracle and full-suite PRE/POST pair has identical non-passing sets and
+              return codes, ran_delta = 0, no newly-passing or newly-not-passing id (20/20 cells).
+              Skip, expected-failure and unexpected-success statuses count as non-passing;
+              none occurs in this measurement.
 ```
 
-Consequence: under §6.4 no shortlisted task is admissible with IN-TREE delivery, in either slot.
+Consequence: under §6.4 no shortlisted task is admissible with IN-TREE delivery, in either slot;
+all 10 are delivery-neutral with the WRAPPER layout in §3.
 This is the round-1 t01 contamination mechanism, now measured on every base. It is attributed to
 the experiment's delivery, not to the tasks, and is recorded rather than normalised (§4.6).
-Delivery must move OUT of the worktree (carrier and WARM bundle outside the repository root),
-which makes the worker runtime's guidance-loading behaviour the deciding constraint — see the
-stage report for the measured opencode behaviour and the decision it needs.
+The wrapper keeps the carrier and WARM bundle outside the repository root. The isolated runtime
+canary remains a separate, pending acceptance check; delivery neutrality alone does not prove
+startup guidance isolation.
 
 ## 3. Worker runtime and delivery layout (operator decision 2026-10-19)
 
