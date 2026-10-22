@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from unittest import mock
 
@@ -304,3 +305,30 @@ class RegistryV2(unittest.TestCase):
                     if len(added) >= 20:
                         self.assertFalse(any(added in field for field in visible),
                                          f"candidate text leaked: {task['task_id']}")
+
+
+class RunPlanV2(unittest.TestCase):
+    def test_twenty_unique_counterbalanced_fresh_runs_share_one_environment(self):
+        plan = json.loads((FZ / "run-plan-v2.json").read_text())
+        runs = plan["runs"]
+        tasks = json.loads((FZ / "task-registry-v2.json").read_text())["tasks"]
+        self.assertEqual(20, len(runs))
+        self.assertEqual(20, len({r["run_id"] for r in runs}))
+        self.assertEqual(1, len({r["materials_commit"] for r in runs}))
+        self.assertEqual({"opencode-go/deepseek-v4.1-flash"}, {r["model"] for r in runs})
+        self.assertEqual({"opencode 2.0.25 --standalone"}, {r["runtime"] for r in runs})
+        self.assertEqual({"~/.h2-worker-profile"}, {r["profile"] for r in runs})
+        self.assertTrue(all(r["fresh_episode"] for r in runs))
+        self.assertFalse(any("session_id" in r for r in runs))
+        first = Counter()
+        for i, task in enumerate(tasks):
+            pair = runs[2 * i:2 * i + 2]
+            self.assertEqual([task["task_id"]] * 2, [r["task_id"] for r in pair])
+            self.assertEqual(Counter({"control": 1, "variant": 1}), Counter(r["arm"] for r in pair))
+            self.assertEqual("control" if i % 2 == 0 else "variant", pair[0]["arm"])
+            first[pair[0]["arm"]] += 1
+            for row in pair:
+                self.assertEqual(f"h2r2-{task['task_id']}-{row['arm'][0]}", row["run_id"])
+        self.assertEqual(Counter({"control": 5, "variant": 5}), first)
+        generated = load("build_run_plan").build(runs[0]["materials_commit"])
+        self.assertEqual(plan, generated)
