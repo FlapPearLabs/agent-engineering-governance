@@ -14,7 +14,8 @@ FROZEN_FILES = tuple(sorted(
         "build_registry.py", "task-registry-v2.json", "build_run_plan.py", "run-plan-v2.json",
         "worker-brief-v2.md", "render_brief.py", "protocol-v2.md", "aggregate_set.py",
         "build_manifest.py", "delivery-anchors.json", "route_preconditions.py",
-        "route-preconditions.json")]
+        "route-preconditions.json", "scope_v2.py", "collect_v2.py", "run_acceptance_v2.py",
+        "fixtures/isolation-canary-events.jsonl")]
     + [f"{H2_REL}/{name}" for name in (
         "routes-h2.json", "variant-manifest.json", "scoring-rubric.md",
         "carriers/H2_LEAN_BOOTSTRAP.md", "harness/check_task_class.py",

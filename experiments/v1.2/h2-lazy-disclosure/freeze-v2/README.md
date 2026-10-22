@@ -19,7 +19,9 @@ No S3 (H2 carrier) row fails anywhere.
 ```text
 from the REPOSITORY ROOT:
 $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
-    --materials <commit> --out $H/freeze-v2/delivery-anchors.json   (recorded: 1dbcf3f)
+    --materials <commit> --out $H/freeze-v2/delivery-anchors.json
+    (T2 recorded 1dbcf3f; re-measured at the T14 materials fb9ce4f — every row identical
+     except the recorded commit, so the PRE/POST numbers below are the same measurement)
 Gates: the task oracle and the full scripts/tests suite, PRE vs POST delivery, zero worker edits,
 compared by the SET of non-passing test ids (not exit codes: every A_REPAIR oracle is red at its
 base, and round 1's t01 went 1 -> 4 failures without changing rc).
@@ -87,20 +89,27 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 32 files: the registry, run plan, brief,
-protocol, runtime/measurement/generator modules, route measurements, admission inputs, routes,
-carrier bytes, report template, rubric and validator. The same hashes are independent literals
-in `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 33 files on a temporary copy.
+[freeze-manifest.json](freeze-manifest.json) pins 36 files: the registry, run plan, brief,
+protocol, runtime/measurement/generator modules, the per-run collector and acceptance
+(`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the sanitised
+canary fixture, route measurements, admission inputs, routes, carrier bytes, report template,
+rubric and validator. The same hashes are independent literals in
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
+hash there. Tests reject a one-byte mutation of each of these 37 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit is the T8 commit first introducing this manifest (`526aa38`);
-its parent and the shared run materials are `042f2244e453c79daa0ed50d72759a4583bcc43d`.
-The T2 measurement used `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a`; generation and tests prove
-its delivered bytes, shortlist and wrapper program equal those at the final materials commit.
-T8 regenerated the run plan before hashing it. T9 changes only operator documentation.
-The final default-branch merge remains the review/history anchor; hashes alone are not acceptance.
+The content-freeze commit is the T14 re-pin commit; its parent and the shared run materials are
+`fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9` (the T13 commit). The delivered payload — carrier
+bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
+materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward is `wrapper_delivery.py`
+(T13's run-root refusal) and the four programs/fixtures the F1/F2 fixes added. Because the
+runner program changed, the T2 delivery anchors were re-measured at the new materials instead of
+being carried over: [delivery-anchors.json](delivery-anchors.json) records that re-measurement
+(materials `fb9ce4f`, same 10/10 WRAPPER neutrality, same per-task PRE sets). The original T2
+measurement commit `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` is kept in the record because the
+PRE baseline itself did not move. T14 regenerated the run plan before hashing. The final
+default-branch merge remains the review/history anchor; hashes alone are not acceptance.
 
 Registry scope interpretation (superseded by F1, CODEX_FIXES_1 T10): the earlier reading of “allow
 everything else in repo/” reused round-2 n01/n02's empty deny-prefix list. That list let an added
@@ -109,8 +118,8 @@ now `scripts/tests/` for every task: no add, modify, delete or rename inside the
 `unittest discover` imports from. Every base `scripts/tests/` file and each oracle stay
 individually denied, the worker contract prohibits changing any test, and every added or renamed
 path is held to the validator's `shadow_paths` rule plus the startup-hook refusal (protocol-v2 §7).
-The T8-parent definition and this scope decision are recorded for independent acceptance in
-CODEX_REPORT.md.
+The re-pin definition (materials = parent of the re-pin commit, proven byte-equal at HEAD) and this
+scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 
 ## 5. Before the first run
 

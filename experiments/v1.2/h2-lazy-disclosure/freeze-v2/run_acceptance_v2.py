@@ -88,7 +88,7 @@ def owner_path(delivered_rel: str, receipt: dict) -> str | None:
     return None
 
 
-def scope_reasons(root: Path, task: dict, collected: dict) -> list[str]:
+def scope_reasons(task: dict, collected: dict) -> list[str]:
     """T10 rules, plus the wrapper-layout rules that only a wrapper run can violate."""
     reasons = set(scope_v2.check_scope(task, collected["changes"]))
     receipt = collected["receipt"]
@@ -165,7 +165,7 @@ def accept(root: Path = ROOT, run_dir: Path | None = None) -> dict:
         return verdict
     verdict["case_id"] = task["case_id"]
     verdict["scope"] = {"changes": len(collected["changes"]),
-                        "reasons": scope_reasons(root, task, collected)}
+                        "reasons": scope_reasons(task, collected)}
     if verdict["scope"]["reasons"]:
         verdict["reasons"] = verdict["scope"]["reasons"]
         return verdict

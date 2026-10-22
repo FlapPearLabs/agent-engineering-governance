@@ -23,8 +23,9 @@ def build(materials: str, root: Path = ROOT) -> dict:
                          "runtime": "opencode 2.0.25 --standalone",
                          "profile": "~/.h2-worker-profile", "fresh_episode": True})
     return {"program": "freeze-v2/build_run_plan.py",
-            "materials_binding": "Parent of the T8 commit introducing freeze-manifest.json; "
-                                 "finalized by regeneration immediately before T8 hashing.",
+            "materials_binding": "Parent of the freeze re-pin commit (T14) that last updated "
+                                 "freeze-manifest.json; every delivered byte read at materials "
+                                 "equals the bytes at HEAD, enforced by the freeze tests.",
             "runs": runs}
 
 
