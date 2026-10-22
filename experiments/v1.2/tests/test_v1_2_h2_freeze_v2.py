@@ -371,3 +371,44 @@ class WorkerBriefV2(unittest.TestCase):
             self.assertEqual(git("show", f"{run['materials_commit']}:{H2_REL}/harness/"
                                  "worker-report-template.md"),
                              (Path(tmp) / "worker-report-template.md").read_bytes())
+
+
+class ProtocolV2(unittest.TestCase):
+    def test_authority_tokens_and_verbatim_confound(self):
+        protocol = (FZ / "protocol-v2.md").read_text()
+        self.assertNotIn("baseline must be green", protocol.casefold())
+        for token in ("FZ2_1", "FZ2_2", "FZ2_3", "FZ2_4", "DISCLOSURE_SAFE",
+                      "DISCLOSURE_HAS_COST", "INSUFFICIENT_EVIDENCE", "NOT_ADMITTED_CURRENT_REVISION"):
+            self.assertIn(token, protocol)
+
+        def confound(text):
+            lines = text.splitlines(keepends=True)
+            start = next(i for i, line in enumerate(lines) if line.startswith("DISCLOSED CONFOUND"))
+            end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == "```")
+            return "".join(lines[start:end]).encode()
+
+        self.assertEqual(confound((FZ / "README.md").read_text()), confound(protocol))
+
+    def test_aggregate_is_exactly_valid_request_intersect_frozen_membership(self):
+        aggregate = load("aggregate_set")
+        registry = json.loads((FZ / "task-registry-v2.json").read_text())
+        records = []
+        for i in range(1, 5):
+            records.extend(json.loads((H2 / f"admission/batch-{i}/classification.json")
+                                      .read_text())["records"])
+        selected = aggregate.derive(records, registry)
+        self.assertEqual([t["task_id"] for t in registry["tasks"]],
+                         [t["task_id"] for t in selected])
+        self.assertEqual({"tasks": 10, "planned_per_arm": 10, "planned_runs": 20},
+                         aggregate.counts(selected))
+        first, second = registry["tasks"][:2]
+        fixture = [{"corpus_case_id": first["case_id"],
+                    "round_admission": {"verdict": "REQUEST_VALID"}},
+                   {"corpus_case_id": second["case_id"],
+                    "round_admission": {"verdict": "NOT_ADMITTED"}},
+                   {"corpus_case_id": "t02", "round_admission": {"verdict": "REQUEST_VALID"}}]
+        result = aggregate.derive(fixture, registry)
+        self.assertEqual([first["task_id"]], [t["task_id"] for t in result])
+        self.assertEqual({"tasks": 1, "planned_per_arm": 1, "planned_runs": 2}, aggregate.counts(result))
+        with self.assertRaises(ValueError):
+            aggregate.derive(fixture + [fixture[0]], registry)
