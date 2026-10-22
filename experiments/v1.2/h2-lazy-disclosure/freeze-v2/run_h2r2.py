@@ -38,6 +38,7 @@ from pathlib import Path
 import collect_v2
 import isolation_canary
 import run_acceptance_v2
+import run_audit_v2
 import wrapper_delivery
 from wrapper_delivery import H2_REL, ROOT, sha256
 
@@ -298,15 +299,6 @@ def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: st
     return line
 
 
-def default_auditor():
-    """T19 owns the auditor module; without it a run is BLOCKED, never accepted."""
-    try:
-        import run_audit_v2
-    except ImportError:                                   # pragma: no cover - ships next to us
-        return None
-    return run_audit_v2.audit
-
-
 def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=None,
             preflight=None, auditor=None, limit_seconds: int | None = None,
             audit_limit_seconds: int | None = None, profile_env: Path | None = None) -> dict:
@@ -440,16 +432,15 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     audit: dict | None = None
     if verdict["verdict"] in ("ACCEPT", "REJECT"):
         entry = start_step(record, "audit")
-        chosen = auditor or default_auditor()
-        if chosen is None:
-            audit = {"verdict": "BLOCKED", "reasons": ["AUDITOR_UNAVAILABLE"], "leakage": []}
-            finish_step(entry, "BLOCKED", reasons=audit["reasons"])
-        else:
+        chosen = auditor or run_audit_v2.audit
+        try:
             audit = chosen(run_dir, plan_run, task_of(root, plan_run["task_id"]),
                            launch=launch, command=command, env=env,
                            limit_seconds=audit_limit)
-            finish_step(entry, audit.get("verdict", "BLOCKED"),
-                        reasons=audit.get("reasons", []), leakage=audit.get("leakage", []))
+        except (ValueError, OSError) as exc:
+            audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"], "leakage": []}
+        finish_step(entry, audit.get("verdict", "BLOCKED"),
+                    reasons=audit.get("reasons", []), leakage=audit.get("leakage", []))
         save()
     else:
         audit = {"verdict": "SKIPPED", "reasons": [f"RUN_{verdict['verdict']}"], "leakage": []}
