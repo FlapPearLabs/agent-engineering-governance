@@ -53,9 +53,9 @@ COMMAND_KEYS = ("command", "cmd")
 SYSTEM_ALLOW = ("/usr", "/bin", "/sbin", "/opt/homebrew", "/System", "/Library/Developer",
                 "/dev/null", "/dev/stdout", "/dev/stderr")
 # The OS temp roots a test run may legitimately write to. The broad `/var/folders` prefix is NOT
-# allowed: only the resolved temp dir itself (and the /tmp symlink target), so that a `..` escape
-# from the wrapper lands outside this list and is reported.
-TEMP_ALLOW = ("/tmp", "/private/tmp")
+# allowed: only the temp dir itself and `/tmp` (with the real path its symlink points to, added in
+# `allowed_roots`), so that a `..` escape from the wrapper lands outside this list and is reported.
+TEMP_ALLOW = ("/tmp",)  # its resolved symlink target is added by allowed_roots
 GIT_ESCAPE_SUBCOMMANDS = frozenset({"clone", "fetch", "pull", "push", "ls-remote", "submodule"})
 GIT_REMOTE_SUBCOMMANDS = frozenset({"add", "set-url", "update", "prune", "rename", "remove"})
 GIT_LOCATION_FLAGS = ("--git-dir=", "--work-tree=")

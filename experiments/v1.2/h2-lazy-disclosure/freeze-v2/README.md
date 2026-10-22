@@ -141,17 +141,20 @@ hash there. Tests reject a one-byte mutation of each of these 47 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T21 re-pin commit; its parent and the shared run
-materials are `20719b56e78ef508e17fbb5bd4bc356bfc018846`. The delivered payload — carrier
-bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
+The content-freeze commit at this round is the T23 re-pin commit; its parent and the shared run
+materials are `b874db851540aaf32c987b6ec037991056f478fa` (the T22 commit). The delivered payload —
+carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
 `wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
-repository), the programs/fixtures the F1/F2 fixes added (T11/T12) and the F5/F6 work (T15/T16:
-the preflight attestation, its sanitised evidence fixtures and the frozen worker-profile
-template). The T2 delivery anchors were re-measured at each new materials set instead of being
-carried over: [delivery-anchors.json](delivery-anchors.json) records the latest measurement at
+repository), the programs/fixtures the F1/F2 fixes added (T11/T12), the F5/F6 work (T15/T16: the
+preflight attestation, its sanitised evidence fixtures and the frozen worker-profile template) and
+the F8/F9 work (T21/T22: the standalone repository and the out-of-run access audit with its two
+event fixtures). The T2 delivery anchors were re-measured at the T21 materials instead of being
+carried over: [delivery-anchors.json](delivery-anchors.json) records that measurement at
 `20719b56`, identical to the T17 measurement at `a5a0354` in every PRE/POST cell, `ran` count and
-verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets). The earlier measurement commits
+verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets); T23 did not re-measure it,
+because neither the delivered payload nor the measuring program nor the shortlist moved after
+T21, and the manifest binds precisely those three by hash. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
 PRE baseline itself did not move. The run plan is regenerated before hashing at every re-pin.

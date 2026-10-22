@@ -844,6 +844,27 @@ OK
 （空输出，exit 0）
 ```
 
+T23（本提交）之前：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 24.572s
+OK
+=== EXPERIMENTS_TESTS
+Ran 378 tests in 809.480s
+OK
+=== NEVER_TOUCH
+NEVER_TOUCH_DIFF_EMPTY
+=== FREEZE_MANIFEST
+{"verdict": "PASS", "mismatches": []}
+```
+
 ### 本轮未做、未证明与遗留缺口
 
 1. **live preflight 没有跑过。** 本轮禁止调用模型与写 profile，因此 `preflight` 只用脱敏的真实
@@ -1031,3 +1052,180 @@ ALL_GATES_PASSED
 
 这段文字写入后重跑了读取文本的门（Ruff / governance / public release / `git diff --check` /
 越界 scope），结果同为全绿；两个长套件不读本文件，故不再重复。
+
+## T21–T23（implementer: opencode deepseek-v4.1-flash）
+
+本节由第五轮实现者追加，对应 CODEX_FIXES_4（f94360c 的 acceptance round 4，F8/F9）。
+T1–T20 的记录原样保留。分支仍为 `experiment/v1.2-h2-freeze-v2`，起点 HEAD `20719b5`；
+按 T21→T22→T23 顺序实现，每任务一个本地提交，身份 `FlapPearLabs`，message 结尾带 opencode
+的 Co-Authored-By。写范围不变：`freeze-v2/**` 与
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`。没有自批、没有 push/PR/merge、没有执行
+H2-R2、没有调用模型、没有运行 `opencode run`、没有 source 或写 `~/.h2-worker-profile`。
+临时 run 目录只建在 `<SHARED_RUN_ROOT>/impl-scratch`（回合结束后删除）。
+
+### T21 — `wrapper_delivery.py`：history-free 任务仓库（F8）
+
+F8 的机制是 `repo/` 曾是治理仓的 `git worktree`，与主仓共享整个对象库，所以 worker 能
+`git show` 到历史 candidate。现在的形状：
+
+- `repo/` 是独立仓库：`git init` + 对治理仓里一个临时 ref 做 `--depth 1` fetch + 取出 B'，
+  随后删除该 ref、所有 remote（本来就没有）、`FETCH_HEAD`/`ORIG_HEAD`/`COMMIT_EDITMSG`/
+  `packed-refs`、reflog、`refs/remotes`、`refs/tags`、`worktrees` 与
+  `objects/info/alternates`，再 `gc --prune=now`；HEAD 仍是 detached 的 B'（同一 SHA），
+  `rev-list --all` 恰为 `[B']`，对象集合 == B' 及其 tree（80 个对象对 61 个文件，
+  与 object 枚举逐项相等）。
+- 投放后置条件全部 fail closed：`rev-parse --show-toplevel` 必须是 repo 自身；
+  `rev-list --all == [B']`；`git remote` 空；无 alternates；`objects == reachable`；
+  `git cat-file -e <本任务 candidate>` 必须失败；`repo/.git` 下任何普通文件的字节里
+  不得出现治理 checkout 的路径。任一不满足即抛错，`cleanup` 删除整个 run dir。
+- 临时 ref 在 `finally` 里删除；一次 prepare 约 0.5 秒。`cleanup` 兼容旧布局：
+  `.git` 是文件（linked worktree）走 `worktree remove`，是目录（standalone）直接删。
+- `collect_v2` 追加两条 fail-closed 理由：任务仓库出现 remote 或 alternates 链接即为
+  `TASK_REPOSITORY_HAS_REMOTE` / `TASK_REPOSITORY_HAS_ALTERNATES`；base→worker diff 仍对
+  注册表 base 做，不受影响。`run_acceptance_v2` 的 base 门也改成同一 standalone 形状。
+- receipt 增加 `repository_kind = standalone_history_free`，测试直接断言。
+
+交付锚点重测（不是沿用）：`PRE` 现在也是同样的 standalone、history-free 形状，否则
+"history 依赖的测试"会被误算成交付污染。十任务两臂的完整重测输出：
+
+```text
+  r34-... pre oracle=4 suite=4/78 ... WRAPPER/control: DELIVERY_NEUTRAL, WRAPPER/variant: DELIVERY_NEUTRAL
+  r37-... pre oracle=3 suite=3/96 ...
+  r38-... pre oracle=8 suite=8/122 ...
+  r39-... pre oracle=9 suite=9/178 ...
+  r40-... pre oracle=9 suite=9/231 ...
+  r41-... pre oracle=2 suite=2/274 ...
+  r42-... pre oracle=8 suite=8/301 ...
+  r24-... pre oracle=1 suite=1/423 ...
+  r44-... pre oracle=2 suite=2/519 ...
+  r50-... pre oracle=5 suite=5/598 ...
+DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+```
+
+逐格比较新旧 JSON（脚本比较 `pre_delivery` 与 6 个 POST 单元的 `not_passing`/`ran`/`rc`
+以及 8 个 verdict）：**没有任何一格变化**，输出 `identical`。也就是说这十个 base 的
+`scripts/tests` 里没有依赖 git 历史的测试，history-free 形状本身是中性的；PRE 基线没有移动。
+README §2 的数字因此仍是实测值（4/20、7/20、0/20、20/20、20/20），但现在来自本轮 JSON，
+并且 §2/§3/§4 写明了新形状与重测事实。
+
+锚点的 provenance 绑定方式变更（记录在此，供独立评审）：旧测试与 `build_manifest.build`
+要求"锚点 commit 里的 `wrapper_delivery.py` 字节 == 当前程序字节"。改变投放程序的提交
+（正是 T21）永远无法满足它——测量只能发生在提交之后，而门禁要求在提交之前。现在
+`delivery-anchors.json` 记录 `repository`、`wrapper_program_sha256`、`shortlist_sha256`；
+测试与 `build_manifest.build` 断言：投放 payload 在锚点 materials 与当前 HEAD 上逐字节相等，
+且锚点由**当前冻结程序**在**当前冻结 shortlist** 上产生。这比 commit 字节比较更贴近真实
+不变量，且没有放松 payload 相等这一条。
+
+T11 正/负控制在 10 个任务上整体重跑（`AcceptanceV2` 两个测试，standalone 形状）：
+正控（历史 candidate 的非测试 delta）ACCEPT 10/10；负控（未改动的 base）REJECT 10/10，
+两种 temp-root spelling 都返回 `WORKER_NOT_PASSING:*`。输出 `Ran 7 tests in 193.894s / OK`。
+
+### T22 — `access_audit.py`：从事件流审计越界访问（F9）
+
+- 读 `events.jsonl`，对每个 `tool_use` 取 `part.state.input`：
+  - 路径参数（`path`/`filePath`/`file_path`/`directory`/`dir`）解析到 run dir 之外即命中；
+  - `bash` 命令按 token 检查（先按 `--flag=value` / `KEY=value` 拆分），`~`/`$HOME`/`${HOME}`
+    解析到 **profile HOME**（driver 传入 worker 环境里的 HOME，绝不是操作员 HOME），
+    相对路径按 cwd=run dir 解析，`<RUN_ROOT>` 占位符解析为 run dir；
+  - `patch` 的 `patchText` 里 `--- a/x` / `+++ b/x` / `diff --git a/x b/x` 的路径同样检查；
+  - shell `git` 的 `clone/fetch/pull/push/ls-remote/submodule`、`remote add|set-url|update|
+    prune|rename|remove`、`-C <run 外>`、`--git-dir=<run 外>`、`--work-tree=<run 外>`；
+  - 白名单外的工具（`webfetch`、`task`、`skill`、`mcp__*` 等）一律命中——事件流看不见的访问
+    不可审计，因此保守拒绝；
+  - 缺失事件流、非 JSON 行、无法识别的 tool 全部 fail closed。
+- 冻结白名单（写入 audit JSON 的 `allow_list`）：固定解释器路径与其 prefix、`/usr`、`/bin`、
+  `/sbin`、`/opt/homebrew`、`/System`、`/Library/Developer`、`/tmp`（含其 realpath）、
+  解析后的 OS temp 根、`/dev/null`。**收紧记录**：没有放行整个 `/var/folders` 前缀，只放行
+  解析后的 temp 根本身；`-C`/`--git-dir`/`--work-tree` 只对 run dir 判定（temp 目录可以做
+  scratch，但不能作为 git 仓库目标）。
+- `run_h2r2`：worker 结束、机械验收之前跑 access audit，写 `access-audit.json`（run artifact、
+  进 registry artifact 哈希），每条命中变成 `OUT_OF_RUN_ACCESS:<reason>:<value>`。有命中时
+  仍产出该 run 唯一的一份 `verdict.json` 与 collected 证据（与 worker 终局路径一致），
+  但 verdict 为 INVALID、最终 verdict 为 INVALID，且 registry 已登记，第二次启动被
+  `RUN_ALREADY_REGISTERED` 拒绝——命中无法靠重跑消失。worker 自己已经 INVALID 时
+  （超时/error），access audit 仍作为证据步记录，但不改变终局 reason。
+- 测试：两个入仓 fixture（clean / 四种命中形状）走 parser 与 CLI 双向；逐形状用例覆盖
+  绝对路径、`..` 逃逸、`--flag=/x`、git clone/fetch/remote add、`git -C`、
+  `git --git-dir`、白名单外工具、patch 头路径；纯解析函数用合成 home 覆盖 `~`/`$HOME`/
+  `${HOME}` 与无 home 情况；白名单用例覆盖固定 PY、`/usr/bin/env`、`/bin/sh`、`/tmp`、
+  `/dev/null` 与一次正常的 `unittest discover` 命令；缺失流与畸形行各一例。
+  driver 层用读 `/etc/hosts` 的 stub worker 端到端得到
+  `OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:/etc/hosts`、INVALID 登记与二次启动拒绝。
+
+### T23 — re-pin、README、报告
+
+re-pin 命令与输出（materials = 本提交的父提交 = T22 的 `b874db8515`）：
+
+```bash
+$PY $H/freeze-v2/build_run_plan.py --materials b874db851540aaf32c987b6ec037991056f478fa \
+    --out $H/freeze-v2/run-plan-v2.json
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent b874db851540aaf32c987b6ec037991056f478fa \
+    --out $H/freeze-v2/freeze-manifest.json
+```
+
+```text
+RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+FREEZE_MANIFEST files=46 delivery_payload_equivalent_to_T2=YES
+```
+
+冻结集合从 43 增至 46（新增 `access_audit.py` 与两个 access-audit fixture），manifest 自身仍有
+独立字面量；逐字节变异测试现在覆盖 46 + 1 = 47 个文件。测试字面量用脚本从 manifest 字节重算。
+delivery anchors **没有**在 T23 重测：delivered payload、测量程序和 shortlist 在 T21 之后
+都没有变化，manifest 恰好绑定这三者的哈希；README §4 如实写明这一点，而不是声称"每个
+re-pin 都重测"。若 Claude 认为应重测，命令已在 README §2，重跑后需要重新 re-pin 一次。
+
+### 提交前门禁原样尾行
+
+T21（提交 `8b860b8`）之前：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 21.779s
+OK
+=== EXPERIMENTS_TESTS
+Ran 371 tests in 780.066s
+OK
+=== NEVER_TOUCH
+NEVER_TOUCH_DIFF_EMPTY
+```
+
+T22（提交 `b874db8`）之前：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 23.934s
+OK
+=== EXPERIMENTS_TESTS
+Ran 378 tests in 828.822s
+OK
+=== NEVER_TOUCH
+NEVER_TOUCH_DIFF_EMPTY
+```
+
+### 本轮未做、未证明与遗留缺口
+
+1. **没有真实 worker 与真实 auditor。** T22 的端到端证据来自 stub worker 的事件流；
+   `access_audit` 的第一次真实 verdict 属于 Claude 的 acceptance。
+2. **可观测性边界**：audit 只能看到事件流里记录的 tool 调用。工具内部的隐式访问、隐藏的
+   runtime 上下文、以及不产生事件的次生进程都不在可见范围内（audit JSON 的
+   `observation_scope` 如实写明）。`task` 子代理被保守拒绝，因为它的子调用不在父流里。
+3. **temp 白名单的必然放宽**：落在 OS temp 根内的路径会被放行（spec 要求放行 temp dirs），
+   因此一个从 run dir 逃逸到 temp 根的 `..` 不会被判为越界；逃出 temp 根、`~`/`$HOME`、
+   绝对路径与 git 外联都仍会被判。解释器 prefix 也在白名单里，worker 因此可以读该 env 目录。
+4. **T21 未覆盖"worker 自己 fetch 对象"的静态检测**：standalone 仓库起点是干净的，`collect_v2`
+   拒绝 remote/alternates，事件流里 `git fetch|clone` 会被 T22 判无效；但没有做
+   "对象库里出现不可达对象"的 fsck 检查，因为正常 worker 的 `git commit --amend` / `stash`
+   也会留下 dangling 对象，会产生误判。
+5. 没有执行 H2-R2、没有 push/PR/merge，真实 PR CI 状态仍为 NOT_TRIGGERED。
