@@ -94,11 +94,15 @@ its delivered bytes, shortlist and wrapper program equal those at the final mate
 T8 regenerated the run plan before hashing it. T9 changes only operator documentation.
 The final default-branch merge remains the review/history anchor; hashes alone are not acceptance.
 
-Registry scope interpretation: the plan's “allow everything else in repo/” uses round-2
-n01/n02's existing empty deny-prefix list. All base scripts/tests files and each oracle are
-individually denied, and the worker contract prohibits changing any test. Copying the old
-t01–t04 prefixes would block the shortlisted r24 deployment repair. This interpretation and
-the T8-parent definition are recorded for independent acceptance in CODEX_REPORT.md.
+Registry scope interpretation (superseded by F1, CODEX_FIXES_1 T10): the earlier reading of “allow
+everything else in repo/” reused round-2 n01/n02's empty deny-prefix list. That list let an added
+`scripts/tests/json.py` shadow the stdlib import the frozen oracle resolves, so `deny_prefixes` is
+now `scripts/tests/` for every task: no add, modify, delete or rename inside the directory
+`unittest discover` imports from. Every base `scripts/tests/` file and each oracle stay
+individually denied, the worker contract prohibits changing any test, and every added or renamed
+path is held to the validator's `shadow_paths` rule plus the startup-hook refusal (protocol-v2 §7).
+The T8-parent definition and this scope decision are recorded for independent acceptance in
+CODEX_REPORT.md.
 
 ## 5. Before the first run
 

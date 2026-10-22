@@ -29,17 +29,17 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "706e79d1c541a0aa0c90b89d326d12abf7cdc6581975cd4726578b2ee3213981",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "87918a7452c579e6ebd2be70e2d8c9fa6295c4356eb5071925c63e24f75ce075",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "9f712ca9b80a7e533a27c00c4715768f90b31d64ffea9d9bef61ff5a09c35a7f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d5cced185b8790b8f9ee889ab50abd8560a81df29049743b396461ca938c2371",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "4ba1e93207b5bec323cf63e12a400f5be955469ac8d9bb3ce4b65c195b21b3c1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d10b8b2da9abde59261e9502353d02c1020a9b1ef91d95cca7d8bb2fa06e849f",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "e156257e2e8c08b597d480f0590a81c96ee34c8139e0a9d4ce1a7faa30aa9fa1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "cc409afc1f5be747c3fb26326fd6fbe07b07c0e91426c7f942c3e1f66f6f86f0",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "9cdc91d40e1e079f025019dc2e70cd7ed3ca1e73e1c03795d8e9e0ce28502357",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "7a9e84891d8ce8b7915aff2b77cdb1d550bf86363556da7e504576a24597e063",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "c8a2838fbc0c2edf2fa276eeaab87964fe4457d5606dc88419d730142583cd95",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
@@ -50,7 +50,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "6cb4a5eab99a32d6f6f76ece04e3bc840a51969b520e38b41add8c64c74bb908"
+MANIFEST_SHA256 = "3b973ce1f8485bf9a13759f7a7bf27e83d203d13fb68457f6c89282295892bc8"
 
 
 def load(name):
@@ -332,7 +332,7 @@ class RegistryV2(unittest.TestCase):
             base_tests = set(git("ls-tree", "-r", "--name-only", base, "--", "scripts/tests/")
                              .decode().splitlines())
             self.assertEqual(base_tests | {oracle["path"]}, set(task["scope"]["deny"]))
-            self.assertEqual([], task["scope"]["deny_prefixes"])
+            self.assertEqual(["scripts/tests/"], task["scope"]["deny_prefixes"])
             delta = git("diff", base, candidate, "--", ":!scripts/tests").decode()
             for line in delta.splitlines():
                 if line.startswith("+") and not line.startswith("+++"):
@@ -340,6 +340,68 @@ class RegistryV2(unittest.TestCase):
                     if len(added) >= 20:
                         self.assertFalse(any(added in field for field in visible),
                                          f"candidate text leaked: {task['task_id']}")
+
+
+class WorkerScopeV2(unittest.TestCase):
+    def task(self):
+        return json.loads((FZ / "task-registry-v2.json").read_text())["tasks"][0]
+
+    def test_every_task_freezes_the_discovery_directory_as_a_prefix(self):
+        registry = json.loads((FZ / "task-registry-v2.json").read_text())
+        self.assertEqual(10, len(registry["tasks"]))
+        for task in registry["tasks"]:
+            self.assertEqual(["scripts/tests/"], task["scope"]["deny_prefixes"], task["task_id"])
+        self.assertIn("F1", registry["scope_prefix_source"])
+        scope = load("scope_v2")
+        for path in ("scripts/tests/json.py", "scripts/tests/new_test.py",
+                     "scripts/tests/package/__init__.py", "scripts/tests/unittest.py"):
+            with self.subTest(path=path):
+                reasons = scope.check_scope(self.task(), [{"status": "A", "path": path}])
+                self.assertTrue(any(r.startswith("WORKER_SCOPE_DENIED") for r in reasons), reasons)
+
+    def test_the_f1_shadow_would_really_shadow_a_stdlib_import(self):
+        """The refusal below is not vacuous: the added file does decide the import."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tests = Path(tmp) / "scripts" / "tests"
+            tests.mkdir(parents=True)
+            (tests / "json.py").write_text("MARKER = 'shadowed'\n", encoding="utf-8")
+            probe = subprocess.run(
+                [sys.executable, "-s", "-c",
+                 "import json; print(getattr(json, 'MARKER', 'stdlib'))"],
+                cwd=str(tests), capture_output=True, text=True, check=True)
+        self.assertEqual("shadowed", probe.stdout.strip())
+
+    def test_added_stdlib_named_module_elsewhere_is_refused_by_the_shadow_rule(self):
+        scope = load("scope_v2")
+        for path in ("scripts/json.py", "json.py", "unittest.py", "scripts/shadow.pyc",
+                     "scripts/__init__.py", "scripts/tests/package/__init__.py"):
+            with self.subTest(path=path):
+                reasons = scope.check_scope(self.task(), [{"status": "A", "path": path}])
+                self.assertTrue(any(r.startswith("WORKER_SHADOWS_IMPORT") for r in reasons),
+                                reasons)
+
+    def test_startup_hooks_and_path_escapes_are_refused_anywhere(self):
+        scope = load("scope_v2")
+        for path, reason in (("nested/sitecustomize.py", "WORKER_STARTUP_HOOK"),
+                             ("nested/usercustomize.py", "WORKER_STARTUP_HOOK"),
+                             ("nested/extra.pth", "WORKER_STARTUP_HOOK"),
+                             ("../outside.py", "WORKER_PATH_ESCAPE"),
+                             ("/absolute/outside.py", "WORKER_PATH_ESCAPE")):
+            with self.subTest(path=path):
+                reasons = scope.check_scope(self.task(), [{"status": "A", "path": path}])
+                self.assertTrue(any(r.startswith(reason) for r in reasons), reasons)
+        self.assertEqual([], scope.check_scope(self.task(),
+                                              [{"status": "A", "path": "docs/fix.md"},
+                                               {"status": "M", "path": "scripts/review_evidence.py"}]))
+
+    def test_both_sides_of_a_rename_are_judged(self):
+        scope = load("scope_v2")
+        task = self.task()
+        reasons = scope.check_scope(task, [{"status": "R100", "old_path": "scripts/tests/old.py",
+                                            "path": "scripts/json.py"}])
+        self.assertTrue(any(r.startswith("WORKER_SCOPE_DENIED") for r in reasons), reasons)
+        self.assertTrue(any(r.startswith("WORKER_SHADOWS_IMPORT") for r in reasons), reasons)
+        self.assertEqual([], scope.check_scope(task, [{"status": "M", "path": "RULES.md"}]))
 
 
 class RunPlanV2(unittest.TestCase):

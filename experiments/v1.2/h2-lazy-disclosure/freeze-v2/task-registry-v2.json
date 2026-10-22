@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "program": "freeze-v2/build_registry.py",
-  "scope_prefix_source": "Round-2 n01/n02 empty deny_prefixes; the plan's allow-everything-else repair scope.",
+  "scope_prefix_source": "F1 (CODEX_FIXES_1 T10): deny_prefixes = ['scripts/tests/'] for every task — no add, modify, delete or rename inside the directory discover imports from, on top of the per-file deny list. Supersedes the round-2 n01/n02 empty-prefix interpretation, because an added stdlib-named module there shadows the imports the frozen oracle resolves and can make an unrepaired base pass.",
   "tasks": [
     {
       "task_id": "f01",
@@ -25,7 +25,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: enforce anchored schema patterns and declared failure envelope; make `scripts/tests/test_review_evidence_contract.py` pass without modifying any test file."
@@ -53,7 +55,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: make the P1-T02 mandatory base record unambiguously eight fields; make `scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py` pass without modifying any test file."
@@ -82,7 +86,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate; make `scripts/tests/test_p1_t05_evidence_disposition.py` pass without modifying any test file."
@@ -113,7 +119,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode; make `scripts/tests/test_p1_t06_producer_trust_boundary.py` pass without modifying any test file."
@@ -146,7 +154,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional; make `scripts/tests/test_p1_t11_destructive_workspace_transaction.py` pass without modifying any test file."
@@ -181,7 +191,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand; make `scripts/tests/test_p1_t10_audit_visibility_recipe.py` pass without modifying any test file."
@@ -217,7 +229,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration; make `scripts/tests/test_p1_t08_evidence_lifecycle.py` pass without modifying any test file."
@@ -258,7 +272,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: repair round 2 - restore budget OWNER self-naming, bound the unit drift; make `scripts/tests/test_p1_t09_bootstrap_byte_budget.py` pass without modifying any test file."
@@ -301,7 +317,9 @@
           "scripts/tests/test_seam_contract_partitions.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: converge the P1/P2 findings from both independent reviews; make `scripts/tests/test_p1_t18_defect_promotion_fast_full.py` pass without modifying any test file."
@@ -346,7 +364,9 @@
           "scripts/tests/test_skill_execution.py",
           "scripts/tests/test_ticket_gate_wiring.py"
         ],
-        "deny_prefixes": [],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
         "allow": "Every other path inside repo/"
       },
       "task_text": "Repair the reported issue: bind skill evidence reads to safe directory handles; make `scripts/tests/test_skill_execution.py` pass without modifying any test file."

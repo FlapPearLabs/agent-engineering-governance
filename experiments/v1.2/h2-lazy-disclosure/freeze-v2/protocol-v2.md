@@ -131,8 +131,13 @@ INSUFFICIENT_EVIDENCE；只有满足全部规则且没有下面的 null 阻断�
   runtime/profile/model 改为第 4 节。HOT 降幅仍按实际 carrier 字节的原 JS 字符口径测量，
   不计不可观察宿主注入，不从字符数估算 token 或 model wall-clock。
 - 准入和 aggregate owner 改为第 1–3 节；task IDs、oracle、scope、counterbalancing 和
-  acceptance 改为本轮注册表 / run plan / 第 5 节。scope 前缀采用 round-2 n01/n02 的空
-  列表，以保留计划的其余仓内路径可修复合同；所有 base 测试与 oracle 逐文件冻结。
+  acceptance 改为本轮注册表 / run plan / 第 5 节。scope 前缀按 F1 固定为 `scripts/tests/`：
+  该目录内不得新增、修改、删除或重命名（`unittest discover -s scripts/tests` 把该目录放在
+  sys.path 首位，新增的同名模块会覆盖冻结 oracle 解析到的导入，使未修复的 base 假绿）；
+  base 的每个测试文件与 oracle 仍逐文件 deny。仓内任何新增或重命名的目标还须通过
+  validator 2.8.12 的 `check_task_class.shadow_paths`（导入，不复制），BYTECODE /
+  PACKAGE_IMPORTED_BY_DISCOVERY / PACKAGE_MARKER / SHADOWS 任一命中以 WORKER_SHADOWS_IMPORT
+  拒绝；仓内任意位置新增 `sitecustomize.py`、`usercustomize.py` 或 `*.pth` 也拒绝。
 
 没有其他评分偏离。findings 尽力盲评并按 rubric §10 如实标明 leakage / 未尝试，
 保留每条 run 的原始事实。不要把执行成功、样本数量或 harness 通过当作披露安全结论。

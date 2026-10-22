@@ -9,6 +9,18 @@ from pathlib import Path
 
 from wrapper_delivery import H2_REL, ROOT, git, sha256
 
+# F1 (CODEX_FIXES_1 T10): `unittest discover -s scripts/tests` puts scripts/tests first on sys.path,
+# so an ADDED module there decides what the frozen oracle imports (an added json.py shadowing the
+# stdlib made an unfixed base run green). The prefix freezes the whole directory for every task, on
+# top of the per-file deny list of every base test file and the oracle.
+DENY_PREFIXES = ("scripts/tests/",)
+SCOPE_PREFIX_SOURCE = (
+    "F1 (CODEX_FIXES_1 T10): deny_prefixes = ['scripts/tests/'] for every task — no add, modify, "
+    "delete or rename inside the directory discover imports from, on top of the per-file deny "
+    "list. Supersedes the round-2 n01/n02 empty-prefix interpretation, because an added "
+    "stdlib-named module there shadows the imports the frozen oracle resolves and can make an "
+    "unrepaired base pass.")
+
 
 def build(root: Path = ROOT) -> dict:
     h2 = root / H2_REL
@@ -22,11 +34,6 @@ def build(root: Path = ROOT) -> dict:
             if row["CASE_ID"] in ledgers:
                 raise ValueError("DUPLICATE_CASE")
             ledgers[row["CASE_ID"]] = (row, rel)
-    round2 = json.loads((h2 / "task-registry.json").read_text())
-    prefix_sources = [t["scope"]["deny_prefixes"] for t in round2["tasks"]
-                      if t["task_id"] in {"n01", "n02"}]
-    if prefix_sources != [[], []]:
-        raise ValueError("ROUND2_PREFIX_SOURCE_CHANGED")
     tasks, expected = [], {}
     for index, source in enumerate(shortlist, 1):
         tid = f"f{index:02d}"
@@ -55,13 +62,12 @@ def build(root: Path = ROOT) -> dict:
                                  "provenance": "FRAMEWORK_FROZEN",
                                  "command": source["ORACLE"]["command"]},
                       "admission": {"request_status": "REQUEST_VALID", "ledger": ledger},
-                      "scope": {"deny": sorted(denied), "deny_prefixes": [],
+                      "scope": {"deny": sorted(denied), "deny_prefixes": list(DENY_PREFIXES),
                                 "allow": "Every other path inside repo/"},
                       "task_text": task_text})
         expected[tid] = {"candidate_sha": candidate}
     return {"schema_version": 2, "program": "freeze-v2/build_registry.py",
-            "scope_prefix_source": "Round-2 n01/n02 empty deny_prefixes; the plan's "
-                                   "allow-everything-else repair scope.",
+            "scope_prefix_source": SCOPE_PREFIX_SOURCE,
             "tasks": tasks, "expected": expected}
 
 
