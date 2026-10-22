@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Construct an isolation probe and check its JSONL. Never invoke opencode."""
+"""Construct an isolation probe and check its JSONL. Never invoke opencode.
+
+`check` reads the REAL `opencode run --format json` event stream (F3): the top-level `type` is
+`step_start | text | tool_use | step_finish | error`, the markers appear in `part.text`, and a read
+is a `tool_use` part whose `state.input.path` names the file. Hand-made fixtures that spoke a
+different schema — and a completion rule that required `step_finish(reason=stop)`, which the real
+stream ends without — produced six false reasons on a correct run. The parser is now driven by the
+schema the runtime emits, and it is proven against two real streams (one correct, one that leaked
+the operator's skill catalogue) plus one mutated copy per refusal reason.
+
+Scope of the verdict: OBSERVABLE events only. Hidden runtime context is not observable from here.
+"""
 from __future__ import annotations
 
 import argparse
@@ -8,13 +19,24 @@ import re
 import shlex
 import shutil
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from wrapper_delivery import outside_repository
 
 WRAPPER = "H2_CANARY_WRAPPER_STARTUP"
 REPO = "H2_CANARY_REPO_ATTACHED"
 NESTED = "H2_CANARY_NESTED_ATTACHED"
+READ_TARGETS = ("repo/probe.txt", "repo/nested/probe.txt")
+ALLOWED_INSTRUCTION_PATHS = frozenset({"AGENTS.md", "repo/AGENTS.md", "repo/nested/AGENTS.md"})
+# The runtime ships these two skills in every isolated profile; anything else named in the stream is
+# a discovered skill catalogue, i.e. contamination (F4).
+ALLOWED_SKILLS = frozenset({"opencode", "report"})
+RUN_ROOT = "<RUN_ROOT>"
+BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+IDENTIFIER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+AGENTS_PATH_RE = re.compile(r"[^\s`\"'()\[\]]*AGENTS\.md")
+NEGATION_RE = re.compile(r"\b(?:none|no|not|absent|without|zero)\b", re.I)
+TOOL_SCHEMA = {"step_start", "text", "tool_use", "step_finish", "error"}
 
 
 def prepare(run_dir: Path) -> str:
@@ -74,28 +96,65 @@ def forbidden_metadata(value) -> bool:
     return False
 
 
-def relative_path(value: str, run_dir: Path) -> str:
-    path = Path(value)
+def normalise_path(value: str, run_dir: Path) -> str:
+    """A run-root-relative path: `<RUN_ROOT>/x`, an absolute path under the run dir, or `./x`."""
+    value = value.strip()
+    if not value:
+        return ""
+    if value.startswith(RUN_ROOT):
+        return value[len(RUN_ROOT):].lstrip("/")
+    path = PurePosixPath(value)
     if path.is_absolute():
         try:
-            return path.resolve().relative_to(run_dir.resolve()).as_posix()
+            return Path(value).resolve().relative_to(run_dir.resolve()).as_posix()
         except ValueError:
             return "OUTSIDE_RUN"
     return path.as_posix().removeprefix("./")
 
 
+def skill_names(line: str) -> set[str]:
+    return {match.group(1) for match in BACKTICK_RE.finditer(line)
+            if IDENTIFIER_RE.fullmatch(match.group(1))}
+
+
+def text_reasons(text: str, run_dir: Path, repo_read: bool, nested_read: bool) -> set[str]:
+    """Everything an observable text block may disclose, read line by line (one claim per line)."""
+    reasons: set[str] = set()
+    for line in text.splitlines():
+        folded = line.casefold()
+        if "skill" in folded:
+            if "<skills_instructions>" in folded or "skill.md" in folded:
+                reasons.add("FORBIDDEN_CONTEXT")
+            if skill_names(line) - ALLOWED_SKILLS:
+                reasons.add("SKILL_CATALOGUE_CONTAMINATION")
+        if not NEGATION_RE.search(line):
+            if "mcp" in folded:
+                reasons.add("MCP_CONTAMINATION")
+            if "plugin" in folded:
+                reasons.add("PLUGIN_AGENT_CONTAMINATION")
+        for source in AGENTS_PATH_RE.findall(line):
+            rel = normalise_path(source, run_dir)
+            if rel not in ALLOWED_INSTRUCTION_PATHS:
+                reasons.add("GLOBAL_OR_USER_INSTRUCTIONS")
+            elif rel == "repo/AGENTS.md" and not repo_read:
+                reasons.add("REPO_BEFORE_READ")
+            elif rel == "repo/nested/AGENTS.md" and not nested_read:
+                reasons.add("NESTED_BEFORE_READ")
+    return reasons
+
+
 def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
-    reasons = set()
-    wrapper_startup = repo_seen = nested_seen = False
-    repo_read = nested_read = finished = False
-    event_count = 0
+    reasons: set[str] = set()
+    wrapper_startup = repo_read = nested_read = False
+    repo_marker = nested_marker = False
+    step_finishes = 0
+    last_kind = None
     try:
         events = [json.loads(line) for line in stream.splitlines() if line.strip()]
     except (ValueError, TypeError):
         events = []
         reasons.add("MALFORMED_JSONL")
     for event in events:
-        event_count += 1
         if not isinstance(event, dict):
             reasons.add("MALFORMED_EVENT")
             continue
@@ -104,72 +163,67 @@ def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
         if not isinstance(part, dict):
             reasons.add("MALFORMED_EVENT")
             continue
+        last_kind = kind
+        if kind not in TOOL_SCHEMA:
+            reasons.add("MALFORMED_EVENT")
         if kind == "error":
             reasons.add("RUNTIME_ERROR")
         if forbidden_metadata(event):
             reasons.add("FORBIDDEN_CONTEXT")
         if kind == "tool_use":
-            if part.get("tool") != "read":
+            tool = part.get("tool")
+            if isinstance(tool, str) and tool.startswith("mcp__"):
+                reasons.add("MCP_CONTAMINATION")
+            elif tool != "read":
                 reasons.add("FORBIDDEN_TOOL_OR_AGENT")
             else:
                 state = part.get("state", {})
-                if not isinstance(state, dict):
-                    reasons.add("MALFORMED_EVENT")
-                    continue
-                inputs = state.get("input", {})
+                inputs = state.get("input") if isinstance(state, dict) else None
                 if not isinstance(inputs, dict):
                     reasons.add("MALFORMED_EVENT")
                     continue
                 if state.get("status") == "error":
                     reasons.add("READ_FAILED")
-                path = relative_path(str(inputs.get("filePath", "")), run_dir)
-                if path not in {"repo/probe.txt", "repo/nested/probe.txt"}:
+                raw = inputs.get("path", inputs.get("filePath", ""))
+                path = normalise_path(str(raw), run_dir)
+                if path not in READ_TARGETS:
                     reasons.add("UNEXPECTED_READ")
-                if path == "repo/probe.txt":
+                elif path == "repo/probe.txt":
                     if not wrapper_startup:
                         reasons.add("NO_WRAPPER_AT_STARTUP")
                     repo_read = True
-                elif path == "repo/nested/probe.txt":
-                    if not repo_read or not repo_seen:
+                else:
+                    if not (repo_read and repo_marker):
                         reasons.add("NESTED_READ_OUT_OF_ORDER")
                     nested_read = True
-        text = "\n".join(strings(event))
-        if re.search(r"SKILL\.md|<skills_instructions>|MCP\s+(?:tool|server)\s*[:=]|"
-                     r"plugin(?:[- ]agent)?\s*[:=]", text, re.I):
-            reasons.add("FORBIDDEN_CONTEXT")
-        for source in re.findall(r"[^\s`\"<>]*AGENTS\.md", text):
-            rel = relative_path(source, run_dir)
-            if rel not in {"AGENTS.md", "repo/AGENTS.md", "repo/nested/AGENTS.md"}:
-                reasons.add("GLOBAL_OR_USER_INSTRUCTIONS")
-            elif rel == "repo/AGENTS.md" and not repo_read:
-                reasons.add("REPO_BEFORE_READ")
-            elif rel == "repo/nested/AGENTS.md" and not nested_read:
-                reasons.add("NESTED_BEFORE_READ")
-        if WRAPPER in text and not repo_read:
+        reasons |= text_reasons("\n".join(strings(event)), run_dir, repo_read, nested_read)
+        text = part.get("text") if kind == "text" else ""
+        text = text if isinstance(text, str) else ""
+        if WRAPPER in text and not (repo_read or nested_read):
             wrapper_startup = True
         if REPO in text:
             if not repo_read:
                 reasons.add("REPO_BEFORE_READ")
-            repo_seen = True
+            repo_marker = True
         if NESTED in text:
             if not nested_read:
                 reasons.add("NESTED_BEFORE_READ")
-            nested_seen = True
-        if kind == "step_finish" and part.get("reason") == "stop" and nested_seen:
-            finished = True
+            nested_marker = True
+        if kind == "step_finish":
+            step_finishes += 1
     if not wrapper_startup:
         reasons.add("NO_WRAPPER_AT_STARTUP")
-    if not repo_read or not repo_seen:
+    if not (repo_read and repo_marker):
         reasons.add("NO_REPO_ATTACHMENT")
-    if not nested_read or not nested_seen:
+    if not (nested_read and nested_marker):
         reasons.add("NO_NESTED_ATTACHMENT")
-    if not finished:
+    if not events or not step_finishes or last_kind in ("step_start", "tool_use"):
         reasons.add("INCOMPLETE_STREAM")
     return {"verdict": "FAIL" if reasons else "PASS", "reasons": sorted(reasons),
             "wrapper_at_startup": wrapper_startup,
-            "repo_after_first_read": repo_read and repo_seen and "REPO_BEFORE_READ" not in reasons,
-            "nested_after_read": nested_read and nested_seen and "NESTED_BEFORE_READ" not in reasons,
-            "event_count": event_count,
+            "repo_after_first_read": repo_read and repo_marker and "REPO_BEFORE_READ" not in reasons,
+            "nested_after_read": nested_read and nested_marker and "NESTED_BEFORE_READ" not in reasons,
+            "event_count": len(events),
             "observation_scope": "Observable JSON events only; hidden runtime context is not observable."}
 
 

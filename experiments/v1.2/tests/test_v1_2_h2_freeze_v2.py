@@ -33,7 +33,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "9f712ca9b80a7e533a27c00c4715768f90b31d64ffea9d9bef61ff5a09c35a7f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d5cced185b8790b8f9ee889ab50abd8560a81df29049743b396461ca938c2371",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "365414247910ae438f39d8c94973d076e85e7ae907b4f358c330b5f64db922ac",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d10b8b2da9abde59261e9502353d02c1020a9b1ef91d95cca7d8bb2fa06e849f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "a2aa34d7bf478f5ba93629df16e21b61aa4d3821952a7dd7118168b5e95e17d2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "bbe2b39ef03a75fa0a48a3cc42ca91a7aace0253b3470797718b51c94350abed",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
@@ -50,7 +50,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "e7dffedb5faf0a6f1f0f80c94b5ea11892e4fcc5e858012571c3901c5082d33b"
+MANIFEST_SHA256 = "0bef47f7d175a453c0ec547ccc294d4c08c3569f145bedcda6abb42d61334f53"
 
 
 def load(name):
@@ -330,6 +330,99 @@ class IsolationCanary(unittest.TestCase):
             {"type": "text", "part": {"text": "H2_CANARY_NESTED_ATTACHED"}},
             {"type": "step_finish", "part": {"reason": "stop"}},
         ]
+
+    def real_stream(self):
+        return (FZ / "fixtures" / "isolation-canary-events.jsonl").read_text(encoding="utf-8")
+
+    def real_events(self):
+        return [json.loads(line) for line in self.real_stream().splitlines() if line.strip()]
+
+    @staticmethod
+    def render(events):
+        return "\n".join(json.dumps(event) for event in events)
+
+    def text_event(self, text):
+        return {"type": "text", "part": {"type": "text", "text": text}}
+
+    def read_event(self, path):
+        return {"type": "tool_use", "part": {"type": "tool", "tool": "read", "state": {
+            "status": "completed", "input": {"path": path}}}}
+
+    def test_the_real_opencode_event_stream_passes(self):
+        """The committed fixture is the real 2.0.25 stream (paths sanitised to <RUN_ROOT>)."""
+        canary = load("isolation_canary")
+        verdict = canary.check_stream(self.real_stream())
+        self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+        self.assertEqual(10, verdict["event_count"])
+        for key in ("wrapper_at_startup", "repo_after_first_read", "nested_after_read"):
+            self.assertTrue(verdict[key])
+        text = self.real_stream()
+        self.assertIn("<RUN_ROOT>", text)
+        for host_prefix in ("/Users/", "/private/"):
+            self.assertNotIn(host_prefix, text)
+        events = self.real_events()
+        self.assertEqual({"step_start", "text", "tool_use", "step_finish"},
+                         {event["type"] for event in events})
+        reads = [event for event in events if event["type"] == "tool_use"]
+        self.assertEqual({"repo/probe.txt", "repo/nested/probe.txt"},
+                         {canary.normalise_path(event["part"]["state"]["input"]["path"], Path("."))
+                          for event in reads})
+
+    def test_each_real_schema_refusal_is_reported(self):
+        canary = load("isolation_canary")
+        base = self.real_events()
+        wrapper_index = 1
+        first_read = 2
+        repo_text = 5
+        mutants = {
+            "marker missing": (self.render(
+                [event if index != wrapper_index else self.text_event(
+                    event["part"]["text"].replace("H2_CANARY_WRAPPER_STARTUP", "no marker here"))
+                 for index, event in enumerate(base)]), "NO_WRAPPER_AT_STARTUP"),
+            "repo marker before its read": (self.render(
+                base[:first_read] + [self.text_event("H2_CANARY_REPO_ATTACHED")] + base[first_read:]),
+                "REPO_BEFORE_READ"),
+            "nested marker before its read": (self.render(
+                base[:first_read + 1] + [self.text_event("H2_CANARY_NESTED_ATTACHED")]
+                + base[first_read + 1:]), "NESTED_BEFORE_READ"),
+            "extra read": (self.render(
+                base[:repo_text + 2] + [self.read_event("repo/other.txt")] + base[repo_text + 2:]),
+                "UNEXPECTED_READ"),
+            "mcp named in text": (self.render(
+                base + [self.text_event("MCP server `remote` connected from the user profile.")]),
+                "MCP_CONTAMINATION"),
+            "plugin agent named in text": (self.render(
+                base + [self.text_event("Plugin agent `reviewer` is loaded in this profile.")]),
+                "PLUGIN_AGENT_CONTAMINATION"),
+            "skill catalogue named in text": (self.render(
+                base + [self.text_event("Skills: `alpha-skill`, `report`")]),
+                "SKILL_CATALOGUE_CONTAMINATION"),
+            "non-read tool": (self.render(
+                base[:first_read] + [{"type": "tool_use", "part": {
+                    "type": "tool", "tool": "bash"}}] + base[first_read:]),
+                "FORBIDDEN_TOOL_OR_AGENT"),
+            "truncated stream": (self.render(base[:-1]), "INCOMPLETE_STREAM"),
+        }
+        for label, (stream, reason) in mutants.items():
+            with self.subTest(label=label):
+                verdict = canary.check_stream(stream)
+                self.assertEqual("FAIL", verdict["verdict"], label)
+                self.assertIn(reason, verdict["reasons"], verdict["reasons"])
+
+    def test_the_f4_home_run_fails_on_the_disclosed_skill_catalogue(self):
+        """F4's own evidence, reduced to its observable claim: the operator catalogue is named."""
+        canary = load("isolation_canary")
+        stream = self.render(self.real_events() + [
+            self.text_event("**Skills:** the available-skills catalog is present in context "
+                            "(large bundled list, e.g. `alpha-skill`, `opencode`, "
+                            "`beta-skill`, …); no individual skill content is loaded yet.")])
+        verdict = canary.check_stream(stream)
+        self.assertEqual("FAIL", verdict["verdict"])
+        self.assertIn("SKILL_CATALOGUE_CONTAMINATION", verdict["reasons"])
+        allowed = self.render(self.real_events() + [
+            self.text_event("two skill sources (`opencode`, `report`), no MCP or plugin-agent "
+                            "sources")])
+        self.assertEqual("PASS", canary.check_stream(allowed)["verdict"])
 
     def test_positive_event_stream(self):
         canary = load("isolation_canary")

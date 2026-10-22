@@ -18,7 +18,7 @@
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "9f712ca9b80a7e533a27c00c4715768f90b31d64ffea9d9bef61ff5a09c35a7f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d5cced185b8790b8f9ee889ab50abd8560a81df29049743b396461ca938c2371",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "365414247910ae438f39d8c94973d076e85e7ae907b4f358c330b5f64db922ac",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d10b8b2da9abde59261e9502353d02c1020a9b1ef91d95cca7d8bb2fa06e849f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "a2aa34d7bf478f5ba93629df16e21b61aa4d3821952a7dd7118168b5e95e17d2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "bbe2b39ef03a75fa0a48a3cc42ca91a7aace0253b3470797718b51c94350abed",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
