@@ -18,6 +18,8 @@ FZ = H2 / "freeze-v2"
 
 
 def load(name):
+    if str(FZ) not in sys.path:
+        sys.path.insert(0, str(FZ))
     spec = importlib.util.spec_from_file_location(name, FZ / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
@@ -185,3 +187,67 @@ class DeliveryAnchors(unittest.TestCase):
         self.assertEqual(["test_status.Status.test_skipped"], result["skipped"])
         self.assertEqual({"test_status.Status.test_expected", "test_status.Status.test_unexpected",
                           "test_status.Status.test_skipped"}, set(result["not_passing"]))
+
+
+class IsolationCanary(unittest.TestCase):
+    def fixture(self):
+        return [
+            {"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP"}},
+            {"type": "tool_use", "part": {"tool": "read", "state": {
+                "input": {"filePath": "repo/probe.txt"}}}},
+            {"type": "text", "part": {"text": "H2_CANARY_REPO_ATTACHED"}},
+            {"type": "tool_use", "part": {"tool": "read", "state": {
+                "input": {"filePath": "repo/nested/probe.txt"}}}},
+            {"type": "text", "part": {"text": "H2_CANARY_NESTED_ATTACHED"}},
+            {"type": "step_finish", "part": {"reason": "stop"}},
+        ]
+
+    def test_positive_event_stream(self):
+        canary = load("isolation_canary")
+        result = canary.check_stream("\n".join(map(json.dumps, self.fixture())))
+        self.assertEqual("PASS", result["verdict"])
+        for key in ("wrapper_at_startup", "repo_after_first_read", "nested_after_read"):
+            self.assertTrue(result[key])
+
+    def test_each_isolation_or_order_violation_fails_closed(self):
+        canary = load("isolation_canary")
+        for label, event in (
+            ("repo early", {"type": "text", "part": {"text": "H2_CANARY_REPO_ATTACHED"}}),
+            ("nested early", {"type": "text", "part": {"text": "H2_CANARY_NESTED_ATTACHED"}}),
+            ("mcp tool", {"type": "tool_use", "part": {"tool": "mcp__remote__query"}}),
+            ("plugin agent", {"type": "tool_use", "part": {"tool": "agent"}}),
+            ("plugin metadata", {"type": "step_start", "part": {"plugins": ["custom"]}}),
+            ("global instructions", {"type": "text", "part": {
+                "text": "Instructions from: ~/.config/opencode/AGENTS.md"}}),
+            ("user instructions", {"type": "text", "part": {
+                "text": "Instructions from: ~/AGENTS.md"}}),
+            ("skill text", {"type": "text", "part": {"text": "<skills_instructions>"}}),
+            ("skill source", {"type": "text", "part": {"text": "skills/example/SKILL.md"}}),
+            ("runtime error", {"type": "error", "error": {"name": "RuntimeError"}}),
+            ("bad read input", {"type": "tool_use", "part": {"tool": "read", "state": {
+                "input": []}}}),
+        ):
+            with self.subTest(label=label):
+                events = self.fixture()
+                events.insert(1, event)
+                result = canary.check_stream("\n".join(map(json.dumps, events)))
+                self.assertEqual("FAIL", result["verdict"])
+                self.assertTrue(result["reasons"])
+        for events in (self.fixture()[1:], self.fixture()[:-1], []):
+            self.assertEqual("FAIL", canary.check_stream("\n".join(map(json.dumps, events)))
+                             ["verdict"])
+        self.assertEqual("FAIL", canary.check_stream('{"type":')["verdict"])
+
+    def test_prepare_only_constructs_files_and_prints_a_command(self):
+        canary = load("isolation_canary")
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / "canary"
+            command = canary.prepare(run)
+            self.assertIn("source ~/.h2-worker-profile/env.sh", command)
+            self.assertIn("opencode run --standalone --format json -m "
+                          "opencode-go/deepseek-v4.1-flash", command)
+            for rel, token in (("AGENTS.md", "H2_CANARY_WRAPPER_STARTUP"),
+                               ("repo/AGENTS.md", "H2_CANARY_REPO_ATTACHED"),
+                               ("repo/nested/AGENTS.md", "H2_CANARY_NESTED_ATTACHED")):
+                self.assertIn(token, (run / rel).read_text())
+            self.assertEqual(b"", git("status", "--porcelain", root=run / "repo"))
