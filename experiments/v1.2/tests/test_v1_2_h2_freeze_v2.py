@@ -36,6 +36,18 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def text_fields(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from text_fields(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from text_fields(item)
+
+
 class WrapperDelivery(unittest.TestCase):
     def test_both_arms_deliver_only_outside_clean_base_with_object_hashes(self):
         wrapper = load("wrapper_delivery")
@@ -251,3 +263,44 @@ class IsolationCanary(unittest.TestCase):
                                ("repo/nested/AGENTS.md", "H2_CANARY_NESTED_ATTACHED")):
                 self.assertIn(token, (run / rel).read_text())
             self.assertEqual(b"", git("status", "--porcelain", root=run / "repo"))
+
+
+class RegistryV2(unittest.TestCase):
+    def test_generator_is_byte_deterministic_and_matches_checked_in_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outputs = [Path(tmp) / f"registry-{i}.json" for i in range(2)]
+            for out in outputs:
+                subprocess.run([sys.executable, str(FZ / "build_registry.py"), "--out", str(out)],
+                               check=True, capture_output=True)
+            self.assertEqual(outputs[0].read_bytes(), outputs[1].read_bytes())
+            self.assertEqual((FZ / "task-registry-v2.json").read_bytes(), outputs[0].read_bytes())
+
+    def test_oracle_identity_scope_and_worker_visible_fields(self):
+        registry = json.loads((FZ / "task-registry-v2.json").read_text())
+        shortlist = json.loads((H2 / "admission/freeze-v2-input/shortlist.json").read_text())["shortlist"]
+        self.assertEqual([f"f{i:02d}" for i in range(1, 11)],
+                         [task["task_id"] for task in registry["tasks"]])
+        visible = list(text_fields({k: v for k, v in registry.items() if k != "expected"}))
+        for task, source in zip(registry["tasks"], shortlist, strict=True):
+            candidate, base = source["CANDIDATE_SHA"], source["BASE_SHA"]
+            self.assertFalse(any(candidate[:7] in field for field in visible))
+            self.assertEqual(candidate, registry["expected"][task["task_id"]]["candidate_sha"])
+            self.assertEqual(source["CASE_ID"], task["case_id"])
+            self.assertEqual(base, task["base_sha"])
+            oracle = task["oracle"]
+            self.assertEqual(digest(git("show", f"{base}:{oracle['path']}")), oracle["base_blob_sha256"])
+            self.assertEqual(digest(git("show", f"{candidate}:{oracle['path']}")),
+                             oracle["candidate_blob_sha256"])
+            self.assertEqual(oracle["base_blob_sha256"], oracle["candidate_blob_sha256"])
+            self.assertEqual("FRAMEWORK_FROZEN", oracle["provenance"])
+            base_tests = set(git("ls-tree", "-r", "--name-only", base, "--", "scripts/tests/")
+                             .decode().splitlines())
+            self.assertEqual(base_tests | {oracle["path"]}, set(task["scope"]["deny"]))
+            self.assertEqual([], task["scope"]["deny_prefixes"])
+            delta = git("diff", base, candidate, "--", ":!scripts/tests").decode()
+            for line in delta.splitlines():
+                if line.startswith("+") and not line.startswith("+++"):
+                    added = line[1:].strip()
+                    if len(added) >= 20:
+                        self.assertFalse(any(added in field for field in visible),
+                                         f"candidate text leaked: {task['task_id']}")
