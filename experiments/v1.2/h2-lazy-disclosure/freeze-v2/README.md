@@ -208,8 +208,30 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
    runs the preflight before any worker, renders the contract, launches the frozen worker command
    under the profile environment with the 90-minute wall clock, collects, accepts, starts the blind
    per-run audit, and appends one `registry-v2.jsonl` line per run. It refuses a run whose
-   predecessors are not registered and refuses any run id that was ever started, so no operator
-   input can change what a run does or how often it happens.
+   predecessors are not registered and refuses any run id that is registered or was started and
+   reached work, so no operator input can change what a run does or how often it happens.
+
+   **Infrastructure failure is not a result (F14).** The rule was decided before any counted run and
+   is recorded in protocol-v2 §6.1; the driver owns both halves. Immediately before the worker (and
+   again before the auditor) it sends one frozen minimal prompt with the same command, model and
+   environment in a scratch directory outside the run dir: a failure is `BLOCKED:PROVIDER_UNREACHABLE`,
+   nothing is launched, no attempt is consumed and the same run id may be invoked again later; every
+   check is kept with its timestamp in `<runs_root>/reachability-v2.jsonl`. A provider error before
+   the worker's first tool call, or a non-zero exit with zero tool calls, ends that ATTEMPT rather
+   than the run: its tree is archived under `<run_id>/attempts/<n>/` with a per-file sha256 manifest,
+   a fresh run dir is prepared from scratch (new repository, new delivery, new preflight) and the run
+   is attempted again, at most three attempts per run id (`attempts-v2.jsonl` keeps one line per
+   attempt with its number). Once the worker has made any tool call nothing is retried; a later
+   error, exit or timeout is `INVALID` as before. The auditor has the same rule with its own counter
+   (blocked audit attempts are archived under `<run_id>/attempts/audit-<n>/`, the mechanical verdict
+   is untouched, and the run stays `BLOCKED` until an audit succeeds). The final verdict comes from
+   the single attempt that reached work, and `registry-v2.jsonl` keeps exactly one terminal line per
+   run id naming that attempt. Why: live pilot #2 ended INVALID after 14 s on a transient
+   `provider.no-route` with zero tool calls, and it was the third transient upstream failure in two
+   days (401 Invalid credential, "stream ended without finish_reason", `provider.no-route`). Under
+   the old rules that noise, not the treatment, would eat counted runs — possibly unequally between
+   arms. The rule is arm-symmetric and outcome-blind because it can only fire before any worker
+   action: it cannot re-roll a result.
 
 1. **Install the frozen profile template, then attest it before every run.** Install
    `freeze-v2/worker-profile/opencode.json` as the profile's

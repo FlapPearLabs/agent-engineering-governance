@@ -17,18 +17,36 @@ between arms or runs. Every launchable fact is therefore a module constant here 
 file is byte-pinned in freeze-manifest.json with an independent literal in the tests.
 
 THE ORDER IS THE PLAN'S ORDER. A run starts only when every earlier run in run-plan-v2.json is
-registered (ACCEPT, REJECT, INVALID and BLOCKED all count as registered). A run id that was ever
-started is never started again: a second attempt is refused, and an interrupted run is registered
+registered (ACCEPT, REJECT, INVALID and BLOCKED all count as registered). A run id that reached
+work is never started again: a second start is refused, and an interrupted run is registered
 INVALID:INTERRUPTED so the plan can advance without a silent re-run (protocol-v2 §6).
 
-`execute()` takes the stub/preflight/auditor/limit parameters so tests can drive a stub worker
-(never a model). The `run` CLI exposes none of them.
+PROVIDER INFRASTRUCTURE IS NOT A RESULT (F14 / T26). A transient upstream failure used to destroy a
+counted run. Two frozen rules replace that, both pre-registered and outcome-blind because they can
+only fire before the worker acts:
+
+  * REACHABILITY. Immediately before each launch (the worker's and the auditor's) one minimal
+    frozen prompt runs with the same command, model and environment in a scratch dir outside the
+    run dir. A failed check means BLOCKED:PROVIDER_UNREACHABLE: nothing is launched, no attempt is
+    consumed, and `run` may be invoked again for the same run id later. Every check is recorded
+    with its timestamp in `<runs_root>/reachability-v2.jsonl`.
+  * FAILURE BEFORE WORK. A provider error before the first tool call, or a non-zero exit with zero
+    tool calls, ends that ATTEMPT, not the run: its tree is archived under `<run_id>/attempts/<n>/`
+    with a hash manifest, a fresh run dir is prepared from scratch (new repository, new delivery,
+    new preflight) and the run is attempted again, at most `MAX_ATTEMPTS` times. Once the worker
+    has made any tool call nothing is retried. Every attempt is a line in
+    `<runs_root>/attempts-v2.jsonl` with its attempt number; the run registry keeps exactly one
+    terminal line per run id and names the attempt that produced it.
+
+`execute()` takes the stub/preflight/auditor/probe/limit parameters so tests can drive a stub worker
+and a stub reachability check (never a model). The `run` CLI exposes none of them.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -47,7 +65,13 @@ from wrapper_delivery import H2_REL, ROOT, sha256
 FZ = Path(__file__).resolve().parent
 PLAN_NAME = "run-plan-v2.json"
 REGISTRY_NAME = "registry-v2.jsonl"
+ATTEMPT_REGISTRY_NAME = "attempts-v2.jsonl"
 LOCK_DIR = ".locks"
+ATTEMPTS_DIR = "attempts"
+ATTEMPT_NAME = "attempt.json"
+REACHABILITY_DIR = ".reachability"
+REACHABILITY_LOG_NAME = "reachability-v2.jsonl"
+SCRATCH_DIR = ".scratch"
 RECORD_NAME = "run.json"
 CONTRACT_NAME = "CONTRACT.md"
 TEMPLATE_NAME = "worker-report-template.md"
@@ -71,6 +95,13 @@ WALL_CLOCK_LIMIT_SECONDS = 90 * 60
 # the prompt differ, so one run can never outlive two wall-clock limits.
 AUDIT_LIMIT_SECONDS = WALL_CLOCK_LIMIT_SECONDS
 ARTIFACT_EXCLUDED = ("repo",)
+
+# F14 / T26: the pre-registered infrastructure rule. The probe prompt is frozen with the rest of
+# the launchable facts, and the retry budget is per run id, not per invocation.
+REACHABILITY_PROMPT = "Reply with exactly: H2_REACHABLE"
+REACHABILITY_TOKEN = "H2_REACHABLE"
+REACHABILITY_LIMIT_SECONDS = 120
+MAX_ATTEMPTS = 3
 
 # Conservative combination of the mechanical verdict and the audit (protocol-v2 §5.4).
 SEVERITY = {"ACCEPT": 0, "PASS": 0, "PARTIAL": 1, "REJECT": 2, "FAIL": 2, "INVALID": 3,
@@ -164,7 +195,11 @@ def refusal(runs_root: Path, plan_run: dict, planned: list[dict],
         except (OSError, ValueError):
             holder = None
         return "RUN_IN_PROGRESS" if pid_alive(holder) else "RUN_ALREADY_STARTED"
-    if (Path(runs_root) / run_id).exists():
+    run_dir = Path(runs_root) / run_id
+    # An attempt archive is evidence, not a start: a run dir that holds only `attempts/` is a run
+    # whose in-flight attempt was dropped by a reachability BLOCKED (no attempt consumed), so it may
+    # be started again. Anything else under the run id means a start really happened.
+    if run_dir.exists() and any(entry.name != ATTEMPTS_DIR for entry in run_dir.iterdir()):
         return "RUN_ALREADY_STARTED"
     return None
 
@@ -297,7 +332,8 @@ def strictest(verdict: str, audit_verdict: str | None) -> str:
 def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: str | None,
              run_dir: Path, audit_verdict: str | None = None, session: str | None = None,
              wall_clock: float | None = None, started_at: str | None = None,
-             registered_by: str | None = None) -> dict:
+             registered_by: str | None = None, attempt: int | None = None,
+             attempts: int | None = None) -> dict:
     """Append the one registry line of a run. Appending is the only way a run is registered."""
     line = {"run_id": plan_run["run_id"], "task_id": plan_run["task_id"],
             "arm": plan_run["arm"], "verdict": verdict, "audit_verdict": audit_verdict,
@@ -307,15 +343,218 @@ def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: st
             "artifacts": artifact_hashes(run_dir) if Path(run_dir).is_dir() else {}}
     if registered_by is not None:
         line["registered_by"] = registered_by
+    if attempt is not None:
+        line["attempt"] = attempt
+    if attempts is not None:
+        line["attempts"] = attempts
     with registry_path(runs_root).open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, sort_keys=True) + "\n")
     return line
 
 
+def error_kind(event) -> str | None:
+    """The `provider.*` type of one error event, or None (F14)."""
+    if not isinstance(event, dict) or event.get("type") != "error":
+        return None
+    for holder in (event.get("error"), event.get("part"), event):
+        if isinstance(holder, dict):
+            kind = holder.get("type")
+            if isinstance(kind, str) and kind.startswith("provider."):
+                return kind
+    return None
+
+
+def tool_call_count(events: list) -> int:
+    """Tool calls recorded in a stream; the same rule the access audit counts with."""
+    return sum(1 for event in events if isinstance(event, dict) and event.get("type") == "tool_use")
+
+
+def before_work_failure(result: dict, events: list) -> str | None:
+    """Why an attempt may be retried, or None when the worker acted and the result stands.
+
+    Only two shapes are infrastructure noise (F14): a provider error before the first tool call,
+    and a non-zero exit with zero tool calls. A timeout is never retried, and neither is anything
+    after a tool call — that result is the run's and cannot be re-rolled.
+    """
+    if result.get("timed_out") or tool_call_count(events):
+        return None
+    kinds = [kind for kind in (error_kind(event) for event in events) if kind]
+    if kinds:
+        return f"PROVIDER_ERROR:{kinds[0]}"
+    if result.get("returncode", 0) != 0:
+        return f"EXIT:{result.get('returncode')}"
+    return None
+
+
+def answer_text(events: list) -> str:
+    """Every text a stream reports, for the reachability token check."""
+    parts = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        for container in (event.get("part"), event):
+            if isinstance(container, dict) and isinstance(container.get("text"), str):
+                parts.append(container["text"])
+    return " ".join(parts)
+
+
+def append_jsonl(path: Path, line: dict) -> None:
+    with Path(path).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(line, sort_keys=True) + "\n")
+
+
+def reachability_probe(runs_root: Path, run_id: str, purpose: str, attempt: int,
+                       command: tuple, model: str, env: dict[str, str]) -> dict:
+    """One frozen minimal prompt with the run's own command, model and env, outside the run dir."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    directory = Path(runs_root) / REACHABILITY_DIR / f"{run_id}-{purpose}-{attempt}-{stamp}"
+    directory.mkdir(parents=True)
+    started_at = now()
+    started = time.monotonic()
+    result = launch([*command, model, REACHABILITY_PROMPT], directory, env,
+                    REACHABILITY_LIMIT_SECONDS, directory / EVENTS_NAME, directory / STDERR_NAME)
+    seconds = round(time.monotonic() - started, 3)
+    events, malformed = read_events(directory / EVENTS_NAME)
+    text = answer_text(events)
+    kinds = [kind for kind in (error_kind(event) for event in events) if kind]
+    reasons = []
+    if result["timed_out"]:
+        reasons.append("TIMEOUT")
+    if result["returncode"] != 0:
+        reasons.append(f"EXIT:{result['returncode']}")
+    if kinds:
+        reasons.append(f"PROVIDER_ERROR:{kinds[0]}")
+    if not events:
+        reasons.append("EMPTY_EVENT_STREAM")
+    elif not text.strip():
+        reasons.append("NO_ANSWER")
+    record = {"schema_version": 1, "program": "freeze-v2/run_h2r2.py", "run_id": run_id,
+              "purpose": purpose, "attempt": attempt, "prompt": REACHABILITY_PROMPT,
+              "command": [*command, model, REACHABILITY_PROMPT],
+              "limit_seconds": REACHABILITY_LIMIT_SECONDS,
+              "started_at": started_at, "finished_at": now(), "seconds": seconds,
+              "returncode": result["returncode"], "timed_out": result["timed_out"],
+              "events": len(events), "malformed": malformed,
+              "token_seen": REACHABILITY_TOKEN in text,
+              "verdict": "FAIL" if reasons else "PASS", "reasons": reasons,
+              "directory": str(directory),
+              "events_sha256": sha256((directory / EVENTS_NAME).read_bytes())
+              if (directory / EVENTS_NAME).is_file() else None}
+    append_jsonl(Path(runs_root) / REACHABILITY_LOG_NAME, record)
+    return record
+
+
+def next_attempt_number(runs_root: Path, run_id: str) -> int:
+    """The attempt number this invocation starts at; the attempt ledger is append-only."""
+    path = Path(runs_root) / ATTEMPT_REGISTRY_NAME
+    number = 1
+    if not path.is_file():
+        return number
+    for text in path.read_text(encoding="utf-8").splitlines():
+        if not text.strip():
+            continue
+        try:
+            entry = json.loads(text)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get("run_id") == run_id:
+            value = entry.get("attempt")
+            if isinstance(value, int) and value >= number:
+                number = value + 1
+    return number
+
+
+def attempt_line(plan_run: dict, pending: dict, archived: dict) -> dict:
+    """One attempt ledger line, carrying its attempt number and its artefact hashes."""
+    return {"run_id": plan_run["run_id"], "task_id": plan_run["task_id"],
+            "arm": plan_run["arm"], "attempt": pending["attempt"], "kind": pending["kind"],
+            "verdict": pending.get("verdict", "BLOCKED"), "reason": pending["reason"],
+            "started_at": pending.get("started_at"), "finished_at": pending.get("finished_at"),
+            "archive": archived.get("archive"),
+            "manifest_sha256": archived.get("manifest_sha256"),
+            "artifacts": archived.get("artifacts", {})}
+
+
+def hold_run_dir(runs_root: Path, run_dir: Path) -> Path | None:
+    """Move the live run dir aside (its attempts/ archives travel with it) and return it."""
+    run_dir = Path(run_dir)
+    if not run_dir.exists():
+        return None
+    scratch = Path(runs_root) / SCRATCH_DIR
+    scratch.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    held = scratch / f"{run_dir.name}-{os.getpid()}-{stamp}"
+    run_dir.rename(held)
+    return held
+
+
+def restore_archives(held: Path, run_dir: Path) -> list[str]:
+    """Move the previous attempt archives back under the freshly prepared run dir."""
+    prior = Path(held) / ATTEMPTS_DIR
+    if not prior.is_dir():
+        return []
+    target = Path(run_dir) / ATTEMPTS_DIR
+    target.mkdir(exist_ok=True)
+    names = []
+    for entry in sorted(prior.iterdir()):
+        entry.rename(target / entry.name)
+        names.append(entry.name)
+    prior.rmdir()
+    return names
+
+
+def archive_tree(tree: Path, run_dir: Path, name: str, *, plan_run: dict, attempt: int,
+                 kind: str, reason: str, started_at: str | None = None,
+                 finished_at: str | None = None) -> dict:
+    """Archive one attempt under `<run_id>/attempts/<name>/` with a hash manifest.
+
+    The task repository is not an artefact here (the same exclusion the registry uses): it is
+    discarded with the attempt and rebuilt from scratch, and hashing it would only record a tree
+    that no worker ever touched.
+    """
+    tree = Path(tree)
+    shutil.rmtree(tree / "repo", ignore_errors=True)
+    target = Path(run_dir) / ATTEMPTS_DIR / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tree.rename(target)
+    artifacts = artifact_hashes(target)
+    manifest = {"schema_version": 1, "program": "freeze-v2/run_h2r2.py",
+                "run_id": plan_run["run_id"], "task_id": plan_run["task_id"],
+                "arm": plan_run["arm"], "attempt": attempt, "kind": kind,
+                "verdict": "BLOCKED", "reason": reason, "started_at": started_at,
+                "finished_at": finished_at, "artifact_excluded": list(ARTIFACT_EXCLUDED),
+                "artifacts": artifacts}
+    data = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    (target / ATTEMPT_NAME).write_bytes(data)
+    return {"archive": target.relative_to(Path(run_dir)).as_posix(), "artifacts": artifacts,
+            "manifest_sha256": sha256(data)}
+
+
+def abandon_run_dir(run_dir: Path) -> None:
+    """Drop the live tree of a run that consumed no attempt, keeping its attempt archives."""
+    run_dir = Path(run_dir)
+    if not run_dir.is_dir():
+        return
+    for entry in sorted(run_dir.iterdir()):
+        if entry.name == ATTEMPTS_DIR:
+            continue
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
+    if not (run_dir / ATTEMPTS_DIR).is_dir():
+        run_dir.rmdir()
+
+
 def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=None,
             preflight=None, auditor=None, limit_seconds: int | None = None,
-            audit_limit_seconds: int | None = None, profile_env: Path | None = None) -> dict:
-    """Execute one planned run. Refusals allocate nothing; every other path ends registered."""
+            audit_limit_seconds: int | None = None, profile_env: Path | None = None,
+            probe=None) -> dict:
+    """Execute one planned run. Refusals allocate nothing; every other path ends registered.
+
+    An attempt that never reached work (F14) is archived and retried on a fresh run dir; a failed
+    reachability check blocks the run without consuming an attempt and without registering it.
+    """
     root = Path(root).resolve()
     runs_root = check_runs_root(runs_root)
     runs_root.mkdir(parents=True, exist_ok=True)
@@ -335,156 +574,329 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     command = tuple(worker_command or WORKER_COMMAND)
     limit = WALL_CLOCK_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
     audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
-    started = time.monotonic()
-    record = {"schema_version": 1, "program": "freeze-v2/run_h2r2.py", "run_id": run_id,
-              "task_id": plan_run["task_id"], "arm": plan_run["arm"],
-              "materials_commit": plan_run["materials_commit"], "model": plan_run["model"],
-              "runtime": plan_run["runtime"], "profile_env": str(env_file),
-              "worker_command": list(command), "launch_prompt": LAUNCH_PROMPT,
-              "env_allow_list": list(ENV_ALLOW), "frozen_env": dict(FROZEN_ENV),
-              "limit_seconds": limit,
-              "audit_limit_seconds": audit_limit, "started_at": now(), "finished_at": None,
-              "wall_clock_seconds": None, "verdict": None, "audit_verdict": None,
-              "final_verdict": None, "reasons": [], "session_id": None, "steps": []}
-    lock = acquire_lock(runs_root, run_id)
+    state: dict = {"env": None}
 
-    def save() -> None:
+    def default_probe(purpose: str, attempt: int) -> dict:
+        return reachability_probe(runs_root, run_id, purpose, attempt, command,
+                                  plan_run["model"], state["env"])
+
+    prober = probe or default_probe
+    lock = acquire_lock(runs_root, run_id)
+    started = time.monotonic()
+    attempt = next_attempt_number(runs_root, run_id)
+    state["pending"] = None
+
+    def save(record: dict) -> None:
         (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n",
                                            encoding="utf-8")
 
-    def finish(verdict: str, reasons: list[str], audit: dict | None = None) -> dict:
-        record["verdict"] = verdict
-        record["reasons"] = list(reasons)
-        record["audit_verdict"] = audit["verdict"] if audit else None
-        record["final_verdict"] = strictest(verdict, record["audit_verdict"])
-        record["finished_at"] = now()
-        record["wall_clock_seconds"] = round(time.monotonic() - started, 3)
+    while attempt <= MAX_ATTEMPTS:
+        record = {"schema_version": 1, "program": "freeze-v2/run_h2r2.py", "run_id": run_id,
+                  "task_id": plan_run["task_id"], "arm": plan_run["arm"],
+                  "materials_commit": plan_run["materials_commit"], "model": plan_run["model"],
+                  "runtime": plan_run["runtime"], "profile_env": str(env_file),
+                  "worker_command": list(command), "launch_prompt": LAUNCH_PROMPT,
+                  "reachability_prompt": REACHABILITY_PROMPT, "max_attempts": MAX_ATTEMPTS,
+                  "attempt": attempt,
+                  "env_allow_list": list(ENV_ALLOW), "frozen_env": dict(FROZEN_ENV),
+                  "limit_seconds": limit,
+                  "audit_limit_seconds": audit_limit, "started_at": now(), "finished_at": None,
+                  "wall_clock_seconds": None, "verdict": None, "audit_verdict": None,
+                  "final_verdict": None, "reasons": [], "session_id": None,
+                  "reachability": [], "steps": []}
+
+        def settle(verdict: str, reasons: list[str], audit: dict | None = None,
+                   record: dict = record) -> dict:
+            """Finalise one attempt's record; registration happens once, in the driver."""
+            record["verdict"] = verdict
+            record["reasons"] = list(reasons)
+            record["audit_verdict"] = audit["verdict"] if audit else None
+            record["final_verdict"] = strictest(verdict, record["audit_verdict"])
+            record["finished_at"] = now()
+            record["wall_clock_seconds"] = round(time.monotonic() - started, 3)
+            save(record)
+            return {"status": "TERMINAL", "verdict": verdict, "audit": audit,
+                    "reasons": list(reasons), "record": record}
+
+        def terminate(verdict: str, reasons: list[str], record: dict = record) -> dict:
+            """A terminal state without an audit, written to run.json like every other attempt."""
+            record.update({"verdict": verdict, "reasons": list(reasons), "audit_verdict": None,
+                           "final_verdict": verdict, "finished_at": now(),
+                           "wall_clock_seconds": round(time.monotonic() - started, 3)})
+            save(record)
+            return {"status": "TERMINAL", "verdict": verdict, "audit": None,
+                    "reasons": list(reasons), "record": record}
+
+        def attempt_body() -> dict:
+            entry = start_step(record, "prepare")
+            held = hold_run_dir(runs_root, run_dir)
+            try:
+                wrapper_delivery.prepare(root, run_dir, plan_run["task_id"], plan_run["arm"],
+                                         plan_run["materials_commit"])
+            except ValueError as exc:
+                if held is not None:
+                    shutil.rmtree(run_dir, ignore_errors=True)
+                    held.rename(run_dir)
+                reason = f"PREPARE_FAILED:{exc}"
+                finish_step(entry, "FAILED", reasons=[reason])
+                return terminate("INVALID", [reason])
+            restored = restore_archives(held, run_dir) if held is not None else []
+            finish_step(entry, "DONE", attempt=attempt, restored=restored)
+            if held is not None:
+                if state["pending"] is not None:
+                    # The previous attempt never reached work: archive it, hash it, ledger it.
+                    previous = state["pending"]
+                    archived = archive_tree(held, run_dir, str(previous["attempt"]),
+                                            plan_run=plan_run, attempt=previous["attempt"],
+                                            kind=previous["kind"], reason=previous["reason"],
+                                            started_at=previous.get("started_at"),
+                                            finished_at=previous.get("finished_at"))
+                    append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
+                                 attempt_line(plan_run, previous, archived))
+                    state["pending"] = None
+                else:
+                    shutil.rmtree(held, ignore_errors=True)
+            save(record)
+
+            entry = start_step(record, "preflight")
+            attester = preflight or isolation_canary.preflight
+            try:
+                attestation = attester(run_dir, env_file)
+            except ValueError as exc:
+                attestation = {"verdict": "FAIL", "reasons": [str(exc)]}
+            if attestation.get("verdict") != "PASS":
+                found = [str(item) for item in attestation.get("reasons", [])] or ["PREFLIGHT_FAIL"]
+                finish_step(entry, "BLOCKED", reasons=found)
+                return settle("BLOCKED", [f"PREFLIGHT_FAIL:{reason}" for reason in found])
+            finish_step(entry, "PASS")
+            save(record)
+
+            entry = start_step(record, "brief")
+            brief = subprocess.run([sys.executable, str(FZ / "render_brief.py"), "--run-id", run_id,
+                                    "--python", sys.executable,
+                                    "--out", str(run_dir / CONTRACT_NAME)],
+                                   capture_output=True, text=True)
+            if brief.returncode != 0 or not (run_dir / CONTRACT_NAME).is_file():
+                finish_step(entry, "FAILED", returncode=brief.returncode)
+                return settle("INVALID", [f"BRIEF_FAILED:{brief.returncode}"])
+            finish_step(entry, "DONE", sha256=sha256((run_dir / CONTRACT_NAME).read_bytes()),
+                        template=(run_dir / TEMPLATE_NAME).is_file())
+            save(record)
+
+            try:
+                env = worker_env(env_file)
+            except ValueError as exc:
+                entry = start_step(record, "worker")
+                finish_step(entry, "FAILED", reasons=[str(exc)])
+                return terminate("INVALID", [str(exc)])
+            state["env"] = env
+
+            # F14: one frozen minimal prompt with the run's own command, model and env, immediately
+            # before the worker. A failure here launches nothing and consumes no attempt.
+            entry = start_step(record, "reachability")
+            probe_record = prober("worker", attempt)
+            record["reachability"].append(probe_record)
+            if probe_record.get("verdict") != "PASS":
+                found = [f"PROVIDER_UNREACHABLE:{item}" for item in probe_record.get("reasons", [])]
+                found = found or ["PROVIDER_UNREACHABLE"]
+                finish_step(entry, "BLOCKED", reasons=found)
+                save(record)
+                return {"status": "UNREACHABLE", "reasons": found}
+            finish_step(entry, "PASS", seconds=probe_record.get("seconds"),
+                        events=probe_record.get("events"),
+                        token_seen=probe_record.get("token_seen"))
+            save(record)
+
+            entry = start_step(record, "worker")
+            result = launch([*command, plan_run["model"], LAUNCH_PROMPT], run_dir, env, limit,
+                            run_dir / EVENTS_NAME, run_dir / STDERR_NAME)
+            events, malformed = read_events(run_dir / EVENTS_NAME)
+            record["session_id"] = session_id(events)
+            reasons = worker_reasons(result, events, malformed)
+            blocked = before_work_failure(result, events)
+            finish_step(entry, "BLOCKED" if blocked else ("INVALID" if reasons else "DONE"),
+                        returncode=result["returncode"], timed_out=result["timed_out"],
+                        events=len(events), malformed=malformed,
+                        tool_calls=tool_call_count(events), reasons=reasons)
+            if blocked:
+                # F14: the provider failed before the worker acted. This ends the attempt, not the run.
+                reason = f"PROVIDER_FAILED_BEFORE_WORK:{blocked}"
+                record.update({"verdict": "BLOCKED", "reasons": [reason], "audit_verdict": None,
+                               "final_verdict": "BLOCKED", "finished_at": now(),
+                               "wall_clock_seconds": round(time.monotonic() - started, 3)})
+                save(record)
+                return {"status": "RETRY", "kind": "PROVIDER_FAILED_BEFORE_WORK", "reason": reason,
+                        "record": record}
+            save(record)
+
+            # F9 / T22: the stream that already exists is evidence. Any access outside the run makes
+            # the run INVALID:OUT_OF_RUN_ACCESS; it is registered like every other terminal state and a
+            # second start is refused, so a hit can never be re-run away.
+            entry = start_step(record, "access_audit")
+            access = access_audit.audit(run_dir / EVENTS_NAME, run_dir, home=env.get("HOME"),
+                                        python=sys.executable)
+            (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
+                                               encoding="utf-8")
+            access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
+                              for hit in access["hits"]]
+            finish_step(entry, "PASS" if access["verdict"] == "PASS" else "INVALID",
+                        tool_calls=access["tool_calls"], hits=len(access["hits"]),
+                        reasons=access_reasons)
+            save(record)
+            if reasons:
+                return worker_terminal(run_dir, record, root, settle, reasons)
+            if access_reasons:
+                return worker_terminal(run_dir, record, root, settle, access_reasons)
+
+            entry = start_step(record, "acceptance")
+            collected = collect_v2.collect(root, run_dir)
+            (run_dir / COLLECTED_NAME).write_text(
+                json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            verdict = run_acceptance_v2.accept(root, run_dir)
+            (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
+                                                encoding="utf-8")
+            finish_step(entry, verdict["verdict"], reasons=verdict["reasons"],
+                        collected=collected["status"], diff_sha256=collected["diff_sha256"])
+            save(record)
+
+            audit: dict | None = None
+            if verdict["verdict"] in ("ACCEPT", "REJECT"):
+                entry = start_step(record, "audit")
+                chosen = auditor or run_audit_v2.audit
+                audit_attempts: list[dict] = []
+                audit_number = 0
+                while audit_number < MAX_ATTEMPTS:
+                    audit_number += 1
+                    # The same reachability rule, with its own counter, immediately before the auditor.
+                    probe_record = prober("auditor", audit_number)
+                    record["reachability"].append(probe_record)
+                    if probe_record.get("verdict") != "PASS":
+                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
+                                               "reasons": [f"PROVIDER_UNREACHABLE:{item}"
+                                                           for item in probe_record.get("reasons", [])]})
+                        continue
+                    try:
+                        audit = chosen(run_dir, plan_run, task_of(root, plan_run["task_id"]),
+                                       launch=launch, command=command, env=env,
+                                       limit_seconds=audit_limit)
+                    except (ValueError, OSError) as exc:
+                        audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
+                                 "leakage": []}
+                    audit_events, _ = read_events(run_dir / run_audit_v2.AUDIT_DIR / EVENTS_NAME)
+                    blocked = before_work_failure(audit.get("launch") or {}, audit_events)
+                    if audit["verdict"] != "BLOCKED" or not blocked:
+                        break
+                    archived = archive_tree(run_dir / run_audit_v2.AUDIT_DIR, run_dir,
+                                            f"audit-{audit_number}", plan_run=plan_run,
+                                            attempt=audit_number,
+                                            kind="PROVIDER_FAILED_BEFORE_WORK",
+                                            reason=f"PROVIDER_FAILED_BEFORE_WORK:{blocked}")
+                    audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
+                                           "reasons": [f"PROVIDER_FAILED_BEFORE_WORK:{blocked}"],
+                                           "archive": archived["archive"],
+                                           "manifest_sha256": archived["manifest_sha256"]})
+                    audit = None
+                if audit is None:
+                    audit = {"verdict": "BLOCKED",
+                             "reasons": (audit_attempts[-1]["reasons"] if audit_attempts
+                                         else ["PROVIDER_UNREACHABLE"]),
+                             "leakage": []}
+                finish_step(entry, audit.get("verdict", "BLOCKED"),
+                            reasons=audit.get("reasons", []), leakage=audit.get("leakage", []),
+                            attempts=audit_attempts)
+                save(record)
+            else:
+                audit = {"verdict": "SKIPPED", "reasons": [f"RUN_{verdict['verdict']}"], "leakage": []}
+                entry = start_step(record, "audit")
+                finish_step(entry, "SKIPPED", reasons=audit["reasons"])
+
+            reasons = list(verdict["reasons"])
+            if audit["verdict"] == "BLOCKED":
+                reasons = reasons + [f"AUDIT_BLOCKED:{reason}" for reason in audit.get("reasons", [])]
+            return settle(verdict["verdict"], reasons, audit)
+
+        outcome = attempt_body()
+
+        if outcome["status"] == "UNREACHABLE":
+            # F14: the provider was unreachable before anything ran. No attempt is consumed, so
+            # only the archives (if any) stay and the run may be invoked again for this id later.
+            abandon_run_dir(run_dir)
+            Path(lock).unlink(missing_ok=True)
+            return {"outcome": "BLOCKED", "run_id": run_id, "registered": False,
+                    "reason": ";".join(outcome["reasons"]), "verdict": "BLOCKED",
+                    "audit_verdict": None, "final_verdict": "BLOCKED",
+                    "reasons": outcome["reasons"], "session_id": None,
+                    "wall_clock_seconds": round(time.monotonic() - started, 3)}
+
+        if outcome["status"] == "RETRY":
+            # The attempt never reached work: the next iteration archives it and re-prepares from
+            # scratch (F14). Nothing about the run is registered until an attempt reaches work.
+            state["pending"] = {"attempt": attempt, "kind": outcome["kind"],
+                                "reason": outcome["reason"], "verdict": "BLOCKED",
+                                "started_at": outcome["record"]["started_at"],
+                                "finished_at": outcome["record"]["finished_at"],
+                                "record": outcome["record"]}
+            attempt += 1
+            continue
+
+        record = outcome["record"]
+        record["attempts"] = attempt
         entry = start_step(record, "registry")
         finish_step(entry, "DONE", file=REGISTRY_NAME)
-        save()
+        save(record)
         line = register(runs_root, plan_run, verdict=record["verdict"],
                         reason=";".join(record["reasons"]), run_dir=run_dir,
                         audit_verdict=record["audit_verdict"], session=record["session_id"],
                         wall_clock=record["wall_clock_seconds"],
-                        started_at=record["started_at"])
-        annotate_lock(lock, record["final_verdict"])
+                        started_at=record["started_at"], attempt=attempt, attempts=attempt)
+        append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
+                     attempt_line(plan_run,
+                                  {"attempt": attempt, "kind": "TERMINAL",
+                                   "verdict": record["verdict"],
+                                   "reason": ";".join(record["reasons"]),
+                                   "started_at": record["started_at"],
+                                   "finished_at": record["finished_at"]},
+                                  {"archive": None, "manifest_sha256": None,
+                                   "artifacts": artifact_hashes(run_dir)}))
+        annotate_lock(lock, line["final_verdict"])
         return {"outcome": "EXECUTED", "run_dir": str(run_dir),
                 "registry": str(registry_path(runs_root)), "session_id": record["session_id"],
                 "verdict": record["verdict"], "audit_verdict": record["audit_verdict"],
                 "final_verdict": line["final_verdict"], "reasons": record["reasons"],
-                "wall_clock_seconds": record["wall_clock_seconds"]}
-
-    entry = start_step(record, "prepare")
-    try:
-        wrapper_delivery.prepare(root, run_dir, plan_run["task_id"], plan_run["arm"],
-                                 plan_run["materials_commit"])
-    except ValueError as exc:
-        finish_step(entry, "FAILED", reasons=[str(exc)])
-        reason = f"PREPARE_FAILED:{exc}"
-        line = register(runs_root, plan_run, verdict="INVALID", reason=reason, run_dir=run_dir)
-        annotate_lock(lock, line["final_verdict"])
-        return {"outcome": "EXECUTED", "run_dir": str(run_dir),
-                "final_verdict": line["final_verdict"], "verdict": "INVALID",
-                "audit_verdict": None, "reasons": [reason], "session_id": None,
-                "wall_clock_seconds": round(time.monotonic() - started, 3)}
-    finish_step(entry, "DONE")
-    save()
-
-    entry = start_step(record, "preflight")
-    attester = preflight or isolation_canary.preflight
-    try:
-        attestation = attester(run_dir, env_file)
-    except ValueError as exc:
-        attestation = {"verdict": "FAIL", "reasons": [str(exc)]}
-    if attestation.get("verdict") != "PASS":
-        found = [str(item) for item in attestation.get("reasons", [])] or ["PREFLIGHT_FAIL"]
-        finish_step(entry, "BLOCKED", reasons=found)
-        return finish("BLOCKED", [f"PREFLIGHT_FAIL:{reason}" for reason in found])
-    finish_step(entry, "PASS")
-    save()
-
-    entry = start_step(record, "brief")
-    brief = subprocess.run([sys.executable, str(FZ / "render_brief.py"), "--run-id", run_id,
-                            "--python", sys.executable, "--out", str(run_dir / CONTRACT_NAME)],
-                           capture_output=True, text=True)
-    if brief.returncode != 0 or not (run_dir / CONTRACT_NAME).is_file():
-        finish_step(entry, "FAILED", returncode=brief.returncode)
-        return finish("INVALID", [f"BRIEF_FAILED:{brief.returncode}"])
-    finish_step(entry, "DONE", sha256=sha256((run_dir / CONTRACT_NAME).read_bytes()),
-                template=(run_dir / TEMPLATE_NAME).is_file())
-    save()
-
-    entry = start_step(record, "worker")
-    try:
-        env = worker_env(env_file)
-    except ValueError as exc:
-        finish_step(entry, "FAILED", reasons=[str(exc)])
-        return finish("INVALID", [str(exc)])
-    result = launch([*command, plan_run["model"], LAUNCH_PROMPT], run_dir, env, limit,
-                    run_dir / EVENTS_NAME, run_dir / STDERR_NAME)
-    events, malformed = read_events(run_dir / EVENTS_NAME)
-    record["session_id"] = session_id(events)
-    reasons = worker_reasons(result, events, malformed)
-    finish_step(entry, "INVALID" if reasons else "DONE", returncode=result["returncode"],
-                timed_out=result["timed_out"], events=len(events), malformed=malformed,
-                reasons=reasons)
-    save()
-
-    # F9 / T22: the stream that already exists is evidence. Any access outside the run makes the
-    # run INVALID:OUT_OF_RUN_ACCESS; it is registered like every other terminal state and a second
-    # start is refused, so a hit can never be re-run away.
-    entry = start_step(record, "access_audit")
-    access = access_audit.audit(run_dir / EVENTS_NAME, run_dir, home=env.get("HOME"),
-                                python=sys.executable)
-    (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
-                                       encoding="utf-8")
-    access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
-                      for hit in access["hits"]]
-    finish_step(entry, "PASS" if access["verdict"] == "PASS" else "INVALID",
-                tool_calls=access["tool_calls"], hits=len(access["hits"]),
-                reasons=access_reasons)
-    save()
-    if reasons:
-        return worker_terminal(run_dir, record, root, finish, reasons)
-    if access_reasons:
-        return worker_terminal(run_dir, record, root, finish, access_reasons)
-
-    entry = start_step(record, "acceptance")
-    collected = collect_v2.collect(root, run_dir)
-    (run_dir / COLLECTED_NAME).write_text(
-        json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    verdict = run_acceptance_v2.accept(root, run_dir)
-    (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
-                                        encoding="utf-8")
-    finish_step(entry, verdict["verdict"], reasons=verdict["reasons"],
-                collected=collected["status"], diff_sha256=collected["diff_sha256"])
-    save()
-
-    audit: dict | None = None
-    if verdict["verdict"] in ("ACCEPT", "REJECT"):
-        entry = start_step(record, "audit")
-        chosen = auditor or run_audit_v2.audit
-        try:
-            audit = chosen(run_dir, plan_run, task_of(root, plan_run["task_id"]),
-                           launch=launch, command=command, env=env,
-                           limit_seconds=audit_limit)
-        except (ValueError, OSError) as exc:
-            audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"], "leakage": []}
-        finish_step(entry, audit.get("verdict", "BLOCKED"),
-                    reasons=audit.get("reasons", []), leakage=audit.get("leakage", []))
-        save()
-    else:
-        audit = {"verdict": "SKIPPED", "reasons": [f"RUN_{verdict['verdict']}"], "leakage": []}
-        entry = start_step(record, "audit")
-        finish_step(entry, "SKIPPED", reasons=audit["reasons"])
-
-    reasons = list(verdict["reasons"])
-    if audit["verdict"] == "BLOCKED":
-        reasons = reasons + [f"AUDIT_BLOCKED:{reason}" for reason in audit.get("reasons", [])]
-    return finish(verdict["verdict"], reasons, audit)
+                "attempts": attempt, "wall_clock_seconds": record["wall_clock_seconds"]}
+    # Every allowed attempt failed before work: the run is BLOCKED and no fourth attempt is made.
+    if state["pending"] is None:                         # pragma: no cover - defensive
+        raise ValueError("ATTEMPTS_EXHAUSTED_WITHOUT_A_RECORD")
+    pending = state["pending"]
+    held = hold_run_dir(runs_root, run_dir)
+    run_dir.mkdir()
+    if held is not None:
+        restore_archives(held, run_dir)
+        archived = archive_tree(held, run_dir, str(pending["attempt"]), plan_run=plan_run,
+                                attempt=pending["attempt"], kind=pending["kind"],
+                                reason=pending["reason"], started_at=pending.get("started_at"),
+                                finished_at=pending.get("finished_at"))
+        append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
+                     attempt_line(plan_run, pending, archived))
+    record = pending["record"]
+    record["attempts"] = pending["attempt"]
+    (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    line = register(runs_root, plan_run, verdict="BLOCKED", reason=pending["reason"],
+                    run_dir=run_dir, audit_verdict=record.get("audit_verdict"),
+                    session=record.get("session_id"),
+                    wall_clock=record.get("wall_clock_seconds"),
+                    started_at=record.get("started_at"), attempt=pending["attempt"],
+                    attempts=pending["attempt"])
+    annotate_lock(lock, line["final_verdict"])
+    return {"outcome": "EXECUTED", "run_dir": str(run_dir),
+            "registry": str(registry_path(runs_root)), "session_id": record.get("session_id"),
+            "verdict": "BLOCKED", "audit_verdict": record.get("audit_verdict"),
+            "final_verdict": line["final_verdict"], "reasons": [pending["reason"]],
+            "attempts": pending["attempt"],
+            "wall_clock_seconds": record.get("wall_clock_seconds")}
 
 
-def worker_terminal(run_dir: Path, record: dict, root: Path, finish, reasons):
+def worker_terminal(run_dir: Path, record: dict, root: Path, settle, reasons):
     """An invalid worker is terminal, but the run still gets its collection and its verdict.
 
     Collecting after a timeout or an error is evidence, not a second chance: acceptance is run so
@@ -502,7 +914,7 @@ def worker_terminal(run_dir: Path, record: dict, root: Path, finish, reasons):
     audit = {"verdict": "SKIPPED", "reasons": ["RUN_INVALID"], "leakage": []}
     entry = start_step(record, "audit")
     finish_step(entry, "SKIPPED", reasons=audit["reasons"])
-    return finish("INVALID", reasons, audit)
+    return settle("INVALID", reasons, audit)
 
 
 def task_of(root: Path, task_id: str) -> dict:
