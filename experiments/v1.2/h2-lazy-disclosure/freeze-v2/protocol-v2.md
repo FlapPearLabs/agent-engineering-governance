@@ -80,6 +80,11 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 wrapper_delivery.py 只准备 worktree 和投放，render_brief.py 提供本 run 合同和同构报告模板；
 旧 prepare/collect/acceptance shell harness 不作为 v2 wrapper 的适配完成证据。
 
+逐 run 的机械验收由两个程序执行，它们就是第 5 节的实现，不接受人工替代：
+`collect_v2.py` 采集 base→worker 全量差异、报告、遥测并复核投放字节；
+`run_acceptance_v2.py` 产出唯一 verdict JSON 且只在 ACCEPT 时退出 0。收集判 INVALID、
+scope 违规、oracle 字节变动均为终局，不再绕过去测量；每个 run 一个 verdict，不合并、不补造。
+
 准备后再次确认 base HEAD、含 ignored 文件的干净状态、全部投放 hash。完成后收集完整
 base→worker 差异（含 worker 违约提交时的完整改动）、报告与原始遥测，复核只读投放 hash。
 新遥测路径相对于 wrapper，任务文件带 repo/ 前缀；读完整、部分和 grep 三档保持区分。
@@ -98,6 +103,9 @@ base→worker 差异（含 worker 违约提交时的完整改动）、报告与�
 3. scope 检查包括 tracked、untracked、删除、重命名及 worker 违约 commit 的完整差异。
    注册表 deny 文件（全部 base scripts/tests 文件及 oracle）不得变动，deny_prefixes
    必须满足；测试不可改，投放 / 报告 / 遥测不可写进 repo/。路径不能逃出 repo/。
+   投放副本按内容识别，但 WARM 与 rules 的源文件本身（`H2_WARM/<dest>` ↔ `<dest>`、
+   `H2_RULES.md` ↔ `RULES.md`）是仓内 owner：它们出现与投放相同的字节是修复，不是副本；
+   同一字节出现在别的路径才是副本并拒绝。arm carrier 无仓内 owner，出现即拒绝。
 4. fresh 独立 auditor 检查合同、diff、原始验收与报告；按 rubric §4 作逐 run correctness
    判定，机械与评审冲突取保守。worker 自报完成不是接受。
 

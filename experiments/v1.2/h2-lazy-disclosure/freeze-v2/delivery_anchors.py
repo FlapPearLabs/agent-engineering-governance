@@ -85,11 +85,13 @@ def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
     return out
 
 
-def run_gate(wt: Path, pattern: str | None) -> dict:
+def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED") -> dict:
+    """Run one gate in the validator's own environment (RESOLVED unless a caller asks for the
+    SYMLINKED temp-root spelling) and read the per-test statuses back out of -v output."""
     cmd = [sys.executable, "-s", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"]
     if pattern:
         cmd += ["-p", pattern]
-    with ctc.acceptance_env("RESOLVED") as env:
+    with ctc.acceptance_env(style) as env:
         r = subprocess.run(cmd, cwd=str(wt), env=env, capture_output=True, text=True,
                            timeout=TIMEOUT)
     out = r.stdout + r.stderr
