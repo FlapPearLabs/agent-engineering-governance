@@ -84,6 +84,15 @@ PROFILE   the profile config is a FROZEN INPUT (F6). The operator installs
 LIMIT     one run may not exceed 90 minutes of wall clock. Past that it is registered INVALID
           per protocol §8 (RUN_ID, ARM, TASK_ID, reason, discovery time, artifact location) and
           never silently re-run; a timeout is neither a worker failure nor a pass.
+ACCESS    after the worker exits, `access_audit.py` replays `events.jsonl`: every path argument,
+          and every path-shaped token of a shell command, must resolve inside the run directory,
+          except the frozen system allow-list (the pinned interpreter and its prefix, /usr, /bin,
+          /opt/homebrew, /System, /Library/Developer, the OS temp roots, /dev/null). Shell `git`
+          invocations that reach another repository (`clone`, `fetch`, `pull`, `push`, `ls-remote`,
+          `submodule`, `remote add|set-url|…`, `-C`, `--git-dir`, `--work-tree`) and any tool
+          outside the frozen allow-list are hits as well. Any hit makes the run
+          INVALID:OUT_OF_RUN_ACCESS — registered, never re-run (protocol-v2 §6) — and the audit
+          verdict keeps every hit verbatim.
 RUNS_ROOT H2_RUNS_ROOT = `<SHARED_RUN_ROOT>`: an operator directory in the macOS Shared folder,
           outside every home and every git repository, with NO ancestor carrying `.agents`,
           `.opencode`, `.claude`, `AGENTS.md`, `CLAUDE.md` or `opencode.json`.
@@ -119,15 +128,16 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 43 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 46 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the per-run collector and acceptance
-(`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the frozen
+(`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
+access audit and its two event fixtures (`access_audit.py`), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 44 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 47 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 

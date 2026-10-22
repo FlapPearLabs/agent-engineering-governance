@@ -73,6 +73,12 @@ profile 的 `opencode.json` 与 profile 配置目录、且该文件字节等于�
 单 run 的 wall-clock 上限是 90 分钟。超时按第 6 节登记为 INVALID（RUN_ID、ARM、TASK_ID、
 原因、发现时间、artifact 位置），不静默重跑，也不把超时当作 worker 失败或通过。
 
+worker 结束后、机械验收之前，access audit 从 `events.jsonl` 复算访问面：每个 tool call 的
+路径参数与 shell 命令中的路径 token 都必须解析到 run 目录之内，冻结的系统白名单（固定 PY
+及其 prefix、/usr、/bin、/opt/homebrew、/System、/Library/Developer、OS temp 根、/dev/null）
+除外；试图触达其他仓库的 shell `git` 调用与白名单外的工具同样计为命中。任一命中使该 run
+为 INVALID:OUT_OF_RUN_ACCESS，按第 6 节登记且不再重跑，audit verdict 逐条保留命中原文。
+
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
 从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 STANDALONE 仓库：对象库只含
 B' 及其 tree（单提交浅仓库），无 remote、无 alternates、无 reflog，HEAD detached 于 B'。因此
@@ -142,7 +148,8 @@ base→worker 差异（含 worker 违约提交时的完整改动）、报告与�
 
 沿用 protocol.md §8：保留 RUN_ID、ARM、TASK_ID、原因、发现时间和 artifact 位置。
 wrong worktree/base、carrier/hash 不符、交付/证据污染、路径/路由条件不满足、遥测或报告
-缺失、环境/worker 中断、harness defect、model tier 或 task text 不符都必须登记。
+缺失、环境/worker 中断、harness defect、model tier 或 task text 不符都必须登记。越出 run 目录的
+访问（OUT_OF_RUN_ACCESS，第 4 节）是独立登记原因：命中即无效，不因机械验收通过而软化。
 不覆写原 run，不复用 episode，不默默重跑直到结果好看。任何重试须有新的登记身份与原因；
 不能把新增重试混入冻结二十条的确认性统计。blocked 与 invalid 分开，均不能冒充 PASS。
 

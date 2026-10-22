@@ -4,7 +4,8 @@
 Subcommands, each taking `--runs-root R`:
 
     next             the next run id in plan order (or COMPLETE)
-    run <run_id>     the five mechanical steps, the independent audit and the registry line
+    run <run_id>     the five mechanical steps, the access audit, the independent audit and the
+                     registry line
     status           the state of every planned run, plus the next run id
 
 WHY THIS FILE EXISTS. Delivery (`wrapper_delivery`), briefing (`render_brief`), collection
@@ -35,6 +36,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import access_audit
 import collect_v2
 import isolation_canary
 import run_acceptance_v2
@@ -53,6 +55,7 @@ COLLECTED_NAME = "collected.json"
 VERDICT_NAME = "verdict.json"
 EVENTS_NAME = "events.jsonl"
 STDERR_NAME = "stderr.txt"
+ACCESS_NAME = "access-audit.json"
 
 # The launchable facts of a run. Pinning the module in the manifest pins these.
 WORKER_COMMAND = ("opencode", "run", "--standalone", "--auto", "--format", "json", "-m")
@@ -248,7 +251,7 @@ def worker_reasons(result: dict, events: list, malformed: int) -> list[str]:
 
 
 def artifact_hashes(run_dir: Path) -> dict[str, str]:
-    """sha256 of every run artifact; the task worktree under repo/ is not a run artifact."""
+    """sha256 of every run artifact; the task repository under repo/ is not a run artifact."""
     hashes: dict[str, str] = {}
     run_dir = Path(run_dir)
     for path in sorted(run_dir.rglob("*")):
@@ -415,8 +418,25 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                 timed_out=result["timed_out"], events=len(events), malformed=malformed,
                 reasons=reasons)
     save()
+
+    # F9 / T22: the stream that already exists is evidence. Any access outside the run makes the
+    # run INVALID:OUT_OF_RUN_ACCESS; it is registered like every other terminal state and a second
+    # start is refused, so a hit can never be re-run away.
+    entry = start_step(record, "access_audit")
+    access = access_audit.audit(run_dir / EVENTS_NAME, run_dir, home=env.get("HOME"),
+                                python=sys.executable)
+    (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
+                                       encoding="utf-8")
+    access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
+                      for hit in access["hits"]]
+    finish_step(entry, "PASS" if access["verdict"] == "PASS" else "INVALID",
+                tool_calls=access["tool_calls"], hits=len(access["hits"]),
+                reasons=access_reasons)
+    save()
     if reasons:
         return worker_terminal(run_dir, record, root, finish, reasons)
+    if access_reasons:
+        return worker_terminal(run_dir, record, root, finish, access_reasons)
 
     entry = start_step(record, "acceptance")
     collected = collect_v2.collect(root, run_dir)

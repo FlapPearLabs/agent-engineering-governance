@@ -11,6 +11,7 @@ from wrapper_delivery import H2_REL, ROOT, delivery, git, sha256
 FROZEN_FILES = tuple(sorted(
     [f"{H2_REL}/freeze-v2/{name}" for name in (
         "wrapper_delivery.py", "delivery_anchors.py", "isolation_canary.py",
+        "access_audit.py",
         "build_registry.py", "task-registry-v2.json", "build_run_plan.py", "run-plan-v2.json",
         "worker-brief-v2.md", "render_brief.py", "protocol-v2.md", "aggregate_set.py",
         "run_h2r2.py", "run_audit_v2.py",
@@ -19,6 +20,8 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/isolation-canary-events.jsonl",
         "fixtures/canary-86ac104-events.jsonl",
         "fixtures/canary-86ac104-synthetic-sources-line.jsonl",
+        "fixtures/access-audit-clean.jsonl",
+        "fixtures/access-audit-hits.jsonl",
         "fixtures/preflight-debug-paths.txt",
         "fixtures/preflight-debug-config.json",
         "worker-profile/opencode.json")]
