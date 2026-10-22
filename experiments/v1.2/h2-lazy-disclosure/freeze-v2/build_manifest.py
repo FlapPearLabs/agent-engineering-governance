@@ -19,7 +19,8 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/canary-86ac104-events.jsonl",
         "fixtures/canary-86ac104-synthetic-sources-line.jsonl",
         "fixtures/preflight-debug-paths.txt",
-        "fixtures/preflight-debug-config.json")]
+        "fixtures/preflight-debug-config.json",
+        "worker-profile/opencode.json")]
     + [f"{H2_REL}/{name}" for name in (
         "routes-h2.json", "variant-manifest.json", "scoring-rubric.md",
         "carriers/H2_LEAN_BOOTSTRAP.md", "harness/check_task_class.py",

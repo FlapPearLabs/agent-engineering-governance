@@ -29,7 +29,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "bbfba78184cf8720da811910850e9f36ea116915b1bf05f9a1cafe856226fd5d",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "68699362e77322e9362247754d2e896dcccf8dcb76f3ceeb5c9ca5bceb9b53d5",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "7a8631fe33dc39a71c55a90e382fbc40886b158a47f357274e4dfd8b72b3047b",
@@ -41,7 +41,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "010a89522665d6229e95e5dcb339e4039d2ae4bc3e36001929d5aabe9a927056",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "ca56aabb336f1f404aaa7a08304941df885bf38c2a68f4188b2afe9a56fe7bb6",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "32707f997f3848de15128dfa72c8da9ddfe9d5dc6e1ecf96727b212b9180a04c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
@@ -50,6 +50,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "9221d5d47b0875a390aa4e4dd378fb1181c077c03e6ae23fb28bb741501a1778",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
@@ -59,7 +60,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "22efaa0f3cc11f3838b39bd0ddb41194fb722c2ad1c5c123d830fc537e6a39ab"
+MANIFEST_SHA256 = "d7909cdb50a0b3e312a7daaecc5d02518f79e759d8e7001c5beb52d9c308f9c7"
 
 
 def load(name):
@@ -667,14 +668,12 @@ class IsolationPreflight(unittest.TestCase):
 
     def test_preflight_attests_the_profile_and_writes_the_verdict(self):
         canary = load("isolation_canary")
-        template = b'{"synthetic": "template"}\n'
+        template = canary.CONFIG_TEMPLATE.read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             home = root / "profile" / "isolated"
             (home / ".config" / "opencode").mkdir(parents=True)
             (home / ".config" / "opencode" / "opencode.json").write_bytes(template)
-            template_path = root / "template.json"
-            template_path.write_bytes(template)
             env_file = root / "env.sh"
             env_file.write_text(f"# synthetic\nexport HOME={home}\n"
                                 f"export XDG_CONFIG_HOME={home}/.config\n", encoding="utf-8")
@@ -691,8 +690,7 @@ class IsolationPreflight(unittest.TestCase):
                 calls.append((list(argv), Path(cwd), dict(env)))
                 return 0, outputs[argv[-1]]
 
-            with mock.patch.object(canary, "CONFIG_TEMPLATE", template_path), \
-                    mock.patch.object(canary, "run_command", side_effect=fake_run):
+            with mock.patch.object(canary, "run_command", side_effect=fake_run):
                 verdict = canary.preflight(run, env_file)
             self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
             self.assertEqual(verdict, json.loads((run / "preflight.json").read_text()))
@@ -703,12 +701,12 @@ class IsolationPreflight(unittest.TestCase):
                 self.assertEqual(str(home), env["HOME"])
                 self.assertNotIn("run", argv)
             self.assertEqual(str(home), verdict["paths"]["home"])
+            self.assertEqual(digest(template), verdict["template_sha256"])
 
             def failing_run(argv, cwd, env, timeout=120):
                 return 1, ""
 
-            with mock.patch.object(canary, "CONFIG_TEMPLATE", template_path), \
-                    mock.patch.object(canary, "run_command", side_effect=failing_run):
+            with mock.patch.object(canary, "run_command", side_effect=failing_run):
                 failed = canary.preflight(run, env_file)
             self.assertEqual("FAIL", failed["verdict"])
             self.assertIn("PREFLIGHT_COMMAND_FAILED:paths", failed["reasons"])
@@ -731,6 +729,31 @@ class IsolationPreflight(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):
                 canary.preflight(Path(tmp) / "absent", Path(tmp) / "env.sh")
+
+
+class FrozenWorkerProfile(unittest.TestCase):
+    """F6: the profile config is an experimental input, so it is frozen and checked."""
+
+    def test_template_is_the_documented_profile_config(self):
+        raw = (FZ / "worker-profile" / "opencode.json").read_bytes()
+        config = json.loads(raw)
+        self.assertEqual({"$schema", "autoupdate", "share", "plugin", "mcp", "permission"},
+                         set(config))
+        self.assertEqual("https://opencode.ai/config.json", config["$schema"])
+        self.assertIs(False, config["autoupdate"])
+        self.assertEqual("disabled", config["share"])
+        self.assertEqual([], config["plugin"])
+        self.assertEqual({}, config["mcp"])
+        self.assertEqual({"question": "deny"}, config["permission"])
+        self.assertTrue(raw.endswith(b"\n"))
+        canary = load("isolation_canary")
+        self.assertEqual(FZ / "worker-profile" / "opencode.json", canary.CONFIG_TEMPLATE)
+        verdict = canary.evaluate_preflight(
+            (FZ / "fixtures" / "preflight-debug-paths.txt").read_text(encoding="utf-8"),
+            (FZ / "fixtures" / "preflight-debug-config.json").read_text(encoding="utf-8"),
+            profile_home="<PROFILE_HOME>", template=raw, config_file=raw)
+        self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+        self.assertEqual(digest(raw), verdict["template_sha256"])
 
 
 class RegistryV2(unittest.TestCase):
@@ -917,6 +940,17 @@ class ProtocolV2(unittest.TestCase):
             return "".join(lines[start:end]).encode()
 
         self.assertEqual(confound((FZ / "README.md").read_text()), confound(protocol))
+
+    def test_profile_template_and_wall_clock_limit_are_pinned_in_the_authority_text(self):
+        protocol = (FZ / "protocol-v2.md").read_text()
+        readme = (FZ / "README.md").read_text()
+        for text in (protocol, readme):
+            self.assertIn("worker-profile/opencode.json", text)
+            self.assertIn("permission.question", text)
+            self.assertIn("preflight", text)
+            self.assertIn("90", text)
+        self.assertIn("不静默重跑", protocol)
+        self.assertIn("INVALID", protocol)
 
     def test_aggregate_is_exactly_valid_request_intersect_frozen_membership(self):
         aggregate = load("aggregate_set")

@@ -58,6 +58,21 @@ home 之外，且祖先目录不得含 `.agents`、`.opencode`、`.claude`、`AG
 把操作员的技能目录重新引入 worker。位于 Shared 目录的 run root 只出现两个内置 skill
 `opencode` 与 `report`，两臂完全相同；这是已披露的、臂对称的运行时事实，不是交付差异。
 
+profile 配置本身是冻结输入（F6）。[worker-profile/opencode.json](worker-profile/opencode.json)
+是唯一模板：`$schema`、关闭自动更新、`share: "disabled"`、空的 `plugin` 与 `mcp`，以及
+`permission.question = "deny"`。理由：隔离 profile 的解析结果里 `build` agent 允许
+`question` 动作，而 `opencode run` 是非交互的——worker 一旦调用该工具就无输出地永久等待，
+这也是此前四次评审 run 无声卡死的原因。操作员必须在首次 run 之前把模板原样安装为 profile 的
+`~/.config/opencode/opencode.json`（逐字节，不重新格式化）。每次 run 之前必须执行
+`isolation_canary.py preflight <run_dir> --profile-env <env.sh>`：它只调用
+`opencode debug paths` 与 `opencode debug config`（不 run、不调模型），把裁定写入
+`<run_dir>/preflight.json`，并要求打印出的 status 路径都在 profile home 之下、配置来源恰好是
+profile 的 `opencode.json` 与 profile 配置目录、且该文件字节等于冻结模板。preflight 不 PASS
+则不得开始该 run，`preflight.json` 留在 run dir 作为证据。
+
+单 run 的 wall-clock 上限是 90 分钟。超时按第 6 节登记为 INVALID（RUN_ID、ARM、TASK_ID、
+原因、发现时间、artifact 位置），不静默重跑，也不把超时当作 worker 失败或通过。
+
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
 从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 detached worktree。
 control carrier 的字节为薄头 + 当前 AGENTS.md 全文 + 薄尾；variant 为已钉 hash 的 lean

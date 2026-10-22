@@ -58,6 +58,20 @@ RUNTIME   opencode (CLI 2.0.25), model opencode-go/deepseek-v4.1-flash, in an IS
           no user plugins, MCP servers, skills, memory or global AGENTS.md; autoupdate off;
           `run --standalone`, so no shared background service). The profile is logged in once
           by the operator; credentials never enter this repository.
+PROFILE   the profile config is a FROZEN INPUT (F6). The operator installs
+          `freeze-v2/worker-profile/opencode.json` as the profile's
+          `~/.config/opencode/opencode.json`, byte for byte (no reformatting): `$schema`,
+          autoupdate off, `share: "disabled"`, empty `plugin` and `mcp`, and
+          `permission.question = "deny"`. WHY: the resolved `build` agent allows the `question`
+          tool, and a non-interactive `opencode run` that calls it waits forever with no output.
+          Before EVERY run, `isolation_canary.py preflight <run_dir> --profile-env <env.sh>`
+          must PASS: it runs only `opencode debug paths` and `opencode debug config`, and
+          requires every printed state path to be under the profile home, the config sources to
+          be exactly the profile `opencode.json` and its directory, and that file's bytes to
+          equal the frozen template. The verdict stays in `<run_dir>/preflight.json`.
+LIMIT     one run may not exceed 90 minutes of wall clock. Past that it is registered INVALID
+          per protocol §8 (RUN_ID, ARM, TASK_ID, reason, discovery time, artifact location) and
+          never silently re-run; a timeout is neither a worker failure nor a pass.
 RUNS_ROOT H2_RUNS_ROOT = `<SHARED_RUN_ROOT>`: an operator directory in the macOS Shared folder,
           outside every home and every git repository, with NO ancestor carrying `.agents`,
           `.opencode`, `.claude`, `AGENTS.md`, `CLAUDE.md` or `opencode.json`.
@@ -89,13 +103,14 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 36 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 41 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the per-run collector and acceptance
-(`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the sanitised
-canary fixture, route measurements, admission inputs, routes, carrier bytes, report template,
+(`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the frozen
+worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
+preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 37 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 42 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
