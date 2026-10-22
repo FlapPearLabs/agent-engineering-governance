@@ -74,7 +74,9 @@ profile 的 `opencode.json` 与 profile 配置目录、且该文件字节等于�
 原因、发现时间、artifact 位置），不静默重跑，也不把超时当作 worker 失败或通过。
 
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
-从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 detached worktree。
+从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 STANDALONE 仓库：对象库只含
+B' 及其 tree（单提交浅仓库），无 remote、无 alternates、无 reflog，HEAD detached 于 B'。因此
+worker 无法从共享对象库读到历史 candidate，repository 形状本身由投放后置条件失败关闭核验。
 control carrier 的字节为薄头 + 当前 AGENTS.md 全文 + 薄尾；variant 为已钉 hash 的 lean
 carrier。报告、遥测、receipt 与报告模板都在 wrapper 中，repo/ 内不得出现任何投放副本。
 
@@ -104,7 +106,7 @@ worker 的程序，launch prompt、worker 命令、env allow-list 与 90 分钟�
 run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
 独立评审由 `freeze-v2/run_audit_v2.py` 在盲包上执行，机械与评审两个结论都进登记，取保守者。
 每次新起 opencode 进程与 episode，不复用 session。f01 为 C,V，f02 为 V,C，依次交替。
-wrapper_delivery.py 只准备 worktree 和投放，render_brief.py 提供本 run 合同和同构报告模板；
+wrapper_delivery.py 只准备 standalone 任务仓库和投放，render_brief.py 提供本 run 合同和同构报告模板；
 旧 prepare/collect/acceptance shell harness 不作为 v2 wrapper 的适配完成证据。
 
 逐 run 的机械验收由两个程序执行，它们就是第 5 节的实现，不接受人工替代：

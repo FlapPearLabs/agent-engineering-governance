@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Commit-sourced delivery outside the task worktree; never executes a worker."""
+"""Commit-sourced delivery outside the task repository; never executes a worker."""
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
+import uuid
 from pathlib import Path, PurePosixPath
 
 H2_REL = "experiments/v1.2/h2-lazy-disclosure"
@@ -15,6 +17,13 @@ DELIVERED_NAMES = {"AGENTS.md", "H2_RULES.md", "H2_WARM"}
 # F4: opencode discovers guidance by walking UP from the cwd, past a redirected HOME, so a run root
 # below any directory that carries one of these re-admits the operator's own skills/plugins/config.
 ANCESTOR_MARKERS = (".agents", ".opencode", ".claude", "AGENTS.md", "CLAUDE.md", "opencode.json")
+# F8 / T21: `repo/` is a STANDALONE repository whose object store is exactly the task base and its
+# tree, so no worker can read the historical fix out of a shared object database. The base objects
+# are fetched through one temporary ref in the governance repository, deleted again before the
+# worker sees the tree; the ref name is the only trace a crash could leave behind.
+HISTORY_REF_ROOT = "refs/h2-delivery"
+GIT_METADATA_FILES = ("FETCH_HEAD", "ORIG_HEAD", "COMMIT_EDITMSG", "packed-refs")
+GIT_METADATA_DIRS = ("logs", "refs/remotes", "refs/tags", "worktrees")
 
 
 def operator_home() -> Path:
@@ -55,6 +64,82 @@ def git(root: Path, *args: str, binary: bool = False):
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def governance_paths(metadata: Path, root: Path) -> list[str]:
+    """Files under `metadata` that carry the governance checkout's own path (T21 postcondition)."""
+    metadata = Path(metadata)
+    needles = {str(root).encode(), str(Path(root).resolve()).encode()}
+    hits = []
+    for path in sorted(metadata.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        data = path.read_bytes()
+        if any(needle in data for needle in needles):
+            hits.append(path.relative_to(metadata.parent).as_posix())
+    return hits
+
+
+def object_names(repo: Path) -> set[str]:
+    """Every object in the object store, loose or packed."""
+    return set(git(repo, "cat-file", "--batch-all-objects",
+                   "--batch-check=%(objectname)").split())
+
+
+def reachable_objects(repo: Path) -> set[str]:
+    """Every object reachable from HEAD and the refs — i.e. the base commit and its tree."""
+    lines = git(repo, "rev-list", "--objects", "--all").splitlines()
+    return {line.split(" ", 1)[0] for line in lines if line}
+
+
+def standalone_repository(root: Path, repo: Path, base: str) -> None:
+    """Create `repo` as a standalone repository holding exactly `base` and its tree.
+
+    A depth-1 fetch of one commit, then everything that could name the governance repository or
+    another commit is removed: remotes, FETCH_HEAD, reflogs, other refs, alternates and any object
+    outside the base tree. HEAD stays detached at `base`, so `git rev-parse HEAD` and
+    `git status` show a worker exactly what the previous worktree showed.
+    """
+    root, repo = Path(root), Path(repo)
+    ref = f"{HISTORY_REF_ROOT}/{base[:12]}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    git(root, "update-ref", ref, base)
+    try:
+        repo.mkdir(parents=True)
+        git(repo, "init", "-q")
+        git(repo, "fetch", "-q", "--no-tags", "--depth", "1", str(root), ref)
+        git(repo, "checkout", "-q", "--detach", base)
+    finally:
+        git(root, "update-ref", "-d", ref)
+    metadata = repo / ".git"
+    for name in GIT_METADATA_FILES:
+        (metadata / name).unlink(missing_ok=True)
+    for name in GIT_METADATA_DIRS:
+        shutil.rmtree(metadata / name, ignore_errors=True)
+    (metadata / "objects/info/alternates").unlink(missing_ok=True)
+    git(repo, "reflog", "expire", "--expire=now", "--all")
+    shutil.rmtree(metadata / "logs", ignore_errors=True)
+    git(repo, "gc", "-q", "--prune=now")
+
+
+def verify_standalone(root: Path, repo: Path, base: str, candidate: str | None = None) -> None:
+    """The fail-closed postconditions of the history-free task repository (F8 / T21)."""
+    if git(repo, "rev-parse", "--show-toplevel").strip() != str(repo):
+        raise ValueError("REPO_NOT_STANDALONE")
+    if git(repo, "rev-list", "--all").split() != [base]:
+        raise ValueError("REPO_HISTORY_NOT_FROZEN")
+    if git(repo, "remote").strip():
+        raise ValueError("REPO_REMOTE_PRESENT")
+    if (repo / ".git/objects/info/alternates").exists():
+        raise ValueError("REPO_ALTERNATES_PRESENT")
+    if object_names(repo) != reachable_objects(repo):
+        raise ValueError("REPO_OBJECTS_EXCEED_BASE_TREE")
+    if candidate and subprocess.run(
+            ["git", "-C", str(repo), "cat-file", "-e", candidate],
+            capture_output=True).returncode == 0:
+        raise ValueError("CANDIDATE_REACHABLE")
+    leaked = governance_paths(repo / ".git", root)
+    if leaked:
+        raise ValueError(f"GOVERNANCE_PATH_IN_GIT_METADATA:{leaked[0]}")
 
 
 def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
@@ -108,12 +193,12 @@ def outside_repository(run_dir: Path) -> None:
 
 
 def cleanup(root: Path, run_dir: Path) -> None:
-    """Remove a linked task worktree using Git, then remove its wrapper."""
+    """Remove a run: a linked worktree through Git, a standalone repository by deletion."""
     run_dir = Path(run_dir).resolve()
     repo = run_dir / "repo"
-    if (repo / ".git").exists():
+    if (repo / ".git").is_file():                     # the pre-T21 linked-worktree layout
         git(root, "worktree", "remove", "--force", str(repo))
-    git(root, "worktree", "prune")
+        git(root, "worktree", "prune")
     if run_dir.exists():
         shutil.rmtree(run_dir)
 
@@ -133,11 +218,13 @@ def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -
     if task_id not in tasks:
         raise ValueError("UNKNOWN_TASK")
     base = tasks[task_id]["BASE_SHA"]
+    candidate = tasks[task_id].get("CANDIDATE_SHA")
     files = delivery(root, materials, arm)
     warm_lines = [f"{rel.removeprefix('H2_WARM/')} {sha256(data)}"
                   for rel, data in sorted(files.items()) if rel.startswith("H2_WARM/")]
     receipt = {"task_id": task_id, "arm": arm, "base_sha": base,
                "materials_commit": materials,
+               "repository_kind": "standalone_history_free",
                "carrier_kind": "control_full_v1" if arm == "control" else "variant_lean_v1",
                "carrier_sha256": sha256(files["AGENTS.md"]),
                "rules_sha256": sha256(files["H2_RULES.md"]),
@@ -145,13 +232,14 @@ def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -
                "program_sha256": sha256(Path(__file__).read_bytes())}
     run_dir.mkdir()
     try:
-        git(root, "worktree", "add", "-q", "--detach", str(run_dir / "repo"), base)
+        standalone_repository(root, run_dir / "repo", base)
         for rel, data in files.items():
             path = run_dir / rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         outside_repository(run_dir)
         verify_repo(root, run_dir / "repo", base)
+        verify_standalone(root, run_dir / "repo", base, candidate)
         (run_dir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n",
                                                encoding="utf-8")
     except BaseException:

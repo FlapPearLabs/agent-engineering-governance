@@ -43,11 +43,16 @@ def build(freeze_parent: str, root: Path = ROOT) -> dict:
     for arm in ("control", "variant"):
         if delivery(root, anchor_commit, arm) != delivery(root, parent, arm):
             raise ValueError("DELIVERY_PAYLOAD_CHANGED_SINCE_T2")
-    for rel in (f"{H2_REL}/admission/freeze-v2-input/shortlist.json",
-                f"{H2_REL}/freeze-v2/wrapper_delivery.py"):
-        if git(root, "show", f"{anchor_commit}:{rel}", binary=True) != git(
-                root, "show", f"{parent}:{rel}", binary=True):
-            raise ValueError("DELIVERY_INPUT_CHANGED_SINCE_T2")
+    # The payload equality above is what delivery neutrality depends on. The anchors also record
+    # the exact measuring program and shortlist, by hash: comparing a commit's bytes with the
+    # current program would forbid the very commit that changes the program (F8 / T21), while the
+    # recorded hash states the real invariant — this measurement was produced by this program.
+    if measured.get("wrapper_program_sha256") != sha256(
+            (root / H2_REL / "freeze-v2/wrapper_delivery.py").read_bytes()):
+        raise ValueError("DELIVERY_PROGRAM_CHANGED_SINCE_MEASUREMENT")
+    if measured.get("shortlist_sha256") != sha256(
+            (root / H2_REL / "admission/freeze-v2-input/shortlist.json").read_bytes()):
+        raise ValueError("DELIVERY_SHORTLIST_CHANGED_SINCE_MEASUREMENT")
     return {"schema_version": 2, "freeze_parent": parent, "materials_commit": parent,
             "delivery_anchor_materials_commit": anchor_commit,
             "hashes": {rel: sha256((root / rel).read_bytes()) for rel in FROZEN_FILES}}

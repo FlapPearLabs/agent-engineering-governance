@@ -128,7 +128,10 @@ def main(argv: list[str]) -> int:
                                   ["shortlist"], 1):
             base, oracle = t["BASE_SHA"], Path(t["ORACLE"]["path"]).name
             wt = scratch / t["CASE_ID"][:3]
-            git(root, "worktree", "add", "-q", "--detach", str(wt), base)
+            # PRE is the SAME repository shape the worker gets (F8 / T21): a standalone,
+            # history-free checkout of the base. A measurement that compared a full-history
+            # worktree with a history-free worker tree would report the shape as task failure.
+            wrapper.standalone_repository(root, wt, base)
             try:
                 gates = {"oracle": oracle, "full_suite": None}
                 reset(wt, base)
@@ -160,7 +163,7 @@ def main(argv: list[str]) -> int:
                         post[f"{slot}/{arm}"] = res
                 reset(wt, base)
             finally:
-                git(root, "worktree", "remove", "--force", str(wt))
+                shutil.rmtree(wt, ignore_errors=True)
             verdict = {}
             for key, res in post.items():
                 contaminated = any(res[g]["newly_not_passing"] or res[g]["ran_delta"] < 0
@@ -182,12 +185,16 @@ def main(argv: list[str]) -> int:
                   f"suite={len(pre['full_suite']['not_passing'])}/{pre['full_suite']['ran']} "
                   f"{verdict}", flush=True)
     finally:
-        git(root, "worktree", "prune")
         shutil.rmtree(scratch, ignore_errors=True)
     summary = {slot: sum(r["SLOT_ADMISSIBLE"][slot] == "NEUTRAL" for r in rows)
                for slot in ("CODEBUDDY", "AGENTS", "WRAPPER")}
     Path(a.out).write_text(json.dumps({"program": "freeze-v2/delivery_anchors.py",
                                        "materials_commit": materials,
+                                       "repository": "standalone_history_free",
+                                       "wrapper_program_sha256": hashlib.sha256(
+                                           (HERE / "wrapper_delivery.py").read_bytes()).hexdigest(),
+                                       "shortlist_sha256": hashlib.sha256(
+                                           Path(a.shortlist).read_bytes()).hexdigest(),
                                        "environment": "check_task_class.acceptance_env(RESOLVED)",
                                        "neutral_tasks_per_slot": summary, "rows": rows},
                                       indent=1) + "\n", encoding="utf-8")

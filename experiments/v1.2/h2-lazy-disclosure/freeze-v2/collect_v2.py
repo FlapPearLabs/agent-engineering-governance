@@ -161,7 +161,13 @@ def collect(root: Path = ROOT, run_dir: Path | None = None) -> dict:
     else:
         try:
             if git(repo, "rev-parse", "--show-toplevel").strip() != str(repo):
-                reasons.append("TASK_REPOSITORY_NOT_THE_WORKTREE_ROOT")
+                reasons.append("TASK_REPOSITORY_NOT_THE_ROOT")
+            # F8 / T21: the task repository is standalone and history-free; a worker that reaches
+            # another repository through a remote or an alternates link has escaped its tree.
+            if git(repo, "remote").strip():
+                reasons.append("TASK_REPOSITORY_HAS_REMOTE")
+            if (repo / ".git/objects/info/alternates").exists():
+                reasons.append("TASK_REPOSITORY_HAS_ALTERNATES")
             if subprocess_ok(repo, "merge-base", "--is-ancestor", base, "HEAD"):
                 changes = worker_changes(repo, base)
                 diff = raw(repo, "diff", "--binary", base, "--")

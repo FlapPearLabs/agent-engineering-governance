@@ -20,8 +20,11 @@ No S3 (H2 carrier) row fails anywhere.
 from the REPOSITORY ROOT:
 $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
     --materials <commit> --out $H/freeze-v2/delivery-anchors.json
-    (T2 recorded 1dbcf3f; re-measured at the T14 materials fb9ce4f — every row identical
-     except the recorded commit, so the PRE/POST numbers below are the same measurement)
+    (T2 recorded 1dbcf3f; re-measured at each later materials set — every row identical except the
+     recorded commit, so the PRE/POST numbers below are the same measurement. T21/F8 re-measured
+     again at 20719b56 with the repository shape changed from a linked worktree to a standalone
+     history-free repository; every PRE set, every `ran` count and every POST cell came back
+     identical, so the numbers below still hold and nothing was carried over)
 Gates: the task oracle and the full scripts/tests suite, PRE vs POST delivery, zero worker edits,
 compared by the SET of non-passing test ids (not exit codes: every A_REPAIR oracle is red at its
 base, and round 1's t01 went 1 -> 4 failures without changing rc).
@@ -40,7 +43,16 @@ RESULT  neutral tasks: CODEBUDDY slot 0/10, AGENTS slot 0/10, WRAPPER slot 10/10
               return codes, ran_delta = 0, no newly-passing or newly-not-passing id (20/20 cells).
               Skip, expected-failure and unexpected-success statuses count as non-passing;
               none occurs in this measurement.
+  PRE sets    non-passing ids per task 4, 3, 8, 9, 9, 2, 8, 1, 2, 5; suite sizes
+              78, 96, 122, 178, 231, 274, 301, 423, 519, 598.
 ```
+
+T21/F8 changed the shape of PRE: it is now the same standalone, history-free repository the worker
+gets (§3 LAYOUT), not a full-history worktree. A test that depended on git history would therefore
+fail PRE and POST alike and be recorded as such; the full re-measurement found none. The JSON also
+records `repository`, `wrapper_program_sha256` (the program that produced the measurement) and
+`shortlist_sha256`; `build_manifest.py` binds those two hashes, and the delivered payload is
+verified byte-equal at the recorded materials and at HEAD.
 
 Consequence: under §6.4 no shortlisted task is admissible with IN-TREE delivery, in either slot;
 all 10 are delivery-neutral with the WRAPPER layout in §3.
@@ -87,8 +99,12 @@ LAYOUT    <run>/                 worker cwd (not a git repository)
                                  the isolated profile once it is logged in)
             H2_RULES.md          RULES.md at the materials commit
             H2_WARM/             the S3 WARM owners at the materials commit
-            repo/                the task worktree at the base — NO delivered file inside it,
-                                 so §2's in-tree contamination cannot occur
+            repo/                the task repository at the base: a STANDALONE repository whose
+                                 object store is exactly B' and its tree (T21/F8) — one
+                                 shallow commit, no remote, no alternates, no reflog,
+                                 detached HEAD = B'. NO delivered file inside it, so §2's
+                                 in-tree contamination cannot occur, and no worker can read
+                                 the historical candidate out of a shared object database
 WHY       measured on 2026-10-19 with canary instruction files: opencode loads the cwd's
           AGENTS.md at startup; a repository's own AGENTS.md (and nested ones) are ATTACHED to
           the first read of a file beneath them; the user's normal profile also injects its
@@ -115,21 +131,24 @@ hash there. Tests reject a one-byte mutation of each of these 44 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit is the T17 re-pin commit; its parent and the shared run materials are
-`a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (the T16 commit). The delivered payload — carrier
+The content-freeze commit at this round is the T21 re-pin commit; its parent and the shared run
+materials are `20719b56e78ef508e17fbb5bd4bc356bfc018846`. The delivered payload — carrier
 bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
-`wrapper_delivery.py` (T13's run-root refusal), the programs/fixtures the F1/F2 fixes added
-(T11/T12) and the F5/F6 work (T15/T16: the preflight attestation, its sanitised evidence
-fixtures and the frozen worker-profile template). The T2 delivery anchors were re-measured at
-each new materials set instead of being carried over: [delivery-anchors.json](delivery-anchors.json)
-records the latest measurement at `a5a0354`, identical to the T14 measurement at `fb9ce4f`
-except for the recorded commit (same 10/10 WRAPPER neutrality, same per-task PRE sets, same
-`ran` counts). The earlier measurement commits `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a`
-(T2) and `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9` (T14) are kept in the record because the
+`wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
+repository), the programs/fixtures the F1/F2 fixes added (T11/T12) and the F5/F6 work (T15/T16:
+the preflight attestation, its sanitised evidence fixtures and the frozen worker-profile
+template). The T2 delivery anchors were re-measured at each new materials set instead of being
+carried over: [delivery-anchors.json](delivery-anchors.json) records the latest measurement at
+`20719b56`, identical to the T17 measurement at `a5a0354` in every PRE/POST cell, `ran` count and
+verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets). The earlier measurement commits
+`1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
+(T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
 PRE baseline itself did not move. The run plan is regenerated before hashing at every re-pin.
-The final default-branch merge remains the review/history anchor; hashes alone are not
-acceptance.
+The measurement's provenance is bound by hash, not by commit identity: the JSON records
+`wrapper_program_sha256` and `shortlist_sha256`, and `build_manifest.py` refuses a manifest whose
+anchors were produced by a different program or a different shortlist. The final default-branch
+merge remains the review/history anchor; hashes alone are not acceptance.
 
 Registry scope interpretation (superseded by F1, CODEX_FIXES_1 T10): the earlier reading of “allow
 everything else in repo/” reused round-2 n01/n02's empty deny-prefix list. That list let an added

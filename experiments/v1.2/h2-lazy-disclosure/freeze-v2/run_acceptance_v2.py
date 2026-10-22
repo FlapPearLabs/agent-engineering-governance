@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import shutil
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -37,7 +38,8 @@ from pathlib import Path, PurePosixPath
 import collect_v2
 import delivery_anchors
 import scope_v2
-from wrapper_delivery import H2_REL, ROOT, git, sha256
+import wrapper_delivery
+from wrapper_delivery import H2_REL, ROOT, sha256
 
 SPELLINGS = ("RESOLVED", "SYMLINKED")
 DELIVERED_NAMES = ("AGENTS.md", "H2_RULES.md", "H2_WARM")
@@ -120,15 +122,19 @@ def scope_reasons(task: dict, collected: dict) -> list[str]:
 
 @contextmanager
 def base_tree(root: Path, base: str):
-    """A clean checkout of the frozen base, outside the worker's tree and outside repo/."""
+    """A clean base checkout in the SAME standalone, history-free shape as the worker's tree.
+
+    The base gate must not be measured in a repository that carries any more history than the
+    worker's: F8 / T21 is about the shape, and a mismatch between the two sides would attribute a
+    history-dependent test to the worker.
+    """
     with tempfile.TemporaryDirectory(prefix="h2-accept-base-") as tmp:
         tree = Path(tmp) / "repo"
-        git(root, "worktree", "add", "-q", "--detach", str(tree), base)
+        wrapper_delivery.standalone_repository(root, tree, base)
         try:
             yield tree
         finally:
-            git(root, "worktree", "remove", "--force", str(tree))
-            git(root, "worktree", "prune")
+            shutil.rmtree(tree, ignore_errors=True)
 
 
 def oracle_passes(result: dict) -> bool:
