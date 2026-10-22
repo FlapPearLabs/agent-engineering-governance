@@ -29,11 +29,11 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "68699362e77322e9362247754d2e896dcccf8dcb76f3ceeb5c9ca5bceb9b53d5",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "008ceec6c6fe55a2f60eb0746a8593848a8abfae324c7c8200f46345cb3d8d84",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "7a8631fe33dc39a71c55a90e382fbc40886b158a47f357274e4dfd8b72b3047b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "4e289247cb1700fd5731c2937a6ca16fbd15a87c7d3ed0c6be198c93384ecb7e",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "9496bb6ad717a460e9f53169fd0214f56fb62d99824e4c63b7763daa791e03e4",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "365414247910ae438f39d8c94973d076e85e7ae907b4f358c330b5f64db922ac",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
@@ -41,12 +41,14 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "010a89522665d6229e95e5dcb339e4039d2ae4bc3e36001929d5aabe9a927056",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "32707f997f3848de15128dfa72c8da9ddfe9d5dc6e1ecf96727b212b9180a04c",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "3af55bc2224423cc8779b04539d64d6326da89ab3ca80546031062c547f2eddc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "32e88e025bd9e27c0fce4bebd0c8128dfc64752df893270be537ce4953f34ae5",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "167e8839c5e245373b05ce1abf474e414add322d67c4c0bcdbeeeeaa5665ec8a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "397b620a8dd1fad903cc92eab1f1800e8d6c4cd5d01432a396bffb7d102b48b4",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "e928d47ff121c2f56fc2f547235ccffd509ad18855ad45a0431d736f9f6a157a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "5147a5d6c08f596ba3291a3fff72ad6da7279524df53e0e75bab5345f2da3e3f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
@@ -60,7 +62,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "991b820620a04ab7522346429bb65bd3be8a833a7722370f6eab7d3f4f6d1950"
+MANIFEST_SHA256 = "ad068f06db208c6a1cda4bbf00c836ba0161a7b9f539a77013b818197ef4496a"
 
 
 def load(name):
@@ -1203,6 +1205,361 @@ class AcceptanceV2(unittest.TestCase):
             verdict = json.loads((empty / "verdict.json").read_text())
             self.assertEqual("INVALID", verdict["verdict"])
             self.assertIn("COLLECTION_INVALID:MISSING_RECEIPT", verdict["reasons"])
+
+
+STUB_WORKER = '''"""Test-only stub worker: never a model, never a network call.
+
+It leaves exactly the artefacts a run needs and nothing else, so the driver's steps, its
+verdict and its registry line can be exercised end to end without a worker.
+"""
+import json
+import subprocess
+import sys
+import time
+
+MODE = "__MODE__"
+PATCH = "__PATCH__"
+
+if MODE == "accept":
+    subprocess.run(["git", "-C", "repo", "apply", "--whitespace=nowarn", PATCH], check=True)
+if MODE in ("accept", "noop"):
+    open("report.md", "w").write("# report\\n\\nstub filler\\n")
+    open(".h2-telemetry.log", "w").write("READ FULL repo/RULES.md\\n")
+    print(json.dumps({"type": "text", "sessionID": "ses_stub", "part": {"text": "stub done"}}))
+elif MODE == "timeout":
+    print(json.dumps({"type": "step_start", "sessionID": "ses_stub"}))
+    sys.stdout.flush()
+    time.sleep(30)
+else:
+    print(json.dumps({"type": "error", "sessionID": "ses_stub", "part": {"text": "stub"}}))
+'''
+
+
+def profile_env_file(directory):
+    """A profile env file for tests: an export block, never the operator's real one."""
+    path = Path(directory) / "profile-env.sh"
+    path.write_text(f"export PATH={os.environ.get('PATH', '/usr/bin:/bin')}\nexport LANG=C\n",
+                    encoding="utf-8")
+    return path
+
+
+def stub_worker(directory, mode, patch=None):
+    path = Path(directory) / f"stub-{mode}.py"
+    path.write_text(STUB_WORKER.replace("__MODE__", mode).replace("__PATCH__", str(patch or "")),
+                    encoding="utf-8")
+    return path
+
+
+def candidate_patch(directory, task):
+    """The historical candidate's NON-TEST delta: what a successful worker leaves in repo/."""
+    _, source = task_pair(task["task_id"])
+    path = Path(directory) / "delta.patch"
+    path.write_bytes(git("diff", "--binary", task["base_sha"], source["CANDIDATE_SHA"],
+                         "--", ":!scripts/tests"))
+    return path
+
+
+def passing_preflight(run_dir, env_file):
+    return {"verdict": "PASS", "reasons": []}
+
+
+def stub_auditor(verdict="PASS"):
+    def audit(run_dir, plan_run, task, *, launch, command, env, limit_seconds):
+        audit_dir = Path(run_dir) / "audit"
+        audit_dir.mkdir()
+        (audit_dir / "audit.json").write_text(json.dumps(
+            {"correctness": verdict, "invalid_completion": False, "findings": [],
+             "notes": "stub auditor"}), encoding="utf-8")
+        return {"verdict": verdict, "reasons": [], "leakage": []}
+    return audit
+
+
+def execute_stub(tmp, mode="noop", *, auditor=None, preflight=None, limit_seconds=None):
+    driver = load("run_h2r2")
+    task, _ = task_pair("f01")
+    patch = candidate_patch(tmp, task) if mode == "accept" else None
+    runs = Path(tmp) / "runs"
+    result = driver.execute("h2r2-f01-c", runs,
+                            worker_command=(sys.executable, str(stub_worker(tmp, mode, patch))),
+                            preflight=preflight or passing_preflight,
+                            auditor=auditor or stub_auditor(),
+                            profile_env=profile_env_file(tmp),
+                            limit_seconds=limit_seconds)
+    return driver, runs, result
+
+
+class RunDriver(unittest.TestCase):
+    """T18: the only way a run is executed, driven by a stub worker (never a model)."""
+
+    def test_the_launchable_facts_are_frozen_and_the_cli_exposes_no_replacement(self):
+        driver = load("run_h2r2")
+        self.assertEqual(("opencode", "run", "--standalone", "--auto", "--format", "json", "-m"),
+                         driver.WORKER_COMMAND)
+        self.assertEqual("Read ./CONTRACT.md and do what it asks.", driver.LAUNCH_PROMPT)
+        self.assertEqual(("PATH", "LANG"), driver.ENV_ALLOW)
+        self.assertEqual(90 * 60, driver.WALL_CLOCK_LIMIT_SECONDS)
+        help_text = subprocess.run([sys.executable, str(FZ / "run_h2r2.py"), "run", "--help"],
+                                   capture_output=True, text=True).stdout
+        options = {token for token in help_text.split() if token.startswith("--")}
+        self.assertEqual({"--runs-root", "--help"}, options)
+
+    def test_the_candidate_delta_is_accepted_end_to_end_with_every_artefact_hashed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            driver, runs, result = execute_stub(tmp, "accept")
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"])
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                self.assertEqual("PASS", result["audit_verdict"])
+                self.assertEqual("ACCEPT", result["final_verdict"])
+                self.assertEqual("ses_stub", result["session_id"])
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual([("prepare", "DONE"), ("preflight", "PASS"), ("brief", "DONE"),
+                                  ("worker", "DONE"), ("acceptance", "ACCEPT"),
+                                  ("audit", "PASS"), ("registry", "DONE")],
+                                 [(step["step"], step["status"]) for step in record["steps"]])
+                for step in record["steps"]:
+                    self.assertTrue(step["started_at"], step["step"])
+                    self.assertTrue(step["finished_at"], step["step"])
+                self.assertEqual(90 * 60, record["limit_seconds"])
+                self.assertEqual(driver.LAUNCH_PROMPT, record["launch_prompt"])
+                self.assertEqual("ACCEPT",
+                                 json.loads((run_dir / "verdict.json").read_text())["verdict"])
+                self.assertTrue((run_dir / "CONTRACT.md").is_file())
+                self.assertTrue((run_dir / "worker-report-template.md").is_file())
+                line = json.loads((runs / "registry-v2.jsonl").read_text().splitlines()[0])
+                self.assertEqual(("h2r2-f01-c", "f01", "control", "ACCEPT", "PASS", "ACCEPT"),
+                                 (line["run_id"], line["task_id"], line["arm"], line["verdict"],
+                                  line["audit_verdict"], line["final_verdict"]))
+                self.assertEqual("ses_stub", line["session_id"])
+                self.assertGreater(line["wall_clock_seconds"], 0)
+                files = {path.relative_to(run_dir).as_posix() for path in run_dir.rglob("*")
+                         if path.is_file() and path.relative_to(run_dir).parts[0] != "repo"}
+                self.assertEqual(files, set(line["artifacts"]))
+                for rel, value in line["artifacts"].items():
+                    self.assertEqual(value, digest((run_dir / rel).read_bytes()), rel)
+                self.assertEqual("h2r2-f01-v", driver.next_run_id(runs))
+                state = driver.status(runs)
+                self.assertEqual("REGISTERED", state["runs"][0]["state"])
+                self.assertEqual("h2r2-f01-v", state["next"])
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_stub_worker_that_does_nothing_is_rejected_even_with_a_passing_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "noop", auditor=stub_auditor("FAIL"))
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("REJECT", result["verdict"])
+                self.assertEqual("FAIL", result["audit_verdict"])
+                self.assertEqual("REJECT", result["final_verdict"])
+                self.assertIn("WORKER_NOT_PASSING:RESOLVED", result["reasons"])
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_stub_worker_past_the_shortened_limit_is_invalid_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "timeout", limit_seconds=1)
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("INVALID", result["verdict"])
+                self.assertEqual(["TIMEOUT"], result["reasons"])
+                self.assertEqual("SKIPPED", result["audit_verdict"])
+                record = json.loads((run_dir / "run.json").read_text())
+                worker = next(step for step in record["steps"] if step["step"] == "worker")
+                self.assertTrue(worker["timed_out"])
+                self.assertEqual("INVALID", worker["status"])
+                self.assertEqual(1, record["limit_seconds"])
+                self.assertEqual("INVALID",
+                                 json.loads((run_dir / "verdict.json").read_text())["verdict"])
+                self.assertLess(result["wall_clock_seconds"], 60)
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_stub_worker_error_event_is_invalid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "error")
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("INVALID", result["verdict"])
+                self.assertEqual(["WORKER_ERROR_EVENT"], result["reasons"])
+                self.assertEqual("SKIPPED", result["audit_verdict"])
+                self.assertEqual("ses_stub", result["session_id"])
+            finally:
+                cleanup_run(run_dir)
+
+    def test_plan_order_and_every_second_start_are_refused(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            runs.mkdir()
+            refused = driver.execute("h2r2-f01-v", runs, profile_env=profile_env_file(tmp))
+            self.assertEqual({"outcome": "REFUSED", "run_id": "h2r2-f01-v",
+                              "reason": "PREDECESSOR_NOT_REGISTERED:h2r2-f01-c"}, refused)
+            self.assertFalse((runs / "h2r2-f01-v").exists())
+            self.assertFalse((runs / "registry-v2.jsonl").exists())
+            self.assertEqual("h2r2-f01-c", driver.next_run_id(runs))
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "timeout", limit_seconds=1)
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("INVALID", result["verdict"])
+                again = load("run_h2r2").execute("h2r2-f01-c", runs,
+                                                 profile_env=profile_env_file(tmp))
+                self.assertEqual("RUN_ALREADY_REGISTERED", again["reason"])
+                registry = runs / "registry-v2.jsonl"
+                registry.unlink()
+                (runs / ".locks" / "h2r2-f01-c.json").write_text(
+                    json.dumps({"run_id": "h2r2-f01-c", "pid": 2 ** 22, "started_at": "x"}),
+                    encoding="utf-8")
+                interrupted = load("run_h2r2").execute("h2r2-f01-c", runs,
+                                                       profile_env=profile_env_file(tmp))
+                self.assertEqual("RUN_ALREADY_STARTED", interrupted["reason"])
+                line = json.loads(registry.read_text().splitlines()[-1])
+                self.assertEqual(("INVALID", "INTERRUPTED", "SECOND_START_ATTEMPT_REFUSED"),
+                                 (line["verdict"], line["reason"], line["registered_by"]))
+                self.assertEqual("h2r2-f01-v", load("run_h2r2").next_run_id(runs))
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_failed_preflight_blocks_before_the_worker_is_launched(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "launched.marker"
+            stub = Path(tmp) / "never.py"
+            stub.write_text(f"open({str(marker)!r}, 'w').write('launched')\n", encoding="utf-8")
+
+            def failed_preflight(run_dir, env_file):
+                return {"verdict": "FAIL", "reasons": ["CONFIG_SOURCES_MISMATCH"]}
+
+            def must_not_run(*args, **kwargs):
+                raise AssertionError("the auditor ran on a blocked run")
+
+            runs = Path(tmp) / "runs"
+            result = driver.execute("h2r2-f01-c", runs,
+                                    worker_command=(sys.executable, str(stub)),
+                                    preflight=failed_preflight, auditor=must_not_run,
+                                    profile_env=profile_env_file(tmp))
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("BLOCKED", result["verdict"])
+                self.assertEqual("BLOCKED", result["final_verdict"])
+                self.assertEqual(["PREFLIGHT_FAIL:CONFIG_SOURCES_MISMATCH"], result["reasons"])
+                self.assertFalse(marker.exists())
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(["prepare", "preflight", "registry"],
+                                 [step["step"] for step in record["steps"]])
+                self.assertEqual("BLOCKED", record["steps"][1]["status"])
+                line = json.loads((runs / "registry-v2.jsonl").read_text().splitlines()[0])
+                self.assertEqual(("BLOCKED", "BLOCKED"),
+                                 (line["verdict"], line["final_verdict"]))
+            finally:
+                cleanup_run(run_dir)
+
+    def test_the_stricter_of_the_two_verdicts_wins(self):
+        driver = load("run_h2r2")
+        self.assertEqual("ACCEPT", driver.strictest("ACCEPT", "PASS"))
+        self.assertEqual("REJECT", driver.strictest("ACCEPT", "PARTIAL"))
+        self.assertEqual("REJECT", driver.strictest("ACCEPT", "FAIL"))
+        self.assertEqual("BLOCKED", driver.strictest("ACCEPT", "BLOCKED"))
+        self.assertEqual("REJECT", driver.strictest("REJECT", "PASS"))
+        self.assertEqual("INVALID", driver.strictest("INVALID", "SKIPPED"))
+
+
+class RunAuditV2(unittest.TestCase):
+    """T19: the blind bundle and the validated audit record."""
+
+    def bundle_inputs(self, tmp):
+        render = load("render_brief")
+        task, _ = task_pair("f01")
+        plan_run = next(run for run in json.loads((FZ / "run-plan-v2.json").read_text())["runs"]
+                        if run["run_id"] == "h2r2-f01-c")
+        run_dir = Path(tmp) / "h2r2-f01-c"
+        run_dir.mkdir()
+        (run_dir / "CONTRACT.md").write_text(render.render(task, plan_run, sys.executable),
+                                             encoding="utf-8")
+        (run_dir / "report.md").write_text(
+            "Used control_full_v1 and read H2_WARM/references/ticket-lane.md.\n", encoding="utf-8")
+        (run_dir / ".h2-telemetry.log").write_text("READ FULL H2_WARM/x.md\n", encoding="utf-8")
+        (run_dir / "collected.json").write_text(
+            json.dumps({"diff": "diff --git a/x b/x\n+run h2r2-f01-c\n"}), encoding="utf-8")
+        (run_dir / "verdict.json").write_text(json.dumps(
+            {"run_id": "h2r2-f01-c", "arm": "control", "run_dir": "/elsewhere",
+             "materials_commit": "0" * 40, "verdict": "REJECT", "reasons": ["X"],
+             "task_id": "f01", "base_sha": task["base_sha"]}), encoding="utf-8")
+        return run_dir, plan_run, task
+
+    def test_the_blind_bundle_has_no_arm_label_and_records_the_leakage(self):
+        audit_module = load("run_audit_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, plan_run, task = self.bundle_inputs(tmp)
+            bundle = audit_module.prepare_bundle(run_dir, plan_run, task)
+            audit_dir = run_dir / "audit"
+            self.assertEqual({audit_module.CONTRACT_NAME, audit_module.DIFF_NAME,
+                              audit_module.VERDICT_NAME, audit_module.REPORT_NAME,
+                              audit_module.REQUEST_NAME},
+                             {path.name for path in audit_dir.iterdir()})
+            contract = (audit_dir / audit_module.CONTRACT_NAME).read_text()
+            self.assertIn(audit_module.BLIND_NOTE.strip(), contract)
+            for token in ("ARM = ", "CARRIER_KIND", "CARRIER_SHA256", "h2r2-f01-c",
+                          "control_full_v1"):
+                self.assertNotIn(token, contract)
+            projection = json.loads((audit_dir / audit_module.VERDICT_NAME).read_text())
+            self.assertEqual({"verdict", "reasons", "task_id", "base_sha"}, set(projection))
+            for path in audit_dir.iterdir():
+                self.assertNotIn("READ FULL", path.read_text(errors="replace"), path.name)
+            self.assertIn({"file": "report.md", "token": "control_full_v1"}, bundle["leakage"])
+            self.assertIn({"file": "diff.patch", "token": "h2r2-"}, bundle["leakage"])
+            self.assertEqual(bundle["leakage"], bundle["request"]["leakage"])
+
+    def test_missing_or_malformed_audit_json_is_blocked(self):
+        audit_module = load("run_audit_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            audit_dir = Path(tmp) / "audit"
+            audit_dir.mkdir()
+            bundle = {"leakage": []}
+            self.assertEqual({"verdict": "BLOCKED", "correctness": None, "findings": [],
+                              "invalid_completion": None, "leakage": [], "reasons": ["AUDIT_MISSING"]},
+                             audit_module.evaluate(audit_dir, bundle))
+            for label, text, reasons in (
+                ("not json", "nope", ["AUDIT_UNREADABLE"]),
+                ("bad correctness", json.dumps({"correctness": "MAYBE", "findings": []}),
+                 ["AUDIT_CORRECTNESS_INVALID"]),
+                ("findings not a list", json.dumps({"correctness": "PASS", "findings": {}}),
+                 ["AUDIT_FINDINGS_NOT_A_LIST"]),
+                ("finding without severity", json.dumps(
+                    {"correctness": "PASS", "findings": [
+                        {"id": "F1", "category": "HV1", "location": "x", "evidence": "y"}]}),
+                 ["AUDIT_FINDING_0:SEVERITY_INVALID"]),
+                ("finding without evidence", json.dumps(
+                    {"correctness": "PASS", "findings": [
+                        {"id": "F1", "severity": "P1", "category": None, "location": "x",
+                         "evidence": ""}]}),
+                 ["AUDIT_FINDING_0:EVIDENCE_MISSING"]),
+            ):
+                with self.subTest(label=label):
+                    (audit_dir / "audit.json").write_text(text, encoding="utf-8")
+                    record = audit_module.evaluate(audit_dir, bundle)
+                    self.assertEqual("BLOCKED", record["verdict"])
+                    self.assertEqual(reasons, record["reasons"])
+
+    def test_a_complete_audit_is_read_back_with_its_findings_and_leakage(self):
+        audit_module = load("run_audit_v2")
+        leakage = [{"file": "report.md", "token": "control_full_v1"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            audit_dir = Path(tmp) / "audit"
+            audit_dir.mkdir()
+            findings = [{"id": "F1", "severity": "P1", "category": "HV5",
+                         "location": "report.md §F", "evidence": "claims done, gate red"}]
+            (audit_dir / "audit.json").write_text(json.dumps(
+                {"correctness": "FAIL", "invalid_completion": True, "findings": findings,
+                 "notes": "audited"}), encoding="utf-8")
+            record = audit_module.evaluate(audit_dir, {"leakage": leakage})
+            self.assertEqual("FAIL", record["verdict"])
+            self.assertTrue(record["invalid_completion"])
+            self.assertEqual(findings, record["findings"])
+            self.assertEqual(leakage, record["leakage"])
+            self.assertEqual([], record["reasons"])
 
 
 def freeze_is_intact(root):

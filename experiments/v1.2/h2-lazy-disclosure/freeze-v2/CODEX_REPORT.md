@@ -856,3 +856,178 @@ OK
 3. **90 分钟上限同样是操作员登记规则**，没有程序计时器；超时按 §6 登记为 INVALID。
 4. 没有执行 H2-R2、没有 push/PR/merge，真实 PR CI 状态仍为 NOT_TRIGGERED；T15–T17 的机械证据
    全部来自本地门禁与十任务锚测量。
+
+## T18–T20（implementer: opencode deepseek-v4.1-flash）
+
+本节由第四轮实现者追加，对应 CODEX_FIXES_3（5b14c2b 的 acceptance round 3，F7）。
+T1–T17 的记录原样保留。分支仍为 `experiment/v1.2-h2-freeze-v2`，起点 HEAD `c080fae`；
+按 T18→T19→T20 顺序实现，每任务一个本地提交，提交身份 `FlapPearLabs`，message 结尾带
+opencode 的 Co-Authored-By。写范围不变：`freeze-v2/**` 与
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`。最终接受仍是 Claude 的独立职责：本轮
+没有自批、没有 push/PR、没有执行任何 H2-R2 run、没有调用模型、没有运行 `opencode run`、
+没有 source 或写 `~/.h2-worker-profile`、没有写 profile 目录。
+
+### T18 — `run_h2r2.py`（run 的唯一执行路径）
+
+F7 指出的缺口是"怎么执行一个 run"只存在于散文里。现在只有一条路径：
+`next --runs-root R` / `run <run_id> --runs-root R` / `status --runs-root R`。
+
+- run root 先过 T13 规则（不在任何 home 之下、祖先无 `.agents`/`.opencode`/`.claude`/
+  `AGENTS.md`/`CLAUDE.md`/`opencode.json`），然后才分配；三个子命令都先判它。
+- 计划顺序即唯一顺序：只有在 run-plan-v2.json 中排在它前面的 run 全部登记
+  （ACCEPT/REJECT/INVALID/BLOCKED 都算登记）才允许开始；启动过的 run_id 永不再启动——
+  第二次尝试被拒，且"启动过但没登记"的记录一次 `INVALID:INTERRUPTED`
+  （`registered_by = SECOND_START_ATTEMPT_REFUSED`），计划因此能前进而不静默重跑。
+- 步骤全部带时间戳写入 `R/<run_id>/run.json`：prepare（计划里的 materials commit）→
+  preflight（FAIL ⇒ BLOCKED，worker 从未启动）→ render_brief 到 `CONTRACT.md` →
+  worker 启动 → collect_v2 + run_acceptance_v2 → auditor → 一条 `R/registry-v2.jsonl`。
+- worker 启动写成模块常量：`WORKER_COMMAND = ("opencode", "run", "--standalone", "--auto",
+  "--format", "json", "-m")`、`LAUNCH_PROMPT = "Read ./CONTRACT.md and do what it asks."`、
+  `ENV_ALLOW = ("PATH", "LANG")`（再叠加 profile env 文件的 export 行）、
+  `WALL_CLOCK_LIMIT_SECONDS = 90 * 60`。超时按进程组 SIGKILL 并登记 INVALID:TIMEOUT；
+  非零退出、`error` 事件、空事件流同样 INVALID（reason 逐条记录）。stdin 为 /dev/null，
+  stdout → `events.jsonl`，stderr → `stderr.txt`，session id 从事件流读出。
+- 登记行含 run_id、task_id、arm、verdict、audit verdict、final verdict、reason、session id、
+  wall clock、以及 run dir 内每个 artifact 的 sha256（`repo/` 工作树不是 run artifact）。
+- 替换 worker 命令 / preflight / auditor / 上限的参数只在 `execute()` 上，`run` CLI 不暴露；
+  T20 的测试用同一事实断言 CLI 只有 `run_id` 与 `--runs-root`。
+
+开发期冒烟（临时脚本在仓外，未入仓；不是门禁证据）：四种 stub 模式分别得到
+ACCEPT（历史 candidate 非测试 delta）/ REJECT / INVALID:TIMEOUT / INVALID:WORKER_ERROR_EVENT；
+计划顺序外启动被拒且不产生 registry 与 run dir；预检失败时 worker 未启动、run.json 只有
+prepare/preflight/registry 三步且 preflight=BLOCKED。
+
+### T19 — `run_audit_v2.py`（逐 run 独立评审）
+
+- 验收之后，同一隔离 profile、同一模型、同一命令、新的 session，cwd = `R/<run_id>/audit/`：
+  盲包 = 去掉 delivery 识别块的 CONTRACT.md、收集到的 base→worker diff、verdict.json 的
+  白名单投影（不含 run_id/arm/run_dir/materials_commit）与 worker 报告。carrier 正文、
+  `H2_WARM/` 包与遥测不投放进盲包。
+- 冻结的 `ARM_REVEALING` 扫描只记录不修改：命中写 LEAKAGE（rubric §10，尽力而为）。
+  `H2_WARM` 不在扫描表里，因为两臂布局相同（README §3），命名它不区分任何臂。
+- 冻结的 `AUDIT_PROMPT`；auditor 自己写 `audit.json`，必须含 rubric §4 的 correctness、
+  invalid_completion 与 rubric §2–§3 的 finding 列表（id / severity P0–P3 / category HV1–HV8
+  或 null / location / evidence）。缺失、不可解析或不完整 ⇒ 该 run BLOCKED（不是 INVALID，
+  也不是通过），原因以 `AUDIT_BLOCKED:*` 写入。
+- 机械与评审两个结论都进登记，`strictest()` 取保守者；audit 只能收紧、不能放宽机械 ACCEPT。
+  INVALID run 不审计（SKIPPED），保持 INVALID。
+
+开发期冒烟（仓外临时脚本）：用 stub 同时扮演 worker 与 auditor，ACCEPT run 的 audit 步
+执行了真实的 `prepare_bundle` + `evaluate`（cwd 为 audit 目录，argv 与 worker 相同），
+结果 audit_verdict=PARTIAL、final_verdict=REJECT；盲包内无 CARRIER_KIND/run_id。
+
+### T20 — tests、re-pin、报告
+
+新增 11 个测试（`RunDriver` 8 + `RunAuditV2` 3），worker 始终是 stub：
+ACCEPT 端到端（含 run.json 七步与时间戳、registry 每个 artifact 的 sha256 复核、next/status）、
+无操作 ⇒ REJECT（即使 audit 给 PASS 也不放宽）、缩短上限 ⇒ INVALID:TIMEOUT、
+`error` 事件 ⇒ INVALID、计划顺序与二次启动拒绝（含 INTERRUPTED 登记）、preflight 失败 ⇒
+BLOCKED 且 worker 未启动、CLI 不暴露替换参数、strictest 组合、盲包不含臂标签并记录 leakage、
+audit.json 缺失/畸形 ⇒ BLOCKED、完整 audit 回读。
+
+这些测试写在 T18/T19 代码之后，首次运行即基本 GREEN；唯一真实 RED 是测试自身的笔误
+（把 audit_verdict 的 PASS 误写成 ACCEPT、把注入的 stub 上限误写成默认 5400/120），
+已在同一提交前修正。这里不声称它们是"先 RED 再 GREEN"的证据。
+
+re-pin 按 T8/T14/T17 的同一规则做（materials = 本提交的父提交 = T19 的
+`371fd482dfff0bf4e19d6d86437e1641bb16b365`），十任务重新测量而不是沿用旧值：
+
+```bash
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials 371fd482dfff0bf4e19d6d86437e1641bb16b365 --out $H/freeze-v2/delivery-anchors.json
+$PY $H/freeze-v2/build_run_plan.py --materials 371fd482dfff0bf4e19d6d86437e1641bb16b365 \
+    --out $H/freeze-v2/run-plan-v2.json
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent 371fd482dfff0bf4e19d6d86437e1641bb16b365 \
+    --out $H/freeze-v2/freeze-manifest.json
+$PY $H/freeze-v2/build_manifest.py check
+```
+
+原样输出：
+
+```text
+DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+FREEZE_MANIFEST files=43 delivery_payload_equivalent_to_T2=YES
+{"verdict": "PASS", "mismatches": []}
+```
+
+冻结集合从 41 增至 43（新增 `run_h2r2.py` 与 `run_audit_v2.py`），manifest 自身仍有独立字面量；
+逐字节变异测试现在覆盖 43 + 1 = 44 个文件。测试里的字面量用脚本从文件字节重算（不是从
+manifest 抄写），README §4 的计数与 §5 的执行入口、protocol-v2 §5 的"唯一执行路径"同步更新。
+
+T18 提交前全门禁原样尾行（当时 `run_audit_v2.py` 已存在但尚未入该提交）：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 23.582s
+OK
+=== EXPERIMENTS_TESTS
+Ran 359 tests in 804.002s
+OK
+=== DIFFCHECK
+=== SCOPE_EMPTY
+SCOPE_EMPTY_OK
+```
+
+T19 提交前全门禁原样尾行：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 23.187s
+OK
+=== EXPERIMENTS_TESTS
+Ran 359 tests in 804.297s
+OK
+=== DIFFCHECK
+=== SCOPE_EMPTY
+SCOPE_EMPTY_OK
+ALL_GATES_PASSED
+```
+
+### 本轮未做、未证明与遗留缺口
+
+1. **没有跑过真实 worker 与真实 auditor。** 本轮的 ACCEPT/REJECT/INVALID 全部由 stub 产生；
+   `run_audit_v2.audit()` 只有在 stub 扮演 auditor 时被端到端覆盖过，真实 opencode session
+   的第一次执行属于 Claude。
+2. **launch prompt 的模型行为未验证。** 冻结的是一个常量，不是"模型确实照做"的证据。
+3. **driver 没有强制的并发锁**（只有 pid 存活判断的 lock 文件）：同一 run 的并发启动在
+   单操作员假设下靠 lock + run dir + registry 三重拒绝，未做文件系统级原子锁。
+4. **auditor 的 leakage 扫描是尽力而为**，且 `H2_WARM` 被有意排除；`report.md` 里若写
+   载体名会以 LEAKAGE 记录而不是被清洗。
+5. 没有执行 H2-R2、没有 push/PR/merge，真实 PR CI 状态仍为 NOT_TRIGGERED。
+
+T20 提交前全门禁原样尾行（跑在最终代码树上；晚于它写入的只有本段文字）：
+
+```text
+=== RUFF
+All checks passed!
+=== GOVERNANCE
+35/35 checks passed
+=== PUBLIC
+VIOLATIONS=0
+=== SCRIPTS_TESTS
+Ran 602 tests in 21.184s
+OK
+=== EXPERIMENTS_TESTS
+Ran 370 tests in 760.166s
+OK
+=== DIFFCHECK
+=== SCOPE_EMPTY
+SCOPE_EMPTY_OK
+ALL_GATES_PASSED
+```
+
+这段文字写入后重跑了读取文本的门（Ruff / governance / public release / `git diff --check` /
+越界 scope），结果同为全绿；两个长套件不读本文件，故不再重复。

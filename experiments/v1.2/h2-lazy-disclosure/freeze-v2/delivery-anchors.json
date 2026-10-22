@@ -1,6 +1,6 @@
 {
  "program": "freeze-v2/delivery_anchors.py",
- "materials_commit": "a5a03543d2ccbe4cfa727ffa0be0bf513a871a39",
+ "materials_commit": "371fd482dfff0bf4e19d6d86437e1641bb16b365",
  "environment": "check_task_class.acceptance_env(RESOLVED)",
  "neutral_tasks_per_slot": {
   "CODEBUDDY": 0,

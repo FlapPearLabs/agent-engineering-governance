@@ -103,14 +103,15 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 41 files: the registry, run plan, brief,
-protocol, runtime/measurement/generator modules, the per-run collector and acceptance
+[freeze-manifest.json](freeze-manifest.json) pins 43 files: the registry, run plan, brief,
+protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
+(`run_h2r2.py`, `run_audit_v2.py`), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 42 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 44 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
@@ -143,6 +144,23 @@ scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 ## 5. Before the first run
 
 No H2-R2 run was executed by the implementer. All of the following remain operator/Claude work:
+
+0. **Run only through the frozen driver.** An ordinary run is:
+   `$PY $H/freeze-v2/run_h2r2.py run <run_id> --runs-root <SHARED_RUN_ROOT>`, with
+   `next --runs-root <SHARED_RUN_ROOT>` printing the eligible run id and `status` printing the
+   plane. The driver owns the launch prompt and the two sublimits by construction: the worker is
+   `opencode run --standalone --auto --format json -m <plan model>` with the frozen prompt, the
+   profile env file's exports over a minimal base env, and a 90-minute wall clock; the per-run
+   auditor then runs the same command in `R/<run_id>/audit/`. Nothing about a run is typed by
+   the operator except the run root.
+
+0. **Execute runs only through the frozen driver.** `freeze-v2/run_h2r2.py` is the single entry
+   point (`next`, `run <run_id>`, `status`, all against `H2_RUNS_ROOT`): it prepares the wrapper,
+   runs the preflight before any worker, renders the contract, launches the frozen worker command
+   under the profile environment with the 90-minute wall clock, collects, accepts, starts the blind
+   per-run audit, and appends one `registry-v2.jsonl` line per run. It refuses a run whose
+   predecessors are not registered and refuses any run id that was ever started, so no operator
+   input can change what a run does or how often it happens.
 
 1. **Install the frozen profile template, then attest it before every run.** Install
    `freeze-v2/worker-profile/opencode.json` as the profile's

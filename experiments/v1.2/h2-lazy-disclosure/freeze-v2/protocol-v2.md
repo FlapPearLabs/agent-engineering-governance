@@ -99,6 +99,10 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 ## 5. 每个 run 的执行与验收
 
 按 run-plan-v2.json 串行准备和执行；前一条先完成收集或登记无效状态，才进入下一条。
+执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status`）是唯一允许启动
+worker 的程序，launch prompt、worker 命令、env allow-list 与 90 分钟上限是它的模块常量；
+run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
+独立评审由 `freeze-v2/run_audit_v2.py` 在盲包上执行，机械与评审两个结论都进登记，取保守者。
 每次新起 opencode 进程与 episode，不复用 session。f01 为 C,V，f02 为 V,C，依次交替。
 wrapper_delivery.py 只准备 worktree 和投放，render_brief.py 提供本 run 合同和同构报告模板；
 旧 prepare/collect/acceptance shell harness 不作为 v2 wrapper 的适配完成证据。

@@ -13,6 +13,7 @@ FROZEN_FILES = tuple(sorted(
         "wrapper_delivery.py", "delivery_anchors.py", "isolation_canary.py",
         "build_registry.py", "task-registry-v2.json", "build_run_plan.py", "run-plan-v2.json",
         "worker-brief-v2.md", "render_brief.py", "protocol-v2.md", "aggregate_set.py",
+        "run_h2r2.py", "run_audit_v2.py",
         "build_manifest.py", "delivery-anchors.json", "route_preconditions.py",
         "route-preconditions.json", "scope_v2.py", "collect_v2.py", "run_acceptance_v2.py",
         "fixtures/isolation-canary-events.jsonl",
