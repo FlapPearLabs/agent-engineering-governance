@@ -16,6 +16,41 @@ ROOT = Path(__file__).resolve().parents[3]
 H2_REL = "experiments/v1.2/h2-lazy-disclosure"
 H2 = ROOT / H2_REL
 FZ = H2 / "freeze-v2"
+EXPECTED_V2_HASHES = {
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json": "2b8aadff933c80966b780f86854bce8c87644d753338d7aa60d736f0fea36726",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/ledger.json": "765c21b90044646882256cbbfee66554e8cbd0580f07aacc27c080154d4e7305",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/classification.json": "53a47aca3050d79fbb05ef088900bd9b6c3840b00efc483abdb5405cf2b8a35a",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/ledger.json": "f5fd1b52623aa39e45adc409f9d98f3ae77c9f5b2da6f4858ee9a5df93a2d23a",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/classification.json": "fce7b9da373dd40d7e4841b432ade9eacb140de386e0c1db2f8c1ae025d202c5",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-3/ledger.json": "412eb5ca6f87d903d18f8cb119c4526b003d7de5d33a6df26ec465e6376c9f32",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/classification.json": "605e5eb6f80258172dcf2aa9f8b306b79a60381973427c18ce95729f71961071",
+    "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
+    "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
+    "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "706e79d1c541a0aa0c90b89d326d12abf7cdc6581975cd4726578b2ee3213981",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "87918a7452c579e6ebd2be70e2d8c9fa6295c4356eb5071925c63e24f75ce075",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "9f712ca9b80a7e533a27c00c4715768f90b31d64ffea9d9bef61ff5a09c35a7f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d5cced185b8790b8f9ee889ab50abd8560a81df29049743b396461ca938c2371",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "4ba1e93207b5bec323cf63e12a400f5be955469ac8d9bb3ce4b65c195b21b3c1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d10b8b2da9abde59261e9502353d02c1020a9b1ef91d95cca7d8bb2fa06e849f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "e156257e2e8c08b597d480f0590a81c96ee34c8139e0a9d4ce1a7faa30aa9fa1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "9cdc91d40e1e079f025019dc2e70cd7ed3ca1e73e1c03795d8e9e0ce28502357",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "7a9e84891d8ce8b7915aff2b77cdb1d550bf86363556da7e504576a24597e063",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "c8a2838fbc0c2edf2fa276eeaab87964fe4457d5606dc88419d730142583cd95",
+    "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
+    "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
+    "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
+    "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2",
+    "experiments/v1.2/h2-lazy-disclosure/routes-h2.json": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
+    "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
+    "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
+}
+MANIFEST_SHA256 = "6cb4a5eab99a32d6f6f76ece04e3bc840a51969b520e38b41add8c64c74bb908"
 
 
 def load(name):
@@ -412,3 +447,56 @@ class ProtocolV2(unittest.TestCase):
         self.assertEqual({"tasks": 1, "planned_per_arm": 1, "planned_runs": 2}, aggregate.counts(result))
         with self.assertRaises(ValueError):
             aggregate.derive(fixture + [fixture[0]], registry)
+
+
+def freeze_is_intact(root):
+    try:
+        data = (root / H2_REL / "freeze-v2/freeze-manifest.json").read_bytes()
+        return (digest(data) == MANIFEST_SHA256
+                and json.loads(data)["hashes"] == EXPECTED_V2_HASHES
+                and not load("build_manifest").verify(root))
+    except (OSError, ValueError, KeyError):
+        return False
+
+
+class FreezeManifest(unittest.TestCase):
+    def test_two_independent_anchors_and_materials_parent_binding(self):
+        self.assertTrue(freeze_is_intact(ROOT))
+        manifest = json.loads((FZ / "freeze-manifest.json").read_text())
+        for rel, expected in EXPECTED_V2_HASHES.items():
+            self.assertEqual(expected, digest((ROOT / rel).read_bytes()), rel)
+        materials = manifest["materials_commit"]
+        self.assertEqual(materials, manifest["freeze_parent"])
+        runs = json.loads((FZ / "run-plan-v2.json").read_text())["runs"]
+        self.assertEqual({materials}, {r["materials_commit"] for r in runs})
+        introductions = git("log", "--diff-filter=A", "--format=%H", "--",
+                            f"{H2_REL}/freeze-v2/freeze-manifest.json").decode().splitlines()
+        parent = git("rev-parse", f"{introductions[-1]}^" if introductions else "HEAD").decode().strip()
+        self.assertEqual(parent, materials)
+        measured = json.loads((FZ / "delivery-anchors.json").read_text())["materials_commit"]
+        wrapper = load("wrapper_delivery")
+        for arm in ("control", "variant"):
+            self.assertEqual(wrapper.delivery(ROOT, measured, arm), wrapper.delivery(ROOT, materials, arm))
+        for rel in (f"{H2_REL}/admission/freeze-v2-input/shortlist.json",
+                    f"{H2_REL}/freeze-v2/wrapper_delivery.py"):
+            self.assertEqual(git("show", f"{measured}:{rel}"), git("show", f"{materials}:{rel}"))
+
+    def test_one_byte_mutation_of_every_frozen_file_is_rejected(self):
+        manifest_rel = f"{H2_REL}/freeze-v2/freeze-manifest.json"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel in [*EXPECTED_V2_HASHES, manifest_rel]:
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((ROOT / rel).read_bytes())
+            self.assertTrue(freeze_is_intact(root))
+            for rel in [*EXPECTED_V2_HASHES, manifest_rel]:
+                with self.subTest(file=rel):
+                    path = root / rel
+                    original = path.read_bytes()
+                    self.assertTrue(original)
+                    path.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
+                    try:
+                        self.assertFalse(freeze_is_intact(root), rel)
+                    finally:
+                        path.write_bytes(original)
