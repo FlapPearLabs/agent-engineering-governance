@@ -8,6 +8,7 @@ could support a result. This program reads ONE runs root — `registry-v2.jsonl`
   * the VALID PAIRS (`final_verdict` ACCEPT or REJECT, with a readable audited verdict file),
   * the INVALID and BLOCKED runs with the reason the driver registered,
   * the attempt ledger of every run, so a retried run keeps its history,
+  * the OVERLAP PAIRS of registered runs (T34: two runs of different tasks execute at once),
   * the protocol-v2 §7 result token and the EXACT rule that decided it.
 
 WHAT IT DOES NOT DECIDE. The audited finding identity, correctness and invalid-completion flag
@@ -121,6 +122,25 @@ def missed_guidance(findings: list[dict]) -> list[str]:
             or item.get("missed_guidance") is True]
 
 
+def overlap_pairs(registry: dict[str, dict]) -> list[list[str]]:
+    """Registered runs whose execution intervals overlapped (T34 item 6).
+
+    Derived from the registry's own start/finish timestamps, so it needs nothing the driver did
+    not already write and cannot disagree with `status` or a per-run `concurrent_with`.
+    """
+    spans = []
+    for run_id, entry in registry.items():
+        start, end = entry.get("started_at"), entry.get("finished_at")
+        if isinstance(start, str) and isinstance(end, str):
+            spans.append((run_id, start, end))
+    pairs = []
+    for index, (run_id, start, end) in enumerate(spans):
+        for other_id, other_start, other_end in spans[index + 1:]:
+            if start < other_end and other_start < end:
+                pairs.append(sorted([run_id, other_id]))
+    return sorted(pairs)
+
+
 def s1_design_condition() -> dict:
     """S1: the carrier-face reduction is a frozen, pre-registered design fact (rubric §9)."""
     manifest = json.loads((HERE.parent / "variant-manifest.json").read_text(encoding="utf-8"))
@@ -203,6 +223,7 @@ def aggregate(runs_root: Path) -> dict:
               "rows": rows, "pairs": pairs,
               "invalid": invalid, "blocked": blocked, "missing": missing,
               "audit_missing": audit_missing, "unexpected": unexpected,
+              "overlap_pairs": overlap_pairs(registry),
               "s1": s1_design_condition(), "pending_rules": ["S5"],
               "result_scope": "runs_root_mechanical"}
     result.update(decide(pairs))

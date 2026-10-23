@@ -304,6 +304,26 @@ run because each one silently changes what a gate measures:
    arms. The rule is arm-symmetric and outcome-blind because it can only fire before any worker
    action: it cannot re-roll a result.
 
+   **Two runs at a time (T34).** `$PY $H/freeze-v2/run_h2r2.py run-plan --runs-root
+   <SHARED_RUN_ROOT>` schedules the whole plan: at most `MAX_PARALLEL = 2` runs of that root are in
+   flight, each a separate `run` child process, so one crash cannot take another run down. Starts
+   stay in plan order — a run starts only when every earlier run is registered or running, and the
+   second arm of a task starts only after the first arm is registered — so only finishing overlaps
+   and a concurrent pair is always two different tasks. `run` refuses a non-eligible id with
+   `PREDECESSOR_NOT_STARTED:<id>`, `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`;
+   start/end lines (time, pid, run id, outcome) go to `<runs_root>/scheduler-v2.jsonl`; registry and
+   attempt lines are appended under an exclusive `fcntl.flock`, so two finishing runs cannot
+   interleave. A run that ends `BLOCKED:PROVIDER_UNREACHABLE` is retried in plan position after a
+   pause, at most three times per scheduler invocation, after which the scheduler stops and prints
+   what is left. Each `run.json` records `concurrent_with` and its start/end times;
+   `aggregate_runs.py` reports the overlap pairs and `status` shows in-progress runs. Shared machine
+   resources follow the same rule: the preflight service port is chosen per run (bound and released
+   immediately before `service set port`) and a collision is retried with a new port at most three
+   times, recorded. WHY (decided 2026-10-23, before the first counted run): twenty 10–90 minute runs
+   would take most of a day serially, while the isolation in §3 makes cross-run influence impossible
+   except shared provider load — and that load is arm-symmetric because two concurrent runs are
+   different tasks and the arms alternate in plan order.
+
 1. **Install the frozen profile template, then attest it before every run.** Install
    `freeze-v2/worker-profile/opencode.json` as the profile's
    `~/.config/opencode/opencode.json`, byte for byte (§3 PROFILE). From the repository root,

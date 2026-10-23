@@ -156,8 +156,27 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 
 ## 5. 每个 run 的执行与验收
 
-按 run-plan-v2.json 串行准备和执行；前一条先完成收集或登记无效状态，才进入下一条。
-执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status`）是唯一允许启动
+按 run-plan-v2.json **有界并发**准备和执行：`run_h2r2.py` 的 `run-plan --runs-root R` 调度器
+让同一个 runs root 中同时最多 `MAX_PARALLEL = 2` 个 run 在运行（该常量与程序一起被
+freeze-manifest 哈希，改动它是设计变更，不是参数）。run 仍按 plan 顺序**开始**：一个 run 可以
+开始时，(a) 它未登记且未启动，(b) 同一任务的另一臂若在 plan 中更早出现则已登记（任务内
+counterbalancing 顺序原样保留，因此同一任务的两臂永不重叠），(c) 本 runs root 中在进行的 run
+（活锁持有者）少于 MAX_PARALLEL，(d) plan 中每个更早的 run 都已登记或正在进行；只有**完成**
+可以重叠。拒绝原因保持显式：`PREDECESSOR_NOT_STARTED:<id>`、
+`SAME_TASK_ARM_NOT_REGISTERED:<id>`、`PARALLEL_LIMIT:<n>`。调度器把每个 run 作为独立的 `run`
+子进程启动，一个崩溃不会带走另一个；开始/结束（时间、pid、run id、结果）追加到
+`<runs_root>/scheduler-v2.jsonl`。每个 run.json 记录 `concurrent_with`（执行区间重叠的 run id）
+与起止时间，`aggregate_runs.py` 报告 overlap pairs，`status` 把正在进行的 run 标为 IN_PROGRESS。
+共享机器资源遵循同一规则：preflight 的 service port 每个 run 各自选择（绑定后立即释放，
+紧接在 `service set port` 之前），端口撞车则以新端口重试、至多 3 次并全部记录。
+
+理由（在第一次计数 run 之前固定，2026-10-23）：单个 run 需要 10–90 分钟，严格串行会让二十个
+run 耗掉大半个工作日；而两个 run 之间没有相互影响的通道——各有独立 run dir、fresh home、
+渲染后的 sandbox 与 driver 持有的流，sandbox 拒绝另一个 run 的内容，跨 run 唯一共享的是
+provider 负载；并发对必然是**不同任务**，且两臂顺序在 plan 中交替，因此该负载对臂对称。
+registry 与 attempts 文件以 `fcntl.flock` 独占追加，两个几乎同时结束的 run 不会交错写行。
+
+执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status` / `run-plan`）是唯一允许启动
 worker 的程序，launch prompt、worker 命令、env allow-list（含冻结的 `PYTHONDONTWRITEBYTECODE=1`）、
 auditor 环境与 90 分钟上限是它的模块常量；
 run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
@@ -215,6 +234,11 @@ driver 副本缺失（EVIDENCE_MISSING）是 INVALID 的独立原因，且永不
 credential 无法导入 fresh home（CREDENTIAL_IMPORT_FAILED）都发生在 worker 动作之前，属于
 BLOCKED：不消耗 attempt、不登记，记录在 driver 目录，可在有 sandbox 的环境再次 `run`。
 被 sandbox 拒绝的动态访问（`sandbox_denied`）不是 INVALID 原因，按 4.0 节报告。
+
+调度器（第 5 节）只重试**未登记**的 `BLOCKED:PROVIDER_UNREACHABLE` run：暂停后在 plan 位置
+再试，每次调度器调用对该 run 至多 3 次；用尽即停止并打印剩余 run，由操作员重新调用。已登记
+的 run 永不被调度器重跑，调度器也不改写任何裁定。调度器本身被杀时不做清理：已启动的 run
+仍归本节规则处理——下一次 `run` 遇到其残留锁会登记为 INVALID:INTERRUPTED。
 
 ### 6.1 预注册的基础设施失败规则（F14）
 
