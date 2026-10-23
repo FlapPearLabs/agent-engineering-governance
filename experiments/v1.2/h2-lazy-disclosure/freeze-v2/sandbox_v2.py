@@ -16,7 +16,9 @@ Three facts this module exists for:
     (master env) into `opencode auth import --standalone` (fresh env), and the secret never
     touches argv, a log, the event stream, the registry or stdout.
   * INHERITED TMPDIR (F21). TMPDIR is `<launch dir>/.tmp`, created here and re-allowed with the
-    launch directory, so no run's scratch lands in the shared OS temp directory.
+    launch directory, so no run's scratch lands in the shared OS temp directory. F25 / T32:
+    TMPPREFIX is `<launch dir>/.tmp/zsh` for the same reason — a zsh heredoc writes its temp file
+    under TMPPREFIX, not TMPDIR, and the default `/tmp/zsh` is denied.
 
 The template is frozen (`worker-sandbox.sb.template`, hashed in freeze-manifest.json) and every
 rendered profile is saved with its sha256 next to the launch it confines.
@@ -53,6 +55,11 @@ CONFIG_NAME = "opencode.json"
 CONFIG_TEMPLATE = Path(__file__).resolve().with_name("worker-profile") / CONFIG_NAME
 XDG_DIRS = (".config", ".local/share", ".local/state", ".cache")
 TMP_NAME = ".tmp"
+# F25 / T32: zsh writes heredoc temp files under TMPPREFIX (default /tmp/zsh), NOT TMPDIR, so a
+# `cat <<EOF` in the sandbox failed with "can't create temp file for here document". TMPPREFIX is
+# a file PREFIX (zsh appends its own random suffix), so it names a file inside the launch dir's
+# own .tmp rather than a directory that would have to exist.
+TMPPREFIX_NAME = "zsh"
 HOME_MODE = 0o700
 CONFIG_MODE = 0o600
 CONFINE_WRITE = ".confine-write"
@@ -225,7 +232,8 @@ def home_env(master_env: dict[str, str], home: Path, launch: Path) -> dict[str, 
     """The launch environment: the master env with HOME/XDG/TMPDIR moved into the fresh state.
 
     The profile's own HOME never reaches a launch. `PYTHONDONTWRITEBYTECODE=1` is applied last, so
-    neither the profile nor a later export can override the F11 rule.
+    neither the profile nor a later export can override the F11 rule. F25 / T32: TMPPREFIX joins
+    TMPDIR inside the launch directory, so a zsh heredoc writes there too.
     """
     home = Path(home)
     env = {key: str(value) for key, value in master_env.items()}
@@ -234,7 +242,8 @@ def home_env(master_env: dict[str, str], home: Path, launch: Path) -> dict[str, 
                 "XDG_DATA_HOME": str(home / ".local/share"),
                 "XDG_STATE_HOME": str(home / ".local/state"),
                 "XDG_CACHE_HOME": str(home / ".cache"),
-                "TMPDIR": str(Path(launch) / TMP_NAME)})
+                "TMPDIR": str(Path(launch) / TMP_NAME),
+                "TMPPREFIX": str(Path(launch) / TMP_NAME / TMPPREFIX_NAME)})
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 

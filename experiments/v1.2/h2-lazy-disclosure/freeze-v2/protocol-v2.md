@@ -115,6 +115,11 @@ F17  DRIVER COPY 每次 launch 的 stdout/stderr 写入 `<runs_root>/.driver/<ru
        副本仅供人读。副本缺失或不可读 => INVALID:EVIDENCE_MISSING，不重试。
 F21  TMPDIR      每次 launch 的 TMPDIR = `<launch dir>/.tmp`，随 launch 目录一起放行，不再落进
        共享 OS temp 目录。
+F25  TMPPREFIX   worker、auditor 与每次 reachability 的冻结 env 在 TMPDIR 之外同时给出
+       `TMPPREFIX=<launch dir>/.tmp/zsh`。理由：worker 的 shell 是 zsh，heredoc 的临时文件写在
+       TMPPREFIX 下（默认 /tmp/zsh）而不是 TMPDIR，而 sandbox 拒绝 /private/tmp；live pilot 里
+       `cat <<EOF ... EOF` 直接失败，worker 只能改用 write tool，同一常见 shell 用法在两臂都
+       不可用。TMPPREFIX 是文件前缀，不需要创建目录。
 SELF TEST 每次 launch 之前，driver 在同一 rendered sandbox 内用 `cat` 与 `<PY> -c open(...)` 读
        自己在 `.driver/<run_id>/` 下投放的文件，两者必须失败且不泄漏其 token，且在 launch 目录内
        写入必须成功；否则 BLOCKED:SANDBOX_NOT_CONFINING（不消耗 attempt、可再次 `run`、已记录）。
@@ -122,7 +127,8 @@ SELF TEST 每次 launch 之前，driver 在同一 rendered sandbox 内用 `cat` 
 ```
 
 worker 与 per-run auditor 的运行环境固定为：最小基础环境（PATH、LANG）、profile env 文件的
-`export` 行，以及冻结的 `PYTHONDONTWRITEBYTECODE=1`；该变量最后应用，profile 不能覆盖。原因
+`export` 行、第 4.0 节的 fresh state（HOME、XDG_*、TMPDIR、TMPPREFIX），以及冻结的
+`PYTHONDONTWRITEBYTECODE=1`；该变量最后应用，profile 不能覆盖。原因
 （F11）：按合同执行 oracle 与完整脚本测试会正常在 `repo/` 下写出 `__pycache__/*.pyc`，而
 `scripts/tests/` 前缀规则与 validator 的 BYTECODE 规则必须继续拒绝任何 `.pyc`——修的是原因，
 不是规则；`repo/` 下若仍出现 `.pyc` 依然是 scope 拒绝。
@@ -169,6 +175,15 @@ run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID �
 只以 driver 副本为准（F17），run dir 中的副本仅供人读。sandbox/credential 在 worker 未动作前
 不可用时不消耗 attempt、不登记，同一 run id 可再次 `run`；EVIDENCE_MISSING 是终局 INVALID，
 绝不因此重试。
+
+fresh home 的 preflight 在同一条路径里完成（F22）：driver 为该 home 选一个空闲 127.0.0.1 端口，
+先 `opencode service set port`，再执行两次 debug，然后 `opencode service stop`，最后用
+`opencode service status` 复核，仍显示服务在运行 => 该 run 以 BLOCKED 登记、原因
+`PREFLIGHT_FAIL:SERVICE_LEFT_RUNNING`（preflight 不 PASS 就不开始该 run，既有的 preflight 语义
+不变）。端口与 set/stop/status 的返回码、status 原文都写入 `preflight.json`；stop 失败如实
+记录，不隐藏。run 合同（F24）陈述的仓库身份是本次投递实际 HEAD：base tree 的中性 re-commit，
+由投递自身同一个函数计算；原始 base 与 candidate sha 都不进合同、也不进 run 目录，registry 的
+`base_sha` 仍是登记身份。worker 的 env 另含 `TMPPREFIX`（第 4.0 节 F25）。
 wrapper_delivery.py 只准备 standalone 任务仓库和投放，render_brief.py 提供本 run 合同和同构报告模板；
 旧 prepare/collect/acceptance shell harness 不作为 v2 wrapper 的适配完成证据。
 
@@ -250,6 +265,17 @@ VERDICT       每个 run 的最终裁定只取自真正到达工作的那一个 
 原因与边界：这条规则只覆盖"worker 尚未动作"的空转，因此不改变任何 worker 行为或结果的判定
 方式；它不能把 INVALID 变成 PASS，也不能重跑已经到达工作的 run。三次观测到的失败都在
 provider 层，不是任务或交付差异。
+
+```text
+HARNESS DEFECT  driver 自身的意外异常既不是 worker 失败也不是结果（F23）。首次 live pilot 第一次
+                走到真实 reachability 路径就抛 KeyError: 'profile'，当时只捕获 OSError/ValueError，
+                driver 带 traceback 退出，run 停在已准备但未登记的状态。现在整次调用被守卫：
+                在 worker 启动之前发生 => 该次调用以 BLOCKED:HARNESS_DEFECT:<ExceptionType> 结束，
+                traceback 记入 `<runs_root>/.driver/<run_id>/`，不消耗 attempt、不登记、run 目录
+                撤回，同一 run id 之后仍可再次 `run`；在 worker 启动之后发生 => 该 run 登记为
+                INVALID:HARNESS_DEFECT:<ExceptionType>，不再启动第二次。判定只取启动边界，
+                因此对结果盲：它不看 worker 做了什么，也不能把 INVALID 变成 PASS。
+```
 
 ## 7. 预注册结果规则及相对 rubric §9 的偏离
 

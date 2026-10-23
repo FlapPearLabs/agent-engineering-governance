@@ -1740,3 +1740,102 @@ INVALID/BLOCKED 各带登记原因与 attempt 账本；两臂 audited 结果全�
 ```
 
 实验套件 408 → 418（+10）。
+
+## T32（implementer: opencode deepseek-v4.1-flash）
+
+CODEX_FIXES_8 的 F22–F25。四条都来自 live pilot `pilot-4864655c`（真实 sandbox + fresh home，
+跑完 reachability、preflight、confinement、worker、collection、acceptance、access audit、
+auditor、registry）。没有改任何既有拒绝，也没有削弱既有测试；既有测试的改动只有三处，都是
+本次规则改变后的如实适配，见下。
+
+1. **F22 服务端口**。`opencode debug paths|config` 不是独立命令：没有 service 设置的 fresh home
+   会在默认端口上启动 managed 后台服务；机器上已有另一个 opencode 服务占用该端口时即
+   `Managed service port ... is already in use`、exit 1、`PREFLIGHT_COMMAND_FAILED:config`，每个
+   run 都会被 BLOCKED。`isolation_canary.preflight` 现在在**fresh home 认证**路径（driver 传入
+   `home` + `env`）里按序执行：`opencode service set port <由 driver 选的空闲 127.0.0.1 端口>`
+   → `debug paths` → `debug config` → `opencode service stop` → `opencode service status`。
+   `preflight.json` 新增 `service`：端口、set/stop/status 返回码、status 原文、`left_running`、
+   `reasons`；`commands_run` 记录实际执行的完整 argv 序列。stop 即使在前面的 debug 失败后也一定
+   执行；stop 失败如实写进 `service.reasons` 与 preflight 原因（`PREFLIGHT_SERVICE_STOP_FAILED:n`），
+   不隐藏。`service status` 仍显示服务（非 `stopped`）⇒ 原因 `SERVICE_LEFT_RUNNING`，preflight
+   不 PASS，该 run 按既有 preflight 语义登记 BLOCKED（`PREFLIGHT_FAIL:SERVICE_LEFT_RUNNING`），
+   `preflight.json` 留在 run dir 作为证据。master profile 认证路径（无 `home` 参数）**不**改操作员
+   自己的 service 设置，仍只跑两条 debug。
+2. **F23 真实 reachability 路径**。`default_probe` 把 `prepared` 交给 `confined`，而 `confined`
+   读 `prepared["profile"]`；`default_probe` 从未把 `confine_state` 渲染出的 profile 放进去，
+   于是每次真实 probe 都 `KeyError: 'profile'`，且只捕获 OSError/ValueError ⇒ driver 带 traceback
+   退出，run 停在已准备未登记。修复是该赋值；此前所有测试都注入 `probe=passing_probe`，真实路径
+   从未被测到（本次新增真实路径测试，见下）。
+   同时按 T32 增加顶层守卫：`execute()` 现在只保留输入检查（runs root、plan、registry），真正的
+   run 主体搬进 `drive()`，外层 `try/except Exception` 交给 `harness_defect()`。worker 启动**之前**
+   的意外异常 ⇒ 本次调用 `BLOCKED:HARNESS_DEFECT:<ExceptionType>`：traceback 写
+   `<runs_root>/.driver/<run_id>/harness-defect-<stamp>.txt`，`blocked.jsonl` 记一条，run 目录撤回
+   （attempt 归档保留），lock 释放，不消耗 attempt、不登记，同一 run id 可再次 `run`；worker 启动
+   **之后** ⇒ 该 run 登记 `INVALID:HARNESS_DEFECT:<ExceptionType>`（run.json 与 registry 各带
+   `harness_defect`，attempt 账本记 `HARNESS_DEFECT` 行），不再启动第二次。判定只取启动边界，对
+   结果盲。规则写入 protocol-v2 §6.1。
+3. **F24 合同里的仓库身份**。T28 交付的是中性 HEAD（f01: `42123e7`），渲染的 CONTRACT 却仍写
+   `EXPECTED_BASE_SHA = e11a846`（原始 base），live worker 按合同做 S0 检查后如实停机，两臂都会
+   这样结束。现在 CONTRACT §0 写 `EXPECTED_HEAD = <本次投递实际 HEAD>`，并由投递自身同一组函数
+   计算（`wrapper_delivery.task_source()` 取注册 base，再 `neutral_commit()` 生成 base tree 的
+   确定性中性 re-commit——`prepare` 的 `standalone_repository` 用的就是它），合同同时说明它是
+   注册 base tree 的中性 re-commit（单一无父提交、固定 message/author/date，repo/ 不含历史）。
+   registry 的 `base_sha` 仍是登记身份。原始 base 与 candidate sha 不再出现在 worker 可见面：
+   `receipt.json`（worker cwd 内）删掉 `base_sha`，base 身份只留在 registry 与 driver 的
+   `.driver/<run_id>/base-manifest.json`；`collect_v2` 因此改从 driver manifest 读 base 并与 registry
+   比对（拒绝原因 `BASE_SNAPSHOT_DOES_NOT_MATCH_REGISTRY`，同一拒绝、只是换掉了 receipt 那一半）。
+   审计盲包里的 CONTRACT 也随之写实际 HEAD（身份块本身仍被移除）。
+4. **F25 TMPPREFIX**。worker 的 shell 是 zsh，heredoc 临时文件写在 TMPPREFIX 下（默认
+   `/tmp/zsh`）而不是 TMPDIR，`/private/tmp` 被 sandbox 拒绝 ⇒
+   `can't create temp file for here document`，worker 只能退回 write tool，这个常见 shell 用法在
+   两臂都不可用。`sandbox_v2.home_env()` 现在在 TMPDIR 之外给出 `TMPPREFIX=<launch dir>/.tmp/zsh`
+   （文件前缀，不需要建目录）；protocol-v2 §4.0 F25、§4 环境段、§5 与 README §3 FRESH HOME 均已
+   记录。§5 也补了 F22 的 service 序列与 F24 的合同身份。
+
+### 测试（全部 stub / fixture / fake credential / sandbox-exec，无模型、无真实凭据）
+
+- `RealProbePath`（`skipUnless` darwin + `sandbox-exec`）：`execute(..., probe=None)` 走**真实**
+  default probe、真实 sandbox、`StubAuth`，stub 命令在收到冻结 probe prompt 时回答
+  `H2_REACHABLE`、否则充当 worker。断言 probe PASS 且 `token_seen`、confinement PASS、
+  credential 已 logout、worker 事件在 run dir 而 probe 的 token 不在其中、registry 一行 REJECT。
+  该测试对 F23 有牙齿：把那一行赋值删掉后它立刻红（实测
+  `BLOCKED:HARNESS_DEFECT:KeyError`，正是 live pilot 的异常）。
+- `HarnessDefect`：启动前（preflight 抛 `RuntimeError`）⇒ BLOCKED、未登记、run dir/lock 都不存在、
+  `.driver` 有 traceback 文件与 blocked 行、随后同一 run id 仍能 ACCEPT，attempts=1；启动后
+  （auditor 抛 `RuntimeError`）⇒ 登记 INVALID、run.json/registry/attempt 账本三处都有
+  `HARNESS_DEFECT:RuntimeError`、traceback 标 `worker_launched=True`，再 invoke 同一 run id 被拒。
+- `DeliveredHeadContract`：十个任务各做一次真实 `prepare`，`git -C repo rev-parse HEAD` 必须等于
+  该任务渲染 CONTRACT 里的 `EXPECTED_HEAD`（且等于 `render_brief.delivered_head()`），合同含
+  “中性 re-commit” 说明；原始 base 与 candidate sha 在 CONTRACT 与**run 目录下每个文件**的字节里
+  都不出现；registry/base-manifest 仍持 base 身份。
+- `SandboxConfinement.test_zsh_and_bash_heredocs_work_inside_the_launch_dir`：真实 sandbox + 冻结
+  env 下 `zsh -c 'cat <<EOF … EOF'` 与 bash 等价式都在 launch dir 内成功，且 TMPDIR/TMPPREFIX
+  都指向 launch dir 内（去掉 TMPPREFIX 时 zsh 实测仍是 `operation not permitted`）。
+- `PreflightServicePort`：PATH 上的 stub `opencode` 记录 argv，断言顺序恰为
+  `service set port <port>` → `debug paths` → `debug config` → `service stop` → `service status`
+  （无第六条），`preflight.json` 的 `service` 与 `commands_run` 与之一致；stop 失败 + status 仍在
+  运行 ⇒ FAIL、`SERVICE_STOP_FAILED:1` 被记录、`SERVICE_LEFT_RUNNING` 出现；master-profile 认证
+  路径只跑两条 debug、不碰 service。
+- 既有测试的如实适配（不削弱规则）：冻结 env 的允许集合新增 `TMPPREFIX` 并断言其位置；
+  T1 receipt 断言改为「不再含 base_sha + driver manifest 的 base_sha 等于 registry」；
+  collector 的 tampered-snapshot 断言改用新原因名。测试数 418 → 426。
+
+### 重新测量与 re-pin
+
+改了 `wrapper_delivery.py`，按既有规则**重测** delivery anchors（不手改 JSON）：命令同 README §2，
+`--materials 4924930`；`DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0,
+"WRAPPER": 10}`。与 T30 文件逐字段比较，**只有** `wrapper_program_sha256` 变化
+（`24da46f…` → `f2dc995f…`），10 个 row、全部 PRE/POST 集合与 ran 计数逐字节相同。manifest 在
+4924930 重建（51 个冻结文件），两份独立 literal（`EXPECTED_V2_HASHES` 与 `MANIFEST_SHA256`）
+由程序同步重钉，`build_manifest.py check` PASS。
+
+### T32 gates（前台逐条运行，退出码不经管道，PYTHONPATH 未设）
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 25.944s / OK
+=== EXPERIMENTS_TESTS    Ran 426 tests in 1048.401s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```

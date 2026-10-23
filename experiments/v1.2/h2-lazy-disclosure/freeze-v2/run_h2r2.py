@@ -54,6 +54,16 @@ only that copy; the run dir gets a copy for humans afterwards.
 `execute()` takes the stub/preflight/auditor/probe/limit/sandbox/auth parameters so tests can drive
 a stub worker, a stub reachability check and a fake credential hand-off (never a model, never a real
 credential). The `run` CLI exposes none of them.
+
+A HARNESS DEFECT IS NOT A RESULT (F23 / T32). The first live pilot drove the real reachability path
+for the first time and it raised `KeyError: 'profile'`; only OSError/ValueError were caught, so the
+driver died with a traceback and left the run prepared but unregistered. Every future defect of
+this program now has a defined state instead of a traceback: `execute()` guards the whole run, and
+an unexpected exception BEFORE the worker launch ends the invocation as
+`BLOCKED:HARNESS_DEFECT:<ExceptionType>` (traceback under `<runs_root>/.driver/<run_id>/`, no
+attempt consumed, nothing registered, the same run id may be invoked again) while one AFTER the
+launch registers the run `INVALID:HARNESS_DEFECT:<ExceptionType>`. The rule is decided by the
+launch boundary alone, so it is outcome-blind and cannot re-roll anything the worker did.
 """
 from __future__ import annotations
 
@@ -65,6 +75,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -125,6 +136,8 @@ REACHABILITY_PROMPT = "Reply with exactly: H2_REACHABLE"
 REACHABILITY_TOKEN = "H2_REACHABLE"
 REACHABILITY_LIMIT_SECONDS = 120
 MAX_ATTEMPTS = 3
+# F23 / T32: the traceback file an unexpected driver exception leaves under `.driver/<run_id>/`.
+HARNESS_DEFECT_NAME = "harness-defect"
 
 # Conservative combination of the mechanical verdict and the audit (protocol-v2 §5.4).
 SEVERITY = {"ACCEPT": 0, "PASS": 0, "PARTIAL": 1, "REJECT": 2, "FAIL": 2, "INVALID": 3,
@@ -601,7 +614,15 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
             preflight=None, auditor=None, limit_seconds: int | None = None,
             audit_limit_seconds: int | None = None, profile_env: Path | None = None,
             probe=None, sandbox=None, auth=None) -> dict:
-    """Execute one planned run. Refusals allocate nothing; every other path ends registered.
+    """Execute one planned run; a harness defect is a state, never a result (F23 / T32).
+
+    Refusals and unknown ids are input checks and keep raising. Anything else the driver does NOT
+    expect is a defect of this program, not a property of the worker: the guard below records the
+    traceback under `<runs_root>/.driver/<run_id>/` and ends the INVOCATION as
+    `BLOCKED:HARNESS_DEFECT:<ExceptionType>` when nothing had been launched yet (no attempt
+    consumed, nothing registered, the same run id may be invoked again), or registers the run
+    `INVALID:HARNESS_DEFECT:<ExceptionType>` once the worker was launched. The rule is decided by
+    WHEN the exception happened, never by what the worker did, so it is outcome-blind.
 
     An attempt that never reached work (F14) is archived and retried on a fresh run dir; a failed
     reachability check blocks the run without consuming an attempt and without registering it.
@@ -616,6 +637,93 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     if plan_run is None:
         raise ValueError("UNKNOWN_RUN")
     entries = read_registry(runs_root)
+    state: dict = {"worker_launched": False, "record": None, "attempt": None,
+                   "run_dir": None, "driver_dir": None, "lock": None, "plan_run": plan_run}
+    try:
+        return drive(run_id, runs_root, root=root, plan_run=plan_run, planned=planned,
+                     entries=entries, worker_command=worker_command, preflight=preflight,
+                     auditor=auditor, limit_seconds=limit_seconds,
+                     audit_limit_seconds=audit_limit_seconds, profile_env=profile_env,
+                     probe=probe, sandbox=sandbox, auth=auth, state=state)
+    except Exception as exc:                          # the guard is the rule (F23)
+        return harness_defect(runs_root, exc, state)
+
+
+def harness_defect(runs_root: Path, exc: Exception, state: dict) -> dict:
+    """Record an unexpected driver exception and end the invocation, or the run (F23 / T32).
+
+    The worker's own behaviour plays no part: only whether a worker had been launched when the
+    exception happened. Before it, nothing is registered and the run id stays invokable; after it,
+    the run is registered INVALID and is never started again.
+    """
+    kind = type(exc).__name__
+    reason = f"HARNESS_DEFECT:{kind}"
+    directory = Path(state.get("driver_dir")
+                     or Path(runs_root) / wrapper_delivery.DRIVER_DIR)
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    evidence = directory / f"{HARNESS_DEFECT_NAME}-{stamp}.txt"
+    trace = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    evidence.write_text(f"{reason}\nworker_launched={bool(state.get('worker_launched'))}\n\n"
+                        + "".join(trace), encoding="utf-8")
+    if not state.get("worker_launched"):
+        # Nothing ran: no attempt is consumed, nothing is registered, the run dir is dropped again
+        # (attempt archives, if any, stay) and the lock is released.
+        append_jsonl(directory / "blocked.jsonl",
+                     {"run_id": (state.get("plan_run") or {}).get("run_id"),
+                      "attempt": state.get("attempt"), "at": now(), "reasons": [reason],
+                      "exception": kind, "evidence": str(evidence),
+                      "worker_launched": False})
+        if state.get("run_dir") is not None:
+            abandon_run_dir(Path(state["run_dir"]))
+        if state.get("lock") is not None:
+            Path(state["lock"]).unlink(missing_ok=True)
+        return {"outcome": "BLOCKED", "run_id": (state.get("plan_run") or {}).get("run_id"),
+                "registered": False, "reason": reason, "verdict": "BLOCKED",
+                "audit_verdict": None, "final_verdict": "BLOCKED", "reasons": [reason],
+                "session_id": None, "wall_clock_seconds": None,
+                "harness_defect": {"exception": kind, "evidence": str(evidence),
+                                   "worker_launched": False}}
+    plan_run = state["plan_run"]
+    run_dir = Path(state["run_dir"])
+    record = state.get("record") or {
+        "schema_version": 1, "program": "freeze-v2/run_h2r2.py", "run_id": plan_run["run_id"],
+        "task_id": plan_run["task_id"], "arm": plan_run["arm"],
+        "materials_commit": plan_run["materials_commit"], "model": plan_run["model"],
+        "started_at": now(), "steps": [], "reasons": []}
+    record.update({"verdict": "INVALID", "reasons": [reason], "audit_verdict": None,
+                   "final_verdict": "INVALID", "finished_at": now(),
+                   "wall_clock_seconds": record.get("wall_clock_seconds"),
+                   "harness_defect": {"exception": kind, "evidence": str(evidence),
+                                      "worker_launched": True}})
+    (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    line = register(runs_root, plan_run, verdict="INVALID", reason=reason, run_dir=run_dir,
+                    attempt=state.get("attempt"), attempts=state.get("attempt"))
+    append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
+                 attempt_line(plan_run,
+                              {"attempt": state.get("attempt"), "kind": "HARNESS_DEFECT",
+                               "verdict": "INVALID", "reason": reason,
+                               "started_at": record.get("started_at"),
+                               "finished_at": record.get("finished_at")},
+                              {"archive": None, "manifest_sha256": None,
+                               "artifacts": artifact_hashes(run_dir)}))
+    if state.get("lock") is not None:
+        annotate_lock(state["lock"], line["final_verdict"])
+    return {"outcome": "EXECUTED", "run_dir": str(run_dir),
+            "registry": str(registry_path(runs_root)),
+            "session_id": record.get("session_id"), "verdict": "INVALID",
+            "audit_verdict": None, "final_verdict": line["final_verdict"], "reasons": [reason],
+            "attempts": state.get("attempt"),
+            "wall_clock_seconds": record.get("wall_clock_seconds"),
+            "harness_defect": {"exception": kind, "evidence": str(evidence),
+                               "worker_launched": True}}
+
+
+def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: list[dict],
+          entries: dict, worker_command, preflight, auditor, limit_seconds: int | None,
+          audit_limit_seconds: int | None, profile_env: Path | None, probe, sandbox, auth,
+          state: dict) -> dict:
+    """The run itself; `execute` wraps it with the F23 / T32 harness-defect guard."""
     reason = refusal(runs_root, plan_run, planned, entries)
     if reason is not None:
         if reason == "RUN_ALREADY_STARTED":
@@ -630,7 +738,7 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
     sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
     auth = auth if auth is not None else sandbox_v2.Auth()
-    state: dict = {"env": None, "master_env": None}
+    state.update({"env": None, "master_env": None, "run_dir": run_dir, "driver_dir": driver_dir})
 
     if not sandbox.available():
         # F16 / T29: without the platform sandbox the audit would be the only barrier, which the
@@ -706,6 +814,10 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                     "blocked": confinement["reason"], "token_seen": False, "events": 0,
                     "seconds": 0.0, "purpose": purpose, "attempt": number,
                     "profile_sha256": confinement["profile"]["sha256"]}
+        # F23 / T32: `confined` launches through `prepared["profile"]`, so the rendered profile of
+        # THIS probe directory must be handed over before anything is launched. Without it every
+        # live probe raised KeyError: 'profile' and the run was left prepared but unregistered.
+        prepared["profile"] = confinement["profile"]
         try:
             record = reachability_probe(
                 runs_root, run_id, purpose, number, command, plan_run["model"],
@@ -727,7 +839,7 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     lock = acquire_lock(runs_root, run_id)
     started = time.monotonic()
     attempt = next_attempt_number(runs_root, run_id)
-    state["pending"] = None
+    state.update({"lock": lock, "attempt": attempt, "pending": None})
 
     def save(record: dict) -> None:
         (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n",
@@ -755,6 +867,7 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                   "final_verdict": None, "reasons": [], "session_id": None,
                   "reachability": [], "steps": [], "sandbox": {}, "fresh_home": None,
                   "auth": None, "auth_logout": None}
+        state.update({"record": record, "attempt": attempt})
 
         def settle(verdict: str, reasons: list[str], audit: dict | None = None,
                    record: dict = record) -> dict:
@@ -901,6 +1014,9 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
             # writable set. Every verdict input below reads only that copy.
             entry = start_step(record, "worker")
             stream = Path(prepared["stream"])
+            # F23 / T32: from here on an unexpected exception belongs to a run that reached work,
+            # so the guard registers it INVALID instead of dropping it as an unstarted invocation.
+            state["worker_launched"] = True
             result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit)
             record["auth_logout"] = release(prepared, run_dir)
             driver_events = stream / EVENTS_NAME

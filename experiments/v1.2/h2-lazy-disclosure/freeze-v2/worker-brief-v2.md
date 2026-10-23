@@ -9,12 +9,14 @@ opencode 2.0.25 `--standalone`；不得换模型、调用其他 agent 或连接�
 ```text
 WORKER_CWD = .                 wrapper，位于任何 git repository 之外
 TASK_REPOSITORY = ./repo/       唯一任务工作区
-EXPECTED_BASE_SHA = <BASE_SHA>
+EXPECTED_HEAD = <DELIVERED_HEAD>
 PY = <PYTHON>
 ```
 
-先执行 `git -C repo rev-parse HEAD`，必须逐字等于 EXPECTED_BASE_SHA。
+先执行 `git -C repo rev-parse HEAD`，必须逐字等于 EXPECTED_HEAD。
 不匹配立即停机，只报告 `PREFLIGHT_FAIL` 和实际 SHA，不继续任务。
+EXPECTED_HEAD 是注册 base tree 的中性 re-commit：单一无父提交，tree 与注册 base tree 逐字相同，
+message、author、committer 与 date 固定；它不是历史提交，repo/ 也不含任何历史。
 再执行 `git -C repo status --porcelain --ignored`，必须为空；确认 wrapper 的
 `AGENTS.md`、`H2_RULES.md`、`H2_WARM/`、`receipt.json` 在位。投放材料只读。
 报告 §A 记录以上断言。所有任务命令以 repo/ 为目标，测试的 cwd 也必须是 repo/。

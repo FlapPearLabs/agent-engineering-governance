@@ -17,6 +17,18 @@ template `worker-profile/opencode.json`. The `tmp` entry is the OS temp root, no
 state, and is required to be absolute rather than under the profile home -- that is the one
 narrowing of "every printed path", and it is recorded as evidence, not ignored.
 
+A FRESH HOME NEEDS ITS OWN SERVICE PORT (F22 / T32). `opencode debug ...` is not a standalone
+command: in a home without service settings it starts a managed background service on the default
+port, and when another opencode service on the machine already holds that port the debug call dies
+with "Managed service port ... is already in use", so every run would be BLOCKED. When the driver
+attests a FRESH home (`home` + `env` given), the preflight therefore runs
+`opencode service set port <free 127.0.0.1 port>` first, then the debug commands, then
+`opencode service stop`, and finally `opencode service status`: the port, the set/stop/status
+return codes and the status text go into `preflight.json`, a stop failure is recorded rather than
+hidden, and a status that still reports a service leaves the verdict FAIL with
+`SERVICE_LEFT_RUNNING` — no service outlives the preflight. The master-profile attestation (no
+`home` argument) never rewrites the operator's own service settings.
+
 `check <events.jsonl>` reads the REAL `opencode run --format json` stream: the top-level `type`
 is `step_start | text | tool_use | step_finish | error`, markers appear in `part.text`, and a
 read is a `tool_use` part whose `state.input.path` names the file. Claims about MCP servers,
@@ -39,6 +51,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
@@ -69,7 +82,21 @@ CONFIG_DIR_REL = ".config/opencode"
 CONFIG_NAME = "opencode.json"
 PREFLIGHT_COMMANDS = (("debug", "paths"), ("debug", "config"))
 PREFLIGHT_TIMEOUT = 120
+# F22 / T32: the managed service the debug commands need in a fresh home.
+OPENCODE = "opencode"
+SERVICE_SET = ("service", "set", "port")
+SERVICE_STOP = ("service", "stop")
+SERVICE_STATUS = ("service", "status")
+SERVICE_STOPPED = "stopped"
+SERVICE_LOOPBACK = "127.0.0.1"
 CONFIG_TEMPLATE = Path(__file__).resolve().with_name("worker-profile") / CONFIG_NAME
+
+
+def free_port() -> int:
+    """A free 127.0.0.1 port for this fresh home's managed service (F22 / T32)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind((SERVICE_LOOPBACK, 0))
+        return int(probe.getsockname()[1])
 
 
 def prepare(run_dir: Path) -> str:
@@ -248,6 +275,12 @@ def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = Non
     F19 / T29: the driver attests the FRESH per-launch home (`home`, with that launch's `env`), not
     the master profile, so what is attested is exactly the configuration the worker will see. A
     caller that passes neither keeps the original master-profile behaviour.
+
+    F22 / T32: a fresh home has no service settings, so the debug commands would start a managed
+    service on the default port — and fail when another opencode service already holds it. The
+    fresh-home attestation therefore sets a free 127.0.0.1 port first, stops the service again
+    afterwards, and checks with `opencode service status` that nothing was left running. Every
+    return code and the status text are recorded; a stop failure is recorded, not hidden.
     """
     run_dir = Path(run_dir).resolve()
     if not run_dir.is_dir():
@@ -263,20 +296,58 @@ def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = Non
         parsed = dict(env)
         child_env = dict(env)
         profile_home = child_env.get("HOME", "")
+    fresh_home = home is not None
     home = str(home if home is not None else profile_home).rstrip("/")
     command_reasons: list[str] = []
+    commands_run: list[list[str]] = []
     if not home:
         command_reasons.append("PREFLIGHT_PROFILE_ENV_UNREADABLE" if not parsed
                                else "PREFLIGHT_NO_PROFILE_HOME")
+    service: dict | None = None
+    if fresh_home and home:
+        service = {"port": free_port(), "commands": [], "set_returncode": None,
+                   "stop_returncode": None, "status_returncode": None, "status": None,
+                   "left_running": None, "reasons": []}
+        argv = [OPENCODE, *SERVICE_SET, str(service["port"])]
+        service["commands"].append(argv)
+        commands_run.append(argv)
+        code, _ = run_command(argv, run_dir, child_env)
+        service["set_returncode"] = code
+        if code != 0:
+            service["reasons"].append(f"SERVICE_SET_FAILED:{service['port']}")
+            command_reasons.append(f"PREFLIGHT_SERVICE_SET_FAILED:{service['port']}")
     outputs = {"paths": "", "config": ""}
     for name in ("paths", "config"):
-        if command_reasons:
+        if not home:
             continue
-        code, out = run_command(["opencode", "debug", name], run_dir, child_env)
+        argv = [OPENCODE, "debug", name]
+        commands_run.append(argv)
+        code, out = run_command(argv, run_dir, child_env)
         if code != 0:
             command_reasons.append(f"PREFLIGHT_COMMAND_FAILED:{name}")
             continue
         outputs[name] = out
+    if service is not None:
+        # The stop runs even after a failed debug call: those calls may have started the service.
+        argv = [OPENCODE, *SERVICE_STOP]
+        service["commands"].append(argv)
+        commands_run.append(argv)
+        code, _ = run_command(argv, run_dir, child_env)
+        service["stop_returncode"] = code
+        if code != 0:
+            service["reasons"].append(f"SERVICE_STOP_FAILED:{code}")
+            command_reasons.append(f"PREFLIGHT_SERVICE_STOP_FAILED:{code}")
+        argv = [OPENCODE, *SERVICE_STATUS]
+        service["commands"].append(argv)
+        commands_run.append(argv)
+        code, out = run_command(argv, run_dir, child_env)
+        service["status_returncode"] = code
+        service["status"] = out.strip()
+        service["left_running"] = bool(out.strip()) and out.strip() != SERVICE_STOPPED
+        if code != 0:
+            command_reasons.append(f"PREFLIGHT_SERVICE_STATUS_FAILED:{code}")
+        if service["left_running"]:
+            command_reasons.append("SERVICE_LEFT_RUNNING")
     config_file = None
     if home:
         config_file = read_bytes(Path(home) / CONFIG_DIR_REL / CONFIG_NAME)
@@ -287,8 +358,8 @@ def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = Non
     if command_reasons:
         verdict["reasons"] = sorted(set(verdict["reasons"]) | set(command_reasons))
         verdict["verdict"] = "FAIL"
-    verdict["commands_run"] = ([["opencode", "debug", name] for name in ("paths", "config")]
-                               if not command_reasons else [])
+    verdict["commands_run"] = commands_run
+    verdict["service"] = service
     (run_dir / "preflight.json").write_text(json.dumps(verdict, indent=2) + "\n",
                                             encoding="utf-8")
     return verdict

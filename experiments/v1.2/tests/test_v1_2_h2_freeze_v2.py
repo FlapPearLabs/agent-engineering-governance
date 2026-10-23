@@ -37,8 +37,8 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ca2dc8d6106d58692d1bc77715be9662b5a4dd8b68dac69ba260827246172274",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "1d2cfc7bcb8e2a936eb468d982d8df02946fd5ef9ac6fd3e500bd5722daa7203",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "e6a881e0661e7ee5dc64ea7008de075372cae2ba80e2ef60b6570caa8ce402da",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "a0881ed59a1a506d94318d797e4c0d891b00fc9a333b4709411c669a85a5e431",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d18ec180c6ba05cf5e7baf9fa9f98e6f48dc9ea3c52d7c03430a5aae299f2f2a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "77d29115f1d0320bf9d1a5656772d613e0b855a8f2b1f6badaac3ed3b65b2de2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
@@ -49,22 +49,22 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "96c433c7520b6c2b81376fadd900efb97dfc521d712a374fd5fc9de54ba57e35",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "3233054cb017201804ab45ab06cbe6e643346eda39ce860428415e7b30434bc1",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "b94dc1fd0593326cb30cc9a28f5d1593dcf269f747f5f808048309481af87c62",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "fe950db0fe7cc2162c4e4b9eecacc84211ae0d0f66397c145e04a7a12fc23c58",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "efb7f388a7b24adc8b2319a88c3e82067948558882a5768b093492288ce4026a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "1607540b0036d9d4a45d446e9fe54dc80b8a098e09fdfdcff88fd8987ec6d04e",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "3f345f427d4a2ad3035b1125c1d248204be771a88bc17209ef093843d47f3b3f",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "338cd0ac03a274f6b5d60f28de9b3855ab12b7b5c52470eb2f3598baa59e6bfc",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "6c3b97bd358f75c76af36a33e21851d5bb1e7ec08226da0f710a85b4258759a2",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "ee428d59ff626cf97942b8ed60906b07d3893ece9e2d7c725da2f7ee15f85020",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "2a9f3c155aae6d83303d44a2fcd68a42184421a9e8095a2a251ecdf32acd294f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-sandbox.sb.template": "c05abbbffd35134ee1a90f12a955ce3f47f7719a45168a08396cc1bf541fa280",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "24da46f19b0d75af56715e13aef793cb0affa0f756aea42125e532b66fecdd78",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "f2dc995f4528bc544a3f23b82613714cedb95b02a64e6b6c79f4c89b5874c1cf",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
@@ -73,7 +73,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "23c5d2b6f8b05f54b2c9da88e0091fd7d2498e22a6dbdfaa7adc2f4bae19acdd"
+MANIFEST_SHA256 = "6f8b451a9eb3177296c8dfd4d3d4fcbfa5de9348d0cdffc41f1ff08c404b4975"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -243,9 +243,14 @@ class WrapperDelivery(unittest.TestCase):
                     self.assertEqual(digest("\n".join(lines).encode()), receipt["warm_bundle_sha256"])
                     self.assertEqual(digest((FZ / "wrapper_delivery.py").read_bytes()),
                                      receipt["program_sha256"])
-                    self.assertEqual(("f01", arm, task["BASE_SHA"], materials),
+                    self.assertEqual(("f01", arm, materials),
                                      tuple(receipt[k] for k in
-                                           ("task_id", "arm", "base_sha", "materials_commit")))
+                                           ("task_id", "arm", "materials_commit")))
+                    # F24 / T32: receipt.json sits in the worker's cwd, so it never names the
+                    # original base; the driver's manifest is the identity of record.
+                    self.assertNotIn("base_sha", receipt)
+                    manifest = json.loads(wrapper.base_manifest_path(run).read_text())
+                    self.assertEqual(task["BASE_SHA"], manifest["base_sha"])
                 finally:
                     if run.exists():
                         wrapper.cleanup(ROOT, run)
@@ -818,6 +823,131 @@ class IsolationPreflight(unittest.TestCase):
                 canary.preflight(Path(tmp) / "absent", Path(tmp) / "env.sh")
 
 
+PREFLIGHT_OPENCODE_STUB = '''#!__PYTHON__
+"""A stub `opencode`: records every argv, answers the four preflight commands."""
+import json
+import os
+import sys
+
+with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as handle:
+    handle.write(json.dumps(sys.argv[1:]) + "\\n")
+argv = sys.argv[1:]
+home = os.environ["HOME"]
+if argv[:3] == ["service", "set", "port"]:
+    sys.exit(int(os.environ.get("STUB_SET_RC", "0")))
+if argv == ["debug", "paths"]:
+    for name, rest in (("home", ""), ("data", "/.local/share/opencode"),
+                       ("config", "/.config/opencode"), ("cache", "/.cache/opencode"),
+                       ("state", "/.local/state/opencode"), ("bin", "/.opencode/bin"),
+                       ("log", "/.local/share/opencode/log"),
+                       ("repos", "/.local/share/opencode/repos"),
+                       ("db", "/.local/share/opencode/db"), ("tmp", "/os-tmp")):
+        print(name.ljust(10), home + rest)
+    sys.exit(0)
+if argv == ["debug", "config"]:
+    print(json.dumps([{"type": "document",
+                       "path": home + "/.config/opencode/opencode.json"},
+                      {"type": "directory", "path": home + "/.config/opencode"}]))
+    sys.exit(0)
+if argv == ["service", "stop"]:
+    sys.exit(int(os.environ.get("STUB_STOP_RC", "0")))
+if argv == ["service", "status"]:
+    print(os.environ.get("STUB_STATUS", "stopped"))
+    sys.exit(int(os.environ.get("STUB_STATUS_RC", "0")))
+sys.exit(2)
+'''
+
+
+class PreflightServicePort(unittest.TestCase):
+    """F22 / T32: a fresh home's debug calls get their own free port and leave no service behind."""
+
+    def layout(self, tmp):
+        module = load("sandbox_v2")
+        root = Path(tmp)
+        binary = root / "bin"
+        binary.mkdir()
+        stub = binary / "opencode"
+        stub.write_text(PREFLIGHT_OPENCODE_STUB.replace("__PYTHON__", sys.executable),
+                        encoding="utf-8")
+        stub.chmod(0o755)
+        run_dir = root / "run"
+        run_dir.mkdir()
+        driver = root / "runs" / ".driver" / "h2r2-f01-c"
+        home = module.fresh_home(driver, "home-1", run_dir)
+        env = {"PATH": f"{binary}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}",
+               "HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config"),
+               "STUB_LOG": str(root / "calls.log")}
+        return load("isolation_canary"), root, run_dir, home, env
+
+    def calls(self, root):
+        path = Path(root) / "calls.log"
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def test_a_fresh_home_records_the_port_both_debug_calls_and_the_stop_in_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            canary, root, run_dir, home, env = self.layout(tmp)
+            verdict = canary.preflight(run_dir, Path(tmp) / "env.sh", home=home, env=env)
+            self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+            calls = self.calls(root)
+            self.assertEqual(["service", "set", "port"], calls[0][:3])
+            port = int(calls[0][3])
+            self.assertTrue(1024 < port < 65536, port)
+            self.assertEqual([["service", "set", "port", str(port)], ["debug", "paths"],
+                              ["debug", "config"], ["service", "stop"],
+                              ["service", "status"]], calls[:5])
+            self.assertEqual(5, len(calls), calls)
+            self.assertEqual([["opencode", "service", "set", "port", str(port)],
+                              ["opencode", "debug", "paths"], ["opencode", "debug", "config"],
+                              ["opencode", "service", "stop"],
+                              ["opencode", "service", "status"]], verdict["commands_run"])
+            service = verdict["service"]
+            self.assertEqual(port, service["port"])
+            self.assertEqual(0, service["set_returncode"])
+            self.assertEqual(0, service["stop_returncode"])
+            self.assertEqual(0, service["status_returncode"])
+            self.assertEqual("stopped", service["status"])
+            self.assertIs(False, service["left_running"])
+            self.assertEqual([], service["reasons"])
+            self.assertEqual(verdict, json.loads((run_dir / "preflight.json").read_text()))
+
+    def test_a_stop_failure_is_recorded_and_a_service_left_running_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            canary, root, run_dir, home, env = self.layout(tmp)
+            env.update({"STUB_STOP_RC": "1", "STUB_STATUS": "service still listening",
+                        "STUB_STATUS_RC": "0"})
+            verdict = canary.preflight(run_dir, Path(tmp) / "env.sh", home=home, env=env)
+            self.assertEqual("FAIL", verdict["verdict"])
+            service = verdict["service"]
+            self.assertEqual(1, service["stop_returncode"])
+            self.assertIn("SERVICE_STOP_FAILED:1", service["reasons"])
+            self.assertIn("PREFLIGHT_SERVICE_STOP_FAILED:1", verdict["reasons"])
+            self.assertIs(True, service["left_running"])
+            self.assertEqual("service still listening", service["status"])
+            self.assertIn("SERVICE_LEFT_RUNNING", verdict["reasons"])
+            # the stop is attempted even though the debug calls succeeded, and nothing is hidden
+            self.assertEqual(["service", "stop"], self.calls(root)[3])
+            self.assertEqual(verdict, json.loads((run_dir / "preflight.json").read_text()))
+
+    def test_the_master_profile_attestation_never_rewrites_service_settings(self):
+        canary = load("isolation_canary")
+        calls = []
+
+        def fake_run(argv, cwd, env, timeout=120):
+            calls.append(list(argv))
+            return 0, ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / "run"
+            run.mkdir()
+            env_file = Path(tmp) / "env.sh"
+            env_file.write_text(f"export HOME={Path(tmp) / 'master'}\n", encoding="utf-8")
+            with mock.patch.object(canary, "run_command", side_effect=fake_run):
+                canary.preflight(run, env_file)
+            # no `home` argument: the operator's own service settings are never touched
+            self.assertEqual([["opencode", "debug", "paths"],
+                              ["opencode", "debug", "config"]], calls)
+
+
 class FrozenWorkerProfile(unittest.TestCase):
     """F6: the profile config is an experimental input, so it is frozen and checked."""
 
@@ -1264,6 +1394,51 @@ class RunPlanV2(unittest.TestCase):
         self.assertEqual(plan, generated)
 
 
+class DeliveredHeadContract(unittest.TestCase):
+    """F24 / T32: the contract states the DELIVERED head, never the original base or candidate."""
+
+    def expected_head(self, contract):
+        line = next(line for line in contract.splitlines()
+                    if line.startswith("EXPECTED_HEAD ="))
+        return line.split("=", 1)[1].strip()
+
+    def test_every_task_contract_states_the_head_the_delivery_really_has(self):
+        wrapper = load("wrapper_delivery")
+        renderer = load("render_brief")
+        runs = json.loads((FZ / "run-plan-v2.json").read_text())["runs"]
+        with tempfile.TemporaryDirectory() as tmp:
+            for task in registry_tasks():
+                _, source = task_pair(task["task_id"])
+                run = next(r for r in runs if r["task_id"] == task["task_id"]
+                           and r["arm"] == "control")
+                run_dir = Path(tmp) / f"head-{task['task_id']}"
+                try:
+                    wrapper.prepare(ROOT, run_dir, task["task_id"], "control",
+                                    run["materials_commit"])
+                    head = git("rev-parse", "HEAD", root=run_dir / "repo").decode().strip()
+                    contract = renderer.render(task, run, "<TOOLCHAIN_PYTHON>")
+                    (run_dir / "CONTRACT.md").write_text(contract, encoding="utf-8")
+                    self.assertEqual(head, self.expected_head(contract), task["task_id"])
+                    self.assertEqual(head, renderer.delivered_head(
+                        ROOT, run["materials_commit"], task["task_id"]))
+                    self.assertIn("中性 re-commit", contract)
+                    self.assertIn("git -C repo rev-parse HEAD", contract)
+                    self.assertNotEqual(task["base_sha"], head)
+                    # The registry stays the identity of record.
+                    self.assertEqual(task["base_sha"], json.loads(
+                        wrapper.base_manifest_path(run_dir).read_text())["base_sha"])
+                    for needle in (task["base_sha"], source["CANDIDATE_SHA"]):
+                        self.assertNotIn(needle, contract, task["task_id"])
+                        for path in sorted(run_dir.rglob("*")):
+                            if path.is_symlink() or not path.is_file():
+                                continue
+                            self.assertNotIn(needle.encode(), path.read_bytes(),
+                                             f"{path.relative_to(run_dir).as_posix()}")
+                finally:
+                    if run_dir.exists():
+                        wrapper.cleanup(ROOT, run_dir)
+
+
 class WorkerBriefV2(unittest.TestCase):
     def test_all_pairs_differ_only_inside_delivery_block(self):
         renderer = load("render_brief")
@@ -1601,7 +1776,7 @@ class CollectionTrustNothing(unittest.TestCase):
                 path.write_text(json.dumps(manifest), encoding="utf-8")
                 collected = collector.collect(ROOT, run)
                 self.assertEqual("INVALID", collected["status"])
-                self.assertIn("BASE_SNAPSHOT_DOES_NOT_MATCH_RECEIPT", collected["reasons"])
+                self.assertIn("BASE_SNAPSHOT_DOES_NOT_MATCH_REGISTRY", collected["reasons"])
             finally:
                 cleanup_run(run)
 
@@ -2073,15 +2248,20 @@ class RunDriver(unittest.TestCase):
                 self.assertEqual("1", auditor["PYTHONDONTWRITEBYTECODE"])
                 self.assertEqual(set(), set(worker) - (allowed | {
                     "HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME",
-                    "XDG_CACHE_HOME", "TMPDIR"}))
+                    "XDG_CACHE_HOME", "TMPDIR", "TMPPREFIX"}))
                 self.assertNotEqual(expected.get("HOME"), worker["HOME"])
                 self.assertEqual((run_dir.parent / ".driver" / "h2r2-f01-c"
                                   / "home-1").resolve(), Path(worker["HOME"]))
                 self.assertEqual((run_dir / ".tmp").resolve(), Path(worker["TMPDIR"]))
+                # F25 / T32: zsh heredocs write under TMPPREFIX, so it lives in the launch dir too.
+                self.assertEqual((run_dir / ".tmp" / "zsh").resolve(),
+                                 Path(worker["TMPPREFIX"]))
                 self.assertEqual((run_dir.parent / ".driver" / "h2r2-f01-c"
                                   / "audit-home-1").resolve(), Path(auditor["HOME"]))
                 self.assertEqual((run_dir / "audit" / ".tmp").resolve(),
                                  Path(auditor["TMPDIR"]))
+                self.assertEqual((run_dir / "audit" / ".tmp" / "zsh").resolve(),
+                                 Path(auditor["TMPPREFIX"]))
                 for key in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME",
                             "XDG_CACHE_HOME"):
                     self.assertTrue(Path(worker[key]).is_relative_to(Path(worker["HOME"])), key)
@@ -2792,6 +2972,26 @@ class SandboxConfinement(unittest.TestCase):
             self.assertIn("CAT_READ_NOT_DENIED", test["reasons"])
             self.assertIn("PYTHON_READ_NOT_DENIED", test["reasons"])
 
+    def test_zsh_and_bash_heredocs_work_inside_the_launch_dir(self):
+        """F25 / T32: the frozen env puts TMPPREFIX beside TMPDIR, so a heredoc is not EPERM."""
+        module = load("sandbox_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, run_dir, home, driver = self.layout(tmp)
+            env = module.home_env({"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
+                                  home, run_dir)
+            self.assertEqual((run_dir / ".tmp").resolve(), Path(env["TMPDIR"]).resolve())
+            self.assertEqual((run_dir / ".tmp" / module.TMPPREFIX_NAME).resolve(),
+                             Path(env["TMPPREFIX"]).resolve())
+            profile = module.profile(driver / "attempt-1", run_dir, home, sys.executable)
+            for shell in ("zsh", "bash"):
+                with self.subTest(shell=shell):
+                    result = subprocess.run(
+                        ["/usr/bin/sandbox-exec", "-f", profile["path"], shell, "-c",
+                         "cat <<EOF\nh2 heredoc body\nEOF\n"],
+                        cwd=str(run_dir), env=dict(env), capture_output=True, text=True)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual("h2 heredoc body", result.stdout.strip())
+
     def test_no_sandbox_on_the_platform_blocks_without_consuming_an_attempt(self):
         class NoSandbox(StubSandbox):
             def available(self):
@@ -2957,6 +3157,161 @@ class DriverConfinement(unittest.TestCase):
                 self.assertEqual(digest(profile.read_bytes()),
                                  record["sandbox"]["profile"]["sha256"])
                 self.assertTrue(Path(record["fresh_home"]).is_dir())
+            finally:
+                cleanup_run(run_dir)
+
+
+REAL_PROBE_STUB = '''
+import json
+import sys
+
+prompt = sys.argv[-1]
+if prompt == "Reply with exactly: H2_REACHABLE":
+    print(json.dumps({"type": "text", "sessionID": "ses_probe",
+                      "part": {"text": "H2_REACHABLE"}}))
+    sys.exit(0)
+open("report.md", "w").write("# report\\n\\nstub worker behind the real probe\\n")
+open(".h2-telemetry.log", "w").write("READ FULL repo/RULES.md\\n")
+print(json.dumps({"type": "text", "sessionID": "ses_stub",
+                  "part": {"text": "H2_STUB_WORKER_RAN"}}))
+'''
+
+
+class RealProbePath(unittest.TestCase):
+    """F23 / T32: the DEFAULT reachability path (no injected probe) under the real sandbox."""
+
+    def setUp(self):
+        if not SANDBOX_READY:
+            self.skipTest("sandbox-exec is not available on this platform")
+
+    def test_the_default_probe_confines_launches_and_reaches_the_worker(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            result = driver.execute(
+                "h2r2-f01-c", runs,
+                worker_command=(sys.executable, "-c", REAL_PROBE_STUB),
+                preflight=passing_preflight, auditor=stub_auditor(),
+                profile_env=profile_env_file(tmp), probe=None, auth=StubAuth())
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("REJECT", result["verdict"], result["reasons"])
+                self.assertTrue((runs / "registry-v2.jsonl").is_file())
+                registry = [json.loads(line) for line in
+                            (runs / "registry-v2.jsonl").read_text().splitlines()]
+                self.assertEqual(["h2r2-f01-c"], [entry["run_id"] for entry in registry])
+                self.assertEqual("REJECT", registry[0]["verdict"])
+                record = json.loads((run_dir / "run.json").read_text())
+                probe = record["reachability"][0]
+                self.assertEqual("worker", probe["purpose"])
+                self.assertEqual("PASS", probe["verdict"], probe["reasons"])
+                self.assertTrue(probe["token_seen"])
+                self.assertEqual("PASS", probe["confinement"])
+                self.assertTrue(probe["auth_logout"]["ran"])
+                # the worker itself ran, in the run dir, after that probe
+                events = (run_dir / "events.jsonl").read_text()
+                self.assertIn("H2_STUB_WORKER_RAN", events)
+                self.assertNotIn("H2_REACHABLE", events)
+                self.assertEqual("REJECT", result["final_verdict"])
+            finally:
+                cleanup_run(run_dir)
+
+
+class HarnessDefect(unittest.TestCase):
+    """F23 / T32: an unexpected driver exception is a state, decided by the launch boundary."""
+
+    def exploding_preflight(self, run_dir, env_file, **kwargs):
+        raise RuntimeError("stub preflight defect")
+
+    def exploding_auditor(self, *args, **kwargs):
+        raise RuntimeError("stub audit defect")
+
+    def test_a_defect_before_the_launch_blocks_without_registering_and_is_reinvokable(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            result = driver.execute(
+                "h2r2-f01-c", runs,
+                worker_command=(sys.executable, str(stub_worker(tmp, "noop"))),
+                preflight=self.exploding_preflight, auditor=stub_auditor(),
+                profile_env=profile_env_file(tmp), probe=passing_probe,
+                sandbox=StubSandbox(), auth=StubAuth())
+            self.assertEqual("BLOCKED", result["outcome"])
+            self.assertEqual(["HARNESS_DEFECT:RuntimeError"], result["reasons"])
+            self.assertFalse(result["registered"])
+            self.assertFalse((runs / "registry-v2.jsonl").exists())
+            self.assertFalse((runs / "h2r2-f01-c").exists())
+            self.assertFalse((runs / ".locks" / "h2r2-f01-c.json").exists())
+            driver_dir = runs / ".driver" / "h2r2-f01-c"
+            trace = sorted(driver_dir.glob("harness-defect-*.txt"))
+            self.assertEqual(1, len(trace))
+            text = trace[0].read_text()
+            self.assertIn("HARNESS_DEFECT:RuntimeError", text)
+            self.assertIn("worker_launched=False", text)
+            self.assertIn("traceback", text.lower())
+            blocked = [json.loads(line) for line in
+                       (driver_dir / "blocked.jsonl").read_text().splitlines()]
+            self.assertEqual(["HARNESS_DEFECT:RuntimeError"], blocked[0]["reasons"])
+            self.assertEqual(trace[0].name, Path(blocked[0]["evidence"]).name)
+            self.assertTrue(Path(blocked[0]["evidence"]).is_file())
+            # no attempt was consumed: the same run id reaches work on the next invocation
+            task, _ = task_pair("f01")
+            patch = candidate_patch(tmp, task)
+            accepted = driver.execute(
+                "h2r2-f01-c", runs,
+                worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                preflight=passing_preflight, auditor=stub_auditor(),
+                profile_env=profile_env_file(tmp), probe=passing_probe,
+                sandbox=StubSandbox(), auth=StubAuth())
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
+                self.assertEqual(1, accepted["attempts"])
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_defect_after_the_launch_registers_the_run_invalid(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            task, _ = task_pair("f01")
+            patch = candidate_patch(tmp, task)
+            runs = Path(tmp) / "runs"
+            result = driver.execute(
+                "h2r2-f01-c", runs,
+                worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                preflight=passing_preflight, auditor=self.exploding_auditor,
+                profile_env=profile_env_file(tmp), probe=passing_probe,
+                sandbox=StubSandbox(), auth=StubAuth())
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("INVALID", result["verdict"])
+                self.assertEqual(["HARNESS_DEFECT:RuntimeError"], result["reasons"])
+                self.assertEqual("INVALID", result["final_verdict"])
+                registry = [json.loads(line) for line in
+                            (runs / "registry-v2.jsonl").read_text().splitlines()]
+                self.assertEqual(1, len(registry))
+                self.assertEqual("INVALID", registry[0]["verdict"])
+                self.assertIn("HARNESS_DEFECT:RuntimeError", registry[0]["reason"])
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(["HARNESS_DEFECT:RuntimeError"], record["reasons"])
+                self.assertIs(True, record["harness_defect"]["worker_launched"])
+                trace = Path(record["harness_defect"]["evidence"])
+                self.assertTrue(trace.is_file())
+                self.assertIn("worker_launched=True", trace.read_text())
+                self.assertTrue(trace.is_relative_to((runs / ".driver" / "h2r2-f01-c").resolve()))
+                attempts = [json.loads(line) for line in
+                            (runs / "attempts-v2.jsonl").read_text().splitlines()]
+                self.assertEqual("HARNESS_DEFECT", attempts[-1]["kind"])
+                # registered means never started again
+                again = driver.execute(
+                    "h2r2-f01-c", runs,
+                    worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                    preflight=passing_preflight, auditor=stub_auditor(),
+                    profile_env=profile_env_file(tmp), probe=passing_probe,
+                    sandbox=StubSandbox(), auth=StubAuth())
+                self.assertEqual("REFUSED", again["outcome"])
             finally:
                 cleanup_run(run_dir)
 

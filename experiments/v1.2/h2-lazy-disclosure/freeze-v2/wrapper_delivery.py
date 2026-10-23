@@ -352,6 +352,20 @@ def verify_standalone(root: Path, repo: Path, base: str, candidate: str | None =
     return delivered
 
 
+def task_source(root: Path, materials: str, task_id: str) -> dict:
+    """The task's entry in the shortlist AT the materials commit.
+
+    F24 / T32: the delivery and the rendered contract must agree on the task's identity, so both
+    resolve it here instead of each keeping its own copy of the lookup.
+    """
+    shortlist = json.loads(git(root, "show", f"{materials}:{H2_REL}/admission/"
+                               "freeze-v2-input/shortlist.json"))["shortlist"]
+    tasks = {f"f{i:02d}": t for i, t in enumerate(shortlist, 1)}
+    if task_id not in tasks:
+        raise ValueError("UNKNOWN_TASK")
+    return tasks[task_id]
+
+
 def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
     """Reuse prepare_run.sh's byte composition, with every input read from objects."""
     def blob(rel):
@@ -423,17 +437,13 @@ def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -
     if run_dir.exists():
         raise ValueError("RUN_DIR_EXISTS")
     materials = git(root, "rev-parse", "--verify", f"{materials}^{{commit}}").strip()
-    shortlist = json.loads(git(root, "show", f"{materials}:{H2_REL}/admission/"
-                               "freeze-v2-input/shortlist.json"))["shortlist"]
-    tasks = {f"f{i:02d}": t for i, t in enumerate(shortlist, 1)}
-    if task_id not in tasks:
-        raise ValueError("UNKNOWN_TASK")
-    base = tasks[task_id]["BASE_SHA"]
-    candidate = tasks[task_id].get("CANDIDATE_SHA")
+    source = task_source(root, materials, task_id)
+    base = source["BASE_SHA"]
+    candidate = source.get("CANDIDATE_SHA")
     files = delivery(root, materials, arm)
     warm_lines = [f"{rel.removeprefix('H2_WARM/')} {sha256(data)}"
                   for rel, data in sorted(files.items()) if rel.startswith("H2_WARM/")]
-    receipt = {"task_id": task_id, "arm": arm, "base_sha": base,
+    receipt = {"task_id": task_id, "arm": arm,
                "materials_commit": materials,
                "repository_kind": "standalone_history_free",
                "carrier_kind": "control_full_v1" if arm == "control" else "variant_lean_v1",
@@ -441,6 +451,10 @@ def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -
                "rules_sha256": sha256(files["H2_RULES.md"]),
                "warm_bundle_sha256": sha256("\n".join(warm_lines).encode()),
                "program_sha256": sha256(Path(__file__).read_bytes())}
+    # F24 / T32: `receipt.json` sits in the run directory, i.e. in the worker's cwd, so it must not
+    # name the original base commit. The identity of record is the registry's base_sha and the
+    # driver's own base snapshot (`.driver/<run_id>/base-manifest.json`, outside the run dir); the
+    # receipt states only the DELIVERED head, which is the neutral re-commit of the base tree.
     run_dir.mkdir()
     try:
         standalone_repository(root, run_dir / "repo", base)

@@ -6,7 +6,8 @@ what changed:
 
   * the base is the driver's own snapshot `<runs_root>/.driver/<run_id>/base` plus
     `base-manifest.json`, recorded from the GOVERNANCE repository at prepare time, outside the
-    sandbox and outside anything the worker can reach;
+    sandbox and outside anything the worker can reach. F24 / T32: the base COMMIT is read from
+    that manifest and never from `receipt.json`, which sits in the worker's cwd;
   * the delta is the WORKTREE walked on the filesystem (`.git/` excluded) and compared by bytes,
     mode and type (file/symlink) against that manifest — A / M / D / T. `git status`, the index,
     index flags (assume-unchanged, skip-worktree), `.gitignore`, `.gitattributes` filters, repo-local
@@ -167,7 +168,7 @@ def verify_delivery(root: Path, run_dir: Path) -> tuple[dict, dict[str, str], li
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}, {}, ["UNREADABLE_RECEIPT"]
-    if not isinstance(receipt, dict) or not {"task_id", "arm", "base_sha", "delivered_head",
+    if not isinstance(receipt, dict) or not {"task_id", "arm", "delivered_head",
                                              "materials_commit", "carrier_sha256", "rules_sha256",
                                              "warm_bundle_sha256", "program_sha256"} <= set(receipt):
         return {}, {}, ["INCOMPLETE_RECEIPT"]
@@ -224,17 +225,18 @@ def artifact(run_dir: Path, name: str, missing: str, empty: str) -> tuple[dict, 
     return record, []
 
 
-def base_snapshot(run_dir: Path, base: str, reasons: list[str]) -> dict | None:
-    """The driver-recorded base manifest, or None with the fail-closed reason recorded."""
+def base_snapshot(run_dir: Path, reasons: list[str]) -> dict | None:
+    """The driver-recorded base manifest, or None with the fail-closed reason recorded.
+
+    F24 / T32: the base identity is read from the DRIVER's manifest, not from `receipt.json`. The
+    receipt lives in the worker's cwd and therefore may not name the original base commit; the
+    manifest lives under `<runs_root>/.driver/<run_id>/`, outside anything the worker can write.
+    """
     try:
-        manifest = wrapper_delivery.read_base_manifest(run_dir)
+        return wrapper_delivery.read_base_manifest(run_dir)
     except ValueError as exc:
         reasons.append(str(exc))
         return None
-    if manifest.get("base_sha") != base:
-        reasons.append("BASE_SNAPSHOT_DOES_NOT_MATCH_RECEIPT")
-        return None
-    return manifest
 
 
 def repository_shape(repo: Path, reasons: list[str]) -> bool:
@@ -262,19 +264,21 @@ def collect(root: Path = ROOT, run_dir: Path | None = None) -> dict:
     task = task_of(registry_data, str(receipt.get("task_id")))
     if receipt and task is None:
         reasons.append("UNKNOWN_TASK")
-    if receipt and task is not None and receipt.get("base_sha") != task["base_sha"]:
-        reasons.append("BASE_DOES_NOT_MATCH_REGISTRY")
-    base = str(receipt.get("base_sha", ""))
+    base = ""
     changes: list[dict] = []
     diff = b""
     if not repo.is_dir():
         reasons.append("MISSING_TASK_REPOSITORY")
-    elif not base:
-        reasons.append("MISSING_BASE_SHA")
     elif repo.is_symlink():
         reasons.append("TASK_REPOSITORY_UNREADABLE")
     else:
-        manifest = base_snapshot(run_dir, base, reasons)
+        manifest = base_snapshot(run_dir, reasons)
+        if manifest is not None:
+            base = str(manifest.get("base_sha") or "")
+            if task is not None and base != task["base_sha"]:
+                # The driver's snapshot and the frozen registry must name the same base tree.
+                reasons.append("BASE_SNAPSHOT_DOES_NOT_MATCH_REGISTRY")
+                manifest = None
         readable = repository_shape(repo, reasons)
         if manifest is not None and readable:
             try:

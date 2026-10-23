@@ -83,6 +83,14 @@ PROFILE   the profile config is a FROZEN INPUT (F6). The operator installs
           requires every printed state path to be under the profile home, the config sources to
           be exactly the profile `opencode.json` and its directory, and that file's bytes to
           equal the frozen template. The verdict stays in `<run_dir>/preflight.json`.
+          F22: in a FRESH home the debug calls are not standalone — without service settings they
+          start a managed background service on the default port and fail when another opencode
+          service on the machine already holds it. The driver's fresh-home attestation therefore
+          runs `opencode service set port <free 127.0.0.1 port>` first, then the two debug calls,
+          then `opencode service stop`, and finally `opencode service status`; the port and the
+          set/stop/status return codes and status text go into `preflight.json`, a stop failure is
+          recorded rather than hidden, and a service still running leaves the verdict FAIL
+          (registered BLOCKED as `PREFLIGHT_FAIL:SERVICE_LEFT_RUNNING`): no preflight PASS, no run.
 LIMIT     one run may not exceed 90 minutes of wall clock. Past that it is registered INVALID
           per protocol §8 (RUN_ID, ARM, TASK_ID, reason, discovery time, artifact location) and
           never silently re-run; a timeout is neither a worker failure nor a pass.
@@ -123,7 +131,9 @@ SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing
 FRESH HOME every launch gets a brand-new `<runs_root>/.driver/<run_id>/home-<n>` (auditor:
           `audit-home-<n>`, reachability: `probe-home-<purpose>-<n>`), mode 0700, holding only the
           frozen `worker-profile/opencode.json` and its own XDG_* directories; TMPDIR is
-          `<launch dir>/.tmp`, so scratch never lands in the shared OS temp dir (F19 / F21). The
+          `<launch dir>/.tmp`, so scratch never lands in the shared OS temp dir (F19 / F21), and
+          TMPPREFIX is `<launch dir>/.tmp/zsh` so a zsh heredoc writes there too instead of the
+          denied `/tmp/zsh` (F25). The
           credential is piped from the master profile (`opencode auth export --standalone opencode`
           into `opencode auth import --standalone`) and never touches argv, a log, the event
           stream, the registry or stdout; `opencode auth logout` runs in that home afterwards (best
@@ -166,7 +176,17 @@ LAYOUT    <run>/                 worker cwd (not a git repository)
                                  fetched, so `git log --all` names neither B nor the
                                  candidate. NO delivered file inside it, so §2's in-tree
                                  contamination cannot occur, and no worker can read the
-                                 historical candidate out of a shared object database
+                                 historical candidate out of a shared object database.
+                                 F24: the CONTRACT's S0 states EXPECTED_HEAD = that neutral
+                                 head (computed by the delivery's own function, deterministic
+                                 for the base tree) and says it is a neutral re-commit of the
+                                 registered base tree; neither the original base nor the
+                                 candidate sha appears in the contract or anywhere in the run
+                                 directory. `receipt.json` carries task/arm/materials and the
+                                 delivered head but NOT the base commit — the identity of
+                                 record is the registry's `base_sha` plus the driver's
+                                 `.driver/<run_id>/base-manifest.json`, both outside the
+                                 worker's reach.
 WHY       measured on 2026-10-19 with canary instruction files: opencode loads the cwd's
           AGENTS.md at startup; a repository's own AGENTS.md (and nested ones) are ATTACHED to
           the first read of a file beneath them; the user's normal profile also injects its
@@ -198,7 +218,7 @@ hash there. Tests reject a one-byte mutation of each of these 52 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T28 re-pin commit. The materials the run plan binds
+The content-freeze commit at this round is the T32 re-pin commit. The materials the run plan binds
 — and therefore the freeze parent in [freeze-manifest.json](freeze-manifest.json) — remain
 `4924930b71473efcb7f7fd84973d5574f873b03c` (the T26 commit). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
@@ -215,16 +235,22 @@ F14 work (T26: the pre-registered provider-infrastructure rule in the run driver
 probe, the before-work retry with hashed attempt archives and the attempt ledger, and the auditor's
 own counter; §5 and protocol-v2 §6.1), the F15/F18 work (T28: the collector now decides the
 delta from the worktree's bytes against a driver-recorded base snapshot, and the delivered
-repository head is a deterministic neutral commit), and the F16/F17/F19/F21 work (T29: every launch
+repository head is a deterministic neutral commit), the F16/F17/F19/F21 work (T29: every launch
 runs under a rendered `sandbox-exec` profile with a model-free confinement self-test, in a fresh
 per-launch home with its credential piped in and logged out again, with TMPDIR inside the launch
-directory, and the driver's own stdout/stderr copy is the only evidence the verdict reads). The T2
+directory, and the driver's own stdout/stderr copy is the only evidence the verdict reads), and the
+F22–F25 work (T32: the fresh-home preflight sets its own free service port, stops the service again
+and refuses a left-running one; the real reachability path hands the rendered profile to the launch
+and every unexpected driver exception has a state, decided by the worker-launch boundary; the
+contract states the delivered neutral head instead of the original base, which also leaves
+`receipt.json`; and TMPPREFIX joins TMPDIR so zsh heredocs work under the sandbox). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `4924930` with the T28 program: every
-PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`,
-which was itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality,
-same per-task PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered
-payload nor the measuring program nor the shortlist moved at those commits; T28 did, because the
+[delivery-anchors.json](delivery-anchors.json), taken at `4924930` with the T32 program. Every
+PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
+(each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`), which was
+itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
+PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
+measuring program nor the shortlist moved at those commits; T28, T29, T30 and T32 did, because the
 measuring program moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
@@ -304,6 +330,13 @@ run because each one silently changes what a gate measures:
    arms. The rule is arm-symmetric and outcome-blind because it can only fire before any worker
    action: it cannot re-roll a result.
 
+   **A harness defect is a state, not a result (F23).** An unexpected exception in the driver ends
+   the invocation as `BLOCKED:HARNESS_DEFECT:<ExceptionType>` with its traceback under
+   `<runs_root>/.driver/<run_id>/` when nothing had been launched yet (no attempt consumed, nothing
+   registered, the same run id may be invoked again), and registers the run
+   `INVALID:HARNESS_DEFECT:<ExceptionType>` once the worker was launched. The rule is decided by
+   the launch boundary alone, so it never depends on what the worker did (protocol-v2 §6.1).
+
 1. **Install the frozen profile template, then attest it before every run.** Install
    `freeze-v2/worker-profile/opencode.json` as the profile's
    `~/.config/opencode/opencode.json`, byte for byte (§3 PROFILE). From the repository root,
@@ -319,7 +352,10 @@ run because each one silently changes what a gate measures:
    `<run>/preflight.json`, and must print `"verdict": "PASS"` (exit 0). A FAIL means the run
    does not start: the profile is not the frozen one, or a state path or config source escapes
    it. This is the mechanical answer to F6; the implementer never ran it against the live
-   profile, so the first real verdict is Claude's.
+   profile, so the first real verdict is Claude's. The driver's own preflight runs the same
+   checks against the fresh per-launch home and adds the F22 service sequence (§3 PROFILE);
+   the CLI form above keeps the master-profile attestation and therefore never rewrites the
+   operator's service settings.
 
 2. **Claude runs the isolation canary in the logged-in isolated profile and records the verdict.**
    With `H2_RUNS_ROOT` set to `<SHARED_RUN_ROOT>` (§3: in the macOS Shared folder, outside every
