@@ -8,6 +8,11 @@ from pathlib import Path
 
 from wrapper_delivery import H2_REL, ROOT, git
 
+# F26 / T36b: a confined launch is `opencode serve --hostname 127.0.0.1 --port <P>` inside the
+# sandbox plus `opencode run --server http://127.0.0.1:<P> ...`, so the plan names that layout
+# instead of the standalone one it used before the egress confinement existed.
+RUNTIME = "opencode 2.0.25 serve+run --server"
+
 
 def build(materials: str, root: Path = ROOT) -> dict:
     materials = git(root, "rev-parse", "--verify", f"{materials}^{{commit}}").strip()
@@ -20,7 +25,7 @@ def build(materials: str, root: Path = ROOT) -> dict:
                          "task_id": task["task_id"], "arm": arm,
                          "materials_commit": materials,
                          "model": "opencode-go/deepseek-v4.1-flash",
-                         "runtime": "opencode 2.0.25 --standalone",
+                         "runtime": RUNTIME,
                          "profile": "~/.h2-worker-profile", "fresh_episode": True})
     return {"program": "freeze-v2/build_run_plan.py",
             "materials_binding": "Parent of the freeze re-pin commit (T14) that last updated "

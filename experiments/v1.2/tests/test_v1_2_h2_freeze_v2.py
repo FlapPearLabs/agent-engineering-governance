@@ -34,39 +34,41 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "00e150f9cbb05deeefdfc5fe52bfa83c162555395d6b6b8c5bb06bebcf4fd178",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "224bf00ac9febe79d15d2b389815ac5a6611aafe1dcb595b532fc6548cf7105a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "3a505f6a51cb96200adaca8ded766c18ea6acca513e86723a50da8b29ff373bb",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ca2dc8d6106d58692d1bc77715be9662b5a4dd8b68dac69ba260827246172274",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "e60ecccfde78eccbb3202464d9b386c5bf9ead296cc43caaa575da3b4516989a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "fd6ce1765508bbbbd4eeee19d6174aaaa508b595b958028a4d361ddc6fe30027",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "a0881ed59a1a506d94318d797e4c0d891b00fc9a333b4709411c669a85a5e431",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "8c1ff075b7d4fbed3fd943a7dd06bb6cd78448b1a9405bb75efbb67fc46792e0",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "17ecc772bcfad1851a7aae7b3a5119cd1f93dc0f16a85a55aebc42f0f064ca95",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "77d29115f1d0320bf9d1a5656772d613e0b855a8f2b1f6badaac3ed3b65b2de2",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/egress_v2.py": "2fbe5f91c7b9936c3bdecc8bef857c419bdd54d68cba41bc87c63e6f56a76429",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-efc46fc-f27-events.jsonl": "eea5516714f36aef54f058f036e568d09478f25b41a75902471e5346a242ff37",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-f01-c-events.jsonl": "8df3d734070e50bdd6e425da3fa43f9206daa1ffa1754b7ba5c28c4867d0e099",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d30f3b1fcbf1b77cfc58eb9ae39bcdb98053fcd86c76186438f76db655421f59",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "47b4f5429691f6c327f67984afffe89759f1a13f976830b163957f18e992be67",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "153bf631696ac7ad3f32c0377f442ded41330ca69d1e2146a304e05ba1998b4c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "d25e380c727bcff593ffb6554756e3a8667e067f798acc1805e0f36f05576fea",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "b6362b2dd922f9a87020507172b814cfdf8bdac660daf6c9e6706f148ea14f61",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "1607540b0036d9d4a45d446e9fe54dc80b8a098e09fdfdcff88fd8987ec6d04e",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "ec49df26e1df15b41bffb1be016d2825401a7fceac7963e9d9b0b5dc99e28252",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "ee428d59ff626cf97942b8ed60906b07d3893ece9e2d7c725da2f7ee15f85020",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "183cd4f6a6e761145d747bb819ff060beae071ced74934c1e7b06422d0df8bb3",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "fa14df5a1b47f3927314159a11f99cb5b672841379dba134bd5adb481cd40f88",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "2a9f3c155aae6d83303d44a2fcd68a42184421a9e8095a2a251ecdf32acd294f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-sandbox.sb.template": "c05abbbffd35134ee1a90f12a955ce3f47f7719a45168a08396cc1bf541fa280",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-sandbox.sb.template": "1b08c562b34b9ead2ca0891141bc7fdbc3dc2ab506123ddc90957b03ea66ccf8",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "f2dc995f4528bc544a3f23b82613714cedb95b02a64e6b6c79f4c89b5874c1cf",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
@@ -76,7 +78,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "542e3f41193cb43fab51317e7d9a367a3c5ebb527b645756e30642a7a463f0f9"
+MANIFEST_SHA256 = "028dae597184b5159351ec69a0addb241809494753e01c2c57118355742fb706"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -1516,7 +1518,8 @@ class RunPlanV2(unittest.TestCase):
         self.assertEqual(20, len({r["run_id"] for r in runs}))
         self.assertEqual(1, len({r["materials_commit"] for r in runs}))
         self.assertEqual({"opencode-go/deepseek-v4.1-flash"}, {r["model"] for r in runs})
-        self.assertEqual({"opencode 2.0.25 --standalone"}, {r["runtime"] for r in runs})
+        self.assertEqual({"opencode 2.0.25 serve+run --server"},
+                         {r["runtime"] for r in runs})
         self.assertEqual({"~/.h2-worker-profile"}, {r["profile"] for r in runs})
         self.assertTrue(all(r["fresh_episode"] for r in runs))
         self.assertFalse(any("session_id" in r for r in runs))
@@ -2475,6 +2478,31 @@ class FailingSandbox(StubSandbox):
                   proxy_port, serve_port):
         return {"verdict": "FAIL", "reasons": ["PYTHON_READ_NOT_DENIED"],
                 "profile_sha256": digest(Path(profile_path).read_bytes())}
+
+
+class SelfTestingSandbox(StubSandbox):
+    """A stand-in self-test that makes the real deliberate refusal through the launch's proxy.
+
+    F30: this is how the rendered-profile self-test behaves (`sandbox_v2.self_test`): it asks the
+    proxy for a non-allowlisted CONNECT and requires the 403. The DENY it causes must be recorded in
+    the self-test's own evidence, never in the launch's `egress.jsonl`.
+    """
+
+    def self_test(self, profile_path, launch, planted, python=None, token=None, *,
+                  proxy_port, serve_port):
+        request = (f"CONNECT {load('sandbox_v2').EGRESS_PROBE_HOST}:443 HTTP/1.1\r\n"
+                   f"Host: probe\r\n\r\n").encode()
+        sock = socket.create_connection(("127.0.0.1", int(proxy_port)), timeout=5)
+        try:
+            sock.sendall(request)
+            data = sock.recv(1024)
+        finally:
+            sock.close()
+        refused = data.startswith(b"HTTP/1.1 403")
+        return {"verdict": "PASS" if refused else "FAIL",
+                "reasons": [] if refused else ["PROXY_CONNECT_NOT_REFUSED"],
+                "profile_sha256": digest(Path(profile_path).read_bytes()),
+                "proxy_port": int(proxy_port), "serve_port": int(serve_port)}
 
 
 def stub_auditor(verdict="PASS"):
@@ -4405,6 +4433,81 @@ class EgressAllowlist(unittest.TestCase):
             self.assertEqual(("ALLOW", "127.0.0.1", origin_port),
                              (entries[0]["verdict"], entries[0]["host"], entries[0]["port"]))
 
+    def test_a_tunnel_survives_an_upstream_silence_longer_than_the_socket_timeout(self):
+        """F30: a reasoning model may think for longer than the request timeout before it speaks."""
+        module = load("egress_v2")
+        origin = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        origin.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        origin.bind(("127.0.0.1", 0))
+        origin.listen(1)
+        origin.settimeout(module.SOCKET_TIMEOUT + 30)
+        origin_port = int(origin.getsockname()[1])
+        silence = module.SOCKET_TIMEOUT + 5
+        sent = []
+
+        def serve():
+            try:
+                conn, _ = origin.accept()
+                time.sleep(silence)
+                conn.sendall(b"late-answer")
+                sent.append(True)
+                conn.close()
+            except OSError:
+                pass
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        with tempfile.TemporaryDirectory() as tmp:
+            stream = Path(tmp) / "attempt-1"
+            proxy = module.EgressProxy(stream, allow=("127.0.0.1",),
+                                       allow_port=origin_port).start()
+            try:
+                sock = socket.create_connection(("127.0.0.1", proxy.port),
+                                                timeout=silence + 30)
+                try:
+                    sock.sendall(self.connect_line(f"127.0.0.1:{origin_port}"))
+                    head = b""
+                    while b"\r\n\r\n" not in head:
+                        chunk = sock.recv(1024)
+                        self.assertTrue(chunk, "the proxy closed before the tunnel was established")
+                        head += chunk
+                    self.assertTrue(head.startswith(b"HTTP/1.1 200"), head)
+                    payload = head.split(b"\r\n\r\n", 1)[1]
+                    while b"late-answer" not in payload:
+                        chunk = sock.recv(1024)
+                        self.assertTrue(chunk, "the relay ended during the upstream silence")
+                        payload += chunk
+                    self.assertIn(b"late-answer", payload)
+                finally:
+                    sock.close()
+            finally:
+                proxy.stop()
+                origin.close()
+                thread.join(timeout=silence + 10)
+            self.assertEqual([True], sent)
+            entries = self.log(proxy.log_path)
+            self.assertEqual([("ALLOW", origin_port)],
+                             [(entry["verdict"], entry["port"]) for entry in entries])
+
+    def test_the_self_tests_own_refusal_is_not_the_launchs_egress_denial(self):
+        """F30: the deliberate self-test DENY goes to its own evidence, so egress_denied stays empty."""
+        module = load("egress_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            stream = Path(tmp) / "attempt-1"
+            proxy = module.start(stream)
+            try:
+                selftest_log = stream / module.SELFTEST_LOG_NAME
+                with proxy.segment(selftest_log):
+                    self.assertEqual("HTTP/1.1 403 Forbidden",
+                                     self.status(proxy.port, self.connect_line("example.com:443")))
+                self.assertEqual([], module.denied(proxy.log_path))
+                self.assertEqual(["example.com"], [entry["host"] for entry in
+                                                   module.denied(selftest_log)])
+            finally:
+                proxy.stop()
+            # Back on the launch's own evidence after the segment closed.
+            self.assertTrue(proxy.log_path.is_file())
+
     def test_egress_denied_is_evidence_and_never_changes_the_verdict(self):
         audit_module = load("access_audit")
         with tempfile.TemporaryDirectory() as tmp:
@@ -4424,6 +4527,34 @@ class EgressAllowlist(unittest.TestCase):
             result["egress_denied"] = denied
             self.assertEqual("PASS", result["verdict"])
             self.assertEqual([], result["hits"])
+
+    def test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal(self):
+        """F30: only the self-test was refused, so the launch's `egress_denied` must be empty."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "accept", sandbox=SelfTestingSandbox())
+            run_dir = runs / "h2r2-f01-c"
+            stream = runs / ".driver" / "h2r2-f01-c" / "attempt-1"
+            try:
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                confinement = json.loads((stream / "confinement.json").read_text())
+                self.assertEqual("PASS", confinement["verdict"], confinement.get("reasons"))
+                self.assertEqual("egress-self-test.jsonl",
+                                 Path(confinement["egress_log"]).name)
+                self.assertEqual(["example.com"],
+                                 [entry["host"] for entry in confinement["egress_denied"]])
+                launch_log = stream / "egress.jsonl"
+                self.assertTrue(launch_log.is_file())
+                self.assertEqual("", launch_log.read_text(encoding="utf-8").strip())
+                self.assertEqual([], load("egress_v2").denied(launch_log))
+                audit = json.loads((run_dir / "access-audit.json").read_text())
+                self.assertEqual([], audit["egress_denied"], audit["egress_log"])
+                self.assertTrue((run_dir / "run.json").is_file())
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(str(stream / "egress.jsonl"), record["egress_log"])
+                worker_step = next(step for step in record["steps"] if step["step"] == "worker")
+                self.assertTrue(worker_step["argv"])
+            finally:
+                cleanup_run(run_dir)
 
     def test_a_run_records_the_egress_log_beside_the_access_audit(self):
         with tempfile.TemporaryDirectory() as tmp:

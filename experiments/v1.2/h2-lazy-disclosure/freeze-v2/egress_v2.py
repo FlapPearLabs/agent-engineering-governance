@@ -16,9 +16,19 @@ process cannot rewrite that evidence. The proxy is stopped after the launch.
 
 Nothing here is a claim about the content of an allowed connection: an allowed CONNECT is a tunnel
 to the provider, and the experiment's answer-leak rule is the allowlist, not payload inspection.
+
+F30 (live pilot #6): the timeout bounds the REQUEST LINE and the UPSTREAM CONNECT only. Once the
+tunnel is established both sockets are set blocking, because a reasoning model can stay silent far
+longer than `SOCKET_TIMEOUT` before its first byte; the old 30 s read timeout ended the relay and the
+client reported `ECONNRESET`. The launch's own wall-clock limit now ends a tunnel, not this proxy.
+
+The confinement self-test deliberately asks for a non-allowlisted CONNECT. That DENY is the
+self-test's own evidence (`SELFTEST_LOG_NAME`), routed there by `EgressProxy.segment`, so a launch's
+`egress.jsonl` never reports a denial the launch did not attempt.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import socket
 import threading
@@ -29,6 +39,7 @@ BIND_HOST = "127.0.0.1"
 EGRESS_ALLOW = ("opencode.ai", "models.opencode.ai")
 EGRESS_PORT = 443
 LOG_NAME = "egress.jsonl"
+SELFTEST_LOG_NAME = "egress-self-test.jsonl"
 ALLOW = "ALLOW"
 DENY = "DENY"
 REQUEST_LIMIT = 65536
@@ -98,6 +109,7 @@ class EgressProxy:
         self._listener: socket.socket | None = None
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._log_target: Path | None = None
         self._closed = threading.Event()
 
     def start(self) -> "EgressProxy":
@@ -121,6 +133,26 @@ class EgressProxy:
         return {"HTTPS_PROXY": url, "https_proxy": url,
                 "HTTP_PROXY": url, "http_proxy": url,
                 "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost"}
+
+    @contextlib.contextmanager
+    def segment(self, log_path):
+        """Route this proxy's entries to `log_path` for the duration of the block (F30).
+
+        The confinement self-test runs against this same proxy port (the rendered profile allows
+        only that port) and its deliberate non-allowlisted CONNECT is a DENY. That line belongs to
+        the self-test's own evidence, not to the launch's `egress.jsonl`, which feeds
+        `egress_denied`: otherwise every run reports an egress its worker never attempted.
+        """
+        path = Path(log_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(exist_ok=True)
+        with self._lock:
+            previous, self._log_target = self._log_target, path
+        try:
+            yield path
+        finally:
+            with self._lock:
+                self._log_target = previous
 
     def stop(self) -> dict:
         self._closed.set()
@@ -149,7 +181,8 @@ class EgressProxy:
     def _record(self, host: str, port: int | None, verdict: str, method: str) -> None:
         line = {"at": now(), "host": host, "port": port, "verdict": verdict, "method": method}
         with self._lock:
-            with self.log_path.open("a", encoding="utf-8") as handle:
+            path = self._log_target or self.log_path
+            with path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(line, sort_keys=True) + "\n")
 
     def _deny(self, conn: socket.socket, host: str, port: int | None, method: str) -> None:
@@ -194,6 +227,14 @@ class EgressProxy:
                 upstream.close()
                 conn.close()
                 return
+            # F30: the tunnel is established; both sockets become blocking so a long upstream
+            # silence (a reasoning model before its first token) does not end the relay. The
+            # launch's own wall-clock limit is what ends a tunnel.
+            for socket_ in (conn, upstream):
+                try:
+                    socket_.settimeout(None)
+                except OSError:
+                    pass
             forward = threading.Thread(target=relay, args=(conn, upstream), daemon=True)
             forward.start()
             relay(upstream, conn)

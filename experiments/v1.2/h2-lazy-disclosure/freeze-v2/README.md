@@ -153,7 +153,13 @@ SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing
           only, never argv, a record, a log or the event stream), and the serve process is killed
           with its own process group. The confinement self-test additionally requires a direct
           outside connect to fail and a proxied non-allowlisted CONNECT to be refused (403), or
-          the launch is BLOCKED:SANDBOX_NOT_CONFINING. DISCLOSED (F28): macOS `mktemp -d` without
+          the launch is BLOCKED:SANDBOX_NOT_CONFINING; that deliberate refusal is logged in the
+          self-test's own `egress-self-test.jsonl`, so a launch's `egress_denied` never reports an
+          egress it did not attempt (F30). The proxy's 30 s timeout bounds the request line and the
+          upstream connect only: once the tunnel is established both sockets are blocking, because
+          a reasoning model can stay silent far longer than that before its first byte, and the
+          launch's own wall-clock limit is what ends the tunnel (F30, live pilot #6's
+          `ECONNRESET`). DISCLOSED (F28): macOS `mktemp -d` without
           a template ignores TMPDIR and uses the per-user confstr directory under /var/folders,
           which the sandbox denies; both arms are affected identically and the worker adapts —
           the directory is not opened.
@@ -230,27 +236,27 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 52 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 53 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
 confinement module and its frozen profile template
 (`sandbox_v2.py`, `worker-sandbox.sb.template`), the CONNECT-only egress allowlist proxy
 (`egress_v2.py`, F26), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
-access audit and its four event fixtures (`access_audit.py`: two hand-built shape fixtures plus
-the two sanitised REAL streams the live pilot and the tool-name probe recorded, whose absolute
+access audit and its five event fixtures (`access_audit.py`: two hand-built shape fixtures plus
+the three sanitised REAL streams the live pilots and the tool-name probe recorded, whose absolute
 path prefixes are placeholders re-expanded by the tests), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 53 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 54 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T33 re-pin commit; its parent — the merge that
-brought the bounded-concurrency work (`T34`/`T35`) into this branch — is
-`8247185706af45581bb5d453462187e9ecfc87e3`, and that merge is what the run plan binds and what
+The content-freeze commit at this round is the T37 re-pin commit; its parent — the merge that
+brought the access-audit work (`T36a`, F27/F29) into this branch — is
+`052c3614d435b28bd982ec638999e72232053657`, and that merge is what the run plan binds and what
 [freeze-manifest.json](freeze-manifest.json) records as its freeze parent (materials = parent of
 the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
@@ -281,15 +287,22 @@ T34/T35 work on the parallel branch, merged here before any counted run: bounded
 registered), the `run-plan` scheduler with exponential backoff and its own log, the
 `fcntl.flock` registry/attempt appends, overlap reporting in the aggregate, the per-run
 preflight service port handed to the fresh-home attestation with a bounded collision retry, and
-the pre-registered single-model rule (`MODEL_NOT_FROZEN`). The T2
+the pre-registered single-model rule (`MODEL_NOT_FROZEN`), and the F26–F30 work (T36a/T36b/T37:
+the CONNECT-only egress allowlist proxy (`egress_v2.py`), the `opencode serve` + `opencode run
+--server` launch layout with a per-launch loopback port and server password, the rendered network
+rules and the two network probes of the confinement self-test, the `egress_denied` evidence field,
+the tunnel that stays open after CONNECT (F30) with the self-test's own refusal recorded separately,
+the access audit's own-repository clone rule and its `cd`-relative assignment resolution (F27), the
+same-line EPERM rule for `sandbox_denied` (F29), and the sanitised pilot #5 fixture). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `8247185` with the merged program. Every
+[delivery-anchors.json](delivery-anchors.json), taken at `052c361` with the merged program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
 (each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33
-re-measurement moved only `materials_commit`), which was
+and T37 re-measurements moved only `materials_commit`), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
-measuring program nor the shortlist moved at those commits; T28, T29, T30, T32 and T33 did, because
+measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33 and T37 did,
+because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the

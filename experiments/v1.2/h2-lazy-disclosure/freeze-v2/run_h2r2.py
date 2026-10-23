@@ -1109,6 +1109,10 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         if proxy is None:
             proxy = egress_v2.start(prepared["stream"])
             prepared["egress"] = proxy
+        # F30: the self-test's deliberate non-allowlisted CONNECT is answered 403 by this proxy, so
+        # it must be logged as the self-test's own evidence (`egress-self-test.jsonl`) rather than in
+        # the launch's `egress.jsonl`, which is what `egress_denied` reports per run.
+        self_test_log = Path(prepared["stream"]) / egress_v2.SELFTEST_LOG_NAME
         attempts: list[dict] = []
         profile = None
         test: dict = {}
@@ -1118,8 +1122,11 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             prepared["server_password"] = secrets.token_hex(SERVER_PASSWORD_BYTES)
             profile = sandbox.profile(prepared["stream"], launch_dir, prepared["home"],
                                       sys.executable, proxy_port=proxy.port, serve_port=port)
-            test = sandbox.self_test(profile["path"], launch_dir, planted, sys.executable, token,
-                                     proxy_port=proxy.port, serve_port=port)
+            with proxy.segment(self_test_log):
+                test = sandbox.self_test(profile["path"], launch_dir, planted, sys.executable, token,
+                                         proxy_port=proxy.port, serve_port=port)
+            test["egress_log"] = str(self_test_log)
+            test["egress_denied"] = egress_v2.denied(self_test_log)
             attempts.append({"attempt": number, "port": port,
                              "self_test": test.get("verdict"),
                              "reasons": list(test.get("reasons", []))})

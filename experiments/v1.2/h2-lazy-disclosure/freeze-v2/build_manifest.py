@@ -24,6 +24,7 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/access-audit-clean.jsonl",
         "fixtures/access-audit-hits.jsonl",
         "fixtures/pilot-f01-c-events.jsonl",
+        "fixtures/pilot-efc46fc-f27-events.jsonl",
         "fixtures/toolname-probe-events.jsonl",
         "fixtures/preflight-debug-paths.txt",
         "fixtures/preflight-debug-config.json",

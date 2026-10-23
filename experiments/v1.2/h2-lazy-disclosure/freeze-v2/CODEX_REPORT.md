@@ -2320,3 +2320,147 @@ FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
   无法在审计期区分，选择的是保守侧（宁可多报）。
 - 三条命令以上的 `cd` 链、子 shell `( … )` 内的 `cd` 仍按“顺序取最后一次 `cd`”近似；这与 F13
   既有实现一致，不是本票新增的近似。
+
+## T37（implementer: opencode deepseek-v4.1-flash）— 合并 T36a、F30、re-pin 与 T36–T37 证据
+
+本票按 CODEX_FIXES_10 收尾：Step 1 的合并已由上一会话完成（本节只核验，不重做），本会话补做
+F30（live pilot #6 的 `ECONNRESET`）与 Step 2（re-pin + 报告 + 一次全量门禁）。**没有**执行任何
+H2-R2 run、没有调用任何模型、没有触碰 `~/.h2-worker-profile`、没有 push。
+
+### 1. 合并（Step 1，已存在的 `052c361`）
+
+```text
+git merge --no-ff refs/heads/experiment/v1.2-h2-freeze-v2-par
+  -> 052c3614d435b28bd982ec638999e72232053657
+     父：0716849（T36b，F26/F28） 7b712dd（T36a，F27/F29）
+```
+
+核验（只读）：`CODEX_REPORT.md` 同时保留 T36b 与 T36a 两节；`access_audit.py` 同时含 T36a 的
+F27/F29 规则（`is_run_repository()`、`cd` 相对解析、同行 EPERM 判据）与 T36b 新增的独立函数
+`egress_denied()`；`egress_v2.py`、`run_h2r2.py` 的 serve/run 布局、`sandbox_v2.py` 与
+`worker-sandbox.sb.template` 的网络规则都在；两侧测试类（`AccessAuditFalsePositives` 6 项、
+`EgressAllowlist`、`SandboxNetwork`）都在。没有任何一侧的拒绝、测试或规则被删除。
+
+### 2. F30（本会话新增）— 隧道不再有 30 s 读超时，自检的拒绝不污染 launch 证据
+
+`egress_v2.py`：
+
+1. **超时只约束请求行与上游 CONNECT**。`conn.settimeout(SOCKET_TIMEOUT)` 与
+   `create_connection(..., timeout=SOCKET_TIMEOUT)` 保持不变；但 `CONNECT` 成功、200 写回之后，
+   **两个** socket 都 `settimeout(None)`（阻塞），中继不再因上游静默而断开。结束隧道的是 launch
+   自己的 wall-clock 上限，不是代理。这正是 pilot #6 的形态：推理模型在想，30 s 内没有首字节，
+   旧代码把隧道关掉，客户端报 `ECONNRESET`，auditor 拿 `AUDIT_EXIT:1` → `BLOCKED`。
+2. **自检的故意 DENY 进自己的证据**。新增 `SELFTEST_LOG_NAME = "egress-self-test.jsonl"` 与
+   `EgressProxy.segment(log)`：在 `with` 块内该代理的记录改写到指定文件，退出后恢复。自检必须
+   经**同一个**代理端口问一个非 allowlist 主机（profile 只放行那个端口），因此不能另起代理；
+   `run_h2r2.confine_state()` 把 `sandbox.self_test(...)` 包在 `proxy.segment(...)` 里，并把
+   `egress_log` / `egress_denied` 写进该 attempt 的 `confinement.json`。于是 launch 的
+   `egress.jsonl`（`egress_denied` 的来源）只含 launch 真正发起的请求：一个从未尝试过 egress 的
+   run 不再报告一条 DENY。
+
+RED 证据（`<TMP>` 内的变异脚本，未入仓）：把上面第 1 条的 `settimeout(None)` 循环删掉后，
+同一 35 s 静默场景得到 `PRE_F30_RELAY bytes=b'' closed_by_proxy=True`（代理在第 30 秒关隧道）；
+修好后同一场景交付 `b"late-answer"`。
+
+新增/更新的测试（全部本地 socket / stub，无模型）：
+
+- `test_a_tunnel_survives_an_upstream_silence_longer_than_the_socket_timeout`：真实
+  `EgressProxy` + 本地 origin 先静默 `SOCKET_TIMEOUT + 5` 秒再发字节；断言 200 之后客户端仍收到
+  字节、origin 确实发送、日志恰好一条 ALLOW。
+- `test_the_self_tests_own_refusal_is_not_the_launchs_egress_denial`：`segment()` 内的
+  `example.com:443` 得到 403，launch 日志 0 条 DENY、自检日志 1 条 `example.com`；块结束后代理
+  记录回到 launch 日志。
+- `test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal`：新增
+  `SelfTestingSandbox`（自检真的经代理发一次非 allowlist CONNECT），跑一次完整 `driver.execute`：
+  `confinement.json` 的 `egress_denied` 是 `example.com`，`confinement.egress_log` 是
+  `egress-self-test.jsonl`，launch 的 `egress.jsonl` 为空，`access-audit.json` 的
+  `egress_denied` 为 `[]`，run 仍 `ACCEPT`。
+
+聚焦运行：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -k EgressAllowlist
+  Ran 7 tests in 57.399s / OK
+$PY -m unittest discover -s experiments/v1.2/tests -k SandboxNetwork -k RunDriver
+  Ran 21 tests in 113.882s / OK      # 含真 sandbox-exec 的渲染 profile 与 stub serve/run 对
+```
+
+### 3. re-pin（Step 2，全部由仓库程序生成，没有任何手写 hash）
+
+`T37P = 052c3614d435b28bd982ec638999e72232053657`（合并提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T37P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T37P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T37P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=53 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t37/repin_literals.py .        # 只读 manifest，重写两个独立锚
+  -> LITERALS repinned=53 manifest_sha256=028dae597184b5159351ec69a0addb241809494753e01c2c57118355742fb706
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **run plan**：`runtime` 标签由 `opencode 2.0.25 --standalone` 改为
+  `opencode 2.0.25 serve+run --server`，因为 F26/T36b 之后受约 launch 就是
+  `opencode serve` + `opencode run --server` 的两进程布局；这是标签与真实布局对齐，不是放宽：
+  冻结的 `WORKER_COMMAND`/`SERVER_COMMAND`、渲染 profile 与每次 launch 的端口由别的测试逐条固定。
+  20 条 run 的 `materials_commit` 全部是 `$T37P`。
+- **anchors**：与 T33 的 `8247185` 测量逐字段比较，**只有** `materials_commit` 变化
+  （`8247185…` → `052c361…`）；10 行 row（每个 PRE 集合、每个 `ran`、每个 POST cell、每格
+  verdict）逐字节相同，`wrapper_program_sha256` 仍是 `f2dc995f…`（本票没有改
+  `wrapper_delivery.py`）。WRAPPER 仍 10/10 DELIVERY_NEUTRAL。
+- **manifest**：53 个冻结文件（T33 的 51 + `egress_v2.py` + `fixtures/pilot-efc46fc-f27-events.jsonl`，
+  T36a 已预告该 fixture 在 T37 纳入；`build_manifest.py` 的 `FROZEN_FILES` 同步加入）。
+  `freeze_parent` = `materials_commit` = `$T37P`。相对旧 manifest 变化的条目是
+  `access_audit.py`、`build_manifest.py`、`build_run_plan.py`、`delivery-anchors.json`、
+  `protocol-v2.md`、`run-plan-v2.json`、`run_h2r2.py`、`sandbox_v2.py`、
+  `worker-sandbox.sb.template`，加上两个新成员与 manifest 自身的 commit 字段；其余逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 53 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `028dae59…fb706`；重写脚本只做"读 manifest →
+  按路径重写 → 校验旧字面量是新集合的子集（多一条即报错退出）"，没有手输任何 hash。
+- **README §4**：文件数 52 → 53、mutation 覆盖 53 → 54、事件 fixture "four" → "five"（三个真实
+  流），content-freeze 段改写为 T37 / `052c361`，并把 F26–F30 与本次 re-pin 加进"前移的内容"。
+  README 不在字节冻结内，§3 confound 段落一字未动。
+
+### 4. F26–F30 的证据（逐条指向实现与固定它的测试）
+
+| 项 | 状态 | 实现 | 固定它的测试（全部 stub/fixture/本地 socket/sandbox-exec，无模型） |
+|---|---|---|---|
+| F26 (P1) 网络出口开放、公开仓历史含答案 | 关闭（T36b + 本票 re-pin） | `egress_v2.py` 的 CONNECT-only allowlist 代理（`EGRESS_ALLOW`，443；非 CONNECT 403；逐请求 `egress.jsonl`）；`run_h2r2.py` 的 `opencode serve` + `run --server <P>` 布局与每 launch 随机 `OPENCODE_SERVER_PASSWORD`；模板与 `sandbox_v2.render` 的 `deny network-outbound` + 两条 loopback allow；自检直连失败 + 代理 403 | `test_the_allowlist_is_frozen_and_non_allowlisted_or_non_connect_requests_get_403`、`test_an_allowed_connect_is_tunnelled_and_logged`、`test_a_direct_outside_connect_and_another_loopback_port_are_denied`、`test_a_stub_server_and_client_work_through_the_real_sandbox`、`test_the_launchable_facts_are_frozen_and_the_cli_exposes_no_replacement` |
+| F27 (P1) F27a/F27b 两个 access-audit 假阳性 | 关闭（T36a） | `access_audit.py`：clone/fetch/pull 的来源按 `cd`/`-C` 解析后落在 run 目录内即"本 run 自己的仓库"；`NAME=value` 也按前导 `cd` 的工作目录解析；URL / scp 形式 / run 外路径 / 无操作数仍是 hit | `test_the_recorded_pilot_five_commands_pass`、`test_a_clone_of_the_runs_own_repository_is_not_an_escape`、`test_a_clone_source_that_reaches_outward_is_still_a_hit`、`test_every_assignment_value_resolves_against_the_preceding_cd` |
+| F28 (P3) `mktemp -d` 无模板忽略 TMPDIR | 披露（T36b） | README §3 与 protocol-v2 §4 明确记录，不开放 `/var/folders`；两臂同受影响 | 无测试可"关闭"该平台事实；由 pilot #5 流的只读 replay 证明它是唯一一条 `sandbox_denied`（T36a 节） |
+| F29 (P3) `sandbox_denied` 误记正文含 "not permitted" 的读取 | 关闭（T36a） | 同一条输出行必须同时含 EPERM 文本与 run 外绝对路径才记一条 | `test_a_document_that_merely_mentions_the_denial_is_not_a_denial`、`test_a_real_denial_line_naming_an_outside_path_is_evidence` |
+| F30 (P1) 隧道 30 s 读超时导致 `ECONNRESET`；自检 DENY 污染 `egress_denied` | 关闭（本票） | `egress_v2.py` 建隧道后两 socket 阻塞 + `segment()`/`SELFTEST_LOG_NAME`；`run_h2r2.confine_state` 把自检包进 `segment` 并把证据写进 `confinement.json` | `test_a_tunnel_survives_an_upstream_silence_longer_than_the_socket_timeout`、`test_the_self_tests_own_refusal_is_not_the_launchs_egress_denial`、`test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal` |
+
+### 5. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!                     (exit 0)
+=== GOVERNANCE           35/35 checks passed                    (exit 0)
+=== PUBLIC               VIOLATIONS=0                           (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 25.383s / OK          (exit 0)
+=== EXPERIMENTS_TESTS    Ran 457 tests in 1174.812s / OK        (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空  (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                 (exit 0)
+```
+
+上面是写入本节时的记录遍（同一棵树，只差本节这些行）。freeze-v2 本模块现在 148 项
+（T36a/T36b 合并后 145 + F30 的 3 项），实验套件 457 项。写完后同一棵树把全部 §0 GATES 再跑一遍
+并与 commit 以 `&&` 串联，任一门失败则不提交。
+
+### 6. 未做、未证明与需裁决的读法
+
+- **F30 只在 socket 层证明**：35 s 静默用的是本地 origin 与真实 `EgressProxy` 类，不是真实
+  provider；`opencode serve`/provider 端到端仍需下一次 live pilot 确认（与 F26 的遗留相同）。
+  该测试给套件增加约 35 s。
+- **T36a 的 "temp allow-list" 读法仍待 Claude 裁决**（T36a 节已记录）：本实现只把 run 目录内的
+  本地来源视为自身仓库，OS temp 根内的来源仍是 hit，因此 `git clone /tmp/other copy` 这类既有拒绝
+  未被推翻。
+- **run plan 的 runtime 标签**是本票的决定（对齐 serve+run 布局）；若验收认为 T5 的字面
+  `--standalone` 必须保留，需要 Claude 明确推翻 F26 的布局，二者不能同时成立。
+- manifest 从 51 条增至 53 条不是放宽：新增的两个成员在 T36a/T36b 已进入写范围，只是当时按
+  "本票不 re-pin" 留到本轮。
