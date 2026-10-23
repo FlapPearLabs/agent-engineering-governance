@@ -2228,3 +2228,95 @@ $PY -m unittest discover -s experiments/v1.2/tests \
   sandbox 自检证明，provider 端到端仍需 Claude 在 live pilot 中确认。
 - `run-plan-v2.json` 的 `runtime` 标签仍是 `opencode 2.0.25 --standalone`（历史字段）；
   本票没有重生成 run plan，T37 在 re-pin 时一并决定是否更新该标签。
+
+## T36a（implementer: opencode deepseek-v4.1-flash）
+
+F27（access audit 的两个假阳性）与 F29（`sandbox_denied` 误记）。分支
+`experiment/v1.2-h2-freeze-v2-par`，只改 `access_audit.py`、新增一个 fixture 与一个新测试类；
+未触碰 `run_h2r2.py` / `sandbox_v2.py` / 任何 egress 模块（属 T36b 的另一分支）。
+
+### 实现（对应 CODEX_FIXES_10 T36a 1–4）
+
+1. **`git clone/fetch/pull` 按来源判定（F27a）**。`git_subcommand()` 先跳过消费取值的全局选项
+   （`-C`、`--git-dir`、`--work-tree`）定位子命令与其操作数；`push` / `ls-remote` / `submodule`
+   与 `remote add|set-url|…` 照旧无条件命中；`clone` / `fetch` / `pull` 只有在**每个**操作数都是
+   “本 run 自己的仓库”时才算不逃逸——本地路径经同一命令的 `cd`/`-C` 解析后落在 run 目录内。
+   URL（`http(s)://`、`ssh://`、`git://`、`file://`…）、scp 形式 `host:path` / `user@host:path`
+   （冒号出现在任何斜杠之前）、run 目录之外的路径、以及**没有任何操作数**（`git fetch`、
+   `git pull`）仍然命中。`clone` 的裸名按本地路径处理（`git clone repo copy`）；
+   `fetch`/`pull` 的裸名按远端名处理，除非它带路径形状（`x/…`、`./…`、`../…`），
+   因此 `git pull origin main` 与 `git fetch` 仍是 hit。
+2. **每个路径形状 token 按前导 `cd` 的工作目录解析（F27b）**。`shell_hits()` 在同一命令内跟踪
+   `cd`（与 F13 的 `git_hits()` 同一语义），`path_reason()` 新增 `base` 参数，因此
+   `NAME=value` 的赋值取值也按 `cd` 之后的目录解析：`cd <run>/repo && T=../.tmp/probe` →
+   `<run>/.tmp/probe`（PASS），`T=../../x` / `cat ../../outside` → run 的父目录（hit）。
+   工具路径参数（`path`/`filePath`/…）仍按 worker cwd=run 目录解析，语义未变。
+3. **`sandbox_denied` 要求同一行（F29）**。只有既含 EPERM 文本、又含 run 目录之外绝对路径的
+   **同一输出行**才记一条证据（值是那一行）；正文里仅仅出现 "Operation not permitted" 的文档
+   （例如一份 JSON schema）不再产生条目。真实 EPERM 行（`… : Operation not permitted`、
+   `PermissionError: [Errno 1] Operation not permitted: '<path>'`）照旧记录。
+4. **fixture 从真实流派生（只读一次）**。`fixtures/pilot-efc46fc-f27-events.jsonl` 只含 pilot #5
+   流里触发 F27 的两条真实 shell 调用（`git clone -q --no-hardlinks repo .tmp/h2-baseline-git …`
+   与 `cd …/repo && … T=../.tmp/probe …`），sanitise 只做前缀替换（`<RUN_ROOT>`、`<PY>`），
+   未改写任何其它字节，逐行 `json.loads` 复核并断言不含 `/Users/` 或 `/private/`。
+   新 fixture 尚未进入 `FROZEN_FILES`/manifest（T37 重钉时纳入），因此 README §4 的
+   “51 files / four event fixtures” 文字未动。
+
+### 真实流的复核（没有模型、没有新 run；只读 replay，未写入仓库）
+
+对只读的 pilot #5 事件流重放一次新审计：`PASS`，173 事件 / 69 次 tool 调用，`hits` 为 0，
+`sandbox_denied` 恰好 1 条——F28 的 `mktemp` 失败行（`mktemp: mkdtemp failed on <temp>:
+Operation not permitted`），与 T36b 的披露一致，且不改变裁定。旧代码在同一流上给出 2 个 hit
+（F27a/F27b 的两个假阳性）与 8 条错记的 `sandbox_denied`。
+
+### 测试（全部 fixture / 合成事件，无模型、无真实凭据）
+
+新增测试类 `AccessAuditFalsePositives`（6 项），既有 `AccessAudit` 的 12 项一字未改：
+
+1. `test_the_recorded_pilot_five_commands_pass`：真实流派生的 fixture 为 `PASS`、0 hit、
+   2 次调用、无 `sandbox_denied`，且固定字节里没有宿主路径。
+2. `test_a_clone_of_the_runs_own_repository_is_not_an_escape`：`git clone repo copy`、
+   `cd repo && git clone . ../copy`、`cd <run> && git clone -q --no-hardlinks repo .tmp/copy` 均 PASS。
+3. `test_a_clone_source_that_reaches_outward_is_still_a_hit`：`git clone https://github.com/x/y`、
+   `git clone ../../other-repo`、`git clone host:repo`、`git clone /tmp/other copy`、
+   `git pull origin main`、`git fetch` 全部 INVALID（`GIT_REMOTE_REPOSITORY`）。
+4. `test_every_assignment_value_resolves_against_the_preceding_cd`：`cd repo && T=../.tmp/probe`
+   两个正例 PASS；`T=../../x; cat $T` 与 `cd repo && cat ../../outside` 为 `PATH_OUTSIDE_RUN`。
+5. `test_a_document_that_merely_mentions_the_denial_is_not_a_denial`：一次 `read` 的正文里同时有
+   "Operation not permitted" 与一个 run 外的示例路径（不同行）→ `sandbox_denied` 为空，PASS。
+6. `test_a_real_denial_line_naming_an_outside_path_is_evidence`：真实形状的 `mktemp` EPERM 行 →
+   1 条证据（`SANDBOX_DENIED`，路径为 `/var/folders/…`），裁定仍是 PASS。
+
+### T36a gates（前台运行，PYTHONPATH 未设，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!                      (exit 0)
+=== GOVERNANCE           35/35 checks passed                     (exit 0)
+=== PUBLIC               VIOLATIONS=0                            (exit 0)
+=== FREEZE_V2_TESTS      Ran 130 tests in 442.072s / FAILED (failures=2)   (exit 1)
+```
+
+两项失败**只因被改动冻结文件的 pinned hash 变动**（未重钉、未改 literal，T37 统一重钉）：
+
+```text
+FreezeManifest.test_two_independent_anchors_and_materials_binding
+FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
+```
+
+两者的首个断言都是 `freeze_is_intact()`；`build_manifest.verify()` 唯一的 fail 项是
+`access_audit.py` 的字节相对 `EXPECTED_V2_HASHES`/`freeze-manifest.json` 已移动。除这两项外
+128/128 通过（含既有 12 项 access-audit 测试与 `access-audit-clean` / `access-audit-hits`
+两个 fixture 不变）。本票未跑 `scripts/tests`、未跑完整 experiments 套件（speed rule），
+未执行任何 H2-R2 run、未调用任何模型、未触碰 `~/.h2-worker-profile`、未 push。
+
+### 需要 Claude 裁决的读法（诚实边界）
+
+- **T36a 第 1 条的“or the temp allow-list”**：既有拒绝里 `git clone /tmp/other copy` 与
+  `git fetch --depth 1 /tmp/x` 都必须是 hit，而“temp 根内的来源不算逃逸”会直接推翻它们。
+  本实现选择**只把 run 目录内的本地来源视为自身仓库**；OS temp 根内的来源仍是 hit（静态审计
+  无法把 temp 里的仓库归属给本 run，且 temp 只在 F13 里作为**有效工作目录/目标**合法）。
+  若 Claude 要求放开 temp 来源，需要同时改写上面两条既有拒绝，本票没有那样做。
+- 裸名在 `clone` 与 `fetch`/`pull` 下语义不同（本地路径 vs 远端名）是静态启发式：git 自身也
+  无法在审计期区分，选择的是保守侧（宁可多报）。
+- 三条命令以上的 `cd` 链、子 shell `( … )` 内的 `cd` 仍按“顺序取最后一次 `cd`”近似；这与 F13
+  既有实现一致，不是本票新增的近似。
