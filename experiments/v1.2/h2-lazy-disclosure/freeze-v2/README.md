@@ -336,6 +336,38 @@ run because each one silently changes what a gate measures:
    registered, the same run id may be invoked again), and registers the run
    `INVALID:HARNESS_DEFECT:<ExceptionType>` once the worker was launched. The rule is decided by
    the launch boundary alone, so it never depends on what the worker did (protocol-v2 §6.1).
+   **Four runs at a time, with backoff and one frozen model (T34, T35).** `$PY
+   $H/freeze-v2/run_h2r2.py run-plan --runs-root <SHARED_RUN_ROOT>` schedules the whole plan: at
+   most `MAX_PARALLEL = 4` runs of that root are in flight, each a separate `run` child process, so
+   one crash cannot take another run down. Starts stay in plan order — a run starts only when every
+   earlier run is registered or running, and the second arm of a task starts only after the first
+   arm is registered — so only finishing overlaps and a concurrent set is always different tasks.
+   `run` refuses a non-eligible id with `PREDECESSOR_NOT_STARTED:<id>`,
+   `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`; start/end lines (time, pid, run id,
+   outcome) go to `<runs_root>/scheduler-v2.jsonl`; registry and attempt lines are appended under an
+   exclusive `fcntl.flock`, so two finishing runs cannot interleave. A run that ends BLOCKED before
+   work and registered nothing (a failed reachability check, or any pre-work provider state that
+   consumed no attempt) is re-queued in plan position after an exponential backoff with jitter —
+   60 s, 120 s, 240 s, 480 s, capped at 900 s, at most six re-queues per scheduler invocation. Each
+   wait is a `wait` line (requeue number, seconds) in the scheduler log, the other live runs keep
+   their slots meanwhile, and after the budget the scheduler stops and prints what is left for the
+   operator to re-invoke. A registered run is never re-run: the three-attempt `BLOCKED` line of
+   protocol-v2 §6.1 stays terminal, and the scheduler never rewrites a verdict. Each `run.json`
+   records `concurrent_with` and its start/end times; `aggregate_runs.py` reports the overlap pairs
+   and `status` shows in-progress runs. Shared machine resources follow the same rule: the preflight
+   service port is chosen per run (bound and released immediately before `service set port`) and a
+   collision is retried with a new port at most three times, recorded. WHY (decided 2026-10-23; the
+   constant was raised from two to four while still before any counted run): twenty 10–90 minute
+   runs would take most of a day serially, while the isolation in §3 makes cross-run influence
+   impossible except shared provider load — and that load is arm-symmetric because concurrent runs
+   are different tasks and the arms alternate in plan order. **The model is frozen too:** every
+   worker and auditor launch of the twenty uses the single `run-plan-v2.json` model
+   `opencode-go/deepseek-v4.1-flash`, and a plan carrying a second one is refused before anything
+   is spawned (`MODEL_NOT_FROZEN`). There is no model failover inside the experiment — the model is
+   part of the treatment environment, so a pair whose arms ran on different models is not a
+   comparison (protocol-v2 §6/§6.1: model tier mismatch is INVALID). Outages are met only by
+   waiting (the reachability, before-work and backoff rules); failover exists only in the
+   implementation pipeline, which never touches an H2-R2 run.
 
 1. **Install the frozen profile template, then attest it before every run.** Install
    `freeze-v2/worker-profile/opencode.json` as the profile's

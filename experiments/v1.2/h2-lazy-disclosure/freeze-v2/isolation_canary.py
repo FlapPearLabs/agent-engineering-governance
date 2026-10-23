@@ -252,13 +252,16 @@ def evaluate_preflight(paths_text: str, config_text: str, *, profile_home: str,
                                   "model call was made.")}
 
 
-def run_command(argv, cwd: Path, env: dict[str, str], timeout: int = PREFLIGHT_TIMEOUT):
+def run_command(argv, cwd: Path, env: dict[str, str], timeout: int = PREFLIGHT_TIMEOUT,
+                include_stderr: bool = False):
     try:
         result = subprocess.run(list(argv), cwd=str(cwd), env=dict(env), capture_output=True,
                                 text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return 1, ""
-    return result.returncode, result.stdout
+    # T35: the service-port refusal is a diagnostic, so it may arrive on stderr. Only the call that
+    # needs it asks for it: the debug outputs are parsed and must stay stdout alone.
+    return result.returncode, result.stdout + (result.stderr if include_stderr else "")
 
 
 def read_bytes(path: Path) -> bytes | None:
@@ -269,7 +272,7 @@ def read_bytes(path: Path) -> bytes | None:
 
 
 def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = None,
-              env: dict[str, str] | None = None) -> dict:
+              env: dict[str, str] | None = None, port: int | None = None) -> dict:
     """Attest the isolated profile and leave `<run_dir>/preflight.json`. Never runs a model.
 
     F19 / T29: the driver attests the FRESH per-launch home (`home`, with that launch's `env`), not
@@ -281,6 +284,11 @@ def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = Non
     fresh-home attestation therefore sets a free 127.0.0.1 port first, stops the service again
     afterwards, and checks with `opencode service status` that nothing was left running. Every
     return code and the status text are recorded; a stop failure is recorded, not hidden.
+
+    T34 / T35: the driver may hand in the port (`port`) it has just bound and released, so that a
+    run which finds the port taken can retry with a new one; an `already in use` answer from
+    `service set port` is then recorded as `SERVICE_PORT_IN_USE:<port>` next to the failure. Without
+    a driver port this function keeps choosing its own, exactly as before.
     """
     run_dir = Path(run_dir).resolve()
     if not run_dir.is_dir():
@@ -305,17 +313,23 @@ def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = Non
                                else "PREFLIGHT_NO_PROFILE_HOME")
     service: dict | None = None
     if fresh_home and home:
-        service = {"port": free_port(), "commands": [], "set_returncode": None,
+        chosen = int(port) if port is not None else free_port()
+        service = {"port": chosen, "chosen_by": "driver" if port is not None else "preflight",
+                   "commands": [], "set_returncode": None,
                    "stop_returncode": None, "status_returncode": None, "status": None,
                    "left_running": None, "reasons": []}
         argv = [OPENCODE, *SERVICE_SET, str(service["port"])]
         service["commands"].append(argv)
         commands_run.append(argv)
-        code, _ = run_command(argv, run_dir, child_env)
+        code, out = run_command(argv, run_dir, child_env, include_stderr=True)
         service["set_returncode"] = code
         if code != 0:
             service["reasons"].append(f"SERVICE_SET_FAILED:{service['port']}")
             command_reasons.append(f"PREFLIGHT_SERVICE_SET_FAILED:{service['port']}")
+            # T35: a driver-chosen port can be taken between the bind and this call; say so, so the
+            # driver retries with a new one instead of reading the failure as a broken home.
+            if "already in use" in out.casefold():
+                service["reasons"].append(f"SERVICE_PORT_IN_USE:{service['port']}")
     outputs = {"paths": "", "config": ""}
     for name in ("paths", "config"):
         if not home:

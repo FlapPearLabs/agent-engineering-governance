@@ -64,14 +64,44 @@ an unexpected exception BEFORE the worker launch ends the invocation as
 attempt consumed, nothing registered, the same run id may be invoked again) while one AFTER the
 launch registers the run `INVALID:HARNESS_DEFECT:<ExceptionType>`. The rule is decided by the
 launch boundary alone, so it is outcome-blind and cannot re-roll anything the worker did.
+BOUNDED CONCURRENCY (T34 / T35). Twenty runs of ten to ninety minutes each would take most of a day
+if they were strictly serial, so `run-plan` keeps at most `MAX_PARALLEL` runs of one runs root in
+flight at once — four, frozen with the program. Each run is still its own `run` child process in its
+own run dir, fresh home, rendered sandbox and driver-held streams, so runs of DIFFERENT tasks
+cannot see each other. START order is unchanged: a run is eligible only when every earlier run is
+registered or in progress, and the second arm of a task waits until the first arm is registered, so
+only FINISHING may overlap and a concurrent set is always different tasks (which is what keeps
+shared provider load arm-symmetric). `run` refuses a non-eligible id with
+`PREDECESSOR_NOT_STARTED:<id>`, `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`, the
+scheduler's start/end lines (pid, run id, outcome) are appended to
+`<runs_root>/scheduler-v2.jsonl`, and every registry/attempt line is appended under an exclusive
+`fcntl.flock` so two finishing runs cannot interleave. The rule was decided before the first
+counted run; the constant is hashed with this program, so changing it is a design change.
+
+WAITING IS THE ONLY ANSWER TO AN OUTAGE (T35). A run that ends BLOCKED before work — a failed
+reachability check, or any pre-work provider state that registered nothing — is re-queued by the
+scheduler in its plan position after an exponential backoff with jitter (60 s, 120 s, 240 s, 480 s,
+then a 900 s cap), at most `SCHEDULER_REQUEUES` times per invocation; the other live runs keep
+their slots while it waits, every wait is a line in the scheduler log, and after the budget the
+scheduler stops and prints what is left for the operator. A registered run is never re-run.
+
+ONE MODEL, NO FAILOVER (T35). Both launches of every run use the single frozen model of
+run-plan-v2.json (`FROZEN_MODEL`); a plan carrying a second model is refused before anything is
+spawned. The model is part of the treatment environment, so switching it mid-experiment would make
+the two arms of a pair incomparable (protocol-v2 §6.1). Provider outages are handled only by
+waiting and by the reachability / before-work rules above.
 """
 from __future__ import annotations
 
 import argparse
+import fcntl
+import inspect
 import json
 import os
+import random
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -139,6 +169,30 @@ MAX_ATTEMPTS = 3
 # F23 / T32: the traceback file an unexpected driver exception leaves under `.driver/<run_id>/`.
 HARNESS_DEFECT_NAME = "harness-defect"
 
+# T34 / T35: bounded concurrency, decided before the first counted run (2026-10-23). The constant is
+# hashed with this program, so changing it is a design change, not a parameter.
+MAX_PARALLEL = 4
+# T35: the one model every launch of the twenty uses. It is the plan's model as well; a second
+# model is refused, never substituted -- the experiment has no model failover (protocol-v2 §6.1).
+FROZEN_MODEL = "opencode-go/deepseek-v4.1-flash"
+SCHEDULER_LOG_NAME = "scheduler-v2.jsonl"
+SCHEDULER_CHILD_PREFIX = "scheduler-child"
+SCHEDULER_POLL_SECONDS = 0.5
+# T35: a run that ended BLOCKED before work is re-queued in plan position after an exponential
+# backoff with jitter, at most SCHEDULER_REQUEUES times per scheduler invocation. Waiting consumes
+# no slot: the other live runs keep theirs. After the budget the scheduler stops and prints the rest.
+SCHEDULER_BACKOFF_FIRST_SECONDS = 60
+SCHEDULER_BACKOFF_CAP_SECONDS = 900
+SCHEDULER_BACKOFF_JITTER = 0.10
+SCHEDULER_REQUEUES = 6
+RETRYABLE_BLOCKED_REASONS = ("PROVIDER_UNREACHABLE", "PROVIDER_FAILED_BEFORE_WORK")
+
+# F22 / T34: the preflight's managed-service port is chosen per run, bound and released at once,
+# and a collision is retried with a new port at most this many times (every attempt recorded).
+SERVICE_LOOPBACK = "127.0.0.1"
+SERVICE_PORT_ATTEMPTS = 3
+PORT_IN_USE_MARKERS = ("ALREADY_IN_USE", "ALREADY IN USE", "PORT_IN_USE", "SERVICE_PORT_IN_USE")
+
 # Conservative combination of the mechanical verdict and the audit (protocol-v2 §5.4).
 SEVERITY = {"ACCEPT": 0, "PASS": 0, "PARTIAL": 1, "REJECT": 2, "FAIL": 2, "INVALID": 3,
             "BLOCKED": 4}
@@ -154,6 +208,20 @@ def plan_runs(root: Path = ROOT) -> list[dict]:
     return json.loads((Path(root) / H2_REL / "freeze-v2" / PLAN_NAME).read_text())["runs"]
 
 
+def frozen_model(planned: list[dict]) -> str:
+    """The single model of the plan, or a refusal: the experiment has no model failover (T35).
+
+    A plan that carries any other model (or none) is a design change, not a runtime choice, so it
+    stops the driver before a single process is launched. Both launches of a run -- worker and
+    auditor -- take their model from the plan row, and the row cannot differ from this constant.
+    """
+    models = {run.get("model") for run in planned}
+    if models != {FROZEN_MODEL}:
+        found = ",".join(sorted(str(model) for model in models)) or "NONE"
+        raise ValueError(f"MODEL_NOT_FROZEN:{found}")
+    return FROZEN_MODEL
+
+
 def check_runs_root(runs_root: Path) -> Path:
     """R must pass the T13 run-root rule: outside every home, no guidance-bearing ancestor."""
     runs_root = Path(runs_root).resolve()
@@ -167,13 +235,27 @@ def registry_path(runs_root: Path) -> Path:
     return Path(runs_root) / REGISTRY_NAME
 
 
+def read_text_locked(path: Path) -> str:
+    """Read a file under a shared advisory lock, so no reader ever sees half a line (T34).
+
+    Writers hold the exclusive lock for the single `write` of one line (`append_jsonl`); a reader
+    that takes the shared lock here either sees the line before or after that write, never between.
+    """
+    with Path(path).open("r", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+        try:
+            return handle.read()
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def read_registry(runs_root: Path) -> dict[str, dict]:
     """The append-only registry, keyed by run id. A duplicate id is fatal, never last-wins."""
     path = registry_path(runs_root)
     entries: dict[str, dict] = {}
     if not path.is_file():
         return entries
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for number, line in enumerate(read_text_locked(path).splitlines(), 1):
         if not line.strip():
             continue
         try:
@@ -216,28 +298,101 @@ def next_run_id(runs_root: Path, root: Path = ROOT) -> str | None:
 
 def refusal(runs_root: Path, plan_run: dict, planned: list[dict],
             entries: dict[str, dict]) -> str | None:
-    """Why `run` may not start this run, or None. Every refusal is checkable, none is advisory."""
+    """Why `run` may not start this run, or None. Every refusal is checkable, none is advisory.
+
+    T34 replaces "every predecessor is registered" with BOUNDED CONCURRENCY, because two runs of
+    DIFFERENT tasks cannot see each other (own run dir, fresh home, rendered sandbox, driver-held
+    streams). A run may start when (a) it is not registered and not started, (b) the OTHER arm of
+    the same task, if it comes earlier in plan order, is registered — within-task
+    counterbalancing order is preserved exactly, so the two arms of a task never overlap, (c)
+    fewer than MAX_PARALLEL runs of this runs root are in progress (live lock holders), and (d)
+    every run earlier in plan order is registered or in progress — runs START in plan order, only
+    finishing may overlap.
+    """
     run_id = plan_run["run_id"]
+    order = [run["run_id"] for run in planned]
     if run_id in entries:
         return "RUN_ALREADY_REGISTERED"
-    order = [run["run_id"] for run in planned]
-    missing = [earlier for earlier in order[:order.index(run_id)] if earlier not in entries]
-    if missing:
-        return f"PREDECESSOR_NOT_REGISTERED:{missing[0]}"
-    lock = lock_path(runs_root, run_id)
-    if lock.is_file():
-        try:
-            holder = json.loads(lock.read_text(encoding="utf-8")).get("pid")
-        except (OSError, ValueError):
-            holder = None
-        return "RUN_IN_PROGRESS" if pid_alive(holder) else "RUN_ALREADY_STARTED"
+    if live_lock(runs_root, run_id) is not None:
+        return "RUN_IN_PROGRESS"
+    if lock_path(runs_root, run_id).is_file():
+        return "RUN_ALREADY_STARTED"
     run_dir = Path(runs_root) / run_id
     # An attempt archive is evidence, not a start: a run dir that holds only `attempts/` is a run
     # whose in-flight attempt was dropped by a reachability BLOCKED (no attempt consumed), so it may
     # be started again. Anything else under the run id means a start really happened.
     if run_dir.exists() and any(entry.name != ATTEMPTS_DIR for entry in run_dir.iterdir()):
         return "RUN_ALREADY_STARTED"
+    earlier = order[:order.index(run_id)]
+    live = in_progress(runs_root, planned, entries)
+    for other in (run["run_id"] for run in planned
+                  if run["task_id"] == plan_run["task_id"] and run["run_id"] != run_id):
+        if other in earlier and other not in entries:
+            return f"SAME_TASK_ARM_NOT_REGISTERED:{other}"
+    if len(live) >= MAX_PARALLEL:
+        return f"PARALLEL_LIMIT:{len(live)}"
+    for other in earlier:
+        if other not in entries and other not in live:
+            return f"PREDECESSOR_NOT_STARTED:{other}"
     return None
+
+
+def live_lock(runs_root: Path, run_id: str) -> dict | None:
+    """This run's lock entry when its holder process is still alive, else None (T34)."""
+    path = lock_path(runs_root, run_id)
+    if not path.is_file():
+        return None
+    try:
+        entry = json.loads(read_text_locked(path))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(entry, dict) or not pid_alive(entry.get("pid")):
+        return None
+    return entry
+
+
+def in_progress(runs_root: Path, planned: list[dict], entries: dict[str, dict]) -> dict[str, dict]:
+    """The unregistered runs of this runs root with a live process holding their lock (T34)."""
+    live: dict[str, dict] = {}
+    for plan_run in planned:
+        run_id = plan_run["run_id"]
+        if run_id in entries:
+            continue
+        entry = live_lock(runs_root, run_id)
+        if entry is not None:
+            live[run_id] = entry
+    return live
+
+
+def overlap_ids(runs_root: Path, run_id: str, started_at: str | None,
+                finished_at: str | None, planned: list[dict] | None = None,
+                entries: dict[str, dict] | None = None) -> list[str]:
+    """The planned runs whose execution interval overlaps this one (T34).
+
+    Read from the registry (finished runs) and the live locks (runs still in progress), so the two
+    sides of an overlap name each other regardless of which one finishes first.
+    """
+    if not isinstance(started_at, str) or not isinstance(finished_at, str):
+        return []
+    entries = read_registry(runs_root) if entries is None else entries
+    planned = plan_runs() if planned is None else planned
+    stamp = now()
+    overlapping = []
+    for plan_run in planned:
+        other = plan_run["run_id"]
+        if other == run_id:
+            continue
+        if other in entries:
+            other_start = entries[other].get("started_at")
+            other_end = entries[other].get("finished_at")
+        else:
+            holder = live_lock(runs_root, other)
+            other_start = holder.get("started_at") if holder else None
+            other_end = stamp
+        if (isinstance(other_start, str) and isinstance(other_end, str)
+                and other_start < finished_at and started_at < other_end):
+            overlapping.append(other)
+    return sorted(overlapping)
 
 
 def profile_env_file(plan_run: dict, profile_env: Path | None) -> Path:
@@ -383,8 +538,7 @@ def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: st
         line["attempt"] = attempt
     if attempts is not None:
         line["attempts"] = attempts
-    with registry_path(runs_root).open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(line, sort_keys=True) + "\n")
+    append_jsonl(registry_path(runs_root), line)
     return line
 
 
@@ -435,8 +589,62 @@ def answer_text(events: list) -> str:
 
 
 def append_jsonl(path: Path, line: dict) -> None:
-    with Path(path).open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(line, sort_keys=True) + "\n")
+    """Append one JSON line under an exclusive lock: two finishing runs cannot interleave (T34)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            handle.write(json.dumps(line, sort_keys=True) + "\n")
+            handle.flush()
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def free_port() -> int:
+    """A loopback port the OS has just handed out; bound and released at once (F22 / T34)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind((SERVICE_LOOPBACK, 0))
+        return int(probe.getsockname()[1])
+
+
+def port_collision(verdict: dict) -> bool:
+    """Whether an attestation failure says the service port is already in use (F22 / T34)."""
+    text = json.dumps(verdict, sort_keys=True).upper()
+    return any(marker in text for marker in PORT_IN_USE_MARKERS)
+
+
+def takes_port(attester) -> bool:
+    """Whether the preflight attester accepts the port this driver chose (F22 / T32, T34)."""
+    try:
+        return "port" in inspect.signature(attester).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def attest(attester, run_dir: Path, env_file: Path, home, env,
+           choose_port=free_port) -> tuple[dict, list[dict]]:
+    """The preflight attestation, with a per-run service port and a bounded collision retry (T34).
+
+    Two runs may attest at the same time, so the driver chooses the managed-service port — bound
+    and released immediately before the call — and hands it to an attester that accepts one. A
+    collision is retried with a NEW port, at most SERVICE_PORT_ATTEMPTS times; every attempt is
+    returned so the run records what was tried. An attester that takes no port keeps its own
+    choice and is called exactly once (a test stub, or a canary from before F22).
+    """
+    attempts: list[dict] = []
+    verdict: dict = {}
+    for number in range(1, SERVICE_PORT_ATTEMPTS + 1):
+        kwargs = {"home": home, "env": env}
+        if takes_port(attester):
+            kwargs["port"] = choose_port()
+        verdict = attester(run_dir, env_file, **kwargs)
+        attempts.append({"attempt": number, "port": kwargs.get("port"),
+                         "verdict": verdict.get("verdict"),
+                         "reasons": list(verdict.get("reasons", []))})
+        if verdict.get("verdict") == "PASS" or not port_collision(verdict):
+            break
+    return verdict, attempts
 
 
 def reachability_probe(runs_root: Path, run_id: str, purpose: str, attempt: int,
@@ -499,7 +707,7 @@ def next_attempt_number(runs_root: Path, run_id: str) -> int:
     number = 1
     if not path.is_file():
         return number
-    for text in path.read_text(encoding="utf-8").splitlines():
+    for text in read_text_locked(path).splitlines():
         if not text.strip():
             continue
         try:
@@ -636,6 +844,7 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     plan_run = next((run for run in planned if run["run_id"] == run_id), None)
     if plan_run is None:
         raise ValueError("UNKNOWN_RUN")
+    frozen_model(planned)                # T35: one frozen model for the twenty, never a fallback
     entries = read_registry(runs_root)
     state: dict = {"worker_launched": False, "record": None, "attempt": None,
                    "run_dir": None, "driver_dir": None, "lock": None, "plan_run": plan_run}
@@ -878,6 +1087,9 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             record["final_verdict"] = strictest(verdict, record["audit_verdict"])
             record["finished_at"] = now()
             record["wall_clock_seconds"] = round(time.monotonic() - started, 3)
+            # T34: which planned runs were executing at the same time as this one.
+            record["concurrent_with"] = overlap_ids(runs_root, run_id, record.get("started_at"),
+                                                    record.get("finished_at"), planned)
             save(record)
             return {"status": "TERMINAL", "verdict": verdict, "audit": audit,
                     "reasons": list(reasons), "record": record}
@@ -887,6 +1099,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             record.update({"verdict": verdict, "reasons": list(reasons), "audit_verdict": None,
                            "final_verdict": verdict, "finished_at": now(),
                            "wall_clock_seconds": round(time.monotonic() - started, 3)})
+            record["concurrent_with"] = overlap_ids(runs_root, run_id, record.get("started_at"),
+                                                    record.get("finished_at"), planned)
             save(record)
             return {"status": "TERMINAL", "verdict": verdict, "audit": None,
                     "reasons": list(reasons), "record": record}
@@ -947,16 +1161,18 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             entry = start_step(record, "preflight")
             attester = preflight or isolation_canary.preflight
             try:
-                attestation = attester(run_dir, env_file, home=prepared["home"],
-                                       env=prepared["env"])
+                attestation, port_attempts = attest(attester, run_dir, env_file,
+                                                    prepared["home"], prepared["env"])
             except ValueError as exc:
-                attestation = {"verdict": "FAIL", "reasons": [str(exc)]}
+                attestation, port_attempts = {"verdict": "FAIL", "reasons": [str(exc)]}, []
+            # T34: the managed-service port is per run, and a collision is retried with a new one.
+            record["preflight"] = {"attempts": port_attempts}
             if attestation.get("verdict") != "PASS":
                 found = [str(item) for item in attestation.get("reasons", [])] or ["PREFLIGHT_FAIL"]
-                finish_step(entry, "BLOCKED", reasons=found)
+                finish_step(entry, "BLOCKED", reasons=found, attempts=len(port_attempts))
                 release(prepared, run_dir)
                 return settle("BLOCKED", [f"PREFLIGHT_FAIL:{reason}" for reason in found])
-            finish_step(entry, "PASS")
+            finish_step(entry, "PASS", attempts=len(port_attempts))
             save(record)
 
             entry = start_step(record, "brief")
@@ -1221,6 +1437,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
 
         record = outcome["record"]
         record["attempts"] = attempt
+        record["concurrent_with"] = overlap_ids(runs_root, run_id, record.get("started_at"),
+                                                record.get("finished_at") or now(), planned)
         entry = start_step(record, "registry")
         finish_step(entry, "DONE", file=REGISTRY_NAME)
         save(record)
@@ -1260,6 +1478,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                      attempt_line(plan_run, pending, archived))
     record = pending["record"]
     record["attempts"] = pending["attempt"]
+    record["concurrent_with"] = overlap_ids(runs_root, run_id, record.get("started_at"),
+                                            record.get("finished_at") or now(), planned)
     (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     line = register(runs_root, plan_run, verdict="BLOCKED", reason=pending["reason"],
                     run_dir=run_dir, audit_verdict=record.get("audit_verdict"),
@@ -1332,6 +1552,7 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
     entries = read_registry(runs_root)
     rows = []
     planned = plan_runs(root)
+    live = in_progress(runs_root, planned, entries)
     for plan_run in planned:
         run_id = plan_run["run_id"]
         run_dir = runs_root / run_id
@@ -1341,6 +1562,11 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
             row = {"verdict": entry.get("verdict"), "audit_verdict": entry.get("audit_verdict"),
                    "final_verdict": entry.get("final_verdict"), "reason": entry.get("reason"),
                    "wall_clock_seconds": entry.get("wall_clock_seconds")}
+        elif run_id in live:
+            # T34: a run another process is executing right now is not "started and stuck".
+            state = "IN_PROGRESS"
+            row = {"pid": live[run_id].get("pid"),
+                   "started_at": live[run_id].get("started_at")}
         elif (run_dir / RECORD_NAME).is_file() or lock_path(runs_root, run_id).is_file():
             state = "STARTED_NOT_REGISTERED"
             row = {"record": (run_dir / RECORD_NAME).is_file()}
@@ -1364,8 +1590,199 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
     return {"runs_root": str(runs_root), "planned": len(rows), "registered": registered,
             "planned_pairs": len(task_ids), "usable_pairs": usable_pairs,
             "blocked": blocked, "invalid": invalid,
+            "max_parallel": MAX_PARALLEL, "in_progress": sorted(live),
             "next": next((row["run_id"] for row in rows if row["state"] != "REGISTERED"), None),
             "runs": rows}
+
+
+def child_log_path(runs_root: Path, run_id: str) -> Path:
+    """Where one scheduler-started `run` child keeps its stdout/stderr (outside its run dir)."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    return (wrapper_delivery.driver_root(Path(runs_root) / run_id)
+            / f"{SCHEDULER_CHILD_PREFIX}-{stamp}.log")
+
+
+def spawn_run(runs_root: Path, run_id: str, python: str | None = None) -> dict:
+    """Start one `run` as its own child process, so one crash cannot take another run down.
+
+    The child's stdout/stderr go to the driver directory (the `run` CLI prints exactly one result
+    JSON line there); the scheduler reads it back only when the run is NOT registered, because a
+    registered run already has its one authoritative registry line.
+    """
+    log = child_log_path(runs_root, run_id)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("ab") as out:
+        process = subprocess.Popen(
+            [str(python or sys.executable), str(Path(__file__).resolve()), "run", run_id,
+             "--runs-root", str(runs_root)],
+            stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+            start_new_session=True)
+    return {"process": process, "pid": process.pid, "log": log}
+
+
+def child_outcome(runs_root: Path, run_id: str, item: dict, returncode: int) -> dict:
+    """What one scheduler child did: its registry line, or the result it printed when unregistered."""
+    entry = read_registry(runs_root).get(run_id)
+    if entry is not None:
+        return {"run_id": run_id, "registered": True, "retryable": False,
+                "outcome": str(entry.get("final_verdict")),
+                "reasons": [entry["reason"]] if entry.get("reason") else [],
+                "returncode": returncode}
+    result = last_json_object(Path(item["log"])) if item.get("log") else {}
+    reasons = [str(reason) for reason in result.get("reasons", []) if isinstance(reason, str)]
+    if result.get("outcome") == "REFUSED":
+        # Another process owns this run id (a second scheduler, or an operator's own `run`).
+        # Nothing ran; the scheduler stops loudly instead of starting a second worker.
+        return {"run_id": run_id, "registered": False, "retryable": False,
+                "outcome": f"REFUSED:{result.get('reason')}",
+                "reasons": [str(result.get("reason"))], "returncode": returncode}
+    verdict = result.get("final_verdict") or f"EXIT:{returncode}"
+    # T35: only a BLOCKED state that fired before work is re-queued -- nothing ran, so no attempt
+    # was consumed and the same id may be started again. A registered run is never re-run, so an
+    # attempts-exhausted BLOCKED line stays terminal even though its shape is the same.
+    retryable = verdict == "BLOCKED" and any(
+        reason.startswith(RETRYABLE_BLOCKED_REASONS) for reason in reasons)
+    return {"run_id": run_id, "registered": False, "retryable": retryable,
+            "outcome": f"NOT_REGISTERED:{verdict}", "reasons": reasons,
+            "returncode": returncode}
+
+
+def last_json_object(path: Path) -> dict:
+    """The last JSON object in a child's log, or {} when there is none."""
+    try:
+        lines = read_text_locked(path).splitlines()
+    except OSError:
+        return {}
+    for line in reversed(lines):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            value = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def scheduler_line(runs_root: Path, line: dict) -> None:
+    """Append one scheduler line (start/end time, pid, run id, outcome) to scheduler-v2.jsonl."""
+    append_jsonl(Path(runs_root) / SCHEDULER_LOG_NAME, line)
+
+
+def scheduler_jitter() -> float:
+    """A symmetric fraction of the base wait, so four re-queues never wake at the same instant."""
+    return random.uniform(-SCHEDULER_BACKOFF_JITTER, SCHEDULER_BACKOFF_JITTER)
+
+
+def backoff_delay(requeue: int, jitter=None) -> float:
+    """The wait before re-queue `requeue` (1-based): 60, 120, 240, 480, then the 900 s cap (T35).
+
+    The cap bounds the wait including its jitter, so a spread can never push a re-queue past it;
+    jitter itself is only ever a spread around the exponential base.
+    """
+    base = min(SCHEDULER_BACKOFF_FIRST_SECONDS * (2 ** (requeue - 1)),
+               SCHEDULER_BACKOFF_CAP_SECONDS)
+    spread = 0.0 if jitter is None else float(jitter())
+    return round(min(max(base * (1.0 + spread), 0.0), float(SCHEDULER_BACKOFF_CAP_SECONDS)), 3)
+
+
+def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep,
+             backoff=None, jitter=None, clock=time.monotonic,
+             poll: float = SCHEDULER_POLL_SECONDS) -> dict:
+    """Start the next eligible run until the plan is COMPLETE, keeping MAX_PARALLEL alive.
+
+    `run` stays the only program that executes a run: this scheduler only decides WHEN to start
+    one, starts it as its own `run` child, waits, and records what happened. START order is the
+    plan's order (see `refusal`), so only finishing may overlap. A run that ended BLOCKED before
+    work and registered nothing is re-queued in plan position after an exponential backoff with
+    jitter (T35), at most SCHEDULER_REQUEUES times per invocation; every wait is a line in the
+    scheduler log, the other live runs keep their slots meanwhile, and after the budget the
+    scheduler stops and reports what is left (the operator re-invokes). A registered run is never
+    started again. `clock`/`sleep`/`backoff`/`jitter` exist so a test can drive the waits without
+    waiting; the CLI passes none of them.
+    """
+    runs_root = check_runs_root(Path(runs_root))
+    runs_root.mkdir(parents=True, exist_ok=True)
+    planned = plan_runs(root)
+    frozen_model(planned)                # T35: refuse a second model before spawning anything
+    order = [run["run_id"] for run in planned]
+    spawn = spawn if spawn is not None else (lambda run_id: spawn_run(runs_root, run_id))
+    wait_seconds = backoff if backoff is not None else (
+        lambda requeue: backoff_delay(requeue, jitter))
+    running: dict[str, dict] = {}
+    started: list[str] = []
+    finished: list[dict] = []
+    requeues: dict[str, int] = {}
+    retry_after: dict[str, float] = {}
+    stopped_by: str | None = None
+    while True:
+        entries = read_registry(runs_root)
+        for run_id, item in list(running.items()):
+            returncode = item["process"].poll()
+            if returncode is None:
+                continue
+            del running[run_id]
+            outcome = child_outcome(runs_root, run_id, item, returncode)
+            finished.append(outcome)
+            scheduler_line(runs_root, {"event": "end", "run_id": run_id,
+                                       "pid": item.get("pid"), "at": now(),
+                                       "outcome": outcome["outcome"],
+                                       "reasons": outcome["reasons"],
+                                       "returncode": returncode})
+            if outcome["registered"]:
+                continue
+            if not outcome["retryable"]:
+                stopped_by = f"NOT_REGISTERED:{run_id}"
+                break
+            count = requeues.get(run_id, 0) + 1
+            if count > SCHEDULER_REQUEUES:
+                stopped_by = f"BLOCKED_BEFORE_WORK:{run_id}"
+                break
+            requeues[run_id] = count
+            seconds = wait_seconds(count)
+            retry_after[run_id] = clock() + seconds
+            scheduler_line(runs_root, {"event": "wait", "run_id": run_id, "at": now(),
+                                       "requeue": count, "seconds": seconds})
+        if stopped_by is not None:
+            break
+        entries = read_registry(runs_root)
+        if not running and all(run_id in entries for run_id in order):
+            break
+        spawned = False
+        if len(running) < MAX_PARALLEL:
+            for plan_run in planned:
+                run_id = plan_run["run_id"]
+                if run_id in running or run_id in entries:
+                    continue
+                if clock() < retry_after.get(run_id, 0.0):
+                    continue
+                if refusal(runs_root, plan_run, planned, entries) is not None:
+                    continue
+                item = spawn(run_id)
+                running[run_id] = item
+                started.append(run_id)
+                spawned = True
+                scheduler_line(runs_root, {"event": "start", "run_id": run_id,
+                                           "pid": item.get("pid"), "at": now()})
+                break
+        if not running and not spawned:
+            waiting = any(run_id not in entries
+                          and clock() < retry_after.get(run_id, 0.0)
+                          for run_id in order)
+            if waiting:
+                sleep(poll)
+                continue
+            stopped_by = "NO_ELIGIBLE_RUN"
+            break
+        if not spawned:
+            sleep(poll)
+    left = [run_id for run_id in order if run_id not in read_registry(runs_root)]
+    return {"status": "COMPLETE" if not left else "STOPPED", "stopped_by": stopped_by,
+            "max_parallel": MAX_PARALLEL, "requeues": requeues, "started": started,
+            "finished": finished, "left": left,
+            "log": str(Path(runs_root) / SCHEDULER_LOG_NAME)}
 
 
 def main() -> int:
@@ -1378,6 +1795,9 @@ def main() -> int:
     run.add_argument("--runs-root", required=True, type=Path)
     show = commands.add_parser("status", help="print the state of every planned run")
     show.add_argument("--runs-root", required=True, type=Path)
+    plan = commands.add_parser("run-plan",
+                               help=f"start eligible runs, at most {MAX_PARALLEL} at a time")
+    plan.add_argument("--runs-root", required=True, type=Path)
     args = parser.parse_args()
     try:
         if args.command == "status":
@@ -1387,6 +1807,10 @@ def main() -> int:
             run_id = next_run_id(args.runs_root)
             print(run_id if run_id is not None else "COMPLETE")
             return 0
+        if args.command == "run-plan":
+            result = schedule(args.runs_root)
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0 if result["status"] == "COMPLETE" else 1
         result = execute(args.run_id, args.runs_root)
         print(json.dumps(result, sort_keys=True))
         return 0 if result.get("final_verdict") == "ACCEPT" else 1
