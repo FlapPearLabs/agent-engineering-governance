@@ -33,13 +33,13 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "00e150f9cbb05deeefdfc5fe52bfa83c162555395d6b6b8c5bb06bebcf4fd178",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "86eb73099db5f9c7ac7c2e367fb98219476c7b37e8e2ca84dc90c90f7e5261c8",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "3a505f6a51cb96200adaca8ded766c18ea6acca513e86723a50da8b29ff373bb",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ca2dc8d6106d58692d1bc77715be9662b5a4dd8b68dac69ba260827246172274",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "a0881ed59a1a506d94318d797e4c0d891b00fc9a333b4709411c669a85a5e431",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d18ec180c6ba05cf5e7baf9fa9f98e6f48dc9ea3c52d7c03430a5aae299f2f2a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "8c1ff075b7d4fbed3fd943a7dd06bb6cd78448b1a9405bb75efbb67fc46792e0",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "77d29115f1d0320bf9d1a5656772d613e0b855a8f2b1f6badaac3ed3b65b2de2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
@@ -50,15 +50,15 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "b94dc1fd0593326cb30cc9a28f5d1593dcf269f747f5f808048309481af87c62",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "fe950db0fe7cc2162c4e4b9eecacc84211ae0d0f66397c145e04a7a12fc23c58",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d30f3b1fcbf1b77cfc58eb9ae39bcdb98053fcd86c76186438f76db655421f59",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "47b4f5429691f6c327f67984afffe89759f1a13f976830b163957f18e992be67",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "efb7f388a7b24adc8b2319a88c3e82067948558882a5768b093492288ce4026a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "d25e380c727bcff593ffb6554756e3a8667e067f798acc1805e0f36f05576fea",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "1607540b0036d9d4a45d446e9fe54dc80b8a098e09fdfdcff88fd8987ec6d04e",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "6c3b97bd358f75c76af36a33e21851d5bb1e7ec08226da0f710a85b4258759a2",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "ec49df26e1df15b41bffb1be016d2825401a7fceac7963e9d9b0b5dc99e28252",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "ee428d59ff626cf97942b8ed60906b07d3893ece9e2d7c725da2f7ee15f85020",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
@@ -74,7 +74,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "6f8b451a9eb3177296c8dfd4d3d4fcbfa5de9348d0cdffc41f1ff08c404b4975"
+MANIFEST_SHA256 = "542e3f41193cb43fab51317e7d9a367a3c5ebb527b645756e30642a7a463f0f9"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -835,6 +835,7 @@ with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as handle:
 argv = sys.argv[1:]
 home = os.environ["HOME"]
 if argv[:3] == ["service", "set", "port"]:
+    sys.stderr.write(os.environ.get("STUB_SET_ERR", ""))
     sys.exit(int(os.environ.get("STUB_SET_RC", "0")))
 if argv == ["debug", "paths"]:
     for name, rest in (("home", ""), ("data", "/.local/share/opencode"),
@@ -947,6 +948,28 @@ class PreflightServicePort(unittest.TestCase):
             # no `home` argument: the operator's own service settings are never touched
             self.assertEqual([["opencode", "debug", "paths"],
                               ["opencode", "debug", "config"]], calls)
+
+    def test_a_driver_chosen_port_is_honoured_and_a_collision_says_so(self):
+        """T33: the T34/T35 driver port reaches the F22 fresh-home service, so a retry is possible."""
+        with tempfile.TemporaryDirectory() as tmp:
+            canary, root, run_dir, home, env = self.layout(tmp)
+            verdict = canary.preflight(run_dir, Path(tmp) / "env.sh", home=home, env=env,
+                                       port=39271)
+            self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
+            self.assertEqual(39271, verdict["service"]["port"])
+            self.assertEqual("driver", verdict["service"]["chosen_by"])
+            self.assertEqual(["service", "set", "port", "39271"], self.calls(root)[0])
+        with tempfile.TemporaryDirectory() as tmp:
+            canary, root, run_dir, home, env = self.layout(tmp)
+            env.update({"STUB_SET_RC": "1",
+                        "STUB_SET_ERR": "Managed service port 39271 is already in use\n"})
+            verdict = canary.preflight(run_dir, Path(tmp) / "env.sh", home=home, env=env,
+                                       port=39271)
+            self.assertEqual("FAIL", verdict["verdict"], verdict["reasons"])
+            self.assertIn("SERVICE_SET_FAILED:39271", verdict["service"]["reasons"])
+            self.assertIn("SERVICE_PORT_IN_USE:39271", verdict["service"]["reasons"])
+            # the driver's own collision rule can read it, so it retries with a new port
+            self.assertTrue(load("run_h2r2").port_collision(verdict), verdict["reasons"])
 
 
 class FrozenWorkerProfile(unittest.TestCase):

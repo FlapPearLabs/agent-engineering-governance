@@ -2029,3 +2029,121 @@ FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
 - `PROVIDER_FAILED_BEFORE_WORK` 前缀留在可重排集合中属防御性写法：当前 `execute()` 在该形状下
   必然登记，故实际只可能是 `PROVIDER_UNREACHABLE` 触发重排。
 
+## T33（implementer: opencode deepseek-v4.1-flash）— 合并 T34/T35 后的 re-pin 与报告
+
+CODEX_FIXES_8 的 T33（取代 CODEX_FIXES_7 T31）：把并行分支的 T34/T35 合并进来，用仓库自己的
+构建程序重生成 run plan / manifest / delivery anchors / 测试字面量，然后一次跑完全部 §0 GATES。
+本票**没有**执行任何 H2-R2 run、没有调用任何模型、没有触碰 `~/.h2-worker-profile`、没有 push。
+
+### 1. 合并（Step 1）
+
+```text
+git merge --no-ff refs/heads/experiment/v1.2-h2-freeze-v2-par
+  -> 8247185706af45581bb5d453462187e9ecfc87e3
+     父：efc46fc（T32，F22-F25） 4dbee15（T35，T34 的 685299a 在其祖先链上）
+```
+
+四个文件冲突，全部按"两侧行为都保留"解决，没有任何一侧的拒绝、测试或规则被删：
+
+1. **`run_h2r2.py`** 模块 docstring：HEAD 的 HARNESS DEFECT 段（F23/T32）与分支的
+   BOUNDED CONCURRENCY / WAITING / ONE MODEL 段（T34/T35）并存。代码本体自动合并，两侧的
+   `harness_defect()` 与 `schedule()/refusal()/in_progress()/live_lock()` 同时存在；
+   分支的 `RETRYABLE_BLOCKED_REASONS` 只有 `PROVIDER_UNREACHABLE` / `PROVIDER_FAILED_BEFORE_WORK`，
+   所以 `BLOCKED:HARNESS_DEFECT` 不会被调度器自动重排——T32 的"同一 run id 之后仍可再次 run"
+   仍然成立（由操作员重调），T35 的"只重排工作之前且未登记的 provider 状态"也没有放宽。
+2. **`protocol-v2.md` §6.1**：两侧条目都保留在**同一个** ```text 块内（HARNESS DEFECT 在前、
+   MODEL RULE 在后，块尾那段"该模型规则……对结果盲"照旧），既没有丢 F23 的状态规则，也没有丢
+   T35 的单一冻结模型规则。
+3. **`README.md` §5**：HEAD 的 harness-defect 段与分支的四路并发/退避/单模型段并列保留。
+4. **`CODEX_REPORT.md`**：T32 与 T34/T35 两节都保留（彼此是独立票的证据），本节追加在其后。
+
+**一处为"两侧同时成立"所必需的组合改动**（T35 第 5 条 × T32 第 1 条）：T35 要求 preflight 的
+service 端口由 driver 在 `service set port` 之前 bind-then-release 选出、冲突时换新端口最多重试
+三次并记录；T32 的服务端口是在 fresh home 的 attestation 内部选的，driver 的 `takes_port()`
+因此拿不到它（`port` 不在签名里），冲突也就不会被重试。现在
+`isolation_canary.preflight(..., port=...)` 接受 driver 交来的端口（`service.chosen_by` 记录
+`driver` / `preflight`），并在 `service set port` 失败且输出（含 stderr，仅这一次调用合并读取）
+出现 `already in use` 时追加 `SERVICE_PORT_IN_USE:<port>`，于是 `run_h2r2.port_collision()`
+能识别并换端口重试。不传 `port` 时行为与 T32 完全一致（自己选端口、只调用一次）。新测试
+`test_a_driver_chosen_port_is_honoured_and_a_collision_says_so` 固定这条组合，并断言 driver
+的 `port_collision()` 能读出它。
+
+### 2. re-pin（Step 2，全部由仓库程序生成，没有任何手写 hash）
+
+`T33P = 8247185706af45581bb5d453462187e9ecfc87e3`（合并提交，即本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T33P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_run_plan.py --materials $T33P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T33P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=51 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t33/repin_literals.py .        # 只读 manifest，重写两个独立锚
+  -> LITERALS repinned=51 manifest_sha256=542e3f41193cb43fab51317e7d9a367a3c5ebb527b645756e30642a7a463f0f9
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **anchors**：与上一条 `4924930` 的测量逐字段比较，**只有** `materials_commit` 变化
+  （`4924930…` → `8247185…`）；10 行 row（每个 PRE 集合、每个 `ran`、每个 POST cell、每格
+  verdict）逐字节相同，`wrapper_program_sha256` 也与当前 `wrapper_delivery.py` 相同（T33 没有
+  改它）。WRAPPER 仍 10/10 DELIVERY_NEUTRAL。
+- **manifest**：51 个冻结文件；`freeze_parent` = `materials_commit` = `$T33P`。变化的条目只有
+  `aggregate_runs.py`、`delivery-anchors.json`、`isolation_canary.py`、`protocol-v2.md`、
+  `run-plan-v2.json`、`run_h2r2.py`（合并与本票的改动）以及 manifest 自身的两个 commit 字段。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 51 条与 manifest 的 `hashes` 逐字相同、
+  `MANIFEST_SHA256` = manifest 文件的 sha256 = `542e3f41…3f0f9`；重写脚本只做"读 manifest →
+  替换同名条目"并校验成员集合完全相等（多一条或少一条都报错退出），没有手输任何 hash。
+- **README §4** 的 re-pin 段改为本轮：content-freeze 提交是本 T33 re-pin 提交，其父为合并
+  `8247185`；anchors 在 `8247185` 用合并后的程序重测；"前移的内容"补上 T34/T35
+  （`MAX_PARALLEL = 4`、plan 顺序启动与同任务第二臂等待、调度器退避与日志、`fcntl.flock`
+  追加、聚合的 overlap 对、per-run service 端口交给 fresh-home attestation 并在冲突时重试、
+  单一冻结模型 `MODEL_NOT_FROZEN`）。
+
+### 3. F15–F25 与 T34/T35 的证据（逐条指向实现与固定它的测试）
+
+| 项 | 状态 | 实现 | 固定它的测试（全部 stub/fixture/fake credential/sandbox-exec，无模型） |
+|---|---|---|---|
+| F15 (P1) assume-unchanged / skip-worktree / filter / replace 掩盖 deny 编辑与删除 | 关闭（T28） | `wrapper_delivery.py` 的 driver base snapshot + `collect_v2.py` 直接比对字节 | `test_the_driver_records_the_base_from_the_governance_repository`、`test_index_flags_cannot_hide_an_edit_or_a_deletion`、`test_attributes_local_config_and_replace_refs_cannot_redact_a_change`、`test_a_deleted_repository_metadata_is_fail_closed` |
+| F16 (P1) 动态路径绕过 access audit | 关闭（T29） | `sandbox_v2.py` 渲染 profile + 每次 launch `sandbox-exec` + 自检；`access_audit.unresolved_constructs` 记为证据 | `test_three_dynamic_reads_of_a_planted_file_fail_inside_the_profile`、`test_a_sandboxed_dynamic_read_is_denied_and_recorded_as_evidence`、`test_a_denied_dynamic_read_is_evidence_and_stays_a_pass` |
+| F17 (P2) worker 可删除/改写事件流后重摇 | 关闭（T29） | driver 自己持有 stdout/stderr 副本，裁定只读该副本 | `test_a_stub_that_rewrites_its_event_stream_is_invalid_from_the_driver_copy`、`test_every_mutation_of_the_recorded_pilot_stream_is_invalid` |
+| F18 (P2) 交付仓库 HEAD 是原 base（可反推候选） | 关闭（T28） | `standalone_repository()` 生成确定性中性 HEAD + `receipt.json` | `test_the_task_repository_is_standalone_and_cannot_read_the_candidate`、`test_both_arms_deliver_only_outside_clean_base_with_object_hashes` |
+| F19 (P2) 跨 run 共享 worker state | 关闭（T29） | 每次 launch 的 fresh home（0700）+ 凭据管道进出后登出 | `test_every_launch_uses_its_own_fresh_home_with_only_the_frozen_config`、`test_a_new_home_never_inherits_another_launch_state` |
+| F20 (P3) runs root 落在任何 OS home 下、坏 `.agents`、聚合漏算 | 关闭（T30） | `check_runs_root` 拒绝每个 OS home（含 fake HOME）、悬空发现符号链接；`aggregate_runs.py` 只认一个 runs root | `test_a_run_root_under_any_os_home_is_refused_with_a_fake_process_home`、`test_a_broken_discovery_symlink_still_refuses_the_run_root`、`test_a_clean_foreign_run_root_is_still_accepted` |
+| F21 (P3) TMPDIR 隐式继承宿主临时目录 | 关闭（T29） | 每次 launch `TMPDIR=<launch>/.tmp` | `test_the_frozen_env_is_exactly_what_the_worker_and_the_auditor_receive` |
+| F22 (P1) fresh home preflight 在 service 端口上互撞 | 关闭（T32 + 本票组合） | `isolation_canary.preflight` 在 fresh home 先 `service set port`（driver 端口；冲突换端口最多 3 次并记录）→ `debug paths` → `debug config` → `service stop` → `service status`；`left_running` 即 FAIL | `test_a_fresh_home_records_the_port_both_debug_calls_and_the_stop_in_order`、`test_a_stop_failure_is_recorded_and_a_service_left_running_blocks`、`test_the_preflight_port_is_per_run_and_a_collision_retried`、`test_a_driver_chosen_port_is_honoured_and_a_collision_says_so` |
+| F23 (P1) 真实 reachability 路径 `KeyError: 'profile'`，driver 带 traceback 死掉 | 关闭（T32） | `default_probe` 传渲染后的 profile；`execute()` 顶层守卫，按 worker 启动边界给 `BLOCKED:HARNESS_DEFECT` / `INVALID:HARNESS_DEFECT` 并留 traceback | `test_the_default_probe_confines_launches_and_reaches_the_worker`、`test_a_defect_before_the_launch_blocks_without_registering_and_is_reinvokable`、`test_a_defect_after_the_launch_registers_the_run_invalid` |
+| F24 (P1) 渲染 CONTRACT 仍写原 base sha，worker 按 S0 停摆 | 关闭（T32） | 合同写交付中性 HEAD（与 delivery 同一函数算出），声明它是注册 base tree 的中性 re-commit；registry `base_sha` 仍是身份记录，原 base / candidate 不出现 | `test_every_task_contract_states_the_head_the_delivery_really_has` |
+| F25 (P2) zsh heredoc 在 sandbox 内失败 | 关闭（T32） | 冻结 env 同时给 `TMPDIR` 与 `TMPPREFIX=<launch>/.tmp/zsh` | `test_zsh_and_bash_heredocs_work_inside_the_launch_dir` |
+| T34 有界并发、调度器、锁追加、overlap | 完成（分支） | `MAX_PARALLEL = 4`（T35 提到四）、`run-plan --runs-root`、`refusal()` 三条显式原因、`append_jsonl` flock、`run.json` 的 `concurrent_with`/时间戳、`aggregate_runs.overlap_pairs` | `test_max_parallel_is_frozen_four_and_the_three_refusals_are_explicit`、`test_the_scheduler_keeps_four_alive_and_starts_in_plan_order`、`test_a_reachability_blocked_run_is_retried_in_plan_position_and_frees_its_slot`、`test_concurrent_registry_appends_are_well_formed_lines`、`test_status_names_the_runs_that_are_in_progress`、`test_overlap_is_recorded_in_the_run_and_reported_by_the_aggregate`、`test_a_killed_scheduler_leaves_a_started_run_to_the_interrupted_rule`、`test_plan_order_and_every_second_start_are_refused` |
+| T35 四路、退避、单一冻结模型 | 完成（分支） | `MAX_PARALLEL = 4`；`backoff_delay` 60/120/240/480/900 s + jitter + `SCHEDULER_REQUEUES = 6`；`FROZEN_MODEL` / `MODEL_NOT_FROZEN`；worker 与 auditor argv 都取 plan 的模型 | `test_the_backoff_is_exponential_capped_and_jittered`、`test_a_blocked_before_work_run_is_requeued_with_growing_waits_then_runs`、`test_the_scheduler_stops_at_the_requeue_budget_and_lists_the_run`、`test_a_registered_before_work_block_is_never_requeued`、`test_one_frozen_model_with_no_failover`、`test_every_worker_and_auditor_launch_carries_the_frozen_model` |
+| 合并后的整套 | — | — | 合并 + re-pin 后本模块 132 项全通过；本票新增的组合测试使其为 133 项（在下面 §0 GATES 的 `EXPERIMENTS_TESTS` 里逐项跑过） |
+
+### 4. 本轮未做、未证明与遗留缺口
+
+- 本票只做 re-pin、合并与全量门禁；**没有**执行任何 H2-R2 run，因此 F22–F25 的修复仍只在
+  stub / 真 sandbox 自检 / live pilot 的历史证据上被证明，没有新的真实 provider 观测。
+- 四路并发的 wall-clock 行为与真实 provider 中断下的退避仍只在 stub 子进程 / fake clock 上
+  证明（T34/T35 的遗留，未因合并改变）。
+- T35 第 2 条与 §6.1 的"登记后不重跑"冲突仍按"登记优先"处置（T35 节已记录），需 Claude 接受
+  该读法。
+- `delivery-anchors.json` 在 `8247185` 重测时逐字段只有 `materials_commit` 移动；WRAPPER
+  10/10 中性，因此 README §2 的数字不变，本票未改 §2。
+
+### T33 gates（前台逐条运行，退出码不经管道，PYTHONPATH 未设，TMPDIR 已解析为物理路径）
+
+```text
+=== RUFF                 All checks passed!                     (exit 0)
+=== GOVERNANCE           35/35 checks passed                    (exit 0)
+=== PUBLIC               VIOLATIONS=0                           (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 24.515s / OK          (exit 0)
+=== EXPERIMENTS_TESTS    Ran 442 tests in 1072.248s / OK        (exit 0)
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+上面是写入本节时的记录遍（同一棵树，只差本节这些行）；写完后同一棵树再把全部 §0 GATES 跑一遍
+并与 commit 以 `&&` 串联，任一门失败则不提交。实验套件 426（T32）→ 442（合并 T34/T35 与 F22–F25
+之后），freeze-v2 本模块 133 项。
