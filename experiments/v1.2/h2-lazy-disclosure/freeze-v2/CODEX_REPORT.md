@@ -1583,3 +1583,86 @@ $PY .../build_manifest.py check
 上面是写入本节时的记录遍（实验套件 390 → 395，+5：base snapshot、index flags、
 attributes/local-config/replace、snapshot 缺失/不符、删除 `.git` 各一条）。写完后同一棵树的
 gates 再整体跑一遍并与 commit 以 `&&` 串联，任一门失败则不提交。
+
+## T29（implementer: opencode deepseek-v4.1-flash）
+
+关闭 F16（P1，动态路径绕过 access audit）、F17（P2，事件流可被 worker 删除/改写后重摇）、
+F19（P2，跨 run 共享 worker state）与 F21（P3，TMPDIR 隐式继承）。新增冻结模块
+`sandbox_v2.py` 与冻结模板 `worker-sandbox.sb.template`，改动 `run_h2r2.py`、`access_audit.py`、
+`run_audit_v2.py`、`isolation_canary.py`（preflight 可针对 fresh home）与 `wrapper_delivery.py`
+（只改 driver base snapshot 的写法，见下）；README §3/§4、protocol-v2 §4.0/§5/§6、manifest 与
+测试字面量同步更新。所有既有拒绝规则与测试保留，未放宽任何一条。
+
+### 实现
+
+1. **OS 隔离（F16）**。每次 launch（worker、per-auditor、以及每次 reachability 检查）都是
+   `sandbox-exec -f <rendered profile> <the frozen command>`。渲染规则：launch 目录（worker 为
+   run dir，auditor 为 audit dir）与 per-launch home 读写；解释器（`sys.executable` 及其
+   realpath、prefix、base_prefix）只读；launch 目录的每个祖先目录（给定与 realpath 两种拼写）
+   以 `literal` 只读；`/Users`、`/private/tmp`、`/var/folders`、`/private/var/folders` 之下其余
+   内容对 `file-read-data` 与 `file-write*` 一律拒绝。模板冻结在 manifest；每次 launch 渲染出的
+   profile 写入 driver 的 attempt 目录，其 sha256 与模板 sha256 一并进 run record。
+   实测（本机 darwin + `/usr/bin/sandbox-exec`）：`cat`、`sh -c 'cat $(printf ...)'`、
+   `base64 -d | xargs cat`、`<PY> -c open(...)` 读 driver 投放文件全部 EPERM；launch 目录与
+   home 内写入成功；`/etc/hosts`（不在拒绝根下）仍可读，如实作为披露事实，不宣称全盘封闭。
+2. **confinement 自检**。每次 launch 之前在同一 rendered sandbox 内跑三条无模型命令：`cat` 与
+   `<PY> -c open(...)` 读 `.driver/<run_id>/confinement-plant.txt`（随机 token）必须失败且不泄漏
+   token，launch 目录内写 `.confine-write` 必须成功。不满足 => `BLOCKED:SANDBOX_NOT_CONFINING`；
+   平台无 `sandbox-exec` => `BLOCKED:SANDBOX_UNAVAILABLE`。两者都不消耗 attempt、不登记、
+   清掉 lock、把原因追加到 `.driver/<run_id>/blocked.jsonl`，同一 run id 可再次 `run`。
+3. **fresh per-launch home（F19）**。`sandbox_v2.fresh_home()` 每次都删旧建新，mode 0700，只放
+   冻结的 `worker-profile/opencode.json` 与自己的 `XDG_*` 目录；worker 为 `home-<n>`、auditor 为
+   `audit-home-<n>`、每次 reachability 为 `probe-home-<purpose>-<n>`。credential 由
+   `opencode auth export --standalone opencode`（master profile env）经 stdin 管道进
+   `opencode auth import --standalone`（fresh env）；只记录 return code、字节数与 stderr 的
+   sha256，secret 不进 argv、日志、events、registry 或 stdout。每次 launch 之后在 fresh home 里
+   `opencode auth logout`（best effort，结果写入 `logout.json` 与 run record）。master profile
+   从不挂载进 sandbox。
+4. **driver-held 流（F17）**。worker/auditor 的 stdout/stderr 直接写到
+   `<runs_root>/.driver/<run_id>/attempt-<n>/`（与 `audit-attempt-<n>/`），不在 sandbox 可写集合
+   内；before-work 规则、tool-call 计数、access audit 与 EVIDENCE 判定只读该副本，run dir 里的
+   `events.jsonl`/`stderr.txt` 是启动后复制给人读的副本。副本缺失/不可读 =>
+   `INVALID:EVIDENCE_MISSING`，终局且不重试。
+5. **TMPDIR（F21）**。每次 launch 的 env 为 master env + `HOME`/`XDG_*` 指向 fresh home +
+   `TMPDIR=<launch dir>/.tmp`，`PYTHONDONTWRITEBYTECODE=1` 最后应用；不再继承操作员的 TMPDIR。
+6. **access audit（F16 证据层）**。既有规则与裁定全部保留；新增 `unresolved_constructs`
+   （`COMMAND_SUBSTITUTION`、`BACKTICK`、`EVAL`、`INLINE_PROGRAM`、`DECODER`、`XARGS`）与
+   `sandbox_denied`（tool result 含 "Operation not permitted" 且绝对路径在 launch 目录之外）。
+   预注册行为：`sandbox_denied` 不改变 verdict（被拒绝的动态访问没有获得任何东西，按 run 报告）；
+   静态命中仍 `INVALID`。
+7. **preflight 针对 fresh home**。`isolation_canary.preflight(run_dir, env_file, home=, env=)`
+   用该 launch 的 fresh env 调 `opencode debug paths/config`，要求配置来源恰是 fresh home 的
+   `opencode.json` 且字节等于冻结模板；不给 `home`/`env` 时保持原 master-profile 行为。
+8. **base snapshot 不再抹掉 driver 证据**。`wrapper_delivery.record_base()` 原先把整个
+   `.driver/<run_id>` 删掉再写 base；T29 的 homes/streams 也在那里，重试时会丢失上一 attempt 的
+   driver 证据。现在只替换 `base/` 与 `base-manifest.json`，其余 driver 证据保留。
+   因为 `wrapper_delivery.py` 变了，manifest 的 provenance 绑定要求重测 delivery anchors
+   （不是手改 JSON）：`DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0,
+   "WRAPPER": 10}`，与 T28 相比只有 `wrapper_program_sha256` 一个字段变化，10 个 row 逐字节相同。
+
+### 测试（全部 stub/fixture/fake credential，无模型）
+
+新增 `SandboxConfinement`（真实 `sandbox-exec`，非 darwin 或无 sandbox-exec 时 `skipUnless`）：
+模板拒绝根与 allow 面、三种动态读（`cat`、命令替换、base64|xargs、`-c`）全部失败且不泄漏 token、
+launch 目录写入成功、自检 PASS 且 profile 与 hash 归档、permissive profile 自检 FAIL、
+无 sandbox 时 BLOCKED 且可再次 run、自检失败 BLOCKED 且可再次 run、credential 导入失败 BLOCKED
+且可再次 run。新增 `DriverConfinement`：stub 在 tool call 之后删除/改写 `run_dir/events.jsonl`
+仍按 driver 副本判 `INVALID`（`WORKER_ERROR_EVENT`、tool_calls=1、不重试、run dir 副本等于
+driver 副本）；两次 attempt 各自独立 fresh home（0700、只含冻结 config、`audit-home-1` 存在、
+`TMPDIR=run_dir/.tmp`、profile 与 hash 入 record）；一个 home 里放入的 transcript/credential 不会
+出现在新 home；真实 sandbox 下 `-c` 动态读被拒并记入 `sandbox_denied`/`INLINE_PROGRAM`，run 仍是
+`REJECT` 而非 `INVALID`。`AccessAudit` 增加两种证据字段的单元测试。
+
+### T29 gates（前台逐条运行，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 25.007s / OK
+=== EXPERIMENTS_TESTS    Ran 408 tests in 979.635s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+实验套件 395 → 408（+13：`SandboxConfinement` 7、`DriverConfinement` 4、access audit 证据字段 2）。
+写完后同一棵树的 gates 再整体跑一遍并与 commit 以 `&&` 串联，任一门失败则不提交。

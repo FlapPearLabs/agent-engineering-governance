@@ -186,8 +186,12 @@ def record_base(root: Path, run_dir: Path, base: str) -> dict:
     entries = _tree_entries(Path(root), base)
     blobs = _blob_bytes(Path(root), [oid for _, oid, _ in entries])
     target = driver_root(run_dir)
-    shutil.rmtree(target, ignore_errors=True)
+    # F19 / T29: the driver root also holds the per-launch homes and the driver-held streams of
+    # earlier attempts. Replace the base snapshot only; never wipe that evidence.
+    target.mkdir(parents=True, exist_ok=True)
     tree = target / BASE_DIR_NAME
+    shutil.rmtree(tree, ignore_errors=True)
+    (target / BASE_MANIFEST_NAME).unlink(missing_ok=True)
     tree.mkdir(parents=True)
     manifest_entries: dict[str, dict] = {}
     for mode, oid, path in entries:

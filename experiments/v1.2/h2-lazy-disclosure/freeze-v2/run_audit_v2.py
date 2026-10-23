@@ -123,7 +123,9 @@ def prepare_bundle(run_dir: Path, plan_run: dict, task: dict) -> dict:
     if plan_run["task_id"] != task["task_id"]:
         raise ValueError("TASK_ID_MISMATCH")
     audit_dir = run_dir / AUDIT_DIR
-    audit_dir.mkdir()
+    # F19 / T29: the driver creates the auditor's launch directory before the fresh home (its
+    # TMPDIR lives inside it); the bundle still goes in before the auditor is launched.
+    audit_dir.mkdir(exist_ok=True)
     contract = (run_dir / CONTRACT_NAME).read_text(encoding="utf-8")
     collected = json.loads((run_dir / COLLECTED_NAME).read_text(encoding="utf-8"))
     verdict = json.loads((run_dir / VERDICT_NAME).read_text(encoding="utf-8"))
@@ -217,14 +219,22 @@ def evaluate(audit_dir: Path, bundle: dict) -> dict:
 
 
 def audit(run_dir: Path, plan_run: dict, task: dict, *, launch, command, env,
-          limit_seconds: int) -> dict:
-    """Build the blind bundle, run one fresh session in it, and validate what it wrote."""
+          limit_seconds: int, events_path: Path | None = None,
+          stderr_path: Path | None = None) -> dict:
+    """Build the blind bundle, run one fresh session in it, and validate what it wrote.
+
+    F17 / T29: `events_path`/`stderr_path` let the driver keep the authoritative copy of the
+    stream outside the audit directory (and outside the sandbox's writable set); the bundle's own
+    directory only receives what the auditor writes there.
+    """
     bundle = prepare_bundle(run_dir, plan_run, task)
     audit_dir = Path(bundle["audit_dir"])
     result = launch([*command, plan_run["model"], AUDIT_PROMPT], audit_dir, env, limit_seconds,
-                    audit_dir / EVENTS_NAME, audit_dir / STDERR_NAME)
+                    Path(events_path) if events_path else audit_dir / EVENTS_NAME,
+                    Path(stderr_path) if stderr_path else audit_dir / STDERR_NAME)
     record = evaluate(audit_dir, bundle)
     record["launch"] = result
+    record["events_path"] = str(events_path) if events_path else str(audit_dir / EVENTS_NAME)
     if result["timed_out"]:
         record["verdict"] = "BLOCKED"
         record["reasons"] = sorted(set(record["reasons"]) | {"AUDIT_TIMEOUT"})

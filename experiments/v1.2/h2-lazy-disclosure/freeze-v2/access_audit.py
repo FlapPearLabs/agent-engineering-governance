@@ -72,6 +72,16 @@ GIT_LOCATION_FLAGS = ("--git-dir=", "--work-tree=")
 OPERATORS = frozenset({";", ";;", "&", "&&", "|", "||", "(", ")", "{", "}", "\n"})
 DIFF_PATH_RE = re.compile(r"^(?:diff --git a/(?P<both>\S+)|--- a/(?P<old>\S+)|\+\+\+ b/(?P<new>\S+))$",
                           re.M)
+# F16 / T29: constructs a static tokenizer cannot resolve. They are EVIDENCE, not hits: the OS
+# sandbox is the enforcing barrier, and a denied dynamic attempt obtained nothing.
+INTERPRETERS = frozenset({"python", "python3", "sh", "bash", "zsh", "perl", "ruby", "node"})
+DECODERS = frozenset({"base64", "xxd"})
+UNRESOLVED_REASONS = {"command_substitution": "COMMAND_SUBSTITUTION",
+                      "backtick": "BACKTICK", "eval": "EVAL", "inline_program": "INLINE_PROGRAM",
+                      "decoder": "DECODER", "xargs": "XARGS"}
+DENIED_TEXT = "operation not permitted"
+DENIED_REASON = "SANDBOX_DENIED"
+ABS_PATH_RE = re.compile(r"/[^\s'\"`:,;()\[\]{}<>]+")
 
 
 def allowed_roots(python: str | None = None) -> tuple[str, ...]:
@@ -238,6 +248,66 @@ def shell_hits(command: str, run_dir: Path, home: str | None,
     return hits
 
 
+def unresolved_constructs(command: str) -> list[str]:
+    """The F16 constructs of one shell command: evidence that static resolution is incomplete."""
+    found: list[str] = []
+    if "$(" in command:
+        found.append(UNRESOLVED_REASONS["command_substitution"])
+    if "`" in command:
+        found.append(UNRESOLVED_REASONS["backtick"])
+    tokens = shell_tokens(command)
+    names = [PurePosixPath(token).name for token in tokens]
+    if "eval" in names:
+        found.append(UNRESOLVED_REASONS["eval"])
+    for index, token in enumerate(tokens):
+        if token == "-c" and index and names[index - 1] in INTERPRETERS:
+            found.append(UNRESOLVED_REASONS["inline_program"])
+            break
+    if any(name in DECODERS for name in names):
+        found.append(UNRESOLVED_REASONS["decoder"])
+    if "xargs" in names:
+        found.append(UNRESOLVED_REASONS["xargs"])
+    return sorted(set(found))
+
+
+def strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+
+
+def sandbox_denied(event, run_dir: Path) -> list[dict]:
+    """F16 / T29: a tool result the sandbox denied, naming a path outside the launch directory.
+
+    This is recorded as evidence, never as a hit: the attempt obtained nothing, and the run is
+    reported in the closure report rather than invalidated for what the barrier already stopped.
+    The comparison is against the launch directory only: a shared temporary root is legitimately
+    allow-listed for static tokens, but a denied read below it is still a denied read.
+    """
+    text = "\n".join(strings(event))
+    if DENIED_TEXT not in text.casefold():
+        return []
+    lines = text.splitlines()
+    entries: list[dict] = []
+    seen: set[str] = set()
+    for candidate in ABS_PATH_RE.findall(text):
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if inside(os.path.realpath(candidate), str(run_dir)):
+            continue
+        value = next((line for line in lines
+                      if candidate in line and DENIED_TEXT in line.casefold()), text)
+        entries.append({"reason": DENIED_REASON, "path": candidate,
+                        "value": value.strip()[:300]})
+    return entries
+
+
 def patch_paths(text) -> list[str]:
     if not isinstance(text, str):
         return []
@@ -289,6 +359,27 @@ def event_hits(event, index: int, run_dir: Path, home: str | None,
     return hits
 
 
+def event_evidence(event, run_dir: Path) -> dict:
+    """F16 / T29: the evidence fields that never change a verdict by themselves."""
+    evidence = {"unresolved_constructs": [], "sandbox_denied": []}
+    if not isinstance(event, dict) or event.get("type") != "tool_use":
+        return evidence
+    part = event.get("part") if isinstance(event.get("part"), dict) else {}
+    tool = part.get("tool")
+    state = part.get("state") if isinstance(part.get("state"), dict) else {}
+    inputs = state.get("input") if isinstance(state.get("input"), dict) else {}
+    if tool in SHELL_TOOLS:
+        for key in COMMAND_KEYS:
+            command = inputs.get(key)
+            if isinstance(command, str):
+                for construct in unresolved_constructs(command):
+                    evidence["unresolved_constructs"].append(
+                        {"tool": tool, "construct": construct,
+                         "command": command.strip()[:200]})
+    evidence["sandbox_denied"] = sandbox_denied(event, run_dir)
+    return evidence
+
+
 def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
           python: str | None = None) -> dict:
     """Audit one run's event stream; every hit is kept verbatim."""
@@ -299,7 +390,11 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
               "observation_scope": ("Every tool_use input recorded in the run's event stream. "
                                     "Hidden runtime context and tool-internal accesses that emit "
                                     "no event are not observable."),
-              "hits": [], "events": 0, "tool_calls": 0, "verdict": "PASS"}
+              "sandbox_scope": ("The OS sandbox is the enforcing barrier (F16); a denied dynamic "
+                                "attempt obtained nothing and is recorded as sandbox_denied, not "
+                                "as a hit."),
+              "hits": [], "unresolved_constructs": [], "sandbox_denied": [],
+              "events": 0, "tool_calls": 0, "verdict": "PASS"}
     path = Path(events_path)
     if not path.is_file():
         result["hits"] = [{"reason": "MISSING_EVENT_STREAM", "value": str(path)}]
@@ -325,6 +420,13 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
                 if key not in seen:
                     seen.add(key)
                     result["hits"].append(candidate)
+            evidence = event_evidence(event, run_dir)
+            for field in ("unresolved_constructs", "sandbox_denied"):
+                for candidate in evidence[field]:
+                    key = json.dumps(candidate, sort_keys=True)
+                    if key not in seen:
+                        seen.add(key)
+                        result[field].append(candidate)
             continue
         key = json.dumps(hit, sort_keys=True)
         if key not in seen:

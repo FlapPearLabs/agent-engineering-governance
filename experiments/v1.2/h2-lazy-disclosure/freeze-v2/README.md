@@ -100,7 +100,40 @@ ACCESS    after the worker exits, `access_audit.py` replays `events.jsonl`: ever
           running git and tests there is legitimate work; another program's `-C`, such as
           `tar -x -C`, is not git's). Any hit makes the run INVALID:OUT_OF_RUN_ACCESS —
           registered, never re-run (protocol-v2 §6) — and the audit verdict keeps every hit
-          verbatim.
+          verbatim. No rule is relaxed by the sandbox below: the audit also records two evidence
+          fields that never change a verdict — `unresolved_constructs` (command substitution,
+          backticks, eval, `-c` programs, decoders, xargs: paths a static tokenizer cannot see) and
+          `sandbox_denied` (a tool result saying "Operation not permitted" for a path outside the
+          launch directory). A denied dynamic attempt obtained nothing: it is reported per run in
+          the closure report, not turned into INVALID (F16 / protocol-v2 §4.0).
+SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing barrier
+          (F16 / T29). Every launch — worker, per-run auditor and each reachability check — is
+          `sandbox-exec -f <rendered profile> <the frozen command>`. The frozen template
+          `worker-sandbox.sb.template` re-allows exactly the launch surface: the launch directory
+          (run dir for the worker, audit dir for the auditor) and the fresh per-launch home
+          read-write, the interpreter prefix read-only, each ANCESTOR of the launch directory as a
+          read-only `literal`; every other path under /Users, /private/tmp and /private/var/folders
+          is denied for file-read-data and file-write*. The rendered profile and its sha256 are
+          archived per attempt. Before each launch a model-free self-test must deny `cat` and
+          `<PY> -c open(...)` of a driver-planted file and allow a write inside the launch
+          directory; otherwise BLOCKED:SANDBOX_NOT_CONFINING (no attempt consumed, the same run id
+          may be invoked again, recorded). No sandbox-exec on the platform =>
+          BLOCKED:SANDBOX_UNAVAILABLE. DISCLOSED: the NAMES of ancestor directories stay listable
+          (a `literal` allows the directory node itself); their contents are not readable.
+FRESH HOME every launch gets a brand-new `<runs_root>/.driver/<run_id>/home-<n>` (auditor:
+          `audit-home-<n>`, reachability: `probe-home-<purpose>-<n>`), mode 0700, holding only the
+          frozen `worker-profile/opencode.json` and its own XDG_* directories; TMPDIR is
+          `<launch dir>/.tmp`, so scratch never lands in the shared OS temp dir (F19 / F21). The
+          credential is piped from the master profile (`opencode auth export --standalone opencode`
+          into `opencode auth import --standalone`) and never touches argv, a log, the event
+          stream, the registry or stdout; `opencode auth logout` runs in that home afterwards (best
+          effort, recorded). The master profile is never mounted in the sandbox, and preflight
+          attests the fresh home rather than the master profile.
+STREAMS   stdout/stderr of every launch are written under `<runs_root>/.driver/<run_id>/`, outside
+          the sandbox's writable set (F17). The before-work rule, the tool-call count, the access
+          audit and telemetry read ONLY that copy; a copy may be placed in the run dir afterwards
+          for humans. A missing or unreadable driver copy is INVALID:EVIDENCE_MISSING, never a
+          retry.
 ENV       the worker and the per-run auditor run with a minimal base env (PATH, LANG), the profile
           env file's `export` lines and the frozen `PYTHONDONTWRITEBYTECODE=1`, applied last so the
           profile cannot override it (F11). WHY: running the oracle and the full suite as the
@@ -146,9 +179,10 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 48 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 50 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
-(`run_h2r2.py`, `run_audit_v2.py`), the per-run collector and acceptance
+(`run_h2r2.py`, `run_audit_v2.py`), the OS confinement module and its frozen profile template
+(`sandbox_v2.py`, `worker-sandbox.sb.template`), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
 access audit and its four event fixtures (`access_audit.py`: two hand-built shape fixtures plus
 the two sanitised REAL streams the live pilot and the tool-name probe recorded, whose absolute
@@ -157,7 +191,7 @@ worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitis
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 49 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 51 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
@@ -176,9 +210,12 @@ tokenisation, the effective-git-repository rule, the frozen `PYTHONDONTWRITEBYTE
 auditor environment, and the two sanitised REAL event streams that now pin those rules), the
 F14 work (T26: the pre-registered provider-infrastructure rule in the run driver — the reachability
 probe, the before-work retry with hashed attempt archives and the attempt ledger, and the auditor's
-own counter; §5 and protocol-v2 §6.1), and the F15/F18 work (T28: the collector now decides the
+own counter; §5 and protocol-v2 §6.1), the F15/F18 work (T28: the collector now decides the
 delta from the worktree's bytes against a driver-recorded base snapshot, and the delivered
-repository head is a deterministic neutral commit). The T2
+repository head is a deterministic neutral commit), and the F16/F17/F19/F21 work (T29: every launch
+runs under a rendered `sandbox-exec` profile with a model-free confinement self-test, in a fresh
+per-launch home with its credential piped in and logged out again, with TMPDIR inside the launch
+directory, and the driver's own stdout/stderr copy is the only evidence the verdict reads). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
 [delivery-anchors.json](delivery-anchors.json), taken at `4924930` with the T28 program: every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`,

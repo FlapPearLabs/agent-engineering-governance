@@ -241,20 +241,32 @@ def read_bytes(path: Path) -> bytes | None:
         return None
 
 
-def preflight(run_dir: Path, profile_env: Path) -> dict:
-    """Attest the isolated profile and leave `<run_dir>/preflight.json`. Never runs a model."""
+def preflight(run_dir: Path, profile_env: Path, *, home: str | Path | None = None,
+              env: dict[str, str] | None = None) -> dict:
+    """Attest the isolated profile and leave `<run_dir>/preflight.json`. Never runs a model.
+
+    F19 / T29: the driver attests the FRESH per-launch home (`home`, with that launch's `env`), not
+    the master profile, so what is attested is exactly the configuration the worker will see. A
+    caller that passes neither keeps the original master-profile behaviour.
+    """
     run_dir = Path(run_dir).resolve()
     if not run_dir.is_dir():
         raise ValueError("RUN_DIR_MISSING")
-    try:
-        env = parse_profile_env(Path(profile_env).read_text(encoding="utf-8"))
-    except OSError:
-        env = {}
-    home = env.get("HOME", "").rstrip("/")
+    if env is None:
+        try:
+            parsed = parse_profile_env(Path(profile_env).read_text(encoding="utf-8"))
+        except OSError:
+            parsed = {}
+        child_env = {**os.environ, **parsed}
+        profile_home = parsed.get("HOME", "")
+    else:
+        parsed = dict(env)
+        child_env = dict(env)
+        profile_home = child_env.get("HOME", "")
+    home = str(home if home is not None else profile_home).rstrip("/")
     command_reasons: list[str] = []
-    child_env = {**os.environ, **env}
     if not home:
-        command_reasons.append("PREFLIGHT_PROFILE_ENV_UNREADABLE" if not env
+        command_reasons.append("PREFLIGHT_PROFILE_ENV_UNREADABLE" if not parsed
                                else "PREFLIGHT_NO_PROFILE_HOME")
     outputs = {"paths": "", "config": ""}
     for name in ("paths", "config"):

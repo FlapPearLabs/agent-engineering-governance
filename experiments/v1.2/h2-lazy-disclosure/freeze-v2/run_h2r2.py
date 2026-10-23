@@ -38,8 +38,22 @@ only fire before the worker acts:
     `<runs_root>/attempts-v2.jsonl` with its attempt number; the run registry keeps exactly one
     terminal line per run id and names the attempt that produced it.
 
-`execute()` takes the stub/preflight/auditor/probe/limit parameters so tests can drive a stub worker
-and a stub reachability check (never a model). The `run` CLI exposes none of them.
+CONFINEMENT IS THE BARRIER (F16 / F17 / F19 / F21, T29). The access audit still replays every
+static access it can see, but no static analysis is complete (`$(...)`, a base64 pipeline, `xargs`
+and `-c` code all hide paths). Every launch — worker, auditor and each reachability check — is
+therefore `sandbox-exec -f <rendered profile> <the frozen command>` in a FRESH per-launch home
+(`<runs_root>/.driver/<run_id>/home-<n>`, `audit-home-<n>`, `probe-home-<purpose>-<n>`, mode 0700,
+TMPDIR = `<launch dir>/.tmp`) whose credential was piped in from the master profile and logged out
+again afterwards. The rendered profile is saved and hashed, and a model-free confinement self-test
+must deny two reads of a driver-planted file and allow a write inside the launch directory before
+the launch happens (otherwise BLOCKED:SANDBOX_NOT_CONFINING, no attempt consumed). stdout/stderr of
+every launch are written under `<runs_root>/.driver/<run_id>/` — outside the sandbox's writable
+set — and every verdict input (before-work rule, tool-call count, access audit, telemetry) reads
+only that copy; the run dir gets a copy for humans afterwards.
+
+`execute()` takes the stub/preflight/auditor/probe/limit/sandbox/auth parameters so tests can drive
+a stub worker, a stub reachability check and a fake credential hand-off (never a model, never a real
+credential). The `run` CLI exposes none of them.
 """
 from __future__ import annotations
 
@@ -59,6 +73,7 @@ import collect_v2
 import isolation_canary
 import run_acceptance_v2
 import run_audit_v2
+import sandbox_v2
 import wrapper_delivery
 from wrapper_delivery import H2_REL, ROOT, sha256
 
@@ -72,6 +87,12 @@ ATTEMPT_NAME = "attempt.json"
 REACHABILITY_DIR = ".reachability"
 REACHABILITY_LOG_NAME = "reachability-v2.jsonl"
 SCRATCH_DIR = ".scratch"
+HOME_PREFIX = "home"
+AUDIT_HOME_PREFIX = "audit-home"
+PROBE_HOME_PREFIX = "probe-home"
+STREAM_PREFIX = "attempt"
+AUDIT_STREAM_PREFIX = "audit-attempt"
+PROBE_STREAM_PREFIX = "probe"
 RECORD_NAME = "run.json"
 CONTRACT_NAME = "CONTRACT.md"
 TEMPLATE_NAME = "worker-report-template.md"
@@ -404,23 +425,35 @@ def append_jsonl(path: Path, line: dict) -> None:
 
 
 def reachability_probe(runs_root: Path, run_id: str, purpose: str, attempt: int,
-                       command: tuple, model: str, env: dict[str, str]) -> dict:
-    """One frozen minimal prompt with the run's own command, model and env, outside the run dir."""
+                       command: tuple, model: str, env: dict[str, str],
+                       *, launch_under=None, directory: Path | None = None) -> dict:
+    """One frozen minimal prompt with the run's own command, model and env, outside the run dir.
+
+    `launch_under` is how the driver confines the probe (fresh home, rendered profile, sandbox);
+    the default is a plain launch, which only a test uses. The probe's directory is driver-held.
+    """
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    directory = Path(runs_root) / REACHABILITY_DIR / f"{run_id}-{purpose}-{attempt}-{stamp}"
-    directory.mkdir(parents=True)
+    directory = Path(directory) if directory is not None else (
+        Path(runs_root) / REACHABILITY_DIR / f"{run_id}-{purpose}-{attempt}-{stamp}")
+    directory.mkdir(parents=True, exist_ok=True)
     started_at = now()
     started = time.monotonic()
-    result = launch([*command, model, REACHABILITY_PROMPT], directory, env,
-                    REACHABILITY_LIMIT_SECONDS, directory / EVENTS_NAME, directory / STDERR_NAME)
+    if launch_under is None:
+        def launch_under(argv, cwd, out, err):
+            return launch(argv, cwd, env, REACHABILITY_LIMIT_SECONDS, out, err)
+    result = launch_under([*command, model, REACHABILITY_PROMPT], directory,
+                          directory / EVENTS_NAME, directory / STDERR_NAME)
     seconds = round(time.monotonic() - started, 3)
     events, malformed = read_events(directory / EVENTS_NAME)
     text = answer_text(events)
     kinds = [kind for kind in (error_kind(event) for event in events) if kind]
+    blocked = result.get("blocked")
     reasons = []
-    if result["timed_out"]:
+    if blocked:
+        reasons.append(str(blocked))
+    if result.get("timed_out"):
         reasons.append("TIMEOUT")
-    if result["returncode"] != 0:
+    if not blocked and result.get("returncode") != 0:
         reasons.append(f"EXIT:{result['returncode']}")
     if kinds:
         reasons.append(f"PROVIDER_ERROR:{kinds[0]}")
@@ -433,7 +466,8 @@ def reachability_probe(runs_root: Path, run_id: str, purpose: str, attempt: int,
               "command": [*command, model, REACHABILITY_PROMPT],
               "limit_seconds": REACHABILITY_LIMIT_SECONDS,
               "started_at": started_at, "finished_at": now(), "seconds": seconds,
-              "returncode": result["returncode"], "timed_out": result["timed_out"],
+              "returncode": result.get("returncode"), "timed_out": result.get("timed_out"),
+              "blocked": blocked,
               "events": len(events), "malformed": malformed,
               "token_seen": REACHABILITY_TOKEN in text,
               "verdict": "FAIL" if reasons else "PASS", "reasons": reasons,
@@ -549,11 +583,13 @@ def abandon_run_dir(run_dir: Path) -> None:
 def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=None,
             preflight=None, auditor=None, limit_seconds: int | None = None,
             audit_limit_seconds: int | None = None, profile_env: Path | None = None,
-            probe=None) -> dict:
+            probe=None, sandbox=None, auth=None) -> dict:
     """Execute one planned run. Refusals allocate nothing; every other path ends registered.
 
     An attempt that never reached work (F14) is archived and retried on a fresh run dir; a failed
     reachability check blocks the run without consuming an attempt and without registering it.
+    The same is true of the T29 infrastructure states: no sandbox on the platform, a rendered
+    profile that does not confine, or a credential that cannot be moved into the fresh home.
     """
     root = Path(root).resolve()
     runs_root = check_runs_root(runs_root)
@@ -570,15 +606,105 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
         return {"outcome": "REFUSED", "run_id": run_id, "reason": reason}
 
     run_dir = runs_root / run_id
+    driver_dir = wrapper_delivery.driver_root(run_dir)
     env_file = profile_env_file(plan_run, profile_env)
     command = tuple(worker_command or WORKER_COMMAND)
     limit = WALL_CLOCK_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
     audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
-    state: dict = {"env": None}
+    sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
+    auth = auth if auth is not None else sandbox_v2.Auth()
+    state: dict = {"env": None, "master_env": None}
 
-    def default_probe(purpose: str, attempt: int) -> dict:
-        return reachability_probe(runs_root, run_id, purpose, attempt, command,
-                                  plan_run["model"], state["env"])
+    if not sandbox.available():
+        # F16 / T29: without the platform sandbox the audit would be the only barrier, which the
+        # review showed is not enough. Nothing is launched, no attempt is consumed, nothing is
+        # registered, and the same run id may be invoked again where a sandbox exists.
+        return {"outcome": "BLOCKED", "run_id": run_id, "registered": False,
+                "reason": "SANDBOX_UNAVAILABLE", "verdict": "BLOCKED", "audit_verdict": None,
+                "final_verdict": "BLOCKED", "reasons": ["SANDBOX_UNAVAILABLE"],
+                "session_id": None, "wall_clock_seconds": 0.0}
+
+    def fresh_state(launch_dir: Path, home_name: str, stream_dir: Path) -> dict:
+        """A brand-new home plus the credential moved in; the launch's own stream directory."""
+        stream_dir = Path(stream_dir)
+        shutil.rmtree(stream_dir, ignore_errors=True)
+        stream_dir.mkdir(parents=True)
+        home = sandbox_v2.fresh_home(driver_dir, home_name, launch_dir)
+        env = sandbox_v2.home_env(state["master_env"] or {}, home, launch_dir)
+        auth_record = auth.import_(state["master_env"] or {}, env, launch_dir)
+        (stream_dir / "auth.json").write_text(
+            json.dumps(sandbox_v2.summary(auth_record), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        ok = bool(auth_record.get("ok"))
+        return {"ok": ok, "home": home, "env": env, "stream": stream_dir,
+                "auth": sandbox_v2.summary(auth_record),
+                "reason": None if ok else
+                f"CREDENTIAL_IMPORT_FAILED:{auth_record.get('reason', 'UNKNOWN')}"}
+
+    def confine_state(launch_dir: Path, prepared: dict) -> dict:
+        """Render the profile, hash it, and prove it confines before anything is launched."""
+        planted, token = sandbox.plant(driver_dir)
+        profile = sandbox.profile(prepared["stream"], launch_dir, prepared["home"],
+                                  sys.executable)
+        test = sandbox.self_test(profile["path"], launch_dir, planted, sys.executable, token)
+        (prepared["stream"] / "confinement.json").write_text(
+            json.dumps(test, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        ok = test.get("verdict") == "PASS"
+        return {"ok": ok, "profile": profile, "confinement": test,
+                "reason": None if ok else
+                f"SANDBOX_NOT_CONFINING:{','.join(test.get('reasons', []))}"}
+
+    def release(prepared: dict, launch_dir: Path) -> dict:
+        """Best effort: log the credential out of the fresh home; the outcome is recorded."""
+        try:
+            record = auth.logout(prepared["env"], launch_dir)
+        except (OSError, ValueError):
+            record = {"ran": False, "returncode": None}
+        try:
+            (Path(prepared["stream"]) / "logout.json").write_text(
+                json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+        return record
+
+    def confined(prepared: dict, argv, directory: Path, limit_value: int) -> dict:
+        """One confined launch whose stdout/stderr go to the driver's own copy."""
+        stream = Path(prepared["stream"])
+        result = launch(sandbox.confine(prepared["profile"]["path"], argv), directory,
+                        prepared["env"], limit_value, stream / EVENTS_NAME, stream / STDERR_NAME)
+        result["stream"] = str(stream)
+        return result
+
+    def default_probe(purpose: str, number: int) -> dict:
+        directory = driver_dir / f"{PROBE_STREAM_PREFIX}-{purpose}-{number}"
+        prepared = fresh_state(directory, f"{PROBE_HOME_PREFIX}-{purpose}-{number}", directory)
+        if not prepared["ok"]:
+            return {"verdict": "FAIL", "reasons": [prepared["reason"]],
+                    "blocked": prepared["reason"], "token_seen": False, "events": 0,
+                    "seconds": 0.0, "purpose": purpose, "attempt": number}
+        confinement = confine_state(directory, prepared)
+        if not confinement["ok"]:
+            release(prepared, directory)
+            return {"verdict": "FAIL", "reasons": [confinement["reason"]],
+                    "blocked": confinement["reason"], "token_seen": False, "events": 0,
+                    "seconds": 0.0, "purpose": purpose, "attempt": number,
+                    "profile_sha256": confinement["profile"]["sha256"]}
+        try:
+            record = reachability_probe(
+                runs_root, run_id, purpose, number, command, plan_run["model"],
+                prepared["env"],
+                launch_under=lambda argv, cwd, out, err: confined(prepared, argv, cwd,
+                                                                  REACHABILITY_LIMIT_SECONDS),
+                directory=directory)
+        except (OSError, ValueError) as exc:
+            record = {"verdict": "FAIL", "reasons": [f"PROBE_FAILED:{type(exc).__name__}"],
+                      "purpose": purpose, "attempt": number, "token_seen": False, "events": 0}
+        finally:
+            logout_record = release(prepared, directory)
+        record["auth_logout"] = logout_record
+        record["profile_sha256"] = confinement["profile"]["sha256"]
+        record["confinement"] = confinement["confinement"]["verdict"]
+        return record
 
     prober = probe or default_probe
     lock = acquire_lock(runs_root, run_id)
@@ -589,6 +715,13 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     def save(record: dict) -> None:
         (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n",
                                            encoding="utf-8")
+
+    def infra_blocked(record: dict, reasons: list[str]) -> dict:
+        """A pre-launch infrastructure state: recorded, no attempt consumed, invokable again."""
+        append_jsonl(driver_dir / "blocked.jsonl",
+                     {"run_id": run_id, "attempt": attempt, "at": now(),
+                      "reasons": list(reasons)})
+        return {"status": "INFRA_BLOCKED", "reasons": list(reasons)}
 
     while attempt <= MAX_ATTEMPTS:
         record = {"schema_version": 1, "program": "freeze-v2/run_h2r2.py", "run_id": run_id,
@@ -603,7 +736,8 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                   "audit_limit_seconds": audit_limit, "started_at": now(), "finished_at": None,
                   "wall_clock_seconds": None, "verdict": None, "audit_verdict": None,
                   "final_verdict": None, "reasons": [], "session_id": None,
-                  "reachability": [], "steps": []}
+                  "reachability": [], "steps": [], "sandbox": {}, "fresh_home": None,
+                  "auth": None, "auth_logout": None}
 
         def settle(verdict: str, reasons: list[str], audit: dict | None = None,
                    record: dict = record) -> dict:
@@ -658,15 +792,39 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                     shutil.rmtree(held, ignore_errors=True)
             save(record)
 
+            # F19 / T29: the worker gets a brand-new home with only the frozen config, and the
+            # credential is piped in from the master profile. The master profile is never mounted.
+            entry = start_step(record, "home")
+            try:
+                state["master_env"] = worker_env(env_file)
+            except ValueError as exc:
+                finish_step(entry, "FAILED", reasons=[str(exc)])
+                return terminate("INVALID", [str(exc)])
+            prepared = fresh_state(run_dir, f"{HOME_PREFIX}-{attempt}",
+                                   driver_dir / f"{STREAM_PREFIX}-{attempt}")
+            record["fresh_home"] = str(prepared["home"])
+            record["auth"] = prepared["auth"]
+            record["sandbox"] = {"template": sandbox_v2.TEMPLATE_NAME,
+                                 "template_sha256": sha256(sandbox_v2.template_bytes())}
+            if not prepared["ok"]:
+                finish_step(entry, "BLOCKED", reasons=[prepared["reason"]])
+                save(record)
+                return infra_blocked(record, [prepared["reason"]])
+            finish_step(entry, "DONE", home=str(prepared["home"]), auth=prepared["auth"])
+            state["env"] = prepared["env"]
+            save(record)
+
             entry = start_step(record, "preflight")
             attester = preflight or isolation_canary.preflight
             try:
-                attestation = attester(run_dir, env_file)
+                attestation = attester(run_dir, env_file, home=prepared["home"],
+                                       env=prepared["env"])
             except ValueError as exc:
                 attestation = {"verdict": "FAIL", "reasons": [str(exc)]}
             if attestation.get("verdict") != "PASS":
                 found = [str(item) for item in attestation.get("reasons", [])] or ["PREFLIGHT_FAIL"]
                 finish_step(entry, "BLOCKED", reasons=found)
+                release(prepared, run_dir)
                 return settle("BLOCKED", [f"PREFLIGHT_FAIL:{reason}" for reason in found])
             finish_step(entry, "PASS")
             save(record)
@@ -678,46 +836,76 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                                    capture_output=True, text=True)
             if brief.returncode != 0 or not (run_dir / CONTRACT_NAME).is_file():
                 finish_step(entry, "FAILED", returncode=brief.returncode)
+                release(prepared, run_dir)
                 return settle("INVALID", [f"BRIEF_FAILED:{brief.returncode}"])
             finish_step(entry, "DONE", sha256=sha256((run_dir / CONTRACT_NAME).read_bytes()),
                         template=(run_dir / TEMPLATE_NAME).is_file())
             save(record)
 
-            try:
-                env = worker_env(env_file)
-            except ValueError as exc:
-                entry = start_step(record, "worker")
-                finish_step(entry, "FAILED", reasons=[str(exc)])
-                return terminate("INVALID", [str(exc)])
-            state["env"] = env
+            # F16 / T29: render this launch's profile, hash it, and prove it confines.
+            entry = start_step(record, "confinement")
+            confinement = confine_state(run_dir, prepared)
+            prepared["profile"] = confinement["profile"]
+            record["sandbox"].update({"profile": confinement["profile"],
+                                      "confinement": confinement["confinement"]})
+            if not confinement["ok"]:
+                finish_step(entry, "BLOCKED", reasons=[confinement["reason"]])
+                release(prepared, run_dir)
+                save(record)
+                return infra_blocked(record, [confinement["reason"]])
+            finish_step(entry, "PASS", profile_sha256=confinement["profile"]["sha256"],
+                        self_test=confinement["confinement"]["verdict"])
+            save(record)
 
             # F14: one frozen minimal prompt with the run's own command, model and env, immediately
             # before the worker. A failure here launches nothing and consumes no attempt.
             entry = start_step(record, "reachability")
             probe_record = prober("worker", attempt)
             record["reachability"].append(probe_record)
+            if probe_record.get("blocked"):
+                found = [str(probe_record["blocked"])]
+                finish_step(entry, "BLOCKED", reasons=found)
+                save(record)
+                release(prepared, run_dir)
+                return infra_blocked(record, found)
             if probe_record.get("verdict") != "PASS":
                 found = [f"PROVIDER_UNREACHABLE:{item}" for item in probe_record.get("reasons", [])]
                 found = found or ["PROVIDER_UNREACHABLE"]
                 finish_step(entry, "BLOCKED", reasons=found)
                 save(record)
+                release(prepared, run_dir)
                 return {"status": "UNREACHABLE", "reasons": found}
             finish_step(entry, "PASS", seconds=probe_record.get("seconds"),
                         events=probe_record.get("events"),
                         token_seen=probe_record.get("token_seen"))
             save(record)
 
+            # F17 / T29: the worker's stdout/stderr are the DRIVER's copy, outside the sandbox's
+            # writable set. Every verdict input below reads only that copy.
             entry = start_step(record, "worker")
-            result = launch([*command, plan_run["model"], LAUNCH_PROMPT], run_dir, env, limit,
-                            run_dir / EVENTS_NAME, run_dir / STDERR_NAME)
-            events, malformed = read_events(run_dir / EVENTS_NAME)
+            stream = Path(prepared["stream"])
+            result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit)
+            record["auth_logout"] = release(prepared, run_dir)
+            driver_events = stream / EVENTS_NAME
+            driver_stderr = stream / STDERR_NAME
+            if (not driver_events.is_file() or not os.access(driver_events, os.R_OK)
+                    or not driver_stderr.is_file() or not os.access(driver_stderr, os.R_OK)):
+                finish_step(entry, "INVALID", reasons=["EVIDENCE_MISSING"],
+                            returncode=result.get("returncode"))
+                return terminate("INVALID", ["EVIDENCE_MISSING"])
+            for name in (EVENTS_NAME, STDERR_NAME):
+                source = stream / name
+                if source.is_file():
+                    shutil.copyfile(source, run_dir / name)
+            events, malformed = read_events(driver_events)
             record["session_id"] = session_id(events)
             reasons = worker_reasons(result, events, malformed)
             blocked = before_work_failure(result, events)
             finish_step(entry, "BLOCKED" if blocked else ("INVALID" if reasons else "DONE"),
-                        returncode=result["returncode"], timed_out=result["timed_out"],
+                        returncode=result.get("returncode"), timed_out=result.get("timed_out"),
                         events=len(events), malformed=malformed,
-                        tool_calls=tool_call_count(events), reasons=reasons)
+                        tool_calls=tool_call_count(events), reasons=reasons,
+                        evidence=str(driver_events))
             if blocked:
                 # F14: the provider failed before the worker acted. This ends the attempt, not the run.
                 reason = f"PROVIDER_FAILED_BEFORE_WORK:{blocked}"
@@ -733,7 +921,8 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
             # the run INVALID:OUT_OF_RUN_ACCESS; it is registered like every other terminal state and a
             # second start is refused, so a hit can never be re-run away.
             entry = start_step(record, "access_audit")
-            access = access_audit.audit(run_dir / EVENTS_NAME, run_dir, home=env.get("HOME"),
+            access = access_audit.audit(driver_events, run_dir,
+                                        home=prepared["env"].get("HOME"),
                                         python=sys.executable)
             (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
                                                encoding="utf-8")
@@ -741,6 +930,8 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                               for hit in access["hits"]]
             finish_step(entry, "PASS" if access["verdict"] == "PASS" else "INVALID",
                         tool_calls=access["tool_calls"], hits=len(access["hits"]),
+                        unresolved_constructs=access.get("unresolved_constructs", []),
+                        sandbox_denied=access.get("sandbox_denied", []),
                         reasons=access_reasons)
             save(record)
             if reasons:
@@ -770,19 +961,53 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                     # The same reachability rule, with its own counter, immediately before the auditor.
                     probe_record = prober("auditor", audit_number)
                     record["reachability"].append(probe_record)
+                    if probe_record.get("blocked"):
+                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
+                                               "reasons": [str(probe_record["blocked"])]})
+                        continue
                     if probe_record.get("verdict") != "PASS":
                         audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
                                                "reasons": [f"PROVIDER_UNREACHABLE:{item}"
                                                            for item in probe_record.get("reasons", [])]})
                         continue
+                    audit_dir = run_dir / run_audit_v2.AUDIT_DIR
+                    audit_prepared = fresh_state(
+                        audit_dir, f"{AUDIT_HOME_PREFIX}-{audit_number}",
+                        driver_dir / f"{AUDIT_STREAM_PREFIX}-{audit_number}")
+                    if not audit_prepared["ok"]:
+                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
+                                               "reasons": [audit_prepared["reason"]]})
+                        continue
+                    audit_confinement = confine_state(audit_dir, audit_prepared)
+                    if not audit_confinement["ok"]:
+                        release(audit_prepared, audit_dir)
+                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
+                                               "reasons": [audit_confinement["reason"]],
+                                               "profile_sha256":
+                                                   audit_confinement["profile"]["sha256"]})
+                        continue
+                    audit_stream = Path(audit_prepared["stream"])
                     try:
-                        audit = chosen(run_dir, plan_run, task_of(root, plan_run["task_id"]),
-                                       launch=launch, command=command, env=env,
-                                       limit_seconds=audit_limit)
+                        audit = chosen(
+                            run_dir, plan_run, task_of(root, plan_run["task_id"]),
+                            launch=lambda argv, cwd, audit_env, audit_limit_value, out, err: launch(
+                                sandbox.confine(audit_confinement["profile"]["path"], argv), cwd,
+                                audit_env, audit_limit_value, out, err),
+                            command=command, env=audit_prepared["env"],
+                            limit_seconds=audit_limit,
+                            events_path=audit_stream / EVENTS_NAME,
+                            stderr_path=audit_stream / STDERR_NAME)
                     except (ValueError, OSError) as exc:
                         audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
                                  "leakage": []}
-                    audit_events, _ = read_events(run_dir / run_audit_v2.AUDIT_DIR / EVENTS_NAME)
+                    audit_logout = release(audit_prepared, audit_dir)
+                    record.setdefault("audit_sandbox", []).append(
+                        {"attempt": audit_number,
+                         "profile_sha256": audit_confinement["profile"]["sha256"],
+                         "confinement": audit_confinement["confinement"]["verdict"],
+                         "home": str(audit_prepared["home"]),
+                         "auth": audit_prepared["auth"], "logout": audit_logout})
+                    audit_events, _ = read_events(audit_stream / EVENTS_NAME)
                     blocked = before_work_failure(audit.get("launch") or {}, audit_events)
                     if audit["verdict"] != "BLOCKED" or not blocked:
                         break
@@ -817,9 +1042,10 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
 
         outcome = attempt_body()
 
-        if outcome["status"] == "UNREACHABLE":
-            # F14: the provider was unreachable before anything ran. No attempt is consumed, so
-            # only the archives (if any) stay and the run may be invoked again for this id later.
+        if outcome["status"] in ("UNREACHABLE", "INFRA_BLOCKED"):
+            # F14 / T29: the provider was unreachable, or the launch could not be confined, before
+            # anything ran. No attempt is consumed, so only the archives (if any) stay and the run
+            # may be invoked again for this id later.
             abandon_run_dir(run_dir)
             Path(lock).unlink(missing_ok=True)
             return {"outcome": "BLOCKED", "run_id": run_id, "registered": False,

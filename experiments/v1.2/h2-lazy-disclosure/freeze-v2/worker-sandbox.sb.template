@@ -1,0 +1,25 @@
+(version 1)
+;; Freeze v2 worker/auditor sandbox template (F16 / F19 / F21, plan T29).
+;;
+;; The sandbox is the ENFORCING barrier: the access audit still replays every static access it can
+;; see, but a shell command can hide a path behind command substitution, `-c` code, base64 or
+;; xargs, and no static analysis is complete. Everything under the operator's home tree and the
+;; shared temporary roots is therefore denied for reading file data and for writing, and each
+;; launch re-allows exactly its own surface below.
+;;
+;; `render()` substitutes the single placeholder line below with the launch's rules:
+;;   * the launch directory (run dir for the worker, audit dir for the auditor) read-write;
+;;   * the fresh per-launch home read-write;
+;;   * the interpreter and its prefixes readable;
+;;   * every ancestor of the launch directory as a `literal` (opencode's config discovery calls
+;;     realPath on them; the contents of an ancestor are still not readable, only its own node, so
+;;     the directory NAMES of ancestors remain listable and are disclosed in README §3);
+;;   * nothing else. Any path under /Users, /private/tmp or /private/var/folders without an
+;;     explicit rule above fails with EPERM.
+(allow default)
+(deny file-read-data file-write*
+      (subpath "/Users")
+      (subpath "/private/tmp")
+      (subpath "/var/folders")
+      (subpath "/private/var/folders"))
+{{ALLOW}}

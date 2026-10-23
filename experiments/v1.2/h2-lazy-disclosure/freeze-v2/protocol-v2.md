@@ -85,6 +85,42 @@ shell 工具在本 runtime 中名为 `shell`（`bash` 一并接受），命令�
 才算 `GIT_FOREIGN_REPOSITORY`。理由：把 base 归档到 temp 目录并在其中运行 git 与测试是合法
 工作，而同一管道中其他程序的 `-C`（如 `tar -x -C`）不是 git 的。
 
+### 4.0 OS 隔离、fresh home 与 driver-held 流（F16/F17/F19/F21，T29）
+
+静态审计不可能完备（F16）：`cat $(printf ...)`、反引号、base64/xxd 解码、xargs 与 `-c` 程序
+都能隐藏一个路径。因此 sandbox 成为实际执行屏障，access audit 仍是静态证据层：
+
+```text
+F16  CONFINEMENT  每次 launch（worker、per-auditor、以及每次 reachability 检查）都以
+       `sandbox-exec -f <rendered profile> <the frozen command>` 启动。渲染规则：launch 目录
+       （worker 为 run dir，auditor 为 audit dir）与 per-launch home 可读写；解释器 prefix 只读；
+       launch 目录的每个祖先目录以 `literal` 只读；/Users、/private/tmp、/private/var/folders
+       之下其余内容对 file-read-data 与 file-write* 一律拒绝。冻结模板
+       worker-sandbox.sb.template 在 manifest 中；渲染后的 profile 与 sha256 逐 attempt 归档。
+       披露：祖先目录的 NAMES 仍可列举（`literal` 只放行目录节点本身），其内容不可读。
+       访问审计保留全部既有规则与裁定，并新增证据字段 `unresolved_constructs`
+       （command substitution / backtick / eval / `-c` 程序 / 解码器 / xargs）与
+       `sandbox_denied`（tool result 含 "Operation not permitted" 且路径在 launch 目录之外）。
+       预注册：被 sandbox 拒绝的动态访问没有获得任何东西，按 run 记录并在 closure report 中
+       报告，不判 INVALID；静态命中仍判 INVALID（不放宽任何规则）。
+F19  FRESH STATE 每次 launch 使用全新 `<runs_root>/.driver/<run_id>/home-<n>`（auditor 为
+       `audit-home-<n>`，每次 reachability 为 `probe-home-<purpose>-<n>`），mode 0700，只含冻结的
+       worker-profile/opencode.json 与自己的 XDG_* 目录。credential 以
+       `opencode auth export --standalone opencode`（master profile env）管道进
+       `opencode auth import --standalone`（fresh env）；secret 不进 argv、日志、events、
+       registry 或 stdout。attempt 之后 `opencode auth logout`（best effort，记录结果）。
+       master profile 从不挂载进 sandbox。
+F17  DRIVER COPY 每次 launch 的 stdout/stderr 写入 `<runs_root>/.driver/<run_id>/` 之下（sandbox
+       不可写）；before-work 规则、tool-call 计数、access audit 与遥测只读该副本，run dir 里的事后
+       副本仅供人读。副本缺失或不可读 => INVALID:EVIDENCE_MISSING，不重试。
+F21  TMPDIR      每次 launch 的 TMPDIR = `<launch dir>/.tmp`，随 launch 目录一起放行，不再落进
+       共享 OS temp 目录。
+SELF TEST 每次 launch 之前，driver 在同一 rendered sandbox 内用 `cat` 与 `<PY> -c open(...)` 读
+       自己在 `.driver/<run_id>/` 下投放的文件，两者必须失败且不泄漏其 token，且在 launch 目录内
+       写入必须成功；否则 BLOCKED:SANDBOX_NOT_CONFINING（不消耗 attempt、可再次 `run`、已记录）。
+       平台无 sandbox-exec => BLOCKED:SANDBOX_UNAVAILABLE。preflight 针对 fresh home 运行。
+```
+
 worker 与 per-run auditor 的运行环境固定为：最小基础环境（PATH、LANG）、profile env 文件的
 `export` 行，以及冻结的 `PYTHONDONTWRITEBYTECODE=1`；该变量最后应用，profile 不能覆盖。原因
 （F11）：按合同执行 oracle 与完整脚本测试会正常在 `repo/` 下写出 `__pycache__/*.pyc`，而
@@ -127,6 +163,12 @@ auditor 环境与 90 分钟上限是它的模块常量；
 run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
 独立评审由 `freeze-v2/run_audit_v2.py` 在盲包上执行，机械与评审两个结论都进登记，取保守者。
 每次新起 opencode 进程与 episode，不复用 session。f01 为 C,V，f02 为 V,C，依次交替。
+
+第 4.0 节的隔离属于同一条执行路径：driver 为每次 launch 渲染并归档 profile、准备 fresh home、
+做无模型的 confinement 自检，然后经 `sandbox-exec` 启动；worker 与 auditor 的 stdout/stderr
+只以 driver 副本为准（F17），run dir 中的副本仅供人读。sandbox/credential 在 worker 未动作前
+不可用时不消耗 attempt、不登记，同一 run id 可再次 `run`；EVIDENCE_MISSING 是终局 INVALID，
+绝不因此重试。
 wrapper_delivery.py 只准备 standalone 任务仓库和投放，render_brief.py 提供本 run 合同和同构报告模板；
 旧 prepare/collect/acceptance shell harness 不作为 v2 wrapper 的适配完成证据。
 
@@ -167,6 +209,12 @@ wrong worktree/base、carrier/hash 不符、交付/证据污染、路径/路由�
 访问（OUT_OF_RUN_ACCESS，第 4 节）是独立登记原因：命中即无效，不因机械验收通过而软化。
 不覆写原 run，不复用 episode，不默默重跑直到结果好看。任何重试须有新的登记身份与原因；
 不能把新增重试混入冻结二十条的确认性统计。blocked 与 invalid 分开，均不能冒充 PASS。
+
+driver 副本缺失（EVIDENCE_MISSING）是 INVALID 的独立原因，且永不重试；sandbox 不可用
+（SANDBOX_UNAVAILABLE）、渲染 profile 未通过 confinement 自检（SANDBOX_NOT_CONFINING）与
+credential 无法导入 fresh home（CREDENTIAL_IMPORT_FAILED）都发生在 worker 动作之前，属于
+BLOCKED：不消耗 attempt、不登记，记录在 driver 目录，可在有 sandbox 的环境再次 `run`。
+被 sandbox 拒绝的动态访问（`sandbox_denied`）不是 INVALID 原因，按 4.0 节报告。
 
 ### 6.1 预注册的基础设施失败规则（F14）
 
