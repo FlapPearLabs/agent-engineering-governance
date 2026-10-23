@@ -56,3 +56,26 @@ Run ruff, validate_governance, validate_public_release and ONLY the freeze-v2 te
 experiments suite and do NOT re-pin the manifest: the merged result is re-pinned and fully gated
 once in T33. A manifest-hash test that fails ONLY because run_h2r2.py's bytes changed is expected
 here; name it in CODEX_REPORT and do not edit the pinned literals.
+
+## T35 — four-way concurrency, backoff, and the pre-registered model rule (user decision 2026-10-23)
+
+1. `MAX_PARALLEL = 4` (was 2). Same eligibility rules as T34: starts in plan order, the second arm
+   of a task only after the first is registered.
+2. Backoff: a run that ends BLOCKED before work (PROVIDER_UNREACHABLE, or an attempt that hit the
+   before-work rule three times) is re-queued by the scheduler with exponential backoff plus jitter
+   (60 s, 120 s, 240 s, 480 s, 900 s cap; up to 6 re-queues per scheduler invocation), keeping its
+   plan position; other eligible runs keep their slots meanwhile. Every wait is logged in
+   scheduler-v2.jsonl. After the budget the scheduler stops and prints what remains (operator
+   re-invokes); nothing registered is ever re-run.
+3. Model rule (pre-registered, outcome-blind): every worker and auditor launch of the twenty uses the
+   single frozen model of run-plan-v2.json (opencode-go/deepseek-v4.1-flash). There is NO model
+   failover inside the experiment: the model is part of the treatment environment, and a pair whose
+   arms ran on different models is not a comparison (protocol §6 "model tier mismatch" is INVALID).
+   Provider outages are handled only by waiting (rule 2) and by the existing reachability and
+   before-work rules. Failover to other models exists only in the implementation pipeline, which
+   never touches H2-R2 runs. Record this in protocol-v2 §6.1 and README.
+Tests (stubs only): four alive at most; a stub probe failing twice then passing is re-queued with
+growing recorded waits and then runs; the budget exhausted -> scheduler exits listing the run; the
+worker and auditor argv always carry the frozen model.
+Gate: same speed rule as T34 (ruff, governance, public release, the freeze-v2 test module only;
+no re-pin).
