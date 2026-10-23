@@ -19,14 +19,23 @@ What is flagged:
     whose path is glued to a separator (F12: `source /dev/null;` used to report `/dev/null;`).
     `~` and `$HOME` resolve to the profile home the worker was launched with, never to the
     operator's; a fixture may write the neutral token `<RUN_ROOT>`, which resolves to the run
-    directory;
+    directory. Every token — the value of a `NAME=value` assignment included — resolves against
+    the working directory the SAME command established with a preceding `cd`, not against the run
+    directory: `cd repo && T=../.tmp/probe` names `<run>/.tmp/probe`, which is inside, while
+    `cd repo && T=../../x` names the parent of the run and is a hit (F27b);
   * a diff path in the `patch` tool's `patchText` (`--- a/x`, `+++ b/x`, `diff --git a/x b/x`);
-  * `git clone/fetch/pull/push/ls-remote/submodule`, `git remote add|set-url|update|prune|rename|
+  * `git push`, `git ls-remote`, `git submodule`, `git remote add|set-url|update|prune|rename|
     remove`, and a git command whose EFFECTIVE repository — the working directory after any `cd`
     in the same command, then every `-C`, `--git-dir` and `--work-tree` — resolves outside the run
     directory AND outside the OS temp roots (F13: a run may legitimately archive its base into a
     temp directory and run git and tests there; the `-C` of another program in the same pipeline,
     such as `tar -x -C`, is not git's);
+  * `git clone/fetch/pull` judged by its SOURCE (F27a): a LOCAL path that resolves, after any `cd`
+    or `-C`, inside the run directory is the run's own repository being copied and is not an
+    escape, while a URL, an scp `host:path` form, a local path outside the run directory (the OS
+    temp roots included: a source there is another repository whose provenance the audit cannot
+    establish) or no source at all stays a hit. A bare name is a local path only for `clone`; for
+    `fetch` and `pull` it is a remote name unless it is path-shaped (`x/…`, `./…`, `../…`);
   * any tool that is not in `TOOL_ALLOW` (`webfetch`, `task`, `skill`, an `mcp__` tool …): a tool
     whose accesses this stream cannot show is not auditable from here.
 
@@ -64,8 +73,13 @@ SYSTEM_ALLOW = ("/usr", "/bin", "/sbin", "/opt/homebrew", "/System", "/Library/D
 # allowed: only the temp dir itself and `/tmp` (with the real path its symlink points to, added in
 # `allowed_roots`), so that a `..` escape from the wrapper lands outside this list and is reported.
 TEMP_ALLOW = ("/tmp",)  # its resolved symlink target is added by allowed_roots
-GIT_ESCAPE_SUBCOMMANDS = frozenset({"clone", "fetch", "pull", "push", "ls-remote", "submodule"})
+# F27a: clone/fetch/pull are judged by their source; push/ls-remote/submodule always reach outward.
+GIT_LOCAL_SOURCE_SUBCOMMANDS = frozenset({"clone", "fetch", "pull"})
+GIT_ALWAYS_REMOTE_SUBCOMMANDS = frozenset({"push", "ls-remote", "submodule"})
 GIT_REMOTE_SUBCOMMANDS = frozenset({"add", "set-url", "update", "prune", "rename", "remove"})
+GIT_REMOTE_PREFIXES = ("http://", "https://", "ssh://", "git://", "ftp://", "ftps://", "file://")
+# `host:path` / `user@host:path`: a colon before any slash is a remote, not a local path.
+GIT_SCP_RE = re.compile(r"^[^/\s]+:")
 GIT_LOCATION_FLAGS = ("--git-dir=", "--work-tree=")
 # Shell control operators: a command list is analysed segment by segment (F12), and a git argument
 # list ends at the first operator, so `tar -x -C <dir>` after a pipe is never read as git's own -C.
@@ -134,8 +148,8 @@ def inside(path: str, root: str) -> bool:
 
 
 def path_reason(value: str, run_dir: Path, home: str | None,
-                allow: tuple[str, ...]) -> str | None:
-    resolved = resolve(value, run_dir, home)
+                allow: tuple[str, ...], base: str | None = None) -> str | None:
+    resolved = resolve(value, run_dir, home, base=base)
     if resolved is None:
         return "PATH_HOME_UNRESOLVED"
     if not resolved:
@@ -166,20 +180,49 @@ def shell_tokens(command: str) -> list[str]:
         return command.split()
 
 
+def git_subcommand(args: list[str]) -> tuple[str, list[str]]:
+    """The subcommand of one git argument list and its positional arguments.
+
+    Global options that consume a value (`-C <dir>`, `--git-dir <dir>`, `--work-tree <dir>`) are
+    skipped, so `git -C repo clone repo .tmp/x` is read as `clone` with two operands.
+    """
+    index = 0
+    while index < len(args):
+        argument = args[index]
+        if argument in ("-C", "--git-dir", "--work-tree") and index + 1 < len(args):
+            index += 2
+            continue
+        if argument.startswith("-"):
+            index += 1
+            continue
+        return argument, [item for item in args[index + 1:] if not item.startswith("-")]
+    return "", []
+
+
+def remote_source(value: str) -> bool:
+    """A URL or an scp `host:path` form: a source that is not a local path at all."""
+    return value.startswith(GIT_REMOTE_PREFIXES) or bool(GIT_SCP_RE.match(value))
+
+
+def local_source(value: str, cwd: str, run_dir: Path, home: str | None,
+                 path_shaped_only: bool) -> bool:
+    """True when `value` is the run's own repository, reached from the current directory."""
+    if remote_source(value):
+        return False
+    if path_shaped_only and "/" not in value and not value.startswith("."):
+        return False
+    resolved = resolve(value, run_dir, home, base=cwd)
+    return bool(resolved) and inside(resolved, str(run_dir))
+
+
 def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
                       home: str | None, temps: tuple[str, ...]) -> list[dict]:
-    """One git invocation: remote escapes always, and a foreign effective repository (F13)."""
+    """One git invocation: remote escapes, and a foreign effective repository (F13 / F27a)."""
     hits: list[dict] = []
     repo = cwd
     unresolved: str | None = None
     for position, argument in enumerate(args):
         following = args[position + 1:position + 2]
-        if argument in GIT_ESCAPE_SUBCOMMANDS:
-            hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
-                         "value": command, "path": argument})
-        elif argument == "remote" and following and following[0] in GIT_REMOTE_SUBCOMMANDS:
-            hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
-                         "value": command, "path": f"remote {following[0]}"})
         targets = []
         if argument == "-C" and following:
             targets.append(following[0])
@@ -191,6 +234,23 @@ def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
                 unresolved = target
             else:
                 repo = resolved
+    subcommand, operands = git_subcommand(args)
+    remote_hit = False
+    if subcommand in GIT_ALWAYS_REMOTE_SUBCOMMANDS:
+        remote_hit = True
+    elif subcommand == "remote" and operands and operands[0] in GIT_REMOTE_SUBCOMMANDS:
+        remote_hit = True
+    elif subcommand in GIT_LOCAL_SOURCE_SUBCOMMANDS:
+        # F27a: the source of a clone/fetch/pull is the run's own repository when it resolves
+        # inside the run directory; everything else (a URL, an scp form, a path outside, no
+        # operand at all) still reaches outward.
+        path_shaped_only = subcommand != "clone"
+        if not operands or not all(local_source(value, cwd, run_dir, home, path_shaped_only)
+                                   for value in operands):
+            remote_hit = True
+    if remote_hit:
+        hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
+                     "value": command, "path": subcommand or "git"})
     if unresolved is not None:
         hits.append({"tool": "shell", "reason": "GIT_FOREIGN_REPOSITORY",
                      "value": command, "path": unresolved})
@@ -235,15 +295,28 @@ def git_hits(tokens: list[str], run_dir: Path, home: str | None) -> list[dict]:
 
 def shell_hits(command: str, run_dir: Path, home: str | None,
                allow: tuple[str, ...]) -> list[dict]:
-    """Every path-shaped token of one shell command, plus the git rules above."""
+    """Every path-shaped token of one shell command, plus the git rules above.
+
+    F27b: resolution follows the working directory the same command established with `cd`, so an
+    assignment and any other relative token are judged against where the worker actually stood.
+    """
     tokens = shell_tokens(command)
     hits: list[dict] = []
-    for token in tokens:
+    cwd = str(run_dir)
+    for index, token in enumerate(tokens):
+        if token in OPERATORS:
+            continue
         for value in token_values(token):
-            reason = path_reason(value, run_dir, home, allow)
+            reason = path_reason(value, run_dir, home, allow, base=cwd)
             if reason:
                 hits.append({"tool": "shell", "reason": reason, "value": command.strip(),
                              "path": value})
+        if PurePosixPath(token).name == "cd":
+            following = tokens[index + 1:index + 2]
+            if following and following[0] not in OPERATORS:
+                resolved = resolve(following[0], run_dir, home, base=cwd)
+                if resolved:
+                    cwd = resolved
     hits.extend(git_hits(tokens, run_dir, home))
     return hits
 
@@ -282,29 +355,27 @@ def strings(value):
 
 
 def sandbox_denied(event, run_dir: Path) -> list[dict]:
-    """F16 / T29: a tool result the sandbox denied, naming a path outside the launch directory.
+    """F16 / T29, tightened by F29: a denial line of a tool result naming an outside path.
 
     This is recorded as evidence, never as a hit: the attempt obtained nothing, and the run is
     reported in the closure report rather than invalidated for what the barrier already stopped.
-    The comparison is against the launch directory only: a shared temporary root is legitimately
-    allow-listed for static tokens, but a denied read below it is still a denied read.
+    The EPERM text and the path must sit on the SAME line of the tool output: a file whose content
+    merely contains "Operation not permitted" is a document, not a denial (F29). The comparison is
+    against the launch directory only: a shared temporary root is legitimately allow-listed for
+    static tokens, but a denied read below it is still a denied read.
     """
     text = "\n".join(strings(event))
-    if DENIED_TEXT not in text.casefold():
-        return []
-    lines = text.splitlines()
     entries: list[dict] = []
     seen: set[str] = set()
-    for candidate in ABS_PATH_RE.findall(text):
-        if candidate in seen:
+    for line in text.splitlines():
+        if DENIED_TEXT not in line.casefold():
             continue
-        seen.add(candidate)
-        if inside(os.path.realpath(candidate), str(run_dir)):
-            continue
-        value = next((line for line in lines
-                      if candidate in line and DENIED_TEXT in line.casefold()), text)
-        entries.append({"reason": DENIED_REASON, "path": candidate,
-                        "value": value.strip()[:300]})
+        for candidate in ABS_PATH_RE.findall(line):
+            if candidate in seen or inside(os.path.realpath(candidate), str(run_dir)):
+                continue
+            seen.add(candidate)
+            entries.append({"reason": DENIED_REASON, "path": candidate,
+                            "value": line.strip()[:300]})
     return entries
 
 

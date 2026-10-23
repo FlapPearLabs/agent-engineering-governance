@@ -91,10 +91,16 @@ ACCESS    after the worker exits, `access_audit.py` replays `events.jsonl`: ever
           `bash` is accepted too), must resolve inside the run directory, except the frozen system
           allow-list (the pinned interpreter and its prefix, /usr, /bin, /opt/homebrew, /System,
           /Library/Developer, the OS temp roots, /dev/null). The command is tokenised with shell
-          punctuation, so a separator is never glued to a path. Shell `git` invocations that reach
-          another repository (`clone`, `fetch`, `pull`, `push`, `ls-remote`, `submodule`,
-          `remote add|set-url|…`) and any tool outside the frozen allow-list are hits as well; a
-          git command's EFFECTIVE repository — after a `cd` in the same command and after its own
+          punctuation, so a separator is never glued to a path; every token, the value of a
+          `NAME=value` assignment included, resolves against the working directory the same
+          command established with a preceding `cd` (F27b), so `cd repo && T=../.tmp/probe` is
+          `<run>/.tmp/probe` and inside. Shell `git` invocations that reach another repository
+          (`push`, `ls-remote`, `submodule`, `remote add|set-url|…`) and any tool outside the
+          frozen allow-list are hits as well; `clone` / `fetch` / `pull` are judged by their SOURCE
+          (F27a): a local path that resolves, after any `cd`/`-C`, inside the run directory is the
+          run's own repository and is not an escape, while a URL, an scp `host:path` form, a path
+          outside the run directory or no source at all stays a hit. A git command's EFFECTIVE
+          repository — after a `cd` in the same command and after its own
           `-C` / `--git-dir` / `--work-tree` — is foreign only when it resolves outside the run
           directory AND outside the OS temp roots (archiving the base into a temp directory and
           running git and tests there is legitimate work; another program's `-C`, such as
@@ -103,8 +109,9 @@ ACCESS    after the worker exits, `access_audit.py` replays `events.jsonl`: ever
           verbatim. No rule is relaxed by the sandbox below: the audit also records two evidence
           fields that never change a verdict — `unresolved_constructs` (command substitution,
           backticks, eval, `-c` programs, decoders, xargs: paths a static tokenizer cannot see) and
-          `sandbox_denied` (a tool result saying "Operation not permitted" for a path outside the
-          launch directory). A denied dynamic attempt obtained nothing: it is reported per run in
+          `sandbox_denied` (a tool result whose DENIAL LINE says "Operation not permitted" AND
+          names a path outside the launch directory; a document that merely contains the phrase is
+          not a denial, F29). A denied dynamic attempt obtained nothing: it is reported per run in
           the closure report, not turned into INVALID (F16 / protocol-v2 §4.0).
 SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing barrier
           (F16 / T29). Every launch — worker, per-run auditor and each reachability check — is

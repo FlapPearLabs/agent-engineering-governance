@@ -1135,6 +1135,120 @@ class AccessAudit(unittest.TestCase):
             self.assertEqual("MALFORMED_EVENT_LINE", broken["hits"][0]["reason"])
 
 
+class AccessAuditFalsePositives(unittest.TestCase):
+    """T36a / F27 + F29: pilot #5's two access-audit hits were false positives.
+
+    The fixture is the two REAL shell calls of the live pilot #5 stream (efc46fc), sanitised the
+    way the earlier real-stream fixtures are: only `<RUN_ROOT>` and `<PY>` prefixes are replaced,
+    nothing else is rewritten, so the parser is exercised on what the worker actually sent.
+    """
+
+    FIXTURE = "pilot-efc46fc-f27-events.jsonl"
+    RUN = Path("/srv/runs/h2r2-f01-c")
+    HOME = "/srv/profile-home"
+
+    def expand(self, text=None):
+        raw = text if text is not None else (FZ / "fixtures" / self.FIXTURE).read_text(
+            encoding="utf-8")
+        return raw.replace("<RUN_ROOT>", str(self.RUN)).replace("<PY>", sys.executable)
+
+    def tool(self, name, **inputs):
+        return {"type": "tool_use", "part": {"tool": name, "state": {"input": inputs}}}
+
+    def audit_events(self, *events):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text("\n".join(json.dumps(item) for item in events), encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def audit_text(self, text):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(text, encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def test_the_recorded_pilot_five_commands_pass(self):
+        """F27: the run's own `git clone repo .tmp/…` and `T=../.tmp/probe` are inside."""
+        raw = (FZ / "fixtures" / self.FIXTURE).read_text(encoding="utf-8")
+        self.assertNotIn("/Users/", raw)
+        self.assertNotIn("/private/", raw)
+        text = self.expand(raw)
+        self.assertIn("git clone -q --no-hardlinks repo .tmp/h2-baseline-git", text)
+        self.assertIn("T=../.tmp/probe", text)
+        result = self.audit_text(text)
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(2, result["tool_calls"])
+        self.assertEqual(2, result["events"])
+        self.assertEqual([], result["sandbox_denied"])
+
+    def test_a_clone_of_the_runs_own_repository_is_not_an_escape(self):
+        for command in ("git clone repo copy",
+                        "cd repo && git clone . ../copy",
+                        f"cd {self.RUN} && git clone -q --no-hardlinks repo .tmp/copy"):
+            with self.subTest(command=command):
+                result = self.audit_events(self.tool("shell", command=command))
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+
+    def test_a_clone_source_that_reaches_outward_is_still_a_hit(self):
+        for command in ("git clone https://github.com/x/y",
+                        "git clone ../../other-repo",
+                        "git clone host:repo",
+                        "git clone /tmp/other copy",
+                        "git pull origin main",
+                        "git fetch"):
+            with self.subTest(command=command):
+                result = self.audit_events(self.tool("shell", command=command))
+                self.assertEqual("INVALID", result["verdict"], command)
+                self.assertIn("GIT_REMOTE_REPOSITORY",
+                              [hit["reason"] for hit in result["hits"]], command)
+
+    def test_every_assignment_value_resolves_against_the_preceding_cd(self):
+        """F27b: `cd repo` moves the base of the very next `KEY=value` assignment."""
+        for command in ('cd repo && T=../.tmp/probe; cat "$T/list.json"',
+                        f'cd {self.RUN}/repo && T=../.tmp/probe; rm -rf "$T"'):
+            with self.subTest(command=command):
+                result = self.audit_events(self.tool("shell", command=command))
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+        for command in ("cd repo && T=../../x; cat $T",
+                        "cd repo && cat ../../outside"):
+            with self.subTest(command=command):
+                result = self.audit_events(self.tool("shell", command=command))
+                self.assertEqual("INVALID", result["verdict"], command)
+                self.assertIn("PATH_OUTSIDE_RUN",
+                              [hit["reason"] for hit in result["hits"]], command)
+
+    def test_a_document_that_merely_mentions_the_denial_is_not_a_denial(self):
+        """F29: the phrase and the path must share a denial LINE, not merely the event."""
+        schema = (
+            '{\n  "description": "the sandbox returns Operation not permitted",\n'
+            '  "example": "/srv/other/evidence.json"\n}\n')
+        read = {"type": "tool_use", "part": {"tool": "read", "state": {
+            "status": "completed",
+            "input": {"path": "repo/schemas/review-evidence.schema.json"},
+            "output": schema}}}
+        result = self.audit_events(read)
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["sandbox_denied"])
+
+    def test_a_real_denial_line_naming_an_outside_path_is_evidence(self):
+        """F28/F29: a genuine EPERM line still records the outside path, as evidence only."""
+        denied = {"type": "tool_use", "part": {"tool": "shell", "state": {
+            "status": "completed", "input": {"command": "mktemp -d"},
+            "output": ("mktemp: mkdtemp failed on /var/folders/xy/T/tmp.abc: "
+                       "Operation not permitted")}}}
+        result = self.audit_events(denied)
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(1, len(result["sandbox_denied"]))
+        entry = result["sandbox_denied"][0]
+        self.assertEqual("SANDBOX_DENIED", entry["reason"])
+        self.assertEqual("/var/folders/xy/T/tmp.abc", entry["path"])
+        self.assertIn("Operation not permitted", entry["value"])
+
+
 class RegistryV2(unittest.TestCase):
     def test_generator_is_byte_deterministic_and_matches_checked_in_output(self):
         with tempfile.TemporaryDirectory() as tmp:
