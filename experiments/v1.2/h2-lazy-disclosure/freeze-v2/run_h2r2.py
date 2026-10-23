@@ -69,6 +69,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import access_audit
+import aggregate_runs
 import collect_v2
 import isolation_canary
 import run_acceptance_v2
@@ -101,6 +102,7 @@ VERDICT_NAME = "verdict.json"
 EVENTS_NAME = "events.jsonl"
 STDERR_NAME = "stderr.txt"
 ACCESS_NAME = "access-audit.json"
+PROBE_NAME = "probe.json"
 
 # The launchable facts of a run. Pinning the module in the manifest pins these.
 WORKER_COMMAND = ("opencode", "run", "--standalone", "--auto", "--format", "json", "-m")
@@ -564,6 +566,21 @@ def archive_tree(tree: Path, run_dir: Path, name: str, *, plan_run: dict, attemp
             "manifest_sha256": sha256(data)}
 
 
+def archive_probe(run_dir: Path, name: str, record: dict) -> dict:
+    """A blocked audit attempt's pre-launch evidence, under `<run_id>/attempts/audit-<n>/`.
+
+    Protocol-v2 §6.1 says a blocked audit attempt is archived, not discarded. The reachability and
+    confinement checks happen before the auditor writes anything, so `probe.json` is the whole
+    archive of such an attempt: the probe record, its verdict and the reason it blocked.
+    """
+    target = Path(run_dir) / ATTEMPTS_DIR / name
+    target.mkdir(parents=True, exist_ok=True)
+    data = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    (target / PROBE_NAME).write_bytes(data)
+    return {"archive": target.relative_to(Path(run_dir)).as_posix(),
+            "probe_sha256": sha256(data)}
+
+
 def abandon_run_dir(run_dir: Path) -> None:
     """Drop the live tree of a run that consumed no attempt, keeping its attempt archives."""
     run_dir = Path(run_dir)
@@ -962,29 +979,50 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                     probe_record = prober("auditor", audit_number)
                     record["reachability"].append(probe_record)
                     if probe_record.get("blocked"):
+                        reasons = [str(probe_record["blocked"])]
+                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
+                            "schema_version": 1, "step": "audit_reachability",
+                            "attempt": audit_number, "verdict": "BLOCKED",
+                            "reasons": reasons, "probe": probe_record})
                         audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": [str(probe_record["blocked"])]})
+                                               "reasons": reasons, **archived})
                         continue
                     if probe_record.get("verdict") != "PASS":
+                        reasons = [f"PROVIDER_UNREACHABLE:{item}"
+                                   for item in probe_record.get("reasons", [])]
+                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
+                            "schema_version": 1, "step": "audit_reachability",
+                            "attempt": audit_number, "verdict": "BLOCKED",
+                            "reasons": reasons, "probe": probe_record})
                         audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": [f"PROVIDER_UNREACHABLE:{item}"
-                                                           for item in probe_record.get("reasons", [])]})
+                                               "reasons": reasons, **archived})
                         continue
                     audit_dir = run_dir / run_audit_v2.AUDIT_DIR
                     audit_prepared = fresh_state(
                         audit_dir, f"{AUDIT_HOME_PREFIX}-{audit_number}",
                         driver_dir / f"{AUDIT_STREAM_PREFIX}-{audit_number}")
                     if not audit_prepared["ok"]:
+                        reasons = [audit_prepared["reason"]]
+                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
+                            "schema_version": 1, "step": "audit_fresh_state",
+                            "attempt": audit_number, "verdict": "BLOCKED",
+                            "reasons": reasons, "probe": probe_record})
                         audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": [audit_prepared["reason"]]})
+                                               "reasons": reasons, **archived})
                         continue
                     audit_confinement = confine_state(audit_dir, audit_prepared)
                     if not audit_confinement["ok"]:
                         release(audit_prepared, audit_dir)
+                        reasons = [audit_confinement["reason"]]
+                        profile = audit_confinement["profile"]
+                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
+                            "schema_version": 1, "step": "audit_confinement",
+                            "attempt": audit_number, "verdict": "BLOCKED",
+                            "reasons": reasons, "probe": probe_record,
+                            "profile_sha256": profile["sha256"]})
                         audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": [audit_confinement["reason"]],
-                                               "profile_sha256":
-                                                   audit_confinement["profile"]["sha256"]})
+                                               "reasons": reasons,
+                                               "profile_sha256": profile["sha256"], **archived})
                         continue
                     audit_stream = Path(audit_prepared["stream"])
                     try:
@@ -1177,7 +1215,8 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
     runs_root = check_runs_root(runs_root)
     entries = read_registry(runs_root)
     rows = []
-    for plan_run in plan_runs(root):
+    planned = plan_runs(root)
+    for plan_run in planned:
         run_id = plan_run["run_id"]
         run_dir = runs_root / run_id
         if run_id in entries:
@@ -1195,7 +1234,20 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
         rows.append({"run_id": run_id, "task_id": plan_run["task_id"],
                      "arm": plan_run["arm"], "state": state, **row})
     registered = sum(1 for row in rows if row["state"] == "REGISTERED")
+    # T30 / F20 P3-4: "registered=20" is not a result. The same usability predicate the runs-root
+    # aggregate uses decides a usable pair, so status can never claim more than the aggregate.
+    usable = {run_id: aggregate_runs.usable(entry) for run_id, entry in entries.items()}
+    task_ids = list(dict.fromkeys(plan_run["task_id"] for plan_run in planned))
+    usable_pairs = sum(1 for task_id in task_ids
+                       if all(usable.get(plan_run["run_id"], False) for plan_run in planned
+                              if plan_run["task_id"] == task_id)
+                       and sum(1 for plan_run in planned
+                               if plan_run["task_id"] == task_id) == 2)
+    blocked = sum(1 for entry in entries.values() if entry.get("final_verdict") == "BLOCKED")
+    invalid = sum(1 for entry in entries.values() if entry.get("final_verdict") == "INVALID")
     return {"runs_root": str(runs_root), "planned": len(rows), "registered": registered,
+            "planned_pairs": len(task_ids), "usable_pairs": usable_pairs,
+            "blocked": blocked, "invalid": invalid,
             "next": next((row["run_id"] for row in rows if row["state"] != "REGISTERED"), None),
             "runs": rows}
 

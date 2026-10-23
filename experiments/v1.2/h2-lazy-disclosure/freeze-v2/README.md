@@ -146,8 +146,10 @@ RUNS_ROOT H2_RUNS_ROOT = `<SHARED_RUN_ROOT>`: an operator directory in the macOS
           WHY (F4): opencode discovers `.agents/` and `.opencode/` by walking UP from the cwd, past
           the redirected HOME. A run root below the operator's home re-admitted ~185 user skills;
           with the root outside every home only the two built-in skills `opencode` and `report`
-          appear, identically in both arms. `prepare` refuses a run root that is under the
-          operator's HOME or below any such ancestor.
+          appear, identically in both arms. `prepare` refuses a run root that is under ANY home the
+          OS user database declares (`pwd.getpwall()`, the shared users folder excluded) or below
+          any such ancestor — including a BROKEN symlink named `.agents` or `.opencode`, which a
+          runtime walking up from the cwd would still discover (F20).
 LAYOUT    <run>/                 worker cwd (not a git repository)
             AGENTS.md            the arm's carrier (control: header + AGENTS.md + footer;
                                  variant: carriers/H2_LEAN_BOOTSTRAP.md) — the ONLY guidance
@@ -179,9 +181,10 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 50 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 51 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
-(`run_h2r2.py`, `run_audit_v2.py`), the OS confinement module and its frozen profile template
+(`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
+confinement module and its frozen profile template
 (`sandbox_v2.py`, `worker-sandbox.sb.template`), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
 access audit and its four event fixtures (`access_audit.py`: two hand-built shape fixtures plus
@@ -191,7 +194,7 @@ worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitis
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 51 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 52 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
@@ -245,6 +248,17 @@ scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 
 No H2-R2 run was executed by the implementer. All of the following remain operator/Claude work:
 
+**Run prerequisites (F20).** Three environment facts the harness assumes, checked before the first
+run because each one silently changes what a gate measures:
+
+- `PYTHONPATH` must be empty. A host `sitecustomize` that pre-imports stdlib modules can mask the
+  F1 shadow test (`scripts/tests/` shadowing a stdlib import) and make an unfixed base look green.
+- the pinned interpreter must report `os.open in os.supports_dir_fd`
+  (`scripts/tests/test_skill_execution.py` needs it); otherwise those tests fail for the
+  environment, not for the task.
+- macOS with `sandbox-exec`. Every launch is confined (F16/T29); without it the driver reports
+  `BLOCKED:SANDBOX_UNAVAILABLE` before any worker starts.
+
 0. **Run only through the frozen driver.** An ordinary run is:
    `$PY $H/freeze-v2/run_h2r2.py run <run_id> --runs-root <SHARED_RUN_ROOT>`, with
    `next --runs-root <SHARED_RUN_ROOT>` printing the eligible run id and `status` printing the
@@ -261,6 +275,11 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
    per-run audit, and appends one `registry-v2.jsonl` line per run. It refuses a run whose
    predecessors are not registered and refuses any run id that is registered or was started and
    reached work, so no operator input can change what a run does or how often it happens.
+   A third program closes the loop over a runs root: `$PY $H/freeze-v2/aggregate_runs.py
+   <SHARED_RUN_ROOT>` prints the per-task per-arm valid pairs, the INVALID and BLOCKED runs with
+   their reasons, and the protocol-v2 §7 result token with the exact rule that decided it;
+   `status` reports the same `usable_pairs` plus the `blocked`/`invalid` counts, so
+   "registered=20" cannot be mistaken for a result.
 
    **Infrastructure failure is not a result (F14).** The rule was decided before any counted run and
    is recorded in protocol-v2 §6.1; the driver owns both halves. Immediately before the worker (and
@@ -274,8 +293,9 @@ No H2-R2 run was executed by the implementer. All of the following remain operat
    is attempted again, at most three attempts per run id (`attempts-v2.jsonl` keeps one line per
    attempt with its number). Once the worker has made any tool call nothing is retried; a later
    error, exit or timeout is `INVALID` as before. The auditor has the same rule with its own counter
-   (blocked audit attempts are archived under `<run_id>/attempts/audit-<n>/`, the mechanical verdict
-   is untouched, and the run stays `BLOCKED` until an audit succeeds). The final verdict comes from
+   (blocked audit attempts are archived under `<run_id>/attempts/audit-<n>/` — a block at the
+   reachability, fresh-home or confinement check leaves its `probe.json` there, the mechanical
+   verdict is untouched, and the run stays `BLOCKED` until an audit succeeds). The final verdict comes from
    the single attempt that reached work, and `registry-v2.jsonl` keeps exactly one terminal line per
    run id naming that attempt. Why: live pilot #2 ended INVALID after 14 s on a transient
    `provider.no-route` with zero tool calls, and it was the third transient upstream failure in two

@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -31,12 +32,13 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "00e150f9cbb05deeefdfc5fe52bfa83c162555395d6b6b8c5bb06bebcf4fd178",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "86eb73099db5f9c7ac7c2e367fb98219476c7b37e8e2ca84dc90c90f7e5261c8",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "9e44db79203c7db11af1d6ba980ea9065c800eca607b9d351a472109f1a11f1a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ca2dc8d6106d58692d1bc77715be9662b5a4dd8b68dac69ba260827246172274",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "1d2cfc7bcb8e2a936eb468d982d8df02946fd5ef9ac6fd3e500bd5722daa7203",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "f3898ba870e2e8751a34eb7c9235d486bf76d5d2937753a5965b282cc40339aa",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "e6a881e0661e7ee5dc64ea7008de075372cae2ba80e2ef60b6570caa8ce402da",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "77d29115f1d0320bf9d1a5656772d613e0b855a8f2b1f6badaac3ed3b65b2de2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
@@ -55,14 +57,14 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "efb7f388a7b24adc8b2319a88c3e82067948558882a5768b093492288ce4026a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "dbe91a3b490e41a4be7b4766fb01c937dd685327844ad88027a054dbd070e410",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "1607540b0036d9d4a45d446e9fe54dc80b8a098e09fdfdcff88fd8987ec6d04e",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "6f1ba5bdca23947ad348eecc96206010bfa86ca851b2fb9cea3243a052608e45",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "3f345f427d4a2ad3035b1125c1d248204be771a88bc17209ef093843d47f3b3f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "338cd0ac03a274f6b5d60f28de9b3855ab12b7b5c52470eb2f3598baa59e6bfc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-sandbox.sb.template": "c05abbbffd35134ee1a90f12a955ce3f47f7719a45168a08396cc1bf541fa280",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "6623762000a72d358315cc778a1e640e54e73d3555b5d6e911f308fbda2e4ff5",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "24da46f19b0d75af56715e13aef793cb0affa0f756aea42125e532b66fecdd78",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
@@ -71,7 +73,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "fb1355cad7bb80cf104747058e52184cdb20f5c2eddce94bc45c963adac6165c"
+MANIFEST_SHA256 = "23c5d2b6f8b05f54b2c9da88e0091fd7d2498e22a6dbdfaa7adc2f4bae19acdd"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -363,6 +365,38 @@ class WrapperDelivery(unittest.TestCase):
             discovered.mkdir()
             with self.assertRaisesRegex(ValueError, "RUN_DIR_UNDER_DISCOVERABLE_ROOT"):
                 canary.prepare(Path(tmp) / "canary")
+
+    def test_a_run_root_under_any_os_home_is_refused_with_a_fake_process_home(self):
+        """F20: "under a home" is the OS user database, not only the HOME this process runs with."""
+        wrapper = load("wrapper_delivery")
+        real_home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+        self.assertIn(real_home, [home.resolve() for home in wrapper.os_home_directories()])
+        self.assertNotIn(Path("/Users") / "Shared", wrapper.os_home_directories())
+        with tempfile.TemporaryDirectory() as fake:
+            with mock.patch.dict(os.environ, {"HOME": fake}):
+                self.assertEqual("RUN_DIR_UNDER_OPERATOR_HOME",
+                                 wrapper.run_root_reason(Path(fake) / "h2-runs" / "canary"))
+                # the operator's REAL home is still refused even though HOME points elsewhere
+                self.assertEqual("RUN_DIR_UNDER_USER_HOME",
+                                 wrapper.run_root_reason(real_home / "h2-runs" / "canary"))
+        others = [home for home in wrapper.os_home_directories()
+                  if home.resolve() != real_home]
+        if not others:
+            self.skipTest("the user database declares no second home directory")
+        other = others[0]
+        self.assertEqual("RUN_DIR_UNDER_USER_HOME",
+                         wrapper.run_root_reason(other / "h2-runs" / "canary"))
+
+    def test_a_broken_discovery_symlink_still_refuses_the_run_root(self):
+        """F20: a runtime walking up from the cwd discovers a DANGLING `.agents` just the same."""
+        wrapper = load("wrapper_delivery")
+        with tempfile.TemporaryDirectory() as tmp:
+            os.symlink(Path(tmp) / "gone", Path(tmp) / ".agents")
+            self.assertEqual("RUN_DIR_UNDER_DISCOVERABLE_ROOT:.agents",
+                             wrapper.run_root_reason(Path(tmp) / "runs" / "canary"))
+            with self.assertRaisesRegex(ValueError, "RUN_DIR_UNDER_DISCOVERABLE_ROOT"):
+                wrapper.prepare(ROOT, Path(tmp) / "runs" / "canary", "f01", "control", "HEAD")
+            self.assertFalse((Path(tmp) / "runs" / "canary").exists())
 
     def test_a_clean_foreign_run_root_is_still_accepted(self):
         wrapper = load("wrapper_delivery")
@@ -2096,6 +2130,11 @@ class RunDriver(unittest.TestCase):
                 state = driver.status(runs)
                 self.assertEqual("REGISTERED", state["runs"][0]["state"])
                 self.assertEqual("h2r2-f01-v", state["next"])
+                # T30 / F20 P3-4: "registered=1" is not a result; the status names the pairs.
+                self.assertEqual(10, state["planned_pairs"])
+                self.assertEqual(0, state["usable_pairs"])
+                self.assertEqual(0, state["blocked"])
+                self.assertEqual(0, state["invalid"])
             finally:
                 cleanup_run(run_dir)
 
@@ -2382,6 +2421,64 @@ class RunDriver(unittest.TestCase):
             finally:
                 cleanup_run(run_dir)
 
+    def test_a_blocked_audit_reachability_check_is_archived_as_a_probe(self):
+        """F20 P3-2 / §6.1: a blocked audit attempt leaves its pre-launch probe.json behind."""
+        def flaky_probe(purpose, attempt):
+            if purpose == "auditor" and attempt == 1:
+                return {"verdict": "BLOCKED", "reasons": [], "blocked": "PROVIDER_UNREACHABLE"}
+            return passing_probe(purpose, attempt)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            driver, runs, result = execute_stub(tmp, "accept", probe=flaky_probe)
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                archived = run_dir / "attempts" / "audit-1" / "probe.json"
+                self.assertTrue(archived.is_file())
+                probe = json.loads(archived.read_text())
+                self.assertEqual(("audit_reachability", "BLOCKED"),
+                                 (probe["step"], probe["verdict"]))
+                self.assertEqual("PROVIDER_UNREACHABLE", probe["reasons"][0])
+                record = json.loads((run_dir / "run.json").read_text())
+                step = next(item for item in record["steps"] if item["step"] == "audit")
+                self.assertEqual("attempts/audit-1", step["attempts"][0]["archive"])
+                self.assertEqual(digest(archived.read_bytes()),
+                                 step["attempts"][0]["probe_sha256"])
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_blocked_audit_confinement_check_is_archived_as_a_probe(self):
+        """§6.1: the confinement self-test blocks before the auditor runs, and is archived too."""
+        class FlakyConfinement(StubSandbox):
+            calls = 0
+
+            def self_test(self, profile_path, launch, planted, python=None, token=None):
+                if "audit" in Path(launch).parts:
+                    FlakyConfinement.calls += 1
+                    if FlakyConfinement.calls == 1:
+                        return {"verdict": "FAIL", "reasons": ["PYTHON_READ_NOT_DENIED"],
+                                "profile_sha256": digest(Path(profile_path).read_bytes())}
+                return super().self_test(profile_path, launch, planted, python, token)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "accept", sandbox=FlakyConfinement())
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                probe_path = run_dir / "attempts" / "audit-1" / "probe.json"
+                self.assertTrue(probe_path.is_file())
+                probe = json.loads(probe_path.read_text())
+                self.assertEqual(("audit_confinement", "BLOCKED"),
+                                 (probe["step"], probe["verdict"]))
+                self.assertEqual("SANDBOX_NOT_CONFINING",
+                                 probe["reasons"][0].split(":")[0])
+                record = json.loads((run_dir / "run.json").read_text())
+                step = next(item for item in record["steps"] if item["step"] == "audit")
+                self.assertEqual("SANDBOX_NOT_CONFINING",
+                                 step["attempts"][0]["reasons"][0].split(":")[0])
+            finally:
+                cleanup_run(run_dir)
+
     def test_out_of_run_access_is_invalid_registered_and_never_re_run(self):
         """F9: the events already record the access; a hit is terminal and cannot be re-run."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -2488,6 +2585,126 @@ class RunDriver(unittest.TestCase):
         self.assertEqual("BLOCKED", driver.strictest("ACCEPT", "BLOCKED"))
         self.assertEqual("REJECT", driver.strictest("REJECT", "PASS"))
         self.assertEqual("INVALID", driver.strictest("INVALID", "SKIPPED"))
+
+
+class AggregateRunsV2(unittest.TestCase):
+    """T30 / F20 P3-4: the §7 token comes from the runs root, never from "registered=20"."""
+
+    def build(self, tmp, *, overrides=None, audits=None, omit=(), attempt_rows=()):
+        aggregate = load("aggregate_runs")
+        plan = aggregate.planned_runs()
+        root = Path(tmp) / "runs"
+        root.mkdir()
+        lines = []
+        for plan_run in plan:
+            run_id = plan_run["run_id"]
+            if run_id in omit:
+                continue
+            spec = dict((overrides or {}).get(run_id, {}))
+            final = spec.setdefault("final_verdict", "ACCEPT")
+            lines.append({"run_id": run_id, "task_id": plan_run["task_id"],
+                          "arm": plan_run["arm"], "verdict": spec.get("verdict", "ACCEPT"),
+                          "audit_verdict": spec.get("audit_verdict", "PASS"),
+                          "final_verdict": final, "reason": spec.get("reason")})
+            if final in ("ACCEPT", "REJECT"):
+                audit_dir = root / run_id / "audit"
+                audit_dir.mkdir(parents=True)
+                item = {"correctness": "PASS", "invalid_completion": False,
+                        "findings": [{"id": f"{run_id}-finding", "severity": "P3",
+                                      "category": "HV1", "location": "report.md"}]}
+                item.update((audits or {}).get(run_id, {}))
+                (audit_dir / "audit.json").write_text(json.dumps(item), encoding="utf-8")
+        (root / "registry-v2.jsonl").write_text(
+            "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8")
+        if attempt_rows:
+            (root / "attempts-v2.jsonl").write_text(
+                "".join(json.dumps(row) + "\n" for row in attempt_rows), encoding="utf-8")
+        return aggregate, root, plan
+
+    def test_a_complete_non_null_runs_root_decides_disclosure_safe_with_its_exact_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp)
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_SAFE", result["result"])
+            self.assertEqual("NO_COST_OBSERVED:COMPLETE_COVERAGE+NON_NULL_DIFFERENCE+S1_SATISFIED",
+                             result["decided_by"])
+            self.assertEqual((10, 10), (result["usable_pairs"], result["planned_pairs"]))
+            self.assertEqual([], result["invalid"])
+            self.assertEqual([], result["blocked"])
+            self.assertTrue(result["s1"]["satisfied"])
+            # S5's judgement is not this program's to make, and it says so.
+            self.assertEqual(["S5"], result["pending_rules"])
+            self.assertEqual("runs_root_mechanical", result["result_scope"])
+
+    def test_one_audited_missed_guidance_decides_disclosure_has_cost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, audits={
+                "h2r2-f03-v": {"findings": [{"id": "miss-1", "severity": "P1",
+                                             "category": "MISSED_GUIDANCE",
+                                             "location": "report.md"}]}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S2_MISSED_GUIDANCE_GE_1:h2r2-f03-v:miss-1", result["decided_by"])
+            pair = next(item for item in result["pairs"] if item["task_id"] == "f03")
+            self.assertEqual(["miss-1"], pair["variant"]["missed_guidance"])
+
+    def test_a_worse_variant_correctness_or_invalid_completion_is_a_cost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, audits={
+                "h2r2-f04-v": {"correctness": "FAIL"}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S4_TREATMENT_ONLY_CORRECTNESS:f04", result["decided_by"])
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, audits={
+                "h2r2-f05-v": {"invalid_completion": True}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S3_TREATMENT_ONLY_INVALID_COMPLETION", result["decided_by"])
+
+    def test_a_missing_pair_is_insufficient_and_the_invalid_run_keeps_its_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, omit=("h2r2-f07-v",))
+            (root / "h2r2-f05-c" / "audit" / "audit.json").unlink()
+            result = aggregate.aggregate(root)
+            self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
+            self.assertEqual("COVERAGE:MISSING:f07/variant", result["decided_by"])
+            self.assertEqual(["h2r2-f07-v"],
+                             [item["run_id"] for item in result["missing"]])
+            self.assertEqual(["h2r2-f05-c"], result["audit_missing"])
+
+    def test_an_invalid_or_blocked_run_is_listed_with_its_reason_and_attempts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(
+                tmp,
+                overrides={"h2r2-f02-v": {"final_verdict": "INVALID", "verdict": "INVALID",
+                                           "reason": "TIMEOUT"},
+                           "h2r2-f02-c": {"final_verdict": "BLOCKED", "verdict": "BLOCKED",
+                                          "reason": "PROVIDER_FAILED_BEFORE_WORK:no-route"}},
+                attempt_rows=[{"run_id": "h2r2-f02-v", "task_id": "f02", "arm": "variant",
+                               "attempt": 1, "kind": "TERMINAL", "verdict": "INVALID",
+                               "reason": "TIMEOUT"}])
+            result = aggregate.aggregate(root)
+            self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
+            self.assertEqual("COVERAGE:BLOCKED:h2r2-f02-c", result["decided_by"])
+            self.assertEqual([{"run_id": "h2r2-f02-v", "task_id": "f02", "arm": "variant",
+                               "reason": "TIMEOUT"}], result["invalid"])
+            self.assertEqual(["h2r2-f02-c"], [item["run_id"] for item in result["blocked"]])
+            row = next(item for item in result["rows"] if item["run_id"] == "h2r2-f02-v")
+            self.assertEqual([{"attempt": 1, "kind": "TERMINAL", "verdict": "INVALID",
+                               "reason": "TIMEOUT"}], row["attempts"])
+
+    def test_an_identical_pair_is_the_pre_registered_null_and_never_safe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            same = {"correctness": "PASS", "invalid_completion": False,
+                    "findings": [{"id": "same-finding", "severity": "P3",
+                                  "category": "HV1", "location": "report.md"}]}
+            aggregate, root, plan = self.build(
+                tmp, audits={run["run_id"]: same for run in load("aggregate_runs").planned_runs()})
+            result = aggregate.aggregate(root)
+            self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
+            self.assertEqual("NULL_DIFFERENCE", result["decided_by"])
+            self.assertEqual(10, result["usable_pairs"])
 
 
 class SandboxConfinement(unittest.TestCase):

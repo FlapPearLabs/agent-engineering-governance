@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import uuid
@@ -17,6 +18,12 @@ DELIVERED_NAMES = {"AGENTS.md", "H2_RULES.md", "H2_WARM"}
 # F4: opencode discovers guidance by walking UP from the cwd, past a redirected HOME, so a run root
 # below any directory that carries one of these re-admits the operator's own skills/plugins/config.
 ANCESTOR_MARKERS = (".agents", ".opencode", ".claude", "AGENTS.md", "CLAUDE.md", "opencode.json")
+# F20 / T30: "under a home" means every home the OS declares, not only the one the process runs
+# with. The database also lists service accounts whose "home" is a plain directory (/var/empty,
+# /dev/null, /Library/WebServer); a run root belongs under none of them, and the shared users
+# folder is exactly where the operator's run root is meant to live.
+SHARED_USERS_FOLDER = Path("/Users") / "Shared"
+NON_HOME_DIRECTORIES = frozenset(Path(name) for name in ("", "/var/empty", "/dev/null"))
 # F8 / T21: `repo/` is a STANDALONE repository whose object store is exactly the task base tree, so
 # no worker can read the historical fix out of a shared object database. F18 / T28: the object that
 # is delivered is a NEW, parentless commit with the base TREE and a fixed neutral message, author,
@@ -45,23 +52,54 @@ def operator_home() -> Path:
 
 
 def discoverable_ancestor(run_dir: Path) -> str | None:
-    """The first marker on any ancestor of `run_dir` (the run dir's own carrier excepted)."""
+    """The first marker on any ancestor of `run_dir` (the run dir's own carrier excepted).
+
+    `os.path.lexists` is deliberate (F20 / T30): a BROKEN symlink named `.agents` or `.opencode`
+    is still a discovery point for a runtime that walks up from the cwd, so it must refuse the
+    run root just like a real directory.
+    """
     resolved = Path(run_dir).resolve()
     for ancestor in (resolved, *resolved.parents):
         for marker in ANCESTOR_MARKERS:
             if ancestor == resolved and marker == "AGENTS.md":
                 continue                      # the arm carrier prepare writes itself
-            if (ancestor / marker).exists():
+            if os.path.lexists(ancestor / marker):
                 return marker
     return None
 
 
+def os_home_directories() -> list[Path]:
+    """Every home the OS user database declares, minus the ones that are not homes (F20 / T30)."""
+    homes: list[Path] = []
+    for entry in pwd.getpwall():
+        path = Path(entry.pw_dir or "")
+        if path in NON_HOME_DIRECTORIES or not path.is_absolute():
+            continue
+        if path == SHARED_USERS_FOLDER or path in homes:
+            continue
+        if not path.is_dir():                 # /dev/null and service-account paths that never existed
+            continue
+        homes.append(path)
+    return homes
+
+
 def run_root_reason(run_dir: Path) -> str | None:
-    """Why `run_dir` is not an acceptable run root, or None when it is (F4 / CODEX_FIXES_1 T13)."""
+    """Why `run_dir` is not an acceptable run root, or None when it is (F4 / T13, F20 / T30).
+
+    Two independent refusals: a root below ANY home the OS declares (so a run started with a
+    redirected HOME cannot land in the operator's real home or in another account's), and a root
+    below a directory that carries a discoverable guidance marker.
+    """
     resolved = Path(run_dir).resolve()
-    home = operator_home().resolve()
-    if resolved == home or home in resolved.parents:
+    operator = operator_home().resolve()
+    if resolved == operator or operator in resolved.parents:
         return "RUN_DIR_UNDER_OPERATOR_HOME"
+    for home in os_home_directories():
+        home = home.resolve()
+        if home == operator:
+            continue
+        if resolved == home or home in resolved.parents:
+            return "RUN_DIR_UNDER_USER_HOME"
     marker = discoverable_ancestor(resolved)
     if marker is not None:
         return f"RUN_DIR_UNDER_DISCOVERABLE_ROOT:{marker}"

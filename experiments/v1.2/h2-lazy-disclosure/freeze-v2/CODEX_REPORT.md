@@ -1666,3 +1666,77 @@ driver 副本）；两次 attempt 各自独立 fresh home（0700、只含冻结 
 
 实验套件 395 → 408（+13：`SandboxConfinement` 7、`DriverConfinement` 4、access audit 证据字段 2）。
 写完后同一棵树的 gates 再整体跑一遍并与 commit 以 `&&` 串联，任一门失败则不提交。
+
+## T30（implementer: opencode deepseek-v4.1-flash）
+
+F20 的四个 P3 项，未改任何既有拒绝或既有测试。
+
+1. **run_root_reason（P3-1）**。`wrapper_delivery.os_home_directories()` 从 OS 用户数据库
+   （`pwd.getpwall()`）取全部 home，排除共享 users 目录（用 `Path("/Users") / "Shared"` 组合，
+   不在文本里写具名路径）、`/var/empty`、`/dev/null` 与非目录项；`run_root_reason()` 先拒绝
+   进程 `Path.home()` 之下（沿用 `RUN_DIR_UNDER_OPERATOR_HOME`），再拒绝**任何** OS home 之下
+   （新原因 `RUN_DIR_UNDER_USER_HOME`），因此把 HOME 改到别处也不能把 run root 落回真实 home
+   或另一个账户的 home。祖先 marker 改用 `os.path.lexists`：指向不存在目标的 `.agents` /
+   `.opencode` 断链同样拒绝（runtime 从 cwd 向上发现的就是这个目录节点）。
+2. **blocked audit 归档（P3-2）**。§6.1 要求被 block 的 audit 尝试同样归档。auditor 的
+   reachability block、fresh-home/credential block 与 confinement 自检 block 现在都写
+   `<run_id>/attempts/audit-<n>/probe.json`（含尝试号、阶段、blocked 原因、probe 记录、
+   confinement 的 profile sha256），`probe_sha256` 与该 archive 路径同时进 run record 的 audit
+   step；provider-before-work 的 audit 尝试仍由既有 `archive_tree`（`attempt.json`）归档。
+3. **README 前置条件（P3-3）**。README §5 新增 “Run prerequisites”：`PYTHONPATH` 必须为空
+   （宿主 `sitecustomize` 可预导入 stdlib 模块而掩盖 F1 shadow 测试）、解释器需满足
+   `os.open in os.supports_dir_fd`（`scripts/tests/test_skill_execution.py` 需要）、macOS +
+   `sandbox-exec`（否则 driver 在任何 worker 之前 `BLOCKED:SANDBOX_UNAVAILABLE`）。
+   §4 的冻结文件数与 §3 RUNS_ROOT、§5 audit 归档说明同步更新；run root 拒绝规则改述为
+   “任何 OS home”，并说明断链 marker 也算。
+4. **`aggregate_runs.py`（P3-4）**。新增冻结程序，输入一个 runs root 的
+   `registry-v2.jsonl`、`attempts-v2.jsonl` 与每个 run 自己的 verdict 文件，输出：每个 task 每
+   臂的有效配对（`final_verdict` ∈ {ACCEPT, REJECT} 且 `<run_id>/audit/audit.json` 可读且合法）、
+   INVALID / BLOCKED / MISSING 列表与登记原因、每个 run 的 attempt 账本、以及 protocol-v2 §7
+   结果 token 与**决定它的确切规则**。判定顺序（第一条命中即 `decided_by`）：
+   `COVERAGE:MISSING|INVALID|BLOCKED` → `AUDIT_VERDICT_MISSING` → `S1_DESIGN_PRECONDITION_NOT_MET`
+   → `S2_MISSED_GUIDANCE_GE_1:<run>:<finding>` → `S3_TREATMENT_ONLY_INVALID_COMPLETION`
+   → `S4_TREATMENT_ONLY_CORRECTNESS:<task>` → `NULL_DIFFERENCE`（每对臂的 audited correctness、
+   invalid-completion 与 finding 身份集合全同 ⇒ INSUFFICIENT，§7 预注册 null 规则）
+   → `NO_COST_OBSERVED:COMPLETE_COVERAGE+NON_NULL_DIFFERENCE+S1_SATISFIED`。
+   finding 身份、correctness、invalid-completion 只从 audit verdict 文件读取，程序不自行重标；
+   任一缺失即 INSUFFICIENT 并点名 run。S1 是冻结载体面设计事实，从 `variant-manifest.json`
+   读（14136 → 5032 js_chars = 64.4% ≥ 30，VARIANT_FULLY_DELIVERED=true）。S5 的 M6 属 rubric
+   §5 判定，输出显式标注 `pending_rules=["S5"]`、`result_scope="runs_root_mechanical"`：
+   该 token 是 runs-root 机械结果，不能替代 closure report。`run_h2r2.py status` 另以同一
+   `aggregate_runs.usable` 判据打印 `usable_pairs`、`planned_pairs`、`blocked`、`invalid`，
+   因此 “registered=20” 不再被当成结论。
+5. **re-pin**。改了 `wrapper_delivery.py`，故按既有规则**重测** delivery anchors（不手改 JSON）：
+   命令同 README §2，`--materials 4924930`；结果 `DELIVERY_ANCHORS neutral per slot:
+   {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}`，与 T29 相比只有 `wrapper_program_sha256`
+   一行变化（`6623762…` → `24da46f…`），10 个 row 逐字节相同。manifest 在 4924930 重建，
+   51 个冻结文件（新增 `aggregate_runs.py`），两份独立 literal（`EXPECTED_V2_HASHES` 与
+   `MANIFEST_SHA256`）同步重钉。
+
+### 测试（全部 stub / fixture / fake credential，无模型、无真实凭据）
+
+`WrapperDelivery` 新增两项：HOME 指向临时目录时，真实 OS home 与另一 OS home 下的 run root 仍被
+`RUN_DIR_UNDER_USER_HOME` 拒绝（共享 users 目录不在 home 集合里）；断链 `.agents` 让
+`run_root_reason` 与 `prepare` 都拒绝且不留目录。`RunDriver` 新增两项：auditor 的 reachability
+block 与 confinement 自检 block 各自在 `attempts/audit-1/probe.json` 留下阶段、原因与
+`probe_sha256`，run 随后仍 ACCEPT；既有 flaky-auditor（provider-before-work）归档测试不变。
+`AggregateRunsV2` 六项：完整且非 null 的 runs root ⇒ `DISCLOSURE_SAFE` 与确切规则串、
+`usable_pairs=10/10`、`pending_rules=["S5"]`；一条 audited MISSED_GUIDANCE ⇒ `HAS_COST`
+（`S2_…:h2r2-f03-v:miss-1`）；variant correctness 更差 / invalid-completion 更多 ⇒ `HAS_COST`
+（S4 / S3）；缺一个臂 ⇒ `COVERAGE:MISSING:f07/variant` 且 `missing`/`audit_missing` 点名；
+INVALID/BLOCKED 各带登记原因与 attempt 账本；两臂 audited 结果全同 ⇒ `NULL_DIFFERENCE`
+（宁可 INSUFFICIENT 也不报 SAFE）。`status` 断言 `planned_pairs=10`、`usable_pairs=0`、
+`blocked=0`、`invalid=0`。
+
+### T30 gates（前台逐条运行，退出码不经管道，PYTHONPATH 未设）
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 23.800s / OK
+=== EXPERIMENTS_TESTS    Ran 418 tests in 974.488s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+实验套件 408 → 418（+10）。
