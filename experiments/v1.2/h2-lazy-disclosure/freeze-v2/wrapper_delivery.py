@@ -17,13 +17,27 @@ DELIVERED_NAMES = {"AGENTS.md", "H2_RULES.md", "H2_WARM"}
 # F4: opencode discovers guidance by walking UP from the cwd, past a redirected HOME, so a run root
 # below any directory that carries one of these re-admits the operator's own skills/plugins/config.
 ANCESTOR_MARKERS = (".agents", ".opencode", ".claude", "AGENTS.md", "CLAUDE.md", "opencode.json")
-# F8 / T21: `repo/` is a STANDALONE repository whose object store is exactly the task base and its
-# tree, so no worker can read the historical fix out of a shared object database. The base objects
-# are fetched through one temporary ref in the governance repository, deleted again before the
-# worker sees the tree; the ref name is the only trace a crash could leave behind.
+# F8 / T21: `repo/` is a STANDALONE repository whose object store is exactly the task base tree, so
+# no worker can read the historical fix out of a shared object database. F18 / T28: the object that
+# is delivered is a NEW, parentless commit with the base TREE and a fixed neutral message, author,
+# committer and date — so the base commit itself is never fetched and `git log` names nothing.
+# The objects are fetched through one temporary ref in the governance repository, deleted again
+# before the worker sees the tree; the ref name is the only trace a crash could leave behind.
 HISTORY_REF_ROOT = "refs/h2-delivery"
+NEUTRAL_MESSAGE = "h2 task base"
+NEUTRAL_IDENTITY = {"GIT_AUTHOR_NAME": "H2 Delivery", "GIT_AUTHOR_EMAIL": "h2@delivery.invalid",
+                    "GIT_COMMITTER_NAME": "H2 Delivery", "GIT_COMMITTER_EMAIL": "h2@delivery.invalid",
+                    "GIT_AUTHOR_DATE": "2000-01-01T00:00:00 +0000",
+                    "GIT_COMMITTER_DATE": "2000-01-01T00:00:00 +0000"}
 GIT_METADATA_FILES = ("FETCH_HEAD", "ORIG_HEAD", "COMMIT_EDITMSG", "packed-refs")
 GIT_METADATA_DIRS = ("logs", "refs/remotes", "refs/tags", "worktrees")
+# F15 / T28: the collection must trust nothing the worker can write. Changes are decided by walking
+# the worktree's bytes, against a base snapshot the DRIVER recorded from the governance repository
+# before the worker started (`.driver/<run_id>/base` + its manifest). No index, repo-local config,
+# attribute or filter of repo/ takes part — not even for the git calls that remain.
+DRIVER_DIR = ".driver"
+BASE_DIR_NAME = "base"
+BASE_MANIFEST_NAME = "base-manifest.json"
 
 
 def operator_home() -> Path:
@@ -62,8 +76,139 @@ def git(root: Path, *args: str, binary: bool = False):
     return result.stdout
 
 
+def repo_git(repo: Path, *args: str, binary: bool = False):
+    """A git call on the WORKER's repository, under the isolation F15 / T28 requires.
+
+    The worker owns repo/.git: its index flags, refs/replace, attribute files and local config
+    must not be able to decide what this program sees, so every such call runs with no system or
+    global config, no replacement objects and no attributes file.
+    """
+    env = {**os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+           "GIT_NO_REPLACE_OBJECTS": "1"}
+    result = subprocess.run(["git", "-C", str(repo), "-c",
+                             f"core.attributesFile={os.devnull}", "-c", "core.fsmonitor=false",
+                             *args], capture_output=True, text=not binary, env=env)
+    if result.returncode:
+        raise ValueError(f"GIT_FAILED: {' '.join(args[:2])}")
+    return result.stdout
+
+
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def driver_root(run_dir: Path) -> Path:
+    """`<runs_root>/.driver/<run_id>` — outside the run dir the worker can write."""
+    run_dir = Path(run_dir)
+    return run_dir.parent / DRIVER_DIR / run_dir.name
+
+
+def base_dir(run_dir: Path) -> Path:
+    return driver_root(run_dir) / BASE_DIR_NAME
+
+
+def base_manifest_path(run_dir: Path) -> Path:
+    return driver_root(run_dir) / BASE_MANIFEST_NAME
+
+
+def read_base_manifest(run_dir: Path) -> dict:
+    """The driver-recorded base manifest; a missing or malformed one is a fail-closed state."""
+    path = base_manifest_path(run_dir)
+    if not path.is_file():
+        raise ValueError("MISSING_BASE_SNAPSHOT")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ValueError("UNREADABLE_BASE_SNAPSHOT") from None
+    if (not isinstance(manifest, dict) or not isinstance(manifest.get("entries"), dict)
+            or not manifest.get("base_sha") or not base_dir(run_dir).is_dir()):
+        raise ValueError("INCOMPLETE_BASE_SNAPSHOT")
+    return manifest
+
+
+def discard_base(run_dir: Path) -> None:
+    root = driver_root(run_dir)
+    shutil.rmtree(root, ignore_errors=True)
+    try:
+        root.parent.rmdir()
+    except OSError:
+        pass
+
+
+def _tree_entries(root: Path, base: str) -> list[tuple[str, str, str]]:
+    """(mode, blob sha, path) for every blob of `base`'s tree — attributes cannot drop a path."""
+    data = git(root, "ls-tree", "-r", "-z", "--full-tree", base, binary=True)
+    entries = []
+    for part in data.split(b"\0"):
+        if not part:
+            continue
+        header, raw_path = part.split(b"\t", 1)
+        mode, kind, oid = header.decode("ascii").split(" ")
+        path = raw_path.decode("utf-8")
+        if kind != "blob":
+            raise ValueError(f"UNSUPPORTED_TREE_ENTRY:{path}")
+        entries.append((mode, oid, path))
+    return entries
+
+
+def _blob_bytes(root: Path, oids: list[str]) -> dict[str, bytes]:
+    """Read every blob from the governance object store by id."""
+    wanted = sorted(set(oids))
+    if not wanted:
+        return {}
+    result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch"],
+                            input=("\n".join(wanted) + "\n").encode("ascii"),
+                            capture_output=True)
+    if result.returncode:
+        raise ValueError("GIT_FAILED: cat-file --batch")
+    payload, blobs, offset = result.stdout, {}, 0
+    for oid in wanted:
+        newline = payload.find(b"\n", offset)
+        if newline < 0:
+            raise ValueError("UNREADABLE_TREE_BLOB")
+        fields = payload[offset:newline].decode("ascii").split()
+        offset = newline + 1
+        if len(fields) != 3 or fields[1] != "blob":
+            raise ValueError("UNREADABLE_TREE_BLOB")
+        size = int(fields[2])
+        blobs[oid] = payload[offset:offset + size]
+        offset += size + 1
+    return blobs
+
+
+def record_base(root: Path, run_dir: Path, base: str) -> dict:
+    """Record the base tree from the GOVERNANCE repo, outside anything the worker can write.
+
+    Writes `<runs_root>/.driver/<run_id>/base/` and `base-manifest.json`: every path with its mode,
+    type (file/symlink), git blob sha and content sha256. The worker never sees this directory; the
+    collection compares its worktree against it instead of asking repo/.git what changed.
+    """
+    entries = _tree_entries(Path(root), base)
+    blobs = _blob_bytes(Path(root), [oid for _, oid, _ in entries])
+    target = driver_root(run_dir)
+    shutil.rmtree(target, ignore_errors=True)
+    tree = target / BASE_DIR_NAME
+    tree.mkdir(parents=True)
+    manifest_entries: dict[str, dict] = {}
+    for mode, oid, path in entries:
+        data = blobs[oid]
+        destination = tree / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if mode == "120000":
+            destination.symlink_to(data.decode("utf-8"))
+            kind = "symlink"
+        else:
+            destination.write_bytes(data)
+            destination.chmod(0o755 if mode == "100755" else 0o644)
+            kind = "file"
+        manifest_entries[path] = {"mode": mode, "type": kind, "blob_sha": oid,
+                                  "sha256": sha256(data)}
+    manifest = {"schema_version": 1, "program": "freeze-v2/wrapper_delivery.py",
+                "source": "governance_repository", "base_sha": base,
+                "entries": manifest_entries}
+    (target / BASE_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                                             encoding="utf-8")
+    return manifest
 
 
 def governance_paths(metadata: Path, root: Path) -> list[str]:
@@ -82,32 +227,45 @@ def governance_paths(metadata: Path, root: Path) -> list[str]:
 
 def object_names(repo: Path) -> set[str]:
     """Every object in the object store, loose or packed."""
-    return set(git(repo, "cat-file", "--batch-all-objects",
-                   "--batch-check=%(objectname)").split())
+    return set(repo_git(repo, "cat-file", "--batch-all-objects",
+                        "--batch-check=%(objectname)").split())
 
 
 def reachable_objects(repo: Path) -> set[str]:
-    """Every object reachable from HEAD and the refs — i.e. the base commit and its tree."""
-    lines = git(repo, "rev-list", "--objects", "--all").splitlines()
+    """Every object reachable from HEAD and the refs — i.e. the delivered commit and its tree."""
+    lines = repo_git(repo, "rev-list", "--objects", "--all").splitlines()
     return {line.split(" ", 1)[0] for line in lines if line}
 
 
-def standalone_repository(root: Path, repo: Path, base: str) -> None:
-    """Create `repo` as a standalone repository holding exactly `base` and its tree.
+def neutral_commit(root: Path, base: str) -> str:
+    """A parentless commit with `base`'s TREE and fixed metadata; deterministic for that tree."""
+    tree = git(root, "rev-parse", "--verify", f"{base}^{{tree}}").strip()
+    result = subprocess.run(["git", "-C", str(root), "commit-tree", tree, "-m", NEUTRAL_MESSAGE],
+                            capture_output=True, text=True, env={**os.environ, **NEUTRAL_IDENTITY})
+    if result.returncode:
+        raise ValueError("NEUTRAL_COMMIT_FAILED")
+    return result.stdout.strip()
 
-    A depth-1 fetch of one commit, then everything that could name the governance repository or
+
+def standalone_repository(root: Path, repo: Path, base: str) -> None:
+    """Create `repo` as a standalone repository holding exactly `base`'s tree (F8, F18).
+
+    The delivered HEAD is a NEW parentless commit with the base tree and a fixed neutral message,
+    author, committer and date, so it is deterministic and names neither the base nor the
+    candidate. Only that commit is fetched, through one temporary ref in the governance
+    repository that is deleted again; everything that could name the governance repository or
     another commit is removed: remotes, FETCH_HEAD, reflogs, other refs, alternates and any object
-    outside the base tree. HEAD stays detached at `base`, so `git rev-parse HEAD` and
-    `git status` show a worker exactly what the previous worktree showed.
+    outside the delivered tree.
     """
     root, repo = Path(root), Path(repo)
-    ref = f"{HISTORY_REF_ROOT}/{base[:12]}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
-    git(root, "update-ref", ref, base)
+    neutral = neutral_commit(root, base)
+    ref = f"{HISTORY_REF_ROOT}/{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    git(root, "update-ref", ref, neutral)
     try:
         repo.mkdir(parents=True)
         git(repo, "init", "-q")
         git(repo, "fetch", "-q", "--no-tags", "--depth", "1", str(root), ref)
-        git(repo, "checkout", "-q", "--detach", base)
+        git(repo, "checkout", "-q", "--detach", neutral)
     finally:
         git(root, "update-ref", "-d", ref)
     metadata = repo / ".git"
@@ -116,18 +274,27 @@ def standalone_repository(root: Path, repo: Path, base: str) -> None:
     for name in GIT_METADATA_DIRS:
         shutil.rmtree(metadata / name, ignore_errors=True)
     (metadata / "objects/info/alternates").unlink(missing_ok=True)
-    git(repo, "reflog", "expire", "--expire=now", "--all")
+    repo_git(repo, "reflog", "expire", "--expire=now", "--all")
     shutil.rmtree(metadata / "logs", ignore_errors=True)
-    git(repo, "gc", "-q", "--prune=now")
+    repo_git(repo, "gc", "-q", "--prune=now")
 
 
-def verify_standalone(root: Path, repo: Path, base: str, candidate: str | None = None) -> None:
-    """The fail-closed postconditions of the history-free task repository (F8 / T21)."""
-    if git(repo, "rev-parse", "--show-toplevel").strip() != str(repo):
+def verify_standalone(root: Path, repo: Path, base: str, candidate: str | None = None) -> str:
+    """The fail-closed postconditions of the history-free task repository (F8, F18)."""
+    if repo_git(repo, "rev-parse", "--show-toplevel").strip() != str(repo):
         raise ValueError("REPO_NOT_STANDALONE")
-    if git(repo, "rev-list", "--all").split() != [base]:
+    delivered = repo_git(repo, "rev-parse", "HEAD").strip()
+    if repo_git(repo, "rev-list", "--all").split() != [delivered]:
         raise ValueError("REPO_HISTORY_NOT_FROZEN")
-    if git(repo, "remote").strip():
+    if repo_git(repo, "rev-parse", f"{delivered}^{{tree}}").strip() != git(
+            root, "rev-parse", f"{base}^{{tree}}").strip():
+        raise ValueError("DELIVERED_TREE_DIFFERS_FROM_BASE")
+    log = repo_git(repo, "log", "--all", "--format=%H%n%an%n%ae%n%B")
+    if base in log or delivered == base:
+        raise ValueError("BASE_COMMIT_IN_DELIVERED_HISTORY")
+    if candidate and candidate in log:
+        raise ValueError("CANDIDATE_IN_DELIVERED_HISTORY")
+    if repo_git(repo, "remote").strip():
         raise ValueError("REPO_REMOTE_PRESENT")
     if (repo / ".git/objects/info/alternates").exists():
         raise ValueError("REPO_ALTERNATES_PRESENT")
@@ -140,6 +307,7 @@ def verify_standalone(root: Path, repo: Path, base: str, candidate: str | None =
     leaked = governance_paths(repo / ".git", root)
     if leaked:
         raise ValueError(f"GOVERNANCE_PATH_IN_GIT_METADATA:{leaked[0]}")
+    return delivered
 
 
 def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
@@ -171,14 +339,14 @@ def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
     return out
 
 
-def verify_repo(root: Path, repo: Path, base: str) -> None:
-    if git(repo, "rev-parse", "HEAD").strip() != base:
+def verify_repo(root: Path, repo: Path, base: str, delivered: str) -> None:
+    if repo_git(repo, "rev-parse", "HEAD").strip() != delivered:
         raise ValueError("WRONG_BASE")
     base_paths = set(git(root, "ls-tree", "-r", "-t", "--name-only", base).splitlines())
     for path in repo.rglob("*"):
         if path.name in DELIVERED_NAMES and path.relative_to(repo).as_posix() not in base_paths:
             raise ValueError("DELIVERY_INSIDE_REPO")
-    if git(repo, "status", "--porcelain", "--ignored"):
+    if repo_git(repo, "status", "--porcelain", "--ignored"):
         raise ValueError("REPO_NOT_CLEAN")
 
 
@@ -199,6 +367,7 @@ def cleanup(root: Path, run_dir: Path) -> None:
     if (repo / ".git").is_file():                     # the pre-T21 linked-worktree layout
         git(root, "worktree", "remove", "--force", str(repo))
         git(root, "worktree", "prune")
+    discard_base(run_dir)
     if run_dir.exists():
         shutil.rmtree(run_dir)
 
@@ -233,13 +402,16 @@ def prepare(root: Path, run_dir: Path, task_id: str, arm: str, materials: str) -
     run_dir.mkdir()
     try:
         standalone_repository(root, run_dir / "repo", base)
+        delivered = repo_git(run_dir / "repo", "rev-parse", "HEAD").strip()
         for rel, data in files.items():
             path = run_dir / rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         outside_repository(run_dir)
-        verify_repo(root, run_dir / "repo", base)
+        verify_repo(root, run_dir / "repo", base, delivered)
         verify_standalone(root, run_dir / "repo", base, candidate)
+        record_base(root, run_dir, base)
+        receipt["delivered_head"] = delivered
         (run_dir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n",
                                                encoding="utf-8")
     except BaseException:

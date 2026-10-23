@@ -1491,3 +1491,95 @@ T26 之后实验套件从 383 增至 390（+7），`scripts/tests` 仍为 602；
    上游噪声摧毁"的概率，不能保证真实 prompt 一定成功。规则只在 worker 未动作时触发，因此不能
    用来重摇结果，也不能把 INVALID 变成 PASS。
 5. 未执行 H2-R2、未 push/PR/merge，真实 PR CI 仍为 NOT_TRIGGERED。
+
+## T28（implementer: opencode deepseek-v4.1-flash）
+
+关闭 F15（P1，assume-unchanged 等 worker 可控状态掩盖 deny 编辑/删除）与 F18（P2，base commit
+message 泄漏 candidate sha）。只动 `wrapper_delivery.py`、`collect_v2.py`、`delivery_anchors.py`、
+`delivery-anchors.json`、冻结 manifest/测试字面量、README 与本节；`run_acceptance_v2.py`、
+`scope_v2.py`、access audit 与所有既有拒绝规则原样保留。
+
+### 实现
+
+1. **driver 记录的 base，不读 repo/**。`wrapper_delivery.record_base()` 在 prepare 时（worker
+   启动前）从 GOVERNANCE 仓库的 git objects 读取 `<base>` 的整棵树（`ls-tree -r -z --full-tree`
+   + `cat-file --batch`，因此 in-tree `.gitattributes` 的 export 规则也不可能漏路径），写
+   `<runs_root>/.driver/<run_id>/base/` 与 `base-manifest.json`：每个路径的 mode、type
+   （file/symlink）、git blob sha 与内容 sha256。`cleanup()` 一并删除该目录；`.driver` 在 run dir
+   之外，worker 不可写。
+2. **collection 不信 git**。`collect_v2` 用 `os.walk(followlinks=False)` 遍历 worktree（只排除
+   worktree 根上的 `.git/`），按 bytes/mode/type 与 manifest 比对得到 A/M/D/T；不使用
+   `git status`、index、index flag、ignore 文件、`.gitattributes` filter、repo-local config 或
+   `refs/replace`。deny 路径上的 D/M/T 与原规则一样是 `WORKER_SCOPE_DENIED`，base 测试文件被删除
+   同样拒绝。
+3. **diff 由字节生成**。交给 acceptance/auditor 的 `diff.patch` 是 snapshot bytes 对 worktree
+   bytes 的纯 Python unified diff（无 git、无 external diff driver、无 textconv），因此
+   `diff.external` / attribute 无法把它洗掉。repo/ 上仅存的 git 调用（`rev-parse`、`remote`、
+   模型无关的 repository 形状检查）统一走 `wrapper_delivery.repo_git`：
+   `GIT_CONFIG_NOSYSTEM=1`、`GIT_CONFIG_GLOBAL=/dev/null`、`GIT_NO_REPLACE_OBJECTS=1`、
+   `-c core.attributesFile=/dev/null`、`-c core.fsmonitor=false`。
+4. **F18 neutral delivered head**。`standalone_repository()` 先在 GOVERNANCE 仓库用
+   `commit-tree <base tree>` 造一个**无父**提交（固定 message `h2 task base`、固定
+   author/committer `H2 Delivery <h2@delivery.invalid>`、固定 date `2000-01-01T00:00:00 +0000`，
+   因而对同一 tree 确定），经一个临时 `refs/h2-delivery/*` fetch 进 repo/ 后立即删除该 ref；
+   base 提交本身从不进入 repo/。`verify_standalone()` 现在核验
+   `tree(delivered_head) == tree(base)`、`rev-list --all == [delivered_head]`、对象集 == 可达集、
+   无 remote/alternates、且 `git log --all` 不含 base 或 candidate 的 40-hex；receipt 同时记录
+   `base_sha`（原提交）与 `delivered_head`，`verify_repo()` 核验 HEAD == `delivered_head`。
+   `collect_v2` 把 receipt 的 `delivered_head` 一并写出，缺失即 `INCOMPLETE_RECEIPT`。
+5. **acceptance 的 oracle 位置（T28 item 4 的核查结论）**：`run_acceptance_v2` 早已在
+   **worktree 的字节上原地**运行 oracle 与完整套件（`gate(run_dir / "repo", ...)`，不经过
+   `repo/.git` 的 checkout）；它唯一一次 git checkout 是 BASE 侧（`base_tree()` 对
+   **GOVERNANCE** 仓库做 standalone checkout），不是从 repo/.git 物化 worker 结果。因此此处无需
+   改动，结论按计划记录在本节。
+6. `delivery_anchors.reset()` 改为重置到 delivered HEAD（base 提交对象已不在任务仓库里）。
+
+### 攻击复现（全部 stub/fixture，无模型）
+
+新增 `CollectionTrustNothing`：assume-unchanged 编辑/删除、skip-worktree 编辑/删除、`.gitattributes`
+`-diff` + `filter` + repo-local `diff.external`、`refs/replace`（git 自己已看不到 worker 的提交，
+collection 仍看到 M 与 diff 原文）、删除 `.git`（`TASK_REPOSITORY_UNREADABLE` 失败关闭）、
+snapshot 缺失/与 receipt 不符（`MISSING_BASE_SNAPSHOT` / `BASE_SNAPSHOT_DOES_NOT_MATCH_RECEIPT`）
+——每一种都在 collected changes/diff 中留有原文，并落 REJECT `WORKER_SCOPE_DENIED`（或 INVALID
+失败关闭）。正向对照仍是原测试：十个任务的 candidate 非测试 delta 全部 ACCEPT，未改动的 base
+全部 REJECT。
+
+### 重新测量与 re-pin
+
+`wrapper_delivery.py` 变了（F18），`build_manifest.py` 的 provenance 绑定会拒绝旧 anchors，因此
+在 T28 程序上重测（不是手改 JSON）：
+
+```text
+$PY experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py . \
+    experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json \
+    --materials 4924930 --out experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json
+DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+```
+
+逐字段对比旧 JSON：**只有** `materials_commit`（20719b56 → 4924930）与
+`wrapper_program_sha256` 变化，10 个 row（含每个 PRE 集合、每个 `ran`、每个 POST cell、每格
+verdict）逐字节相同；README §2 的数字因此仍然成立。随后用同一 freeze parent 重建 manifest 与
+两个独立测试字面量（仍 48 个冻结文件）：
+
+```text
+$PY .../build_manifest.py build --freeze-parent 4924930b71473efcb7f7fd84973d5574f873b03c \
+    --out .../freeze-manifest.json
+FREEZE_MANIFEST files=48 delivery_payload_equivalent_to_T2=YES
+$PY .../build_manifest.py check
+{"verdict": "PASS", "mismatches": []}
+```
+
+### T28 gates（前台逐条运行，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!
+=== GOVERNANCE           35/35 checks passed
+=== PUBLIC               VIOLATIONS=0
+=== SCRIPTS_TESTS        Ran 602 tests in 24.828s / OK
+=== EXPERIMENTS_TESTS    Ran 395 tests in 914.822s / OK
+=== NEVER_TOUCH          git diff --stat c40266f -- <NEVER TOUCH 路径> 为空
+```
+
+上面是写入本节时的记录遍（实验套件 390 → 395，+5：base snapshot、index flags、
+attributes/local-config/replace、snapshot 缺失/不符、删除 `.git` 各一条）。写完后同一棵树的
+gates 再整体跑一遍并与 commit 以 `&&` 串联，任一门失败则不提交。

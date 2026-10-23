@@ -93,7 +93,9 @@ worker 与 per-run auditor 的运行环境固定为：最小基础环境（PATH�
 
 worker cwd 是任何 git repository 之外的 wrapper。AGENTS.md、H2_RULES.md、H2_WARM/
 从同一 materials commit 的 git objects 投放；repo/ 是 task base 的 STANDALONE 仓库：对象库只含
-B' 及其 tree（单提交浅仓库），无 remote、无 alternates、无 reflog，HEAD detached 于 B'。因此
+B' 的 tree（F18：单个无父提交，固定中性 message `h2 task base`、固定 author/committer/date，
+HEAD detached 于该中性提交，其 tree 等于 B' 的 tree；B' 提交本身不被 fetch），无 remote、
+无 alternates、无 reflog，`git log --all` 不含 B' 或 candidate 的 40-hex。因此
 worker 无法从共享对象库读到历史 candidate，repository 形状本身由投放后置条件失败关闭核验。
 control carrier 的字节为薄头 + 当前 AGENTS.md 全文 + 薄尾；variant 为已钉 hash 的 lean
 carrier。报告、遥测、receipt 与报告模板都在 wrapper 中，repo/ 内不得出现任何投放副本。

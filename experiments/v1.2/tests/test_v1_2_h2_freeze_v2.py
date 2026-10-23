@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,9 +34,9 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "b3f30ca7f706c2eb2fcfce5f80d58189b0cffb749c37af801ab87a14bc6b519d",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "0150309c6cc3a37af25a858f7bb1d089d5110965d74456e3a86a1b3c8a94bfa2",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "5027d59c21a2de634c91c49efc1ea3745d5a1a5769e8475db42976d1908a5db5",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "027a478352bdc9ac039dc1b24c07f771fa2ac51ed9158d1f0a2e34df70007167",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "cc59707ddeaa22080fac6b66a28f87d162cc4a2847a7251e5a3f327d19e0d310",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "1d2cfc7bcb8e2a936eb468d982d8df02946fd5ef9ac6fd3e500bd5722daa7203",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "08f42cccbed1c7f60a49448e406ecb4ac4b485b6f2b2f7a13b5dc99f54ee9a43",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "77d29115f1d0320bf9d1a5656772d613e0b855a8f2b1f6badaac3ed3b65b2de2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
@@ -46,7 +47,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "010a89522665d6229e95e5dcb339e4039d2ae4bc3e36001929d5aabe9a927056",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "3650ea0ffeb7667eeb9e4dc0f7f7b8b42653c6d2af2a3fae1ca71d934bc646bb",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "723d31cc293ea0ef84b2720c5133205b48408639a44b946434f19e79f479e376",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "debe7dcd480d602b2781b0ae3acd0bf9e272f35aa53cb40eacbd273f9eae0f97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
@@ -58,7 +59,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-brief-v2.md": "57ff9a3bacba43a82b1e62d383533e0726a7de370c51e2b9b6012089a7d23318",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "a4c6776e8aeadc5d85ed182d50d71f3d02eae12e9087b543973941c89227b2de",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/wrapper_delivery.py": "8dcf913191182a6605d6eaf9eb66f88f36485ac279f3f846b7b9ee0d5d7e7ff0",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
@@ -67,7 +68,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "3c53f4b5940508164c0f0ac563070bb538c400a6ff54dc87afc9771ee64f25a1"
+MANIFEST_SHA256 = "ab088b0a7243661e54f8bd37860a79bc4656169f12169cc2549a6fbbbb58d6da"
 
 
 def load(name):
@@ -196,8 +197,13 @@ class WrapperDelivery(unittest.TestCase):
                 try:
                     receipt = wrapper.prepare(ROOT, run, "f01", arm, materials)
                     self.assertEqual(receipt, json.loads((run / "receipt.json").read_text()))
-                    self.assertEqual(task["BASE_SHA"], git("rev-parse", "HEAD",
-                                                         root=run / "repo").decode().strip())
+                    # F18 / T28: the delivered HEAD is a NEW neutral commit with the base TREE.
+                    self.assertEqual(receipt["delivered_head"],
+                                     git("rev-parse", "HEAD", root=run / "repo").decode().strip())
+                    self.assertNotEqual(task["BASE_SHA"], receipt["delivered_head"])
+                    self.assertEqual(git("rev-parse", f"{task['BASE_SHA']}^{{tree}}").decode().strip(),
+                                     git("rev-parse", "HEAD^{tree}",
+                                         root=run / "repo").decode().strip())
                     self.assertEqual(b"", git("status", "--porcelain", "--ignored",
                                               root=run / "repo"))
                     self.assertNotEqual(0, subprocess.run(
@@ -240,7 +246,7 @@ class WrapperDelivery(unittest.TestCase):
                 self.assertFalse(run.exists())
 
     def test_the_task_repository_is_standalone_and_cannot_read_the_candidate(self):
-        """F8: one commit, no remote, no alternates, and the historical fix is not an object."""
+        """F8 + F18: one neutral commit with the base TREE, no remote/alternates, no candidate."""
         wrapper = load("wrapper_delivery")
         task, source = task_pair("f01")
         with tempfile.TemporaryDirectory() as tmp:
@@ -249,17 +255,24 @@ class WrapperDelivery(unittest.TestCase):
                 receipt = wrapper.prepare(ROOT, run, "f01", "variant", "HEAD")
                 repo = run / "repo"
                 self.assertEqual("standalone_history_free", receipt["repository_kind"])
-                self.assertEqual([task["base_sha"]],
+                self.assertEqual([receipt["delivered_head"]],
                                  git("rev-list", "--all", root=repo).decode().split())
                 self.assertEqual([], git("for-each-ref", "--format=%(refname)",
                                          root=repo).decode().split())
                 self.assertEqual(b"", git("remote", root=repo))
                 self.assertFalse((repo / ".git" / "objects" / "info" / "alternates").exists())
                 self.assertFalse((repo / ".git" / "logs").exists())
-                self.assertNotEqual(0, subprocess.run(
-                    ["git", "-C", str(repo), "cat-file", "-e", source["CANDIDATE_SHA"]],
-                    capture_output=True).returncode)
-                self.assertEqual(task["base_sha"],
+                # F18: neither the base commit nor the candidate is in the delivered history.
+                self.assertEqual(["h2 task base"], git("log", "--all", "--format=%s",
+                                                       root=repo).decode().splitlines())
+                self.assertNotEqual(task["base_sha"], receipt["delivered_head"])
+                for oid in (task["base_sha"], source["CANDIDATE_SHA"]):
+                    self.assertNotEqual(0, subprocess.run(
+                        ["git", "-C", str(repo), "cat-file", "-e", oid],
+                        capture_output=True).returncode, oid)
+                self.assertNotIn(task["base_sha"], git("log", "--all", root=repo).decode())
+                self.assertNotIn(source["CANDIDATE_SHA"], git("log", "--all", root=repo).decode())
+                self.assertEqual(receipt["delivered_head"],
                                  git("rev-parse", "HEAD", root=repo).decode().strip())
                 needles = {str(ROOT), str(ROOT.resolve())}
                 for path in (repo / ".git").rglob("*"):
@@ -1283,18 +1296,29 @@ class CollectionV2(unittest.TestCase):
                 self.assertEqual("VALID", collected["status"], collected["reasons"])
                 self.assertEqual("h2r2-f01-c", collected["run_id"])
                 self.assertEqual(task["base_sha"], collected["base_sha"])
+                self.assertEqual(json.loads((run / "receipt.json").read_text())["delivered_head"],
+                                 collected["delivered_head"])
                 self.assertNotEqual(task["base_sha"],
                                     git("rev-parse", "HEAD", root=repo).decode().strip())
                 statuses = {change["path"]: change["status"] for change in collected["changes"]}
                 self.assertEqual("A", statuses["docs/worker-note.md"])
                 self.assertEqual("A", statuses["untracked-note.md"])
+                # The delta is decided from the worktree bytes against the DRIVER's base snapshot,
+                # never from repo/.git: a committed and an untracked file look the same here.
+                manifest = json.loads(
+                    (load("wrapper_delivery").base_manifest_path(run)).read_text())
+                self.assertEqual(set(git("ls-tree", "-r", "--name-only", task["base_sha"])
+                                     .decode().splitlines()), set(manifest["entries"]))
+                self.assertTrue((load("wrapper_delivery").base_dir(run) / "RULES.md").is_file())
+                self.assertEqual(collected["diff_sha256"], digest(collected["diff"].encode()))
+                self.assertIn("diff --git a/docs/worker-note.md b/docs/worker-note.md",
+                              collected["diff"])
+                self.assertIn("new file mode 100644", collected["diff"])
+                self.assertIn("+note", collected["diff"])
                 self.assertEqual({"AGENTS.md", "H2_RULES.md"},
                                  {name for name in collected["delivered_hashes"]
                                   if not name.startswith("H2_WARM/")})
                 self.assertGreaterEqual(len(collected["delivered_hashes"]), 3)
-                self.assertEqual(collected["diff_sha256"],
-                                 digest(git("diff", "--binary", task["base_sha"], "--",
-                                            root=repo)))
             finally:
                 cleanup_run(run)
 
@@ -1329,6 +1353,192 @@ class CollectionV2(unittest.TestCase):
                 self.assertIn("DELIVERED_HASH_MISMATCH:AGENTS.md", collected["reasons"])
                 self.assertIn("DELIVERED_BYTES_NOT_FROM_MATERIALS:AGENTS.md",
                               collected["reasons"])
+            finally:
+                cleanup_run(run)
+
+
+class CollectionTrustNothing(unittest.TestCase):
+    """F15 / T28: the worker owns repo/.git, so the collection may not believe any of it."""
+
+    def test_the_driver_records_the_base_from_the_governance_repository(self):
+        wrapper = load("wrapper_delivery")
+        task, _ = task_pair("f01")
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f01")
+            try:
+                manifest = json.loads(wrapper.base_manifest_path(run).read_text())
+                self.assertEqual(task["base_sha"], manifest["base_sha"])
+                self.assertEqual("governance_repository", manifest["source"])
+                rows = {}
+                for part in git("ls-tree", "-r", "-z", "--full-tree",
+                                task["base_sha"]).split(b"\0"):
+                    if not part:
+                        continue
+                    header, path = part.split(b"\t", 1)
+                    mode, kind, oid = header.decode().split(" ")
+                    self.assertEqual("blob", kind)
+                    rows[path.decode()] = (mode, oid)
+                self.assertEqual(set(rows), set(manifest["entries"]))
+                for path, (mode, oid) in rows.items():
+                    entry = manifest["entries"][path]
+                    self.assertEqual(mode, entry["mode"], path)
+                    self.assertEqual(oid, entry["blob_sha"], path)
+                    blob = git("show", f"{task['base_sha']}:{path}")
+                    self.assertEqual(digest(blob), entry["sha256"], path)
+                    delivered = wrapper.base_dir(run) / path
+                    if entry["type"] == "symlink":
+                        self.assertEqual(blob, os.fsencode(os.readlink(delivered)), path)
+                    else:
+                        self.assertEqual("file", entry["type"], path)
+                        self.assertEqual(blob, delivered.read_bytes(), path)
+                self.assertTrue((wrapper.base_dir(run) / "RULES.md").is_file())
+            finally:
+                cleanup_run(run)
+
+    def test_index_flags_cannot_hide_an_edit_or_a_deletion(self):
+        collector = load("collect_v2")
+        acceptance = load("run_acceptance_v2")
+        task, _ = task_pair("f02")
+        oracle_rel = task["oracle"]["path"]
+        test_rel = "scripts/tests/test_seam_contract_partitions.py"
+        attacks = (
+            ("assume-unchanged edit", test_rel, "--assume-unchanged", "M"),
+            ("assume-unchanged delete", test_rel, "--assume-unchanged", "D"),
+            ("skip-worktree edit", oracle_rel, "--skip-worktree", "M"),
+            ("skip-worktree delete", oracle_rel, "--skip-worktree", "D"),
+        )
+        for label, rel, flag, expected in attacks:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as tmp:
+                run = prepare_run(tmp, "f02")
+                try:
+                    write_artifacts(run)
+                    repo = run / "repo"
+                    target = repo / rel
+                    subprocess.run(["git", "-C", str(repo), "update-index", flag, rel],
+                                   capture_output=True, check=True)
+                    if expected == "M":
+                        target.write_text(target.read_text(encoding="utf-8") + "\n# hidden\n",
+                                          encoding="utf-8")
+                    else:
+                        target.unlink()
+                    self.assertEqual(expected, "M" if target.exists() else "D")
+                    collected = collector.collect(ROOT, run)
+                    statuses = {change["path"]: change["status"]
+                                for change in collected["changes"]}
+                    self.assertEqual(expected, statuses[rel], collected["reasons"])
+                    self.assertIn(f"diff --git a/{rel} b/{rel}", collected["diff"])
+                    if expected == "M":
+                        self.assertIn("+# hidden", collected["diff"])
+                    else:
+                        self.assertIn("deleted file mode", collected["diff"])
+                    verdict = acceptance.accept(ROOT, run)
+                    self.assertEqual("REJECT", verdict["verdict"])
+                    self.assertIn(f"WORKER_SCOPE_DENIED:{rel}", verdict["reasons"])
+                finally:
+                    cleanup_run(run)
+
+    def test_attributes_local_config_and_replace_refs_cannot_redact_a_change(self):
+        collector = load("collect_v2")
+        acceptance = load("run_acceptance_v2")
+        task, _ = task_pair("f03")
+        rel = task["oracle"]["path"]
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f03")
+            try:
+                write_artifacts(run)
+                repo = run / "repo"
+                (repo / ".gitattributes").write_text(f"{rel} -diff filter=h2\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(repo), "config", "filter.h2.clean", "cat"],
+                               check=True)
+                subprocess.run(["git", "-C", str(repo), "config", "diff.external", "/bin/false"],
+                               check=True)
+                target = repo / rel
+                target.write_text(target.read_text(encoding="utf-8") + "\n# redacted\n",
+                                  encoding="utf-8")
+                collected = collector.collect(ROOT, run)
+                statuses = {change["path"]: change["status"]
+                            for change in collected["changes"]}
+                self.assertEqual("M", statuses[rel])
+                self.assertEqual("A", statuses[".gitattributes"])
+                self.assertIn("# redacted", collected["diff"])
+                verdict = acceptance.accept(ROOT, run)
+                self.assertEqual("REJECT", verdict["verdict"])
+                self.assertIn(f"WORKER_SCOPE_DENIED:{rel}", verdict["reasons"])
+            finally:
+                cleanup_run(run)
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f03")
+            try:
+                write_artifacts(run)
+                repo = run / "repo"
+                target = repo / rel
+                target.write_text(target.read_text(encoding="utf-8") + "\n# replaced\n",
+                                  encoding="utf-8")
+                commit_in(repo, "worker commit hidden behind a replace ref")
+                head = git("rev-parse", "HEAD", root=repo).decode().strip()
+                delivered = json.loads((run / "receipt.json").read_text())["delivered_head"]
+                subprocess.run(["git", "-C", str(repo), "update-ref",
+                                f"refs/replace/{head}", delivered], check=True)
+                # git itself no longer sees the worker's commit ...
+                self.assertEqual(["h2 task base"],
+                                 git("log", "-1", "--format=%s", root=repo).decode().splitlines())
+                self.assertEqual(0, subprocess.run(
+                    ["git", "-C", str(repo), "cat-file", "-e", head],
+                    capture_output=True).returncode)
+                wrapper = load("wrapper_delivery")
+                base_bytes = (wrapper.base_dir(run) / rel).read_bytes()
+                self.assertEqual(base_bytes, git("show", f"HEAD:{rel}", root=repo))
+                self.assertNotEqual(base_bytes, (repo / rel).read_bytes())
+                # ... and the collection still does, from the worktree bytes.
+                collected = collector.collect(ROOT, run)
+                statuses = {change["path"]: change["status"]
+                            for change in collected["changes"]}
+                self.assertEqual("M", statuses[rel])
+                self.assertIn("+# replaced", collected["diff"])
+                verdict = acceptance.accept(ROOT, run)
+                self.assertEqual("REJECT", verdict["verdict"])
+                self.assertIn(f"WORKER_SCOPE_DENIED:{rel}", verdict["reasons"])
+            finally:
+                cleanup_run(run)
+
+    def test_a_missing_or_mismatched_base_snapshot_is_invalid(self):
+        collector = load("collect_v2")
+        wrapper = load("wrapper_delivery")
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f01")
+            try:
+                write_artifacts(run)
+                wrapper.base_manifest_path(run).unlink()
+                collected = collector.collect(ROOT, run)
+                self.assertEqual("INVALID", collected["status"])
+                self.assertIn("MISSING_BASE_SNAPSHOT", collected["reasons"])
+                self.assertEqual([], collected["changes"])
+            finally:
+                cleanup_run(run)
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f01")
+            try:
+                write_artifacts(run)
+                path = wrapper.base_manifest_path(run)
+                manifest = json.loads(path.read_text())
+                manifest["base_sha"] = "0" * 40
+                path.write_text(json.dumps(manifest), encoding="utf-8")
+                collected = collector.collect(ROOT, run)
+                self.assertEqual("INVALID", collected["status"])
+                self.assertIn("BASE_SNAPSHOT_DOES_NOT_MATCH_RECEIPT", collected["reasons"])
+            finally:
+                cleanup_run(run)
+
+    def test_a_deleted_repository_metadata_is_fail_closed(self):
+        collector = load("collect_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            run = prepare_run(tmp, "f01")
+            try:
+                write_artifacts(run)
+                shutil.rmtree(run / "repo" / ".git")
+                collected = collector.collect(ROOT, run)
+                self.assertEqual("INVALID", collected["status"])
+                self.assertIn("TASK_REPOSITORY_UNREADABLE", collected["reasons"])
             finally:
                 cleanup_run(run)
 
@@ -1443,9 +1653,9 @@ class AcceptanceV2(unittest.TestCase):
                     cleanup_run(run)
 
     def test_a_worker_commit_that_reverted_a_test_edit_still_shows_it(self):
-        """The delta is taken against the registry base, never against HEAD."""
+        """The delta is taken against the DRIVER's base snapshot, never against HEAD."""
         acceptance = load("run_acceptance_v2")
-        task, _ = task_pair("f05")
+        wrapper = load("wrapper_delivery")
         rel = "scripts/tests/test_seam_contract_partitions.py"
         with tempfile.TemporaryDirectory() as tmp:
             run = prepare_run(tmp, "f05")
@@ -1460,7 +1670,7 @@ class AcceptanceV2(unittest.TestCase):
                                 "-c", "user.email=151931662+FlapPearLabs@users.noreply.github.com",
                                 "revert", "--no-edit", "HEAD"], capture_output=True, check=True)
                 path.write_text(edit, encoding="utf-8")
-                base_blob = git("show", f"{task['base_sha']}:{rel}", root=repo)
+                base_blob = (wrapper.base_dir(run) / rel).read_bytes()
                 self.assertEqual(base_blob, git("show", f"HEAD:{rel}", root=repo))
                 self.assertNotEqual(base_blob, path.read_bytes())
                 verdict = acceptance.accept(ROOT, run)

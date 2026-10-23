@@ -24,7 +24,9 @@ $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
      recorded commit, so the PRE/POST numbers below are the same measurement. T21/F8 re-measured
      again at 20719b56 with the repository shape changed from a linked worktree to a standalone
      history-free repository; every PRE set, every `ran` count and every POST cell came back
-     identical, so the numbers below still hold and nothing was carried over)
+     identical, so the numbers below still hold and nothing was carried over. T28/F18 re-measured
+     it again at 4924930 with a neutral parentless delivered head: the program hash moved, every
+     row came back byte-identical again, still WRAPPER 10/10)
 Gates: the task oracle and the full scripts/tests suite, PRE vs POST delivery, zero worker edits,
 compared by the SET of non-passing test ids (not exit codes: every A_REPAIR oracle is red at its
 base, and round 1's t01 went 1 -> 4 failures without changing rc).
@@ -121,11 +123,15 @@ LAYOUT    <run>/                 worker cwd (not a git repository)
             H2_RULES.md          RULES.md at the materials commit
             H2_WARM/             the S3 WARM owners at the materials commit
             repo/                the task repository at the base: a STANDALONE repository whose
-                                 object store is exactly B' and its tree (T21/F8) — one
-                                 shallow commit, no remote, no alternates, no reflog,
-                                 detached HEAD = B'. NO delivered file inside it, so §2's
-                                 in-tree contamination cannot occur, and no worker can read
-                                 the historical candidate out of a shared object database
+                                 object store is exactly B's TREE (T21/F8) — one parentless
+                                 commit with the fixed neutral message `h2 task base`, fixed
+                                 author/committer and date, no remote, no alternates, no
+                                 reflog; detached HEAD is that neutral commit, whose tree
+                                 equals B's (F18/T28). The original base commit is never
+                                 fetched, so `git log --all` names neither B nor the
+                                 candidate. NO delivered file inside it, so §2's in-tree
+                                 contamination cannot occur, and no worker can read the
+                                 historical candidate out of a shared object database
 WHY       measured on 2026-10-19 with canary instruction files: opencode loads the cwd's
           AGENTS.md at startup; a repository's own AGENTS.md (and nested ones) are ATTACHED to
           the first read of a file beneath them; the user's normal profile also injects its
@@ -155,26 +161,31 @@ hash there. Tests reject a one-byte mutation of each of these 49 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T27 re-pin commit; its parent and the shared run
-materials are `4924930b71473efcb7f7fd84973d5574f873b03c` (the T26 commit). The delivered payload —
+The content-freeze commit at this round is the T28 re-pin commit. The materials the run plan binds
+— and therefore the freeze parent in [freeze-manifest.json](freeze-manifest.json) — remain
+`4924930b71473efcb7f7fd84973d5574f873b03c` (the T26 commit). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
 `wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
-repository), the programs/fixtures the F1/F2 fixes added (T11/T12), the F5/F6 work (T15/T16: the
+repository, then T28's neutral delivered head and driver-recorded base snapshot), the
+programs/fixtures the F1/F2 fixes added (T11/T12), the F5/F6 work (T15/T16: the
 preflight attestation, its sanitised evidence fixtures and the frozen worker-profile template),
 the F8/F9 work (T21/T22: the standalone repository and the out-of-run access audit with its two
 shape fixtures), the F10–F13 work (T24: `shell` as the real tool name, shell-punctuation
 tokenisation, the effective-git-repository rule, the frozen `PYTHONDONTWRITEBYTECODE=1` worker and
-auditor environment, and the two sanitised REAL event streams that now pin those rules) and the
+auditor environment, and the two sanitised REAL event streams that now pin those rules), the
 F14 work (T26: the pre-registered provider-infrastructure rule in the run driver — the reachability
 probe, the before-work retry with hashed attempt archives and the attempt ledger, and the auditor's
-own counter; §5 and protocol-v2 §6.1). The T2
-delivery anchors were re-measured at the T21 materials instead of being
-carried over: [delivery-anchors.json](delivery-anchors.json) records that measurement at
-`20719b56`, identical to the T17 measurement at `a5a0354` in every PRE/POST cell, `ran` count and
-verdict (same 10/10 WRAPPER neutrality, same per-task PRE sets); neither T23, T25 nor T27 re-measured
-it, because neither the delivered payload nor the measuring program nor the shortlist moved after
-T21, and the manifest binds precisely those three by hash. The earlier measurement commits
+own counter; §5 and protocol-v2 §6.1), and the F15/F18 work (T28: the collector now decides the
+delta from the worktree's bytes against a driver-recorded base snapshot, and the delivered
+repository head is a deterministic neutral commit). The T2
+delivery anchors were re-measured instead of being carried over; the last measurement is
+[delivery-anchors.json](delivery-anchors.json), taken at `4924930` with the T28 program: every
+PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`,
+which was itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality,
+same per-task PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered
+payload nor the measuring program nor the shortlist moved at those commits; T28 did, because the
+measuring program moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
 PRE baseline itself did not move. The run plan is regenerated before hashing at every re-pin.

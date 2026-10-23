@@ -104,7 +104,7 @@ def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED") -> dict:
             "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped | expected | unexpected)}
 
 
-def reset(wt: Path, rev: str) -> None:
+def reset(wt: Path, rev: str = "HEAD") -> None:
     git(wt, "reset", "-q", "--hard", rev)
     git(wt, "clean", "-q", "-ffdx")
 
@@ -134,12 +134,12 @@ def main(argv: list[str]) -> int:
             wrapper.standalone_repository(root, wt, base)
             try:
                 gates = {"oracle": oracle, "full_suite": None}
-                reset(wt, base)
+                reset(wt)
                 pre = {g: run_gate(wt, p) for g, p in gates.items()}
                 post: dict[str, dict] = {}
                 for slot in ("CODEBUDDY", "AGENTS", "WRAPPER"):
                     for arm, files in deliveries.items():
-                        reset(wt, base)
+                        reset(wt)
                         if slot == "WRAPPER":
                             run_dir = scratch / f"wrapper-{index}-{arm}"
                             try:
@@ -161,7 +161,7 @@ def main(argv: list[str]) -> int:
                             res[g]["newly_passing"] = sorted(before - after)
                             res[g]["ran_delta"] = ((res[g]["ran"] or 0) - (pre[g]["ran"] or 0))
                         post[f"{slot}/{arm}"] = res
-                reset(wt, base)
+                reset(wt)
             finally:
                 shutil.rmtree(wt, ignore_errors=True)
             verdict = {}
