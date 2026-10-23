@@ -55,19 +55,32 @@ only that copy; the run dir gets a copy for humans afterwards.
 a stub worker, a stub reachability check and a fake credential hand-off (never a model, never a real
 credential). The `run` CLI exposes none of them.
 
-BOUNDED CONCURRENCY (T34). Twenty runs of ten to ninety minutes each would take most of a day if
-they were strictly serial, so `run-plan` keeps at most `MAX_PARALLEL` runs of one runs root in
-flight at once — two, frozen with the program. Each run is still its own `run` child process in its
-own run dir, fresh home, rendered sandbox and driver-held streams, so two runs of DIFFERENT tasks
+BOUNDED CONCURRENCY (T34 / T35). Twenty runs of ten to ninety minutes each would take most of a day
+if they were strictly serial, so `run-plan` keeps at most `MAX_PARALLEL` runs of one runs root in
+flight at once — four, frozen with the program. Each run is still its own `run` child process in its
+own run dir, fresh home, rendered sandbox and driver-held streams, so runs of DIFFERENT tasks
 cannot see each other. START order is unchanged: a run is eligible only when every earlier run is
 registered or in progress, and the second arm of a task waits until the first arm is registered, so
-only FINISHING may overlap and a concurrent pair is always two different tasks (which is what keeps
+only FINISHING may overlap and a concurrent set is always different tasks (which is what keeps
 shared provider load arm-symmetric). `run` refuses a non-eligible id with
 `PREDECESSOR_NOT_STARTED:<id>`, `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`, the
 scheduler's start/end lines (pid, run id, outcome) are appended to
 `<runs_root>/scheduler-v2.jsonl`, and every registry/attempt line is appended under an exclusive
 `fcntl.flock` so two finishing runs cannot interleave. The rule was decided before the first
 counted run; the constant is hashed with this program, so changing it is a design change.
+
+WAITING IS THE ONLY ANSWER TO AN OUTAGE (T35). A run that ends BLOCKED before work — a failed
+reachability check, or any pre-work provider state that registered nothing — is re-queued by the
+scheduler in its plan position after an exponential backoff with jitter (60 s, 120 s, 240 s, 480 s,
+then a 900 s cap), at most `SCHEDULER_REQUEUES` times per invocation; the other live runs keep
+their slots while it waits, every wait is a line in the scheduler log, and after the budget the
+scheduler stops and prints what is left for the operator. A registered run is never re-run.
+
+ONE MODEL, NO FAILOVER (T35). Both launches of every run use the single frozen model of
+run-plan-v2.json (`FROZEN_MODEL`); a plan carrying a second model is refused before anything is
+spawned. The model is part of the treatment environment, so switching it mid-experiment would make
+the two arms of a pair incomparable (protocol-v2 §6.1). Provider outages are handled only by
+waiting and by the reachability / before-work rules above.
 """
 from __future__ import annotations
 
@@ -76,6 +89,7 @@ import fcntl
 import inspect
 import json
 import os
+import random
 import shutil
 import signal
 import socket
@@ -143,14 +157,23 @@ REACHABILITY_TOKEN = "H2_REACHABLE"
 REACHABILITY_LIMIT_SECONDS = 120
 MAX_ATTEMPTS = 3
 
-# T34: bounded concurrency, decided before the first counted run (2026-10-23). The constant is
+# T34 / T35: bounded concurrency, decided before the first counted run (2026-10-23). The constant is
 # hashed with this program, so changing it is a design change, not a parameter.
-MAX_PARALLEL = 2
+MAX_PARALLEL = 4
+# T35: the one model every launch of the twenty uses. It is the plan's model as well; a second
+# model is refused, never substituted -- the experiment has no model failover (protocol-v2 §6.1).
+FROZEN_MODEL = "opencode-go/deepseek-v4.1-flash"
 SCHEDULER_LOG_NAME = "scheduler-v2.jsonl"
 SCHEDULER_CHILD_PREFIX = "scheduler-child"
 SCHEDULER_POLL_SECONDS = 0.5
-SCHEDULER_PAUSE_SECONDS = 5.0
-SCHEDULER_UNREACHABLE_RETRIES = 3
+# T35: a run that ended BLOCKED before work is re-queued in plan position after an exponential
+# backoff with jitter, at most SCHEDULER_REQUEUES times per scheduler invocation. Waiting consumes
+# no slot: the other live runs keep theirs. After the budget the scheduler stops and prints the rest.
+SCHEDULER_BACKOFF_FIRST_SECONDS = 60
+SCHEDULER_BACKOFF_CAP_SECONDS = 900
+SCHEDULER_BACKOFF_JITTER = 0.10
+SCHEDULER_REQUEUES = 6
+RETRYABLE_BLOCKED_REASONS = ("PROVIDER_UNREACHABLE", "PROVIDER_FAILED_BEFORE_WORK")
 
 # F22 / T34: the preflight's managed-service port is chosen per run, bound and released at once,
 # and a collision is retried with a new port at most this many times (every attempt recorded).
@@ -171,6 +194,20 @@ def now() -> str:
 
 def plan_runs(root: Path = ROOT) -> list[dict]:
     return json.loads((Path(root) / H2_REL / "freeze-v2" / PLAN_NAME).read_text())["runs"]
+
+
+def frozen_model(planned: list[dict]) -> str:
+    """The single model of the plan, or a refusal: the experiment has no model failover (T35).
+
+    A plan that carries any other model (or none) is a design change, not a runtime choice, so it
+    stops the driver before a single process is launched. Both launches of a run -- worker and
+    auditor -- take their model from the plan row, and the row cannot differ from this constant.
+    """
+    models = {run.get("model") for run in planned}
+    if models != {FROZEN_MODEL}:
+        found = ",".join(sorted(str(model) for model in models)) or "NONE"
+        raise ValueError(f"MODEL_NOT_FROZEN:{found}")
+    return FROZEN_MODEL
 
 
 def check_runs_root(runs_root: Path) -> Path:
@@ -787,6 +824,7 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
     plan_run = next((run for run in planned if run["run_id"] == run_id), None)
     if plan_run is None:
         raise ValueError("UNKNOWN_RUN")
+    frozen_model(planned)                # T35: one frozen model for the twenty, never a fallback
     entries = read_registry(runs_root)
     reason = refusal(runs_root, plan_run, planned, entries)
     if reason is not None:
@@ -1471,7 +1509,7 @@ def child_outcome(runs_root: Path, run_id: str, item: dict, returncode: int) -> 
     """What one scheduler child did: its registry line, or the result it printed when unregistered."""
     entry = read_registry(runs_root).get(run_id)
     if entry is not None:
-        return {"run_id": run_id, "registered": True, "unreachable": False,
+        return {"run_id": run_id, "registered": True, "retryable": False,
                 "outcome": str(entry.get("final_verdict")),
                 "reasons": [entry["reason"]] if entry.get("reason") else [],
                 "returncode": returncode}
@@ -1480,14 +1518,16 @@ def child_outcome(runs_root: Path, run_id: str, item: dict, returncode: int) -> 
     if result.get("outcome") == "REFUSED":
         # Another process owns this run id (a second scheduler, or an operator's own `run`).
         # Nothing ran; the scheduler stops loudly instead of starting a second worker.
-        return {"run_id": run_id, "registered": False, "unreachable": False,
+        return {"run_id": run_id, "registered": False, "retryable": False,
                 "outcome": f"REFUSED:{result.get('reason')}",
                 "reasons": [str(result.get("reason"))], "returncode": returncode}
     verdict = result.get("final_verdict") or f"EXIT:{returncode}"
-    # Only the pre-registered reachability state is retried: nothing ran, no attempt was consumed.
-    unreachable = verdict == "BLOCKED" and any(
-        reason.startswith("PROVIDER_UNREACHABLE") for reason in reasons)
-    return {"run_id": run_id, "registered": False, "unreachable": unreachable,
+    # T35: only a BLOCKED state that fired before work is re-queued -- nothing ran, so no attempt
+    # was consumed and the same id may be started again. A registered run is never re-run, so an
+    # attempts-exhausted BLOCKED line stays terminal even though its shape is the same.
+    retryable = verdict == "BLOCKED" and any(
+        reason.startswith(RETRYABLE_BLOCKED_REASONS) for reason in reasons)
+    return {"run_id": run_id, "registered": False, "retryable": retryable,
             "outcome": f"NOT_REGISTERED:{verdict}", "reasons": reasons,
             "returncode": returncode}
 
@@ -1516,27 +1556,50 @@ def scheduler_line(runs_root: Path, line: dict) -> None:
     append_jsonl(Path(runs_root) / SCHEDULER_LOG_NAME, line)
 
 
+def scheduler_jitter() -> float:
+    """A symmetric fraction of the base wait, so four re-queues never wake at the same instant."""
+    return random.uniform(-SCHEDULER_BACKOFF_JITTER, SCHEDULER_BACKOFF_JITTER)
+
+
+def backoff_delay(requeue: int, jitter=None) -> float:
+    """The wait before re-queue `requeue` (1-based): 60, 120, 240, 480, then the 900 s cap (T35).
+
+    The cap bounds the wait including its jitter, so a spread can never push a re-queue past it;
+    jitter itself is only ever a spread around the exponential base.
+    """
+    base = min(SCHEDULER_BACKOFF_FIRST_SECONDS * (2 ** (requeue - 1)),
+               SCHEDULER_BACKOFF_CAP_SECONDS)
+    spread = 0.0 if jitter is None else float(jitter())
+    return round(min(max(base * (1.0 + spread), 0.0), float(SCHEDULER_BACKOFF_CAP_SECONDS)), 3)
+
+
 def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep,
-             pause: float = SCHEDULER_PAUSE_SECONDS,
+             backoff=None, jitter=None, clock=time.monotonic,
              poll: float = SCHEDULER_POLL_SECONDS) -> dict:
-    """Start the next eligible run until the plan is COMPLETE, keeping MAX_PARALLEL alive (T34).
+    """Start the next eligible run until the plan is COMPLETE, keeping MAX_PARALLEL alive.
 
     `run` stays the only program that executes a run: this scheduler only decides WHEN to start
     one, starts it as its own `run` child, waits, and records what happened. START order is the
-    plan's order (see `refusal`), so only finishing may overlap. A run that ends
-    BLOCKED:PROVIDER_UNREACHABLE is not registered; it is retried in plan position after `pause`,
-    at most SCHEDULER_UNREACHABLE_RETRIES times per invocation, after which the scheduler stops
-    and reports what is left (the operator re-invokes). A registered run is never started again.
+    plan's order (see `refusal`), so only finishing may overlap. A run that ended BLOCKED before
+    work and registered nothing is re-queued in plan position after an exponential backoff with
+    jitter (T35), at most SCHEDULER_REQUEUES times per invocation; every wait is a line in the
+    scheduler log, the other live runs keep their slots meanwhile, and after the budget the
+    scheduler stops and reports what is left (the operator re-invokes). A registered run is never
+    started again. `clock`/`sleep`/`backoff`/`jitter` exist so a test can drive the waits without
+    waiting; the CLI passes none of them.
     """
     runs_root = check_runs_root(Path(runs_root))
     runs_root.mkdir(parents=True, exist_ok=True)
     planned = plan_runs(root)
+    frozen_model(planned)                # T35: refuse a second model before spawning anything
     order = [run["run_id"] for run in planned]
     spawn = spawn if spawn is not None else (lambda run_id: spawn_run(runs_root, run_id))
+    wait_seconds = backoff if backoff is not None else (
+        lambda requeue: backoff_delay(requeue, jitter))
     running: dict[str, dict] = {}
     started: list[str] = []
     finished: list[dict] = []
-    unreachable: dict[str, int] = {}
+    requeues: dict[str, int] = {}
     retry_after: dict[str, float] = {}
     stopped_by: str | None = None
     while True:
@@ -1555,14 +1618,18 @@ def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep
                                        "returncode": returncode})
             if outcome["registered"]:
                 continue
-            if not outcome["unreachable"]:
+            if not outcome["retryable"]:
                 stopped_by = f"NOT_REGISTERED:{run_id}"
                 break
-            unreachable[run_id] = unreachable.get(run_id, 0) + 1
-            if unreachable[run_id] >= SCHEDULER_UNREACHABLE_RETRIES:
-                stopped_by = f"PROVIDER_UNREACHABLE:{run_id}"
+            count = requeues.get(run_id, 0) + 1
+            if count > SCHEDULER_REQUEUES:
+                stopped_by = f"BLOCKED_BEFORE_WORK:{run_id}"
                 break
-            retry_after[run_id] = time.monotonic() + pause
+            requeues[run_id] = count
+            seconds = wait_seconds(count)
+            retry_after[run_id] = clock() + seconds
+            scheduler_line(runs_root, {"event": "wait", "run_id": run_id, "at": now(),
+                                       "requeue": count, "seconds": seconds})
         if stopped_by is not None:
             break
         entries = read_registry(runs_root)
@@ -1574,7 +1641,7 @@ def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep
                 run_id = plan_run["run_id"]
                 if run_id in running or run_id in entries:
                     continue
-                if time.monotonic() < retry_after.get(run_id, 0.0):
+                if clock() < retry_after.get(run_id, 0.0):
                     continue
                 if refusal(runs_root, plan_run, planned, entries) is not None:
                     continue
@@ -1587,7 +1654,7 @@ def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep
                 break
         if not running and not spawned:
             waiting = any(run_id not in entries
-                          and time.monotonic() < retry_after.get(run_id, 0.0)
+                          and clock() < retry_after.get(run_id, 0.0)
                           for run_id in order)
             if waiting:
                 sleep(poll)
@@ -1598,8 +1665,9 @@ def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep
             sleep(poll)
     left = [run_id for run_id in order if run_id not in read_registry(runs_root)]
     return {"status": "COMPLETE" if not left else "STOPPED", "stopped_by": stopped_by,
-            "max_parallel": MAX_PARALLEL, "started": started, "finished": finished,
-            "left": left, "log": str(Path(runs_root) / SCHEDULER_LOG_NAME)}
+            "max_parallel": MAX_PARALLEL, "requeues": requeues, "started": started,
+            "finished": finished, "left": left,
+            "log": str(Path(runs_root) / SCHEDULER_LOG_NAME)}
 
 
 def main() -> int:

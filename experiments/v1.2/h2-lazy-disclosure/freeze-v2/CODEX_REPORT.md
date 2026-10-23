@@ -1831,3 +1831,103 @@ FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
 与 `protocol-v2.md` 的字节相对 `EXPECTED_V2_HASHES` / `freeze-manifest.json` 已移动。除这两项
 外 117/117 通过。本票未跑 `scripts/tests`、未跑完整 experiments 套件（speed rule），也未执行
 任何 H2-R2 run。
+
+## T35（implementer: opencode deepseek-v4.1-flash）
+
+分支 `experiment/v1.2-h2-freeze-v2-par`，基线 `96fe60e`（T34 已在本分支提交）。只改
+`freeze-v2/**` 与本测试模块；T32（F22–F25）在另一分支并行开发，本票只动 `run_h2r2.py` 的常量 /
+调度器 / 模型校验三处小 hunk，未触碰 `isolation_canary.py`、`sandbox_v2.py`、`aggregate_runs.py`。
+按 `CODEX_FIXES_9.md` T35 的 speed rule 只跑 ruff、两个 validator 与本测试模块，**不重钉 manifest、
+不改任何 pinned literal**（重钉与全量 gate 在 T33）。
+
+### 实现（对应 CODEX_FIXES_9 T35 1–3）
+
+1. **`MAX_PARALLEL = 4`**（T34 的 2 改为 4，仍与程序一起被 manifest 哈希，无 CLI 参数可覆盖）。
+   资格规则一字未改：按 plan 顺序开始、同任务第二臂等第一臂登记、活锁持有者计数、每个更早的 run
+   已登记或在进行；三条拒绝原因与 `PARALLEL_LIMIT:<n>` 的值域不变（`<n>` 仍为当前活锁数）。
+2. **退避重排**：`SCHEDULER_BACKOFF_FIRST_SECONDS = 60`、`SCHEDULER_BACKOFF_CAP_SECONDS = 900`、
+   `SCHEDULER_BACKOFF_JITTER = 0.10`、`SCHEDULER_REQUEUES = 6`。`backoff_delay(n, jitter)` 的
+   名义序列为 60/120/240/480/900/900（上限对含抖动的等待生效）；`scheduler_jitter()` 给对称的
+   ±10% 分数。`child_outcome()` 的键由 `unreachable` 改为 `retryable`：只有**未登记**且原因为
+   `PROVIDER_UNREACHABLE*` / `PROVIDER_FAILED_BEFORE_WORK*` 的 BLOCKED 可重排。每次重排写
+   `{"event":"wait","run_id","requeue":n,"seconds","at"}` 到 `<runs_root>/scheduler-v2.jsonl`，
+   并把 deadline 放进 `retry_after`；等待期间该 run 不占 slot（其他已启动的 run 继续持有），
+   预算用尽（第 7 次 block）即 `STOPPED`、`stopped_by = BLOCKED_BEFORE_WORK:<id>` 并返回 `left`。
+   T34 的 `pause` / `SCHEDULER_PAUSE_SECONDS` / `SCHEDULER_UNREACHABLE_RETRIES` 被退避预算取代；
+   `schedule()` 新增仅测试可注入的 `backoff` / `jitter` / `clock`（CLI 仍只有 `--runs-root`）。
+   **读法注记（冲突处置）**：T35 把"三次 before-work 失败"也列为"在工作之前结束"，但 §6.1 规定这三
+   个 attempt 用尽后该 run **登记**为 BLOCKED，而 T35 同一句又写 "nothing registered is ever
+   re-run"。两者冲突时**登记优先**：调度器只重排未登记的 before-work BLOCKED；已登记的
+   `PROVIDER_FAILED_BEFORE_WORK` 行是终局，调度器不重跑、不改写，留给操作员裁决（§6.1 原本的
+   "由操作员后续裁定"）。`test_a_registered_before_work_block_is_never_requeued` 正面固定该读法；
+   既有 `test_three_before_work_failures_block_the_run_and_stop_retrying` 与 §6.1 的登记语义未改。
+3. **冻结模型规则**：模块常量 `FROZEN_MODEL = "opencode-go/deepseek-v4.1-flash"` 与
+   `frozen_model(planned)`；plan 的模型集合不等于 `{FROZEN_MODEL}`（第二模型、缺模型、None）时抛
+   `ValueError("MODEL_NOT_FROZEN:<found>")`。`execute()` 在分配 run dir 之前、`schedule()` 在 spawn
+   任何子进程之前都调用它；worker 与 auditor 的 argv 都取 `plan_run["model"]`，因此只能携带这个
+   模型，实验内不存在 failover 分支。provider 中断只走 reachability / before-work / 退避。
+   protocol-v2 §6.1 新增 MODEL RULE 文本块（任何计数 run 之前固定、对结果盲；两臂模型不同的配对
+   不构成比较，model tier 不符即 INVALID），README §5 的并发段落改写为四路 + 退避 + 冻结模型；
+   protocol §5 的 `MAX_PARALLEL = 2`、理由段落与 §6 的 scheduler 段落同步改为 4 与退避语义，并注明
+   2→4 发生在任一计数 run 之前。§3 的 DISCLOSED CONFOUND 块未改（逐字节比对测试仍绿）。
+
+### 测试（全部 stub worker / 子进程桩 / StubSandbox / StubAuth，无模型、无真实凭据）
+
+`BoundedConcurrency` 由 10 项变为 15 项，**无删除**，既有断言未放宽：
+
+- `test_max_parallel_is_frozen_four_and_the_three_refusals_are_explicit`：4 与三条拒绝；四条活锁
+  时 `PARALLEL_LIMIT:4`，`execute` 对非 eligible id 返回 REFUSED 且不建 run dir。
+- `test_the_scheduler_keeps_four_alive_and_starts_in_plan_order`：20 个真子进程，plan 顺序、
+  任意时刻 ≤ 4 个存活（两种口径：已有 end 行的区间与尚未结束的集合）、重叠对必为不同任务、同任务
+  第二臂晚于第一臂结束、scheduler-v2.jsonl 每 run 一 start 一 end、再次调用 COMPLETE 且零启动。
+- `test_a_reachability_blocked_run_is_retried_in_plan_position_and_frees_its_slot`：一次 block 后
+  记一条 60 s 的 wait，再在原位置重试并继续。
+- `test_the_backoff_is_exponential_capped_and_jittered`：常量、60/120/240/480/900/900、抖动对称且
+  不越过上限。
+- `test_a_blocked_before_work_run_is_requeued_with_growing_waits_then_runs`：连续两次 block 后成功，
+  日志 waits = [60, 120]（requeue 1、2），随后 f01-v 才启动（plan 位置保留）。
+- `test_the_scheduler_stops_at_the_requeue_budget_and_lists_the_run`：7 次启动（6 次重排）后
+  `STOPPED` / `BLOCKED_BEFORE_WORK:h2r2-f01-c`，waits = 60/120/240/480/900/900，`left` 为整份 plan，
+  registry 为空。
+- `test_a_registered_before_work_block_is_never_requeued`：预置 registry 的 before-work BLOCKED 行，
+  调度器 COMPLETE 且从不 spawn 该 id。
+- `test_one_frozen_model_with_no_failover`：常量与 plan 一致；第二模型 / None 触发
+  `MODEL_NOT_FROZEN`；带第二模型的 plan 让 `execute` 与 `schedule` 都在任何进程 / registry 行之前失败。
+- `test_every_worker_and_auditor_launch_carries_the_frozen_model`：一次真实 `execute`（stub worker +
+  真 `run_audit_v2.audit`，只把 `driver.launch` 换成记录器）捕获 worker 与 auditor 两条 argv，
+  都以 `FROZEN_MODEL` 为 `-m` 的值且命令前缀相同。
+- 其余 6 项（killed scheduler、并发追加、status IN_PROGRESS、overlap/aggregate、preflight 端口、
+  `run-plan --help`）保留，只把已删除的 `pause=` 参数换成注入的 fake clock。
+
+`FakeClock`（测试辅助）让 60/120/… 的等待在假单调时钟上瞬间到期，记录下来的秒数仍是真实等待值。
+
+### T35 gates（前台运行，PYTHONPATH 未设，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!                      (exit 0)
+=== GOVERNANCE           35/35 checks passed                     (exit 0)
+=== PUBLIC               VIOLATIONS=0                            (exit 0)
+=== FREEZE_V2_TESTS      Ran 124 tests in 462.321s / FAILED (failures=2)   (exit 1)
+```
+
+两项失败**只因被改动冻结文件的 pinned hash 变动**（未重钉、未改 literal，T33 统一重钉）：
+
+```text
+FreezeManifest.test_two_independent_anchors_and_materials_binding
+FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
+```
+
+两者都在 `freeze_is_intact()` 的首个断言处失败；原因仅是 `run_h2r2.py` 与 `protocol-v2.md` 的字节
+相对 `EXPECTED_V2_HASHES` / `freeze-manifest.json` 已移动（README 与 CODEX_REPORT 不在 byte freeze
+内）。除这两项外 122/122 通过。本票未跑 `scripts/tests`、未跑完整 experiments 套件（speed rule），
+也未执行任何 H2-R2 run、未调用任何模型、未触碰 `~/.h2-worker-profile`。
+
+### 本轮未做、未证明与遗留缺口
+
+- manifest 未重钉（T33）；上面两项按 speed rule 记为预期失败，而不是 PASS。
+- 四路并发与退避只在 stub 子进程 / fake clock 上证明；真实 provider 中断下的 wall-clock 行为
+  未观测（本票不执行任何 run）。
+- T35 第 2 条与 §6.1 的"登记后不重跑"冲突按"登记优先"处置（上文），需 Claude 接受该读法。
+- `PROVIDER_FAILED_BEFORE_WORK` 前缀留在可重排集合中属防御性写法：当前 `execute()` 在该形状下
+  必然登记，故实际只可能是 `PROVIDER_UNREACHABLE` 触发重排。
+

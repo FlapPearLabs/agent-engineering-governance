@@ -157,24 +157,27 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 ## 5. 每个 run 的执行与验收
 
 按 run-plan-v2.json **有界并发**准备和执行：`run_h2r2.py` 的 `run-plan --runs-root R` 调度器
-让同一个 runs root 中同时最多 `MAX_PARALLEL = 2` 个 run 在运行（该常量与程序一起被
+让同一个 runs root 中同时最多 `MAX_PARALLEL = 4` 个 run 在运行（该常量与程序一起被
 freeze-manifest 哈希，改动它是设计变更，不是参数）。run 仍按 plan 顺序**开始**：一个 run 可以
 开始时，(a) 它未登记且未启动，(b) 同一任务的另一臂若在 plan 中更早出现则已登记（任务内
 counterbalancing 顺序原样保留，因此同一任务的两臂永不重叠），(c) 本 runs root 中在进行的 run
 （活锁持有者）少于 MAX_PARALLEL，(d) plan 中每个更早的 run 都已登记或正在进行；只有**完成**
 可以重叠。拒绝原因保持显式：`PREDECESSOR_NOT_STARTED:<id>`、
 `SAME_TASK_ARM_NOT_REGISTERED:<id>`、`PARALLEL_LIMIT:<n>`。调度器把每个 run 作为独立的 `run`
-子进程启动，一个崩溃不会带走另一个；开始/结束（时间、pid、run id、结果）追加到
-`<runs_root>/scheduler-v2.jsonl`。每个 run.json 记录 `concurrent_with`（执行区间重叠的 run id）
-与起止时间，`aggregate_runs.py` 报告 overlap pairs，`status` 把正在进行的 run 标为 IN_PROGRESS。
-共享机器资源遵循同一规则：preflight 的 service port 每个 run 各自选择（绑定后立即释放，
-紧接在 `service set port` 之前），端口撞车则以新端口重试、至多 3 次并全部记录。
+子进程启动，一个崩溃不会带走另一个；开始/结束（时间、pid、run id、结果）与每次等待（requeue
+序号、秒数）追加到 `<runs_root>/scheduler-v2.jsonl`。每个 run.json 记录 `concurrent_with`
+（执行区间重叠的 run id）与起止时间，`aggregate_runs.py` 报告 overlap pairs，`status` 把正在
+进行的 run 标为 IN_PROGRESS。共享机器资源遵循同一规则：preflight 的 service port 每个 run 各自
+选择（绑定后立即释放，紧接在 `service set port` 之前），端口撞车则以新端口重试、至多 3 次并全部
+记录。一个在工作之前结束且未登记的 run 由调度器按第 6 节退避重排；二十个 run 的每次 worker 与
+auditor 启动只用第 6.1 节冻结的单一模型。
 
-理由（在第一次计数 run 之前固定，2026-10-23）：单个 run 需要 10–90 分钟，严格串行会让二十个
-run 耗掉大半个工作日；而两个 run 之间没有相互影响的通道——各有独立 run dir、fresh home、
-渲染后的 sandbox 与 driver 持有的流，sandbox 拒绝另一个 run 的内容，跨 run 唯一共享的是
-provider 负载；并发对必然是**不同任务**，且两臂顺序在 plan 中交替，因此该负载对臂对称。
-registry 与 attempts 文件以 `fcntl.flock` 独占追加，两个几乎同时结束的 run 不会交错写行。
+理由（在第一次计数 run 之前固定，2026-10-23；T34 取 2，T35 在任一计数 run 之前改为 4）：单个
+run 需要 10–90 分钟，严格串行会让二十个 run 耗掉大半个工作日；而并发的 run 之间没有相互影响的
+通道——各有独立 run dir、fresh home、渲染后的 sandbox 与 driver 持有的流，sandbox 拒绝另一个
+run 的内容，跨 run 唯一共享的是 provider 负载；并发的 run 必然是**不同任务**，且两臂顺序在 plan
+中交替，因此该负载对臂对称。registry 与 attempts 文件以 `fcntl.flock` 独占追加，两个几乎同时
+结束的 run 不会交错写行。
 
 执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status` / `run-plan`）是唯一允许启动
 worker 的程序，launch prompt、worker 命令、env allow-list（含冻结的 `PYTHONDONTWRITEBYTECODE=1`）、
@@ -235,10 +238,14 @@ credential 无法导入 fresh home（CREDENTIAL_IMPORT_FAILED）都发生在 wor
 BLOCKED：不消耗 attempt、不登记，记录在 driver 目录，可在有 sandbox 的环境再次 `run`。
 被 sandbox 拒绝的动态访问（`sandbox_denied`）不是 INVALID 原因，按 4.0 节报告。
 
-调度器（第 5 节）只重试**未登记**的 `BLOCKED:PROVIDER_UNREACHABLE` run：暂停后在 plan 位置
-再试，每次调度器调用对该 run 至多 3 次；用尽即停止并打印剩余 run，由操作员重新调用。已登记
-的 run 永不被调度器重跑，调度器也不改写任何裁定。调度器本身被杀时不做清理：已启动的 run
-仍归本节规则处理——下一次 `run` 遇到其残留锁会登记为 INVALID:INTERRUPTED。
+调度器（第 5 节）只重排**未登记**且在工作之前结束的 run（reachability 失败，或任何未消耗
+attempt 的 provider 前状态）：在 plan 位置等待后重试，等待为指数退避加抖动——60 s、120 s、
+240 s、480 s，上限 900 s；每次调度器调用对该 run 至多 6 次重排。等待不占 slot，其他已启动的
+run 继续持有自己的 slot；每次等待（requeue 序号与秒数）写入 scheduler-v2.jsonl；预算用尽即停止
+并打印剩余 run，由操作员重新调用。已登记的 run 永不被调度器重跑，调度器也不改写任何裁定——
+包括 §6.1 中三次 before-work 失败后被登记为 BLOCKED 的 run：它是终局登记，只交给操作员裁决，
+不因"在工作之前"这一形状被重排。调度器本身被杀时不做清理：已启动的 run 仍归本节规则处理——
+下一次 `run` 遇到其残留锁会登记为 INVALID:INTERRUPTED。
 
 ### 6.1 预注册的基础设施失败规则（F14）
 
@@ -274,6 +281,20 @@ VERDICT       每个 run 的最终裁定只取自真正到达工作的那一个 
 原因与边界：这条规则只覆盖"worker 尚未动作"的空转，因此不改变任何 worker 行为或结果的判定
 方式；它不能把 INVALID 变成 PASS，也不能重跑已经到达工作的 run。三次观测到的失败都在
 provider 层，不是任务或交付差异。
+
+```text
+MODEL RULE    二十个 run 的每次 worker 与 auditor 启动只用 run-plan-v2.json 的单一冻结模型
+              `opencode-go/deepseek-v4.1-flash`。驱动的 FROZEN_MODEL 与 plan 行不一致、或 plan
+              出现第二个模型时，`run` 与 `run-plan` 都在启动任何进程之前拒绝
+              MODEL_NOT_FROZEN。实验内部没有模型 failover：模型是处理环境的一部分，两臂模型
+              不同的配对不构成比较（第 6 节原因清单中的 model tier 不符即 INVALID）。
+              provider 中断只按上面的等待规则处理：reachability 失败不启动任何进程，before-work
+              失败重开一个 attempt，调度器按第 6 节退避重排——都不换模型重摇。failover 只存在于
+              实现流水线，那条流水线从不接触 H2-R2 run。
+```
+
+该模型规则同样在任何计数 run 之前固定，且对结果盲：它只决定"用哪个模型"，不改变任何结果判定，
+也不允许在结果不理想时更换模型。
 
 ## 7. 预注册结果规则及相对 rubric §9 的偏离
 

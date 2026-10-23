@@ -1977,6 +1977,25 @@ def scheduler_spawner(tmp, runs, modes=None, delay=0.15):
     return spawn
 
 
+class FakeClock:
+    """A monotonic clock a test advances itself, so a real backoff costs no real time.
+
+    `clock` is what the scheduler reads, `sleep` is what it calls while it waits; every sleep
+    advances the clock by at least one step, so a 60 s deadline passes in 60 fast iterations and
+    the recorded wait is still the real one (60, 120, ...).
+    """
+
+    def __init__(self, step=1.0):
+        self.seconds = 0.0
+        self.step = step
+
+    def clock(self):
+        return self.seconds
+
+    def sleep(self, seconds):
+        self.seconds += max(float(seconds), self.step)
+
+
 def profile_env_file(directory):
     """A profile env file for tests: an export block, never the operator's real one."""
     path = Path(directory) / "profile-env.sh"
@@ -2689,14 +2708,19 @@ class BoundedConcurrency(unittest.TestCase):
                         encoding="utf-8")
         return path
 
-    def test_max_parallel_is_frozen_and_the_three_refusals_are_explicit(self):
+    def test_max_parallel_is_frozen_four_and_the_three_refusals_are_explicit(self):
         driver = load("run_h2r2")
-        self.assertEqual(2, driver.MAX_PARALLEL)
+        self.assertEqual(4, driver.MAX_PARALLEL)
         planned = driver.plan_runs()
 
         def reason(runs, run_id, entries=None):
             plan_run = next(run for run in planned if run["run_id"] == run_id)
             return driver.refusal(runs, plan_run, planned, entries or {})
+
+        def registered(*run_ids):
+            return "".join(json.dumps({"run_id": run_id, "task_id": run_id.split("-")[1],
+                                       "arm": "control", "final_verdict": "ACCEPT"}) + "\n"
+                           for run_id in run_ids)
 
         with tempfile.TemporaryDirectory() as tmp:
             runs = Path(tmp) / "runs"
@@ -2708,28 +2732,25 @@ class BoundedConcurrency(unittest.TestCase):
                              reason(runs, "h2r2-f01-v"))
             # (d) a later task may not start before the previous run started at all.
             self.assertEqual("PREDECESSOR_NOT_STARTED:h2r2-f01-c", reason(runs, "h2r2-f02-v"))
-            self.live_lock(runs, "h2r2-f01-c")
-            self.assertEqual("PREDECESSOR_NOT_STARTED:h2r2-f01-v", reason(runs, "h2r2-f02-v"))
-            # A registered arm no longer blocks: with f01's second arm running, f02's first run is
-            # eligible -- only finishing overlaps, and starts stay in plan order.
-            registry.write_text(json.dumps({"run_id": "h2r2-f01-c", "task_id": "f01",
-                                            "arm": "control", "final_verdict": "ACCEPT"}) + "\n",
-                                encoding="utf-8")
-            (runs / ".locks" / "h2r2-f01-c.json").unlink()
+            # The first two tasks are done; the frontier is f03-c.
+            registry.write_text(registered("h2r2-f01-c", "h2r2-f01-v",
+                                           "h2r2-f02-v", "h2r2-f02-c"), encoding="utf-8")
             entries = driver.read_registry(runs)
-            self.live_lock(runs, "h2r2-f01-v")
-            self.assertIsNone(reason(runs, "h2r2-f02-v", entries))
-            self.assertEqual("SAME_TASK_ARM_NOT_REGISTERED:h2r2-f02-v",
-                             reason(runs, "h2r2-f02-c", entries))
-            self.live_lock(runs, "h2r2-f02-v")
-            # (c) the limit counts live lock holders, never registered runs.
-            self.assertEqual("PARALLEL_LIMIT:2", reason(runs, "h2r2-f03-c", entries))
-            refused = driver.execute("h2r2-f03-c", runs, profile_env=profile_env_file(tmp))
-            self.assertEqual({"outcome": "REFUSED", "run_id": "h2r2-f03-c",
-                              "reason": "PARALLEL_LIMIT:2"}, refused)
-            self.assertFalse((runs / "h2r2-f03-c").exists())
+            self.assertIsNone(reason(runs, "h2r2-f03-c", entries))
+            self.assertEqual("SAME_TASK_ARM_NOT_REGISTERED:h2r2-f03-c",
+                             reason(runs, "h2r2-f03-v", entries))
+            self.assertEqual("PREDECESSOR_NOT_STARTED:h2r2-f03-c",
+                             reason(runs, "h2r2-f04-v", entries))
+            # (c) four live lock holders fill every slot of this runs root.
+            for run_id in ("h2r2-f03-c", "h2r2-f03-v", "h2r2-f04-v", "h2r2-f04-c"):
+                self.live_lock(runs, run_id)
+            self.assertEqual("PARALLEL_LIMIT:4", reason(runs, "h2r2-f05-c", entries))
+            refused = driver.execute("h2r2-f05-c", runs, profile_env=profile_env_file(tmp))
+            self.assertEqual({"outcome": "REFUSED", "run_id": "h2r2-f05-c",
+                              "reason": "PARALLEL_LIMIT:4"}, refused)
+            self.assertFalse((runs / "h2r2-f05-c").exists())
 
-    def test_the_scheduler_keeps_two_alive_and_starts_in_plan_order(self):
+    def test_the_scheduler_keeps_four_alive_and_starts_in_plan_order(self):
         driver = load("run_h2r2")
         order = self.plan_order()
         plan = {run["run_id"]: run for run in driver.plan_runs()}
@@ -2737,10 +2758,11 @@ class BoundedConcurrency(unittest.TestCase):
             runs = Path(tmp) / "runs"
             runs.mkdir()
             result = driver.schedule(runs, spawn=scheduler_spawner(tmp, runs, delay=0.15),
-                                     sleep=time.sleep, pause=0.0, poll=0.01)
+                                     sleep=time.sleep, poll=0.01)
             self.assertEqual("COMPLETE", result["status"], result["stopped_by"])
             self.assertEqual(order, result["started"])
             self.assertEqual([], result["left"])
+            self.assertEqual(4, result["max_parallel"])
             events = [json.loads(line) for line in
                       (runs / "child-events.jsonl").read_text().splitlines()]
             spans = {}
@@ -2749,9 +2771,15 @@ class BoundedConcurrency(unittest.TestCase):
             starts = [item for item in events if item["event"] == "start"]
             self.assertEqual(order, [item["run_id"] for item in starts])
             for item in starts:
+                # T35: every run that had started and not yet ended at this instant, including the
+                # ones whose own start line is written a moment later.
                 alive = [run_id for run_id, span in spans.items()
-                         if span["start"] <= item["time"] < span["end"]]
+                         if span["start"] <= item["time"]
+                         and ("end" not in span or item["time"] < span["end"])]
                 self.assertLessEqual(len(alive), driver.MAX_PARALLEL, alive)
+                asleep = [run_id for run_id, span in spans.items()
+                          if span["start"] <= item["time"] and "end" not in span]
+                self.assertLessEqual(len(asleep), driver.MAX_PARALLEL, asleep)
             overlapping = []
             for index, first in enumerate(order):
                 for second in order[index + 1:]:
@@ -2776,12 +2804,13 @@ class BoundedConcurrency(unittest.TestCase):
                                           if line["event"] == "end"})
             # a second invocation never re-runs a registered run
             again = driver.schedule(runs, spawn=scheduler_spawner(tmp, runs, delay=0.01),
-                                    sleep=time.sleep, pause=0.0, poll=0.01)
+                                    sleep=time.sleep, poll=0.01)
             self.assertEqual(("COMPLETE", [], []),
                              (again["status"], again["started"], again["left"]))
 
     def test_a_reachability_blocked_run_is_retried_in_plan_position_and_frees_its_slot(self):
         driver = load("run_h2r2")
+        clock = FakeClock()
         with tempfile.TemporaryDirectory() as tmp:
             runs = Path(tmp) / "runs"
             runs.mkdir()
@@ -2789,7 +2818,7 @@ class BoundedConcurrency(unittest.TestCase):
                 runs, spawn=scheduler_spawner(tmp, runs,
                                               modes={"h2r2-f01-c": ["blocked", "ok"]},
                                               delay=0.05),
-                sleep=time.sleep, pause=0.0, poll=0.01)
+                sleep=clock.sleep, clock=clock.clock, jitter=lambda: 0.0, poll=0.01)
             try:
                 self.assertEqual("COMPLETE", result["status"], result["stopped_by"])
                 self.assertEqual(["h2r2-f01-c", "h2r2-f01-c", "h2r2-f01-v"],
@@ -2797,35 +2826,192 @@ class BoundedConcurrency(unittest.TestCase):
                 log = [json.loads(line) for line in
                        (runs / "scheduler-v2.jsonl").read_text().splitlines()]
                 first = [line for line in log if line["run_id"] == "h2r2-f01-c"]
-                self.assertEqual(["start", "end", "start", "end"],
+                self.assertEqual(["start", "end", "wait", "start", "end"],
                                  [line["event"] for line in first])
                 self.assertEqual("NOT_REGISTERED:BLOCKED", first[1]["outcome"])
                 self.assertEqual(["PROVIDER_UNREACHABLE:EXIT:1"], first[1]["reasons"])
-                self.assertEqual("ACCEPT", first[3]["outcome"])
+                self.assertEqual(60.0, first[2]["seconds"])
+                self.assertEqual("ACCEPT", first[4]["outcome"])
             finally:
                 cleanup_run(runs / "h2r2-f01-c")
 
-    def test_the_scheduler_stops_after_three_unreachable_attempts(self):
+    def test_the_backoff_is_exponential_capped_and_jittered(self):
+        driver = load("run_h2r2")
+        self.assertEqual((60, 900, 6),
+                         (driver.SCHEDULER_BACKOFF_FIRST_SECONDS,
+                          driver.SCHEDULER_BACKOFF_CAP_SECONDS, driver.SCHEDULER_REQUEUES))
+        self.assertEqual([60, 120, 240, 480, 900, 900],
+                         [driver.backoff_delay(number, jitter=lambda: 0.0)
+                          for number in range(1, 7)])
+        # jitter spreads a wait around its base and never pushes it past the cap
+        self.assertGreater(driver.backoff_delay(1, jitter=lambda: 1.0), 60)
+        self.assertLess(driver.backoff_delay(1, jitter=lambda: -1.0), 60)
+        self.assertEqual(driver.SCHEDULER_BACKOFF_CAP_SECONDS,
+                         driver.backoff_delay(6, jitter=lambda: 1.0))
+        for _ in range(20):
+            spread = driver.scheduler_jitter()
+            self.assertLessEqual(abs(spread), driver.SCHEDULER_BACKOFF_JITTER)
+
+    def test_a_blocked_before_work_run_is_requeued_with_growing_waits_then_runs(self):
+        """T35: two provider blocks, then success -- re-queued in place after 60 s and 120 s."""
+        driver = load("run_h2r2")
+        clock = FakeClock()
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            runs.mkdir()
+            result = driver.schedule(
+                runs, spawn=scheduler_spawner(tmp, runs,
+                                              modes={"h2r2-f01-c": ["blocked", "blocked", "ok"]},
+                                              delay=0.02),
+                sleep=clock.sleep, clock=clock.clock, jitter=lambda: 0.0, poll=0.01)
+            try:
+                self.assertEqual("COMPLETE", result["status"], result["stopped_by"])
+                self.assertEqual(2, result["requeues"]["h2r2-f01-c"])
+                self.assertEqual(["h2r2-f01-c"] * 3, result["started"][:3])
+                self.assertEqual("h2r2-f01-v", result["started"][3])
+                log = [json.loads(line) for line in
+                       (runs / "scheduler-v2.jsonl").read_text().splitlines()]
+                waits = [line for line in log if line["event"] == "wait"]
+                self.assertEqual([60.0, 120.0], [line["seconds"] for line in waits])
+                self.assertEqual([1, 2], [line["requeue"] for line in waits])
+                self.assertEqual({"h2r2-f01-c"}, {line["run_id"] for line in waits})
+                self.assertTrue(all(line["at"] for line in waits))
+                first = [line for line in log if line["run_id"] == "h2r2-f01-c"]
+                self.assertEqual(["start", "end", "wait", "start", "end", "wait",
+                                  "start", "end"], [line["event"] for line in first])
+                self.assertEqual("ACCEPT", first[-1]["outcome"])
+            finally:
+                cleanup_run(runs / "h2r2-f01-c")
+
+    def test_the_scheduler_stops_at_the_requeue_budget_and_lists_the_run(self):
         driver = load("run_h2r2")
         order = self.plan_order()
+        clock = FakeClock()
         with tempfile.TemporaryDirectory() as tmp:
             runs = Path(tmp) / "runs"
             runs.mkdir()
             result = driver.schedule(
                 runs, spawn=scheduler_spawner(tmp, runs, modes={"h2r2-f01-c": "blocked"},
                                               delay=0.02),
-                sleep=time.sleep, pause=0.0, poll=0.01)
+                sleep=clock.sleep, clock=clock.clock, jitter=lambda: 0.0, poll=0.01)
             self.assertEqual("STOPPED", result["status"])
-            self.assertEqual("PROVIDER_UNREACHABLE:h2r2-f01-c", result["stopped_by"])
-            self.assertEqual(["h2r2-f01-c"] * driver.SCHEDULER_UNREACHABLE_RETRIES,
+            self.assertEqual("BLOCKED_BEFORE_WORK:h2r2-f01-c", result["stopped_by"])
+            self.assertEqual(driver.SCHEDULER_REQUEUES + 1, len(result["started"]))
+            self.assertEqual(["h2r2-f01-c"] * (driver.SCHEDULER_REQUEUES + 1),
                              result["started"])
+            self.assertEqual(driver.SCHEDULER_REQUEUES, result["requeues"]["h2r2-f01-c"])
             self.assertEqual(order, result["left"])
             self.assertFalse((runs / "registry-v2.jsonl").exists())
             log = [json.loads(line) for line in
                    (runs / "scheduler-v2.jsonl").read_text().splitlines()]
-            self.assertEqual(2 * driver.SCHEDULER_UNREACHABLE_RETRIES, len(log))
+            waits = [line for line in log if line["event"] == "wait"]
+            self.assertEqual([60.0, 120.0, 240.0, 480.0, 900.0, 900.0],
+                             [line["seconds"] for line in waits])
+            self.assertEqual(2 * (driver.SCHEDULER_REQUEUES + 1) + driver.SCHEDULER_REQUEUES,
+                             len(log))
             self.assertEqual({"NOT_REGISTERED:BLOCKED"},
                              {line["outcome"] for line in log if line["event"] == "end"})
+
+    def test_a_registered_before_work_block_is_never_requeued(self):
+        """§6.1's three-attempt BLOCKED is a registry line, and T35 never re-runs one."""
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            runs.mkdir()
+            (runs / "registry-v2.jsonl").write_text(json.dumps(
+                {"run_id": "h2r2-f01-c", "task_id": "f01", "arm": "control",
+                 "verdict": "BLOCKED", "final_verdict": "BLOCKED",
+                 "reason": "PROVIDER_FAILED_BEFORE_WORK:EXIT:1",
+                 "started_at": "2026-10-23T00:00:00+00:00",
+                 "finished_at": "2026-10-23T00:01:00+00:00"}) + "\n", encoding="utf-8")
+            result = driver.schedule(runs, spawn=scheduler_spawner(tmp, runs, delay=0.02),
+                                     sleep=time.sleep, poll=0.01)
+            self.assertEqual("COMPLETE", result["status"], result["stopped_by"])
+            self.assertNotIn("h2r2-f01-c", result["started"])
+            self.assertEqual({}, result["requeues"])
+            self.assertEqual([], result["left"])
+
+    def test_one_frozen_model_with_no_failover(self):
+        """T35: a second model is refused before anything is spawned -- never substituted."""
+        driver = load("run_h2r2")
+        planned = driver.plan_runs()
+        self.assertEqual("opencode-go/deepseek-v4.1-flash", driver.FROZEN_MODEL)
+        self.assertEqual({driver.FROZEN_MODEL}, {run["model"] for run in planned})
+        self.assertEqual(driver.FROZEN_MODEL, driver.frozen_model(planned))
+        with self.assertRaises(ValueError) as caught:
+            driver.frozen_model([dict(planned[0], model="other/model")])
+        self.assertIn("MODEL_NOT_FROZEN:other/model", str(caught.exception))
+        with self.assertRaises(ValueError):
+            driver.frozen_model([dict(planned[0]),
+                                 dict(planned[1], model="other/model")])
+        with self.assertRaises(ValueError):
+            driver.frozen_model([dict(planned[0], model=None)])
+        with tempfile.TemporaryDirectory() as tmp:
+            # A plan with a second model stops both entry points before any process exists.
+            root = Path(tmp) / "root"
+            plan_path = root / H2_REL / "freeze-v2" / "run-plan-v2.json"
+            plan_path.parent.mkdir(parents=True)
+            plan_path.write_text(json.dumps(
+                {"runs": [dict(planned[0], model="other/model"), *planned[1:]]}),
+                encoding="utf-8")
+            runs = Path(tmp) / "runs"
+            with self.assertRaises(ValueError):
+                driver.execute("h2r2-f01-c", runs, root=root,
+                               profile_env=profile_env_file(tmp))
+            self.assertFalse((runs / "h2r2-f01-c").exists())
+            with self.assertRaises(ValueError):
+                driver.schedule(runs, root=root, spawn=lambda run_id: self.fail(
+                    f"spawned {run_id} with an unfrozen model"))
+            self.assertFalse((runs / "registry-v2.jsonl").exists())
+
+    def test_every_worker_and_auditor_launch_carries_the_frozen_model(self):
+        """Both argv of a run take the model from the plan row, which equals FROZEN_MODEL."""
+        driver = load("run_h2r2")
+        audit_module = load("run_audit_v2")
+        real_launch = driver.launch
+        launches = []
+
+        def recording_launch(argv, cwd, env, limit, stdout_path, stderr_path):
+            launches.append(list(argv))
+            if argv[-1] == driver.LAUNCH_PROMPT:
+                return real_launch(argv, cwd, env, limit, stdout_path, stderr_path)
+            # The auditor never needs a real process here: a tool call is enough for the driver's
+            # before-work rule, and the argv is what this test reads.
+            Path(stdout_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(stdout_path).write_text(json.dumps(
+                {"type": "tool_use", "sessionID": "ses_stub_audit",
+                 "part": {"tool": "read", "state": {"status": "completed",
+                                                    "input": {"path": "report.md"}}}}) + "\n",
+                encoding="utf-8")
+            Path(stderr_path).write_text("", encoding="utf-8")
+            return {"returncode": 0, "timed_out": False, "command": list(argv)}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            task, _ = task_pair("f01")
+            patch = candidate_patch(tmp, task)
+            runs = Path(tmp) / "runs"
+            driver.launch = recording_launch
+            try:
+                result = driver.execute(
+                    "h2r2-f01-c", runs,
+                    worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                    preflight=passing_preflight, auditor=None,
+                    profile_env=profile_env_file(tmp), probe=passing_probe,
+                    sandbox=StubSandbox(), auth=StubAuth())
+            finally:
+                driver.launch = real_launch
+                cleanup_run(runs / "h2r2-f01-c")
+            self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+            worker = [argv for argv in launches if argv[-1] == driver.LAUNCH_PROMPT]
+            auditor = [argv for argv in launches if argv[-1] == audit_module.AUDIT_PROMPT]
+            self.assertEqual(1, len(worker))
+            self.assertEqual(1, len(auditor))
+            self.assertEqual(driver.FROZEN_MODEL, worker[0][-2])
+            self.assertEqual(driver.FROZEN_MODEL, auditor[0][-2])
+            # Both launches are the same command plus the model plus their own prompt.
+            self.assertEqual(worker[0][:-2], auditor[0][:-2])
+            self.assertEqual(driver.LAUNCH_PROMPT, worker[0][-1])
+            self.assertEqual(audit_module.AUDIT_PROMPT, auditor[0][-1])
 
     def test_a_killed_scheduler_leaves_a_started_run_to_the_interrupted_rule(self):
         """The scheduler never cleans up after itself: an interrupted run is the driver's rule."""
@@ -2846,7 +3032,7 @@ class BoundedConcurrency(unittest.TestCase):
 
             with self.assertRaises(Killed):
                 driver.schedule(runs, spawn=spawn_then_die, sleep=lambda seconds: None,
-                                pause=0.0, poll=0.01)
+                                poll=0.01)
             lock = runs / ".locks" / "h2r2-f01-c.json"
             for _ in range(250):
                 if lock.is_file():
