@@ -308,6 +308,30 @@ def sandbox_denied(event, run_dir: Path) -> list[dict]:
     return entries
 
 
+def egress_denied(log_path) -> list[dict]:
+    """F26 / T36b: the DENY lines of one launch's egress log.
+
+    The allowlist proxy (`egress_v2.py`) writes one line per request. A DENY line means the
+    sandboxed process asked for a host the proxy refused, so nothing crossed: like `sandbox_denied`
+    this is EVIDENCE reported per run, never a hit and never a verdict by itself. The field is
+    attached by the driver, which owns the log path; this function only reads the log.
+    """
+    path = Path(log_path)
+    if not path.is_file():
+        return []
+    entries: list[dict] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get("verdict") == "DENY":
+            entries.append(entry)
+    return entries
+
+
 def patch_paths(text) -> list[str]:
     if not isinstance(text, str):
         return []

@@ -16,10 +16,17 @@
 ;;     the directory NAMES of ancestors remain listable and are disclosed in README §3);
 ;;   * nothing else. Any path under /Users, /private/tmp or /private/var/folders without an
 ;;     explicit rule above fails with EPERM.
+;;
+;; F26 / T36b: the sandbox confines the NETWORK too. Nothing may reach the network except the
+;; driver's CONNECT-only allowlist proxy and the launch's own loopback server; both ports are
+;; rendered per launch into the allow block below (a unix socket stays allowed for local IPC).
 (allow default)
 (deny file-read-data file-write*
       (subpath "/Users")
       (subpath "/private/tmp")
       (subpath "/var/folders")
       (subpath "/private/var/folders"))
+(deny network-outbound)
+(allow network-outbound (remote unix-socket))
+(deny network-bind)
 {{ALLOW}}

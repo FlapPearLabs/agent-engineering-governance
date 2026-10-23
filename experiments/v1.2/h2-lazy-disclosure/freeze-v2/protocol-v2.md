@@ -45,7 +45,9 @@ corpus_case_id 与注册表 case_id 相交；重复身份拒绝。没有另一�
 
 ## 4. Runtime、交付与已披露混杂
 
-采用 README §3 决定的 opencode 2.0.25 `run --standalone`，模型固定为
+采用 README §3 决定的 opencode 2.0.25：每次 confined launch 先在 sandbox 内起
+`opencode serve --hostname 127.0.0.1 --port <P>`，再以
+`opencode run --server http://127.0.0.1:<P> ...` 连接它（F26，见 §4.0），模型固定为
 `opencode-go/deepseek-v4.1-flash`，隔离 profile 为 `~/.h2-worker-profile`。
 HOME/XDG 隔离、无用户插件/MCP/Skills/全局指令、关闭自动更新的实际状态必须由操作员的
 已登录 profile canary 再核验；合成 parser 测试不能替代该 live 证据。
@@ -120,6 +122,27 @@ F25  TMPPREFIX   worker、auditor 与每次 reachability 的冻结 env 在 TMPDI
        TMPPREFIX 下（默认 /tmp/zsh）而不是 TMPDIR，而 sandbox 拒绝 /private/tmp；live pilot 里
        `cat <<EOF ... EOF` 直接失败，worker 只能改用 write tool，同一常见 shell 用法在两臂都
        不可用。TMPPREFIX 是文件前缀，不需要创建目录。
+F26  EGRESS     sandbox 只封闭文件系统，不封闭网络：pilot #5 在 sandbox 内 `curl https://github.com`
+       返回 200，而公共治理仓的历史含全部候选修复，动态拼 URL 的 worker 可以取到答案而静态审计
+       看不见。因此每次 confined launch（worker、per-auditor、每次 reachability）都由 driver 在
+       sandbox 之外启动一个仅 CONNECT 的 HTTPS 代理（绑定 127.0.0.1 的空闲端口），allowlist 冻结
+       为 `EGRESS_ALLOW = ("opencode.ai", "models.opencode.ai")` 且仅 443；非 CONNECT 请求返回
+       403；每个请求以 (time, host, port, ALLOW/DENY) 追加到该 launch 的 driver stream 目录下
+       `egress.jsonl`，launch 结束后停止。launch 布局：sandbox 内先
+       `opencode serve --hostname 127.0.0.1 --port <P>`（P 每次 launch 空闲选取，撞车以新端口
+       有界重试，同 F22），run 命令为
+       `opencode run --server http://127.0.0.1:<P> --auto --format json -m <model> <prompt>`；
+       每次 launch 一个随机 `OPENCODE_SERVER_PASSWORD`（server 与 client 同值，只经环境传递，
+       绝不进 argv、记录、日志或事件流），HTTPS_PROXY/HTTP_PROXY（大小写两种）= 代理，
+       NO_PROXY/no_proxy = 127.0.0.1,localhost；serve 进程随该 launch 的进程组一起终止。
+       sandbox 模板新增网络规则（仅 proxy 端口与 P）。confinement 自检新增：直连外部主机
+       （github.com:443）必须失败，经代理 CONNECT 非 allowlist 主机必须被拒（403 并记录）；
+       否则 BLOCKED:SANDBOX_NOT_CONFINING。访问审计新增证据字段 `egress_denied`
+       （egress.jsonl 的 DENY 行），与 `sandbox_denied` 一样按 run 报告、不改变裁定（没有数据
+       穿过）。
+F28  MKTEMP     macOS `mktemp -d` 不带模板时忽略 TMPDIR，改用 /var/folders 下的 per-user
+       confstr 临时目录（sandbox 拒绝）。两臂同样受影响，worker 已自行适配。披露，不开放
+       /var/folders。
 SELF TEST 每次 launch 之前，driver 在同一 rendered sandbox 内用 `cat` 与 `<PY> -c open(...)` 读
        自己在 `.driver/<run_id>/` 下投放的文件，两者必须失败且不泄漏其 token，且在 launch 目录内
        写入必须成功；否则 BLOCKED:SANDBOX_NOT_CONFINING（不消耗 attempt、可再次 `run`、已记录）。
@@ -186,17 +209,18 @@ run 的内容，跨 run 唯一共享的是 provider 负载；并发的 run 必�
 结束的 run 不会交错写行。
 
 执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status` / `run-plan`）是唯一允许启动
-worker 的程序，launch prompt、worker 命令、env allow-list（含冻结的 `PYTHONDONTWRITEBYTECODE=1`）、
-auditor 环境与 90 分钟上限是它的模块常量；
+worker 的程序，launch prompt、worker 命令、server 命令、env allow-list（含冻结的
+`PYTHONDONTWRITEBYTECODE=1`）、auditor 环境与 90 分钟上限是它的模块常量；
 run_id 一旦启动过就不再启动第二次，被打断的记录为 INVALID 后计划才继续。worker 验收之后的
 独立评审由 `freeze-v2/run_audit_v2.py` 在盲包上执行，机械与评审两个结论都进登记，取保守者。
 每次新起 opencode 进程与 episode，不复用 session。f01 为 C,V，f02 为 V,C，依次交替。
 
 第 4.0 节的隔离属于同一条执行路径：driver 为每次 launch 渲染并归档 profile、准备 fresh home、
-做无模型的 confinement 自检，然后经 `sandbox-exec` 启动；worker 与 auditor 的 stdout/stderr
-只以 driver 副本为准（F17），run dir 中的副本仅供人读。sandbox/credential 在 worker 未动作前
-不可用时不消耗 attempt、不登记，同一 run id 可再次 `run`；EVIDENCE_MISSING 是终局 INVALID，
-绝不因此重试。
+在 sandbox 之外启动 allowlist 代理并在 sandbox 内启动 loopback server、做无模型的 confinement
+自检，然后经 `sandbox-exec` 启动；worker 与 auditor 的 stdout/stderr
+只以 driver 副本为准（F17），run dir 中的副本仅供人读。sandbox/credential/server/代理在 worker
+未动作前不可用时不消耗 attempt、不登记，同一 run id 可再次 `run`；EVIDENCE_MISSING 是终局
+INVALID，绝不因此重试。
 
 fresh home 的 preflight 在同一条路径里完成（F22）：driver 为该 home 选一个空闲 127.0.0.1 端口，
 先 `opencode service set port`，再执行两次 debug，然后 `opencode service stop`，最后用

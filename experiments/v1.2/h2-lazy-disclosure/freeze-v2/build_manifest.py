@@ -11,7 +11,7 @@ from wrapper_delivery import H2_REL, ROOT, delivery, git, sha256
 FROZEN_FILES = tuple(sorted(
     [f"{H2_REL}/freeze-v2/{name}" for name in (
         "wrapper_delivery.py", "delivery_anchors.py", "isolation_canary.py",
-        "access_audit.py",
+        "access_audit.py", "egress_v2.py",
         "build_registry.py", "task-registry-v2.json", "build_run_plan.py", "run-plan-v2.json",
         "worker-brief-v2.md", "render_brief.py", "protocol-v2.md", "aggregate_set.py",
         "run_h2r2.py", "run_audit_v2.py", "sandbox_v2.py", "aggregate_runs.py",

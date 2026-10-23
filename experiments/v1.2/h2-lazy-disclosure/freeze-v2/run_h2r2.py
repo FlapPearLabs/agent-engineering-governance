@@ -51,7 +51,23 @@ every launch are written under `<runs_root>/.driver/<run_id>/` — outside the s
 set — and every verdict input (before-work rule, tool-call count, access audit, telemetry) reads
 only that copy; the run dir gets a copy for humans afterwards.
 
-`execute()` takes the stub/preflight/auditor/probe/limit/sandbox/auth parameters so tests can drive
+NETWORK EGRESS IS CLOSED TO THE PROVIDER (F26 / T36b). The file rules do not touch the network, and
+pilot #5 fetched github.com from inside the sandbox while the public governance history holds every
+candidate fix. Every confined launch therefore has a driver-owned, CONNECT-only HTTPS proxy
+(`egress_v2.py`) outside the sandbox: only `EGRESS_ALLOW` on 443 is tunnelled, everything else gets
+403, and every request is appended to the launch's driver-held `egress.jsonl`. The launch itself is
+a loopback server plus a client: `opencode serve --hostname 127.0.0.1 --port <P>` inside the
+sandbox (P chosen free per launch, a collision retried with a new port), then
+`opencode run --server http://127.0.0.1:<P> --auto --format json -m <model> <prompt>`; both see the
+proxy and one random per-launch `OPENCODE_SERVER_PASSWORD` (environment only, never a record), and
+the serve process is killed with its own process group after the client. The rendered profile
+re-allows exactly the proxy port and P, and the self-test also proves a direct outside connect
+fails and the proxy refuses a non-allowlisted CONNECT. The access audit gains `egress_denied` (the
+DENY lines of that log) as evidence that never changes a verdict: a denied CONNECT obtained
+nothing.
+
+`execute()` takes the stub/preflight/auditor/probe/limit/sandbox/auth parameters (and a stub
+`server_command` for the loopback serve) so tests can drive
 a stub worker, a stub reachability check and a fake credential hand-off (never a model, never a real
 credential). The `run` CLI exposes none of them.
 
@@ -99,6 +115,7 @@ import inspect
 import json
 import os
 import random
+import secrets
 import shutil
 import signal
 import socket
@@ -112,6 +129,7 @@ from pathlib import Path
 import access_audit
 import aggregate_runs
 import collect_v2
+import egress_v2
 import isolation_canary
 import run_acceptance_v2
 import run_audit_v2
@@ -146,9 +164,23 @@ ACCESS_NAME = "access-audit.json"
 PROBE_NAME = "probe.json"
 
 # The launchable facts of a run. Pinning the module in the manifest pins these.
-WORKER_COMMAND = ("opencode", "run", "--standalone", "--auto", "--format", "json", "-m")
+# F26 / T36b: a confined launch is a loopback server plus a client that names it. The client keeps
+# the frozen flags; the server URL is per launch and is substituted for SERVER_PLACEHOLDER.
+SERVER_PLACEHOLDER = "{server}"
+SERVER_LOOPBACK = "127.0.0.1"
+SERVER_COMMAND = ("opencode", "serve", "--hostname", SERVER_LOOPBACK, "--port")
+WORKER_COMMAND = ("opencode", "run", "--server", SERVER_PLACEHOLDER, "--auto", "--format", "json",
+                  "-m")
 LAUNCH_PROMPT = "Read ./CONTRACT.md and do what it asks."
 ENV_ALLOW = ("PATH", "LANG")
+# F26 / T36b: the serve process and the allowlist proxy of one launch.
+SERVER_READY_SECONDS = 60
+SERVER_STOP_SECONDS = 30
+SERVER_PORT_ATTEMPTS = 3
+SERVER_PASSWORD_BYTES = 16
+SERVER_STDOUT_NAME = "server-stdout.txt"
+SERVER_STDERR_NAME = "server-stderr.txt"
+NO_PROXY_VALUE = "127.0.0.1,localhost"
 # F11: the oracle and the full suite are run by the worker, as the contract instructs, and an
 # innocent `-m unittest` writes `__pycache__/*.pyc` under repo/ -- which the scope rules rightly
 # refuse (bytecode can carry code). The cause is fixed, not the rule: no worker or auditor process
@@ -438,6 +470,92 @@ def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
                 process.kill()
             code = process.wait()
     return {"returncode": code, "timed_out": timed_out, "command": list(argv)}
+
+
+def server_url(port: int) -> str:
+    """The loopback URL of one launch's `opencode serve` (F26 / T36b)."""
+    return f"http://{SERVER_LOOPBACK}:{int(port)}"
+
+
+def resolve_server_argv(argv, url: str) -> list[str]:
+    """Substitute the per-launch server URL into a command that carries the frozen placeholder."""
+    return [str(item).replace(SERVER_PLACEHOLDER, url) for item in argv]
+
+
+def server_env(env: dict[str, str], proxy: egress_v2.EgressProxy, password: str) -> dict[str, str]:
+    """The launch environment of both the server and its client: proxy, bypass, password.
+
+    The password reaches the processes through the environment only, never argv, a record, a log or
+    the event stream; the proxy settings are both spellings plus the loopback bypass.
+    """
+    merged = dict(env)
+    merged.update(proxy.env())
+    merged["OPENCODE_SERVER_PASSWORD"] = password
+    merged["NO_PROXY"] = NO_PROXY_VALUE
+    merged["no_proxy"] = NO_PROXY_VALUE
+    return merged
+
+
+def launch_server(argv, cwd: Path, env: dict[str, str], stdout_path: Path,
+                  stderr_path: Path) -> dict:
+    """Start the launch's server in its own process group; it is killed with that group."""
+    with (Path(stdout_path).open("wb") as out, Path(stderr_path).open("wb") as err,
+          open(os.devnull, "rb") as null):
+        process = subprocess.Popen(list(argv), cwd=str(cwd), env=dict(env), stdin=null,
+                                   stdout=out, stderr=err, start_new_session=True)
+    return {"process": process, "pid": process.pid, "command": [str(item) for item in argv]}
+
+
+def stop_server(handle: dict, limit_seconds: int = SERVER_STOP_SECONDS) -> dict:
+    """Kill the server's whole process group and reap it; never leave it behind a launch."""
+    process = handle.get("process")
+    code = None
+    if process is not None:
+        if process.poll() is None:
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                process.kill()
+        try:
+            code = process.wait(timeout=limit_seconds)
+        except subprocess.TimeoutExpired:                 # pragma: no cover - defensive
+            code = None
+    return {"pid": handle.get("pid"), "returncode": code, "command": handle.get("command")}
+
+
+def server_ready(port: int, handle: dict, timeout: float = SERVER_READY_SECONDS) -> bool:
+    """The server answers on its loopback port, or it exited first (F26 / T36b)."""
+    process = handle.get("process")
+    deadline = time.monotonic() + float(timeout)
+    while time.monotonic() < deadline:
+        if process is not None and process.poll() is not None:
+            return False
+        try:
+            with socket.create_connection((SERVER_LOOPBACK, int(port)), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
+
+def server_collision(stream_dir: Path) -> bool:
+    """Whether the server's stderr says the port is already in use (bounded retry, like F22)."""
+    path = Path(stream_dir) / SERVER_STDERR_NAME
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace").upper()
+    except OSError:
+        return False
+    return any(marker in text for marker in PORT_IN_USE_MARKERS)
+
+
+def server_output(stream_dir: Path) -> dict:
+    """Return codes and stderr hash of one server attempt; the password never appears here."""
+    path = Path(stream_dir) / SERVER_STDERR_NAME
+    try:
+        data = path.read_bytes()
+    except OSError:
+        data = b""
+    return {"stderr_sha256": sha256(data), "stderr_bytes": len(data)}
 
 
 def read_events(path: Path) -> tuple[list, int]:
@@ -819,7 +937,7 @@ def abandon_run_dir(run_dir: Path) -> None:
 
 
 def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=None,
-            preflight=None, auditor=None, limit_seconds: int | None = None,
+            server_command=None, preflight=None, auditor=None, limit_seconds: int | None = None,
             audit_limit_seconds: int | None = None, profile_env: Path | None = None,
             probe=None, sandbox=None, auth=None) -> dict:
     """Execute one planned run; a harness defect is a state, never a result (F23 / T32).
@@ -850,7 +968,8 @@ def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=N
                    "run_dir": None, "driver_dir": None, "lock": None, "plan_run": plan_run}
     try:
         return drive(run_id, runs_root, root=root, plan_run=plan_run, planned=planned,
-                     entries=entries, worker_command=worker_command, preflight=preflight,
+                     entries=entries, worker_command=worker_command,
+                     server_command=server_command, preflight=preflight,
                      auditor=auditor, limit_seconds=limit_seconds,
                      audit_limit_seconds=audit_limit_seconds, profile_env=profile_env,
                      probe=probe, sandbox=sandbox, auth=auth, state=state)
@@ -929,9 +1048,9 @@ def harness_defect(runs_root: Path, exc: Exception, state: dict) -> dict:
 
 
 def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: list[dict],
-          entries: dict, worker_command, preflight, auditor, limit_seconds: int | None,
-          audit_limit_seconds: int | None, profile_env: Path | None, probe, sandbox, auth,
-          state: dict) -> dict:
+          entries: dict, worker_command, server_command, preflight, auditor,
+          limit_seconds: int | None, audit_limit_seconds: int | None, profile_env: Path | None,
+          probe, sandbox, auth, state: dict) -> dict:
     """The run itself; `execute` wraps it with the F23 / T32 harness-defect guard."""
     reason = refusal(runs_root, plan_run, planned, entries)
     if reason is not None:
@@ -943,6 +1062,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
     driver_dir = wrapper_delivery.driver_root(run_dir)
     env_file = profile_env_file(plan_run, profile_env)
     command = tuple(worker_command or WORKER_COMMAND)
+    server_command = tuple(server_command or SERVER_COMMAND)
     limit = WALL_CLOCK_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
     audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
     sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
@@ -976,20 +1096,85 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 f"CREDENTIAL_IMPORT_FAILED:{auth_record.get('reason', 'UNKNOWN')}"}
 
     def confine_state(launch_dir: Path, prepared: dict) -> dict:
-        """Render the profile, hash it, and prove it confines before anything is launched."""
+        """Start the proxy, render the profile, prove it confines, start the loopback server.
+
+        F26 / T36b: the allowlist proxy runs OUTSIDE the sandbox for this launch and is stopped by
+        `release`. The rendered profile re-allows only the proxy port and this launch's serve port;
+        the self-test must prove a direct outside connect fails and the proxy refuses a
+        non-allowlisted CONNECT. A serve port that is taken between the bind and the start is
+        retried with a NEW port (the profile is re-rendered with it), at most SERVER_PORT_ATTEMPTS.
+        """
         planted, token = sandbox.plant(driver_dir)
-        profile = sandbox.profile(prepared["stream"], launch_dir, prepared["home"],
-                                  sys.executable)
-        test = sandbox.self_test(profile["path"], launch_dir, planted, sys.executable, token)
+        proxy = prepared.get("egress")
+        if proxy is None:
+            proxy = egress_v2.start(prepared["stream"])
+            prepared["egress"] = proxy
+        attempts: list[dict] = []
+        profile = None
+        test: dict = {}
+        for number in range(1, SERVER_PORT_ATTEMPTS + 1):
+            port = free_port()
+            prepared["serve_port"] = port
+            prepared["server_password"] = secrets.token_hex(SERVER_PASSWORD_BYTES)
+            profile = sandbox.profile(prepared["stream"], launch_dir, prepared["home"],
+                                      sys.executable, proxy_port=proxy.port, serve_port=port)
+            test = sandbox.self_test(profile["path"], launch_dir, planted, sys.executable, token,
+                                     proxy_port=proxy.port, serve_port=port)
+            attempts.append({"attempt": number, "port": port,
+                             "self_test": test.get("verdict"),
+                             "reasons": list(test.get("reasons", []))})
+            if test.get("verdict") != "PASS":
+                confinement = {"attempts": attempts, "server": None}
+                (prepared["stream"] / "confinement.json").write_text(
+                    json.dumps({**test, **confinement}, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8")
+                return {"ok": False, "profile": profile, "confinement": test,
+                        "attempts": attempts,
+                        "reason": (f"SANDBOX_NOT_CONFINING:"
+                                   f"{','.join(test.get('reasons', []))}")}
+            handle = launch_server([*server_command, str(port)], launch_dir,
+                                   server_env(prepared["env"], proxy,
+                                              prepared["server_password"]),
+                                   prepared["stream"] / SERVER_STDOUT_NAME,
+                                   prepared["stream"] / SERVER_STDERR_NAME)
+            if server_ready(port, handle):
+                prepared["server"] = handle
+                prepared["server_start"] = {"port": port, "pid": handle.get("pid"),
+                                            "attempt": number}
+                confinement = {"attempts": attempts,
+                               "server": {"port": port, "pid": handle.get("pid"),
+                                          **server_output(prepared["stream"])}}
+                (prepared["stream"] / "confinement.json").write_text(
+                    json.dumps({**test, **confinement}, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8")
+                return {"ok": True, "profile": profile, "confinement": test,
+                        "attempts": attempts, "reason": None}
+            stopped = stop_server(handle)
+            attempts[-1].update({"server_returncode": stopped["returncode"],
+                                 **server_output(prepared["stream"])})
+            if number < SERVER_PORT_ATTEMPTS and server_collision(prepared["stream"]):
+                continue
+            break
+        confinement = {"attempts": attempts, "server": None}
         (prepared["stream"] / "confinement.json").write_text(
-            json.dumps(test, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        ok = test.get("verdict") == "PASS"
-        return {"ok": ok, "profile": profile, "confinement": test,
-                "reason": None if ok else
-                f"SANDBOX_NOT_CONFINING:{','.join(test.get('reasons', []))}"}
+            json.dumps({**test, **confinement}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        return {"ok": False, "profile": profile, "confinement": test, "attempts": attempts,
+                "reason": f"SERVER_UNAVAILABLE:{prepared.get('serve_port')}"}
 
     def release(prepared: dict, launch_dir: Path) -> dict:
-        """Best effort: log the credential out of the fresh home; the outcome is recorded."""
+        """Best effort: stop the server and the proxy, log the credential out; all recorded."""
+        server = prepared.get("server")
+        if server is not None:
+            prepared["server_stop"] = stop_server(server)
+            prepared["server"] = None
+        proxy = prepared.get("egress")
+        if proxy is not None:
+            try:
+                prepared["egress_stop"] = proxy.stop()
+            except OSError:
+                prepared["egress_stop"] = {"port": proxy.port, "log": str(proxy.log_path)}
+            prepared["egress"] = None
         try:
             record = auth.logout(prepared["env"], launch_dir)
         except (OSError, ValueError):
@@ -1002,11 +1187,34 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         return record
 
     def confined(prepared: dict, argv, directory: Path, limit_value: int) -> dict:
-        """One confined launch whose stdout/stderr go to the driver's own copy."""
+        """One confined launch: the client names this launch's loopback server; server killed after.
+
+        F26 / T36b: both processes see the allowlist proxy, the loopback bypass and the same random
+        per-launch OPENCODE_SERVER_PASSWORD (environment only, never argv or a record). The serve
+        process is killed with its own process group as soon as the client returns.
+        """
         stream = Path(prepared["stream"])
-        result = launch(sandbox.confine(prepared["profile"]["path"], argv), directory,
-                        prepared["env"], limit_value, stream / EVENTS_NAME, stream / STDERR_NAME)
+        url = server_url(prepared["serve_port"])
+        resolved = resolve_server_argv(argv, url)
+        env = server_env(prepared["env"], prepared["egress"], prepared["server_password"])
+        try:
+            result = launch(sandbox.confine(prepared["profile"]["path"], resolved), directory,
+                            env, limit_value, stream / EVENTS_NAME, stream / STDERR_NAME)
+        finally:
+            server = prepared.get("server")
+            if server is not None:
+                prepared["server_stop"] = stop_server(server)
+                prepared["server"] = None
+            # The proxy serves exactly this launch; stop it here even if the client raised, so no
+            # listener outlives the launch. `release` repeats the call idempotently.
+            proxy = prepared.get("egress")
+            if proxy is not None:
+                prepared["egress_stop"] = proxy.stop()
+                prepared["egress"] = None
         result["stream"] = str(stream)
+        result["command"] = resolved
+        result["server"] = {"port": prepared.get("serve_port"), "url": url,
+                            "stop": prepared.get("server_stop")}
         return result
 
     def default_probe(purpose: str, number: int) -> dict:
@@ -1029,8 +1237,9 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         prepared["profile"] = confinement["profile"]
         try:
             record = reachability_probe(
-                runs_root, run_id, purpose, number, command, plan_run["model"],
-                prepared["env"],
+                runs_root, run_id, purpose, number,
+                resolve_server_argv(command, server_url(prepared["serve_port"])),
+                plan_run["model"], prepared["env"],
                 launch_under=lambda argv, cwd, out, err: confined(prepared, argv, cwd,
                                                                   REACHABILITY_LIMIT_SECONDS),
                 directory=directory)
@@ -1042,6 +1251,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         record["auth_logout"] = logout_record
         record["profile_sha256"] = confinement["profile"]["sha256"]
         record["confinement"] = confinement["confinement"]["verdict"]
+        record["egress_log"] = str(Path(prepared["stream"]) / egress_v2.LOG_NAME)
+        record["egress_denied"] = egress_v2.denied(record["egress_log"])
         return record
 
     prober = probe or default_probe
@@ -1066,7 +1277,11 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                   "task_id": plan_run["task_id"], "arm": plan_run["arm"],
                   "materials_commit": plan_run["materials_commit"], "model": plan_run["model"],
                   "runtime": plan_run["runtime"], "profile_env": str(env_file),
-                  "worker_command": list(command), "launch_prompt": LAUNCH_PROMPT,
+                  "worker_command": list(command), "server_command": list(server_command),
+                  "server_loopback": SERVER_LOOPBACK, "server_placeholder": SERVER_PLACEHOLDER,
+                  "egress_allow": list(egress_v2.EGRESS_ALLOW),
+                  "egress_port": egress_v2.EGRESS_PORT,
+                  "launch_prompt": LAUNCH_PROMPT,
                   "reachability_prompt": REACHABILITY_PROMPT, "max_attempts": MAX_ATTEMPTS,
                   "attempt": attempt,
                   "env_allow_list": list(ENV_ALLOW), "frozen_env": dict(FROZEN_ENV),
@@ -1200,7 +1415,10 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 save(record)
                 return infra_blocked(record, [confinement["reason"]])
             finish_step(entry, "PASS", profile_sha256=confinement["profile"]["sha256"],
-                        self_test=confinement["confinement"]["verdict"])
+                        self_test=confinement["confinement"]["verdict"],
+                        proxy_port=confinement["profile"].get("proxy_port"),
+                        serve_port=confinement["profile"].get("serve_port"),
+                        server_attempts=len(confinement.get("attempts", [])))
             save(record)
 
             # F14: one frozen minimal prompt with the run's own command, model and env, immediately
@@ -1234,6 +1452,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # so the guard registers it INVALID instead of dropping it as an unstarted invocation.
             state["worker_launched"] = True
             result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit)
+            record["worker_argv"] = list(result.get("command", []))
+            record["server"] = result.get("server")
             record["auth_logout"] = release(prepared, run_dir)
             driver_events = stream / EVENTS_NAME
             driver_stderr = stream / STDERR_NAME
@@ -1254,6 +1474,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         returncode=result.get("returncode"), timed_out=result.get("timed_out"),
                         events=len(events), malformed=malformed,
                         tool_calls=tool_call_count(events), reasons=reasons,
+                        argv=result.get("command"), server=result.get("server"),
                         evidence=str(driver_events))
             if blocked:
                 # F14: the provider failed before the worker acted. This ends the attempt, not the run.
@@ -1273,6 +1494,12 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             access = access_audit.audit(driver_events, run_dir,
                                         home=prepared["env"].get("HOME"),
                                         python=sys.executable)
+            # F26 / T36b: the DENY lines of this launch's egress log are evidence, never a verdict:
+            # a denied CONNECT obtained nothing, exactly like a sandbox-denied read.
+            egress_log = stream / egress_v2.LOG_NAME
+            access["egress_log"] = str(egress_log)
+            access["egress_denied"] = egress_v2.denied(egress_log)
+            record["egress_log"] = str(egress_log)
             (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
                                                encoding="utf-8")
             access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
@@ -1281,6 +1508,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         tool_calls=access["tool_calls"], hits=len(access["hits"]),
                         unresolved_constructs=access.get("unresolved_constructs", []),
                         sandbox_denied=access.get("sandbox_denied", []),
+                        egress_denied=len(access["egress_denied"]),
                         reasons=access_reasons)
             save(record)
             if reasons:
@@ -1356,27 +1584,32 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                                                "reasons": reasons,
                                                "profile_sha256": profile["sha256"], **archived})
                         continue
+                    audit_prepared["profile"] = audit_confinement["profile"]
                     audit_stream = Path(audit_prepared["stream"])
                     try:
-                        audit = chosen(
-                            run_dir, plan_run, task_of(root, plan_run["task_id"]),
-                            launch=lambda argv, cwd, audit_env, audit_limit_value, out, err: launch(
-                                sandbox.confine(audit_confinement["profile"]["path"], argv), cwd,
-                                audit_env, audit_limit_value, out, err),
-                            command=command, env=audit_prepared["env"],
-                            limit_seconds=audit_limit,
-                            events_path=audit_stream / EVENTS_NAME,
-                            stderr_path=audit_stream / STDERR_NAME)
-                    except (ValueError, OSError) as exc:
-                        audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
-                                 "leakage": []}
-                    audit_logout = release(audit_prepared, audit_dir)
+                        try:
+                            audit = chosen(
+                                run_dir, plan_run, task_of(root, plan_run["task_id"]),
+                                launch=lambda argv, cwd, audit_env, audit_limit_value, out, err: confined(
+                                    audit_prepared, argv, cwd, audit_limit_value),
+                                command=command, env=audit_prepared["env"],
+                                limit_seconds=audit_limit,
+                                events_path=audit_stream / EVENTS_NAME,
+                                stderr_path=audit_stream / STDERR_NAME)
+                        except (ValueError, OSError) as exc:
+                            audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
+                                     "leakage": []}
+                    finally:
+                        audit_logout = release(audit_prepared, audit_dir)
+                    audit_egress = audit_stream / egress_v2.LOG_NAME
                     record.setdefault("audit_sandbox", []).append(
                         {"attempt": audit_number,
                          "profile_sha256": audit_confinement["profile"]["sha256"],
                          "confinement": audit_confinement["confinement"]["verdict"],
                          "home": str(audit_prepared["home"]),
-                         "auth": audit_prepared["auth"], "logout": audit_logout})
+                         "auth": audit_prepared["auth"], "logout": audit_logout,
+                         "egress_log": str(audit_egress),
+                         "egress_denied": egress_v2.denied(audit_egress)})
                     audit_events, _ = read_events(audit_stream / EVENTS_NAME)
                     blocked = before_work_failure(audit.get("launch") or {}, audit_events)
                     if audit["verdict"] != "BLOCKED" or not blocked:

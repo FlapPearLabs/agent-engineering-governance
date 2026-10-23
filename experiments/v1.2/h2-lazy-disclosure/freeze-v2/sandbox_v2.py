@@ -19,6 +19,13 @@ Three facts this module exists for:
     launch directory, so no run's scratch lands in the shared OS temp directory. F25 / T32:
     TMPPREFIX is `<launch dir>/.tmp/zsh` for the same reason — a zsh heredoc writes its temp file
     under TMPPREFIX, not TMPDIR, and the default `/tmp/zsh` is denied.
+  * NETWORK EGRESS (F26 / T36b). The file rules above do not touch the network: pilot #5 fetched
+    github.com from inside the sandbox. The template therefore denies network-outbound and
+    network-bind, and the rendered block re-allows exactly two loopback endpoints — the driver's
+    CONNECT-only allowlist proxy (`egress_v2.py`) and the launch's own `opencode serve` port. The
+    confinement self-test now also proves that a direct outside connect fails and that the proxy
+    refuses a non-allowlisted CONNECT (403); otherwise the launch is
+    BLOCKED:SANDBOX_NOT_CONFINING.
 
 The template is frozen (`worker-sandbox.sb.template`, hashed in freeze-manifest.json) and every
 rendered profile is saved with its sha256 next to the launch it confines.
@@ -64,6 +71,16 @@ HOME_MODE = 0o700
 CONFIG_MODE = 0o600
 CONFINE_WRITE = ".confine-write"
 
+# F26 / T36b: the two loopback endpoints a rendered profile re-allows. The proxy runs outside the
+# sandbox; the serve port is the launch's own `opencode serve`. A direct outside connect must fail
+# and the proxy must refuse a non-allowlisted CONNECT, or the launch is not confined.
+EGRESS_SELF_TEST_HOST = "github.com"
+EGRESS_SELF_TEST_PORT = 443
+EGRESS_PROBE_HOST = "example.com"
+EGRESS_PROBE_PORT = 443
+NETWORK_PROBE_TIMEOUT = 5
+LOOPBACK = "127.0.0.1"
+
 AUTH_EXPORT = ("opencode", "auth", "export", "--standalone", "opencode")
 AUTH_IMPORT = ("opencode", "auth", "import", "--standalone")
 AUTH_LOGOUT = ("opencode", "auth", "logout")
@@ -103,7 +120,22 @@ def interpreter_roots(python: str | None = None) -> list[str]:
     return sorted(roots)
 
 
-def allow_rules(launch: Path, home: Path, python: str | None = None) -> list[str]:
+def network_rules(proxy_port: int, serve_port: int) -> list[str]:
+    """F26 / T36b: the only two network endpoints a launch may use, both on loopback.
+
+    The proxy runs outside the sandbox; the serve port is the launch's own `opencode serve`. The
+    template already denies network-outbound and network-bind, so these two rules are the whole
+    re-allowed network surface.
+    """
+    return [
+        f'(allow network-outbound (remote ip "localhost:{proxy_port}") '
+        f'(remote ip "localhost:{serve_port}"))',
+        f'(allow network-bind (local ip "localhost:{serve_port}"))',
+    ]
+
+
+def allow_rules(launch: Path, home: Path, python: str | None = None, *,
+                proxy_port: int, serve_port: int) -> list[str]:
     """The rendered allow block: ancestors as literals, then the launch, the home and the python."""
     literals: set[str] = set()
     for path in (Path(launch), Path(home)):
@@ -119,28 +151,35 @@ def allow_rules(launch: Path, home: Path, python: str | None = None) -> list[str
                  for value in sorted(writable))
     rules.extend(f'(allow file-read-data (subpath "{value}"))'
                  for value in interpreter_roots(python))
+    rules.extend(network_rules(proxy_port, serve_port))
     return rules
 
 
-def render(launch: Path, home: Path, python: str | None = None) -> str:
+def render(launch: Path, home: Path, python: str | None = None, *,
+           proxy_port: int, serve_port: int) -> str:
     """The frozen template with this launch's allow block substituted."""
     text = template_bytes().decode("utf-8")
     if text.count(PLACEHOLDER) != 1:
         raise ValueError("SANDBOX_TEMPLATE_PLACEHOLDER_MISMATCH")
-    return text.replace(PLACEHOLDER, "\n".join(allow_rules(launch, home, python)) + "\n")
+    return text.replace(PLACEHOLDER,
+                        "\n".join(allow_rules(launch, home, python, proxy_port=proxy_port,
+                                              serve_port=serve_port)) + "\n")
 
 
-def profile(stream_dir: Path, launch: Path, home: Path, python: str | None = None) -> dict:
+def profile(stream_dir: Path, launch: Path, home: Path, python: str | None = None, *,
+            proxy_port: int, serve_port: int) -> dict:
     """Save the rendered profile beside the launch's driver-held streams and hash it."""
     stream_dir = Path(stream_dir)
     stream_dir.mkdir(parents=True, exist_ok=True)
     path = stream_dir / PROFILE_NAME
-    text = render(Path(launch), Path(home), python)
+    text = render(Path(launch), Path(home), python, proxy_port=proxy_port,
+                  serve_port=serve_port)
     path.write_text(text, encoding="utf-8")
     return {"path": str(path), "sha256": sha256(text.encode("utf-8")),
             "template": TEMPLATE_NAME, "template_sha256": sha256(template_bytes()),
             "launch": str(launch), "home": str(home), "interpreter": str(python or sys.executable),
-            "deny_roots": list(DENY_ROOTS)}
+            "deny_roots": list(DENY_ROOTS), "proxy_port": int(proxy_port),
+            "serve_port": int(serve_port)}
 
 
 def confine(profile_path, argv) -> list[str]:
@@ -172,22 +211,46 @@ def run(argv, cwd: Path, token: str | None = None) -> dict:
 
 
 def self_test(profile_path, launch: Path, planted: Path, python: str | None = None,
-              token: str | None = None) -> dict:
-    """No model: the rendered profile must deny two reads and allow the launch directory.
+              token: str | None = None, *, proxy_port: int, serve_port: int) -> dict:
+    """No model: the rendered profile must deny two file reads, one outside connect, one CONNECT.
 
     `cat` and a `-c` program must both fail on the planted file and must not echo its token, and a
-    write inside the launch directory must succeed. The write probe is removed again.
+    write inside the launch directory must succeed. F26 / T36b adds two network probes: a direct
+    connect to an outside host must fail, and a CONNECT to a non-allowlisted host through the
+    driver's proxy must be answered 403. The write probe is removed again.
     """
     python = python or sys.executable
     launch = Path(launch)
     run_dir = str(launch)
     target = Path(run_dir) / CONFINE_WRITE
     prefix = [BINARY, "-f", str(profile_path)]
+    direct = (
+        "import socket\n"
+        f"socket.create_connection(({EGRESS_SELF_TEST_HOST!r}, {EGRESS_SELF_TEST_PORT}), "
+        f"timeout={NETWORK_PROBE_TIMEOUT})\n"
+    )
+    proxied = (
+        "import socket, sys\n"
+        f"s = socket.create_connection(({LOOPBACK!r}, {int(proxy_port)}), "
+        f"timeout={NETWORK_PROBE_TIMEOUT})\n"
+        f"s.sendall(b'CONNECT {EGRESS_PROBE_HOST}:{EGRESS_PROBE_PORT} HTTP/1.1\\r\\n"
+        f"Host: {EGRESS_PROBE_HOST}:{EGRESS_PROBE_PORT}\\r\\n\\r\\n')\n"
+        "data = b''\n"
+        "while b'\\r\\n' not in data:\n"
+        "    chunk = s.recv(1024)\n"
+        "    if not chunk:\n"
+        "        break\n"
+        "    data += chunk\n"
+        "status = data.split(b'\\r\\n', 1)[0].decode('latin-1')\n"
+        "sys.exit(0 if status.startswith('HTTP/1.1 403') else 1)\n"
+    )
     try:
         cat = run([*prefix, "cat", str(planted)], launch, token)
         code = run([*prefix, python, "-c", f"open({str(planted)!r}).read()"], launch, token)
         write = run([*prefix, python, "-c",
                      f"open({str(target)!r}, 'w').write('confinement-ok')"], launch, token)
+        outside = run([*prefix, python, "-c", direct], launch, token)
+        egress = run([*prefix, python, "-c", proxied], launch, token)
     except (OSError, subprocess.SubprocessError) as exc:
         return {"verdict": "FAIL", "reasons": [f"CONFINEMENT_PROBE_FAILED:{type(exc).__name__}"],
                 "planted": str(planted)}
@@ -204,10 +267,17 @@ def self_test(profile_path, launch: Path, planted: Path, python: str | None = No
         reasons.append("PYTHON_TOKEN_VISIBLE")
     if write["returncode"] != 0 or not wrote:
         reasons.append("LAUNCH_DIR_WRITE_DENIED")
+    if outside["returncode"] == 0:
+        reasons.append("DIRECT_CONNECT_NOT_DENIED")
+    if egress["returncode"] != 0:
+        reasons.append("PROXY_CONNECT_NOT_REFUSED")
     return {"verdict": "FAIL" if reasons else "PASS", "reasons": sorted(reasons),
             "profile_sha256": sha256(Path(profile_path).read_bytes()),
             "planted": str(planted), "cat": cat, "python_read": code, "python_write": write,
-            "observation_scope": "EPERM on two reads of a driver-planted file; one allowed write."}
+            "direct_connect": outside, "proxied_connect": egress,
+            "proxy_port": int(proxy_port), "serve_port": int(serve_port),
+            "observation_scope": ("EPERM on two file reads, a denied direct outside connect, a "
+                                  "403 from the allowlist proxy, and one allowed write.")}
 
 
 def fresh_home(driver_dir: Path, name: str, launch: Path) -> Path:
@@ -316,15 +386,17 @@ class Sandbox:
         return plant(driver_dir)
 
     def profile(self, stream_dir: Path, launch: Path, home: Path,
-                python: str | None = None) -> dict:
-        return profile(stream_dir, launch, home, python)
+                python: str | None = None, *, proxy_port: int, serve_port: int) -> dict:
+        return profile(stream_dir, launch, home, python, proxy_port=proxy_port,
+                       serve_port=serve_port)
 
     def confine(self, profile_path, argv) -> list[str]:
         return confine(profile_path, argv)
 
     def self_test(self, profile_path, launch: Path, planted: Path, python: str | None = None,
-                  token: str | None = None) -> dict:
-        return self_test(profile_path, launch, planted, python, token)
+                  token: str | None = None, *, proxy_port: int, serve_port: int) -> dict:
+        return self_test(profile_path, launch, planted, python, token, proxy_port=proxy_port,
+                         serve_port=serve_port)
 
 
 class Auth:

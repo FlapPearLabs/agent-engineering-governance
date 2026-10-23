@@ -70,7 +70,8 @@ startup guidance isolation.
 RUNTIME   opencode (CLI 2.0.25), model opencode-go/deepseek-v4.1-flash, in an ISOLATED profile
           (HOME and XDG_* redirected to a dedicated profile directory outside every repository:
           no user plugins, MCP servers, skills, memory or global AGENTS.md; autoupdate off;
-          `run --standalone`, so no shared background service). The profile is logged in once
+          a per-launch loopback `opencode serve` plus `opencode run --server`, so no shared
+          background service). The profile is logged in once
           by the operator; credentials never enter this repository.
 PROFILE   the profile config is a FROZEN INPUT (F6). The operator installs
           `freeze-v2/worker-profile/opencode.json` as the profile's
@@ -113,7 +114,10 @@ ACCESS    after the worker exits, `access_audit.py` replays `events.jsonl`: ever
           backticks, eval, `-c` programs, decoders, xargs: paths a static tokenizer cannot see) and
           `sandbox_denied` (a tool result saying "Operation not permitted" for a path outside the
           launch directory). A denied dynamic attempt obtained nothing: it is reported per run in
-          the closure report, not turned into INVALID (F16 / protocol-v2 §4.0).
+          the closure report, not turned into INVALID (F16 / protocol-v2 §4.0). F26 adds
+          `egress_denied`: the DENY lines of the launch's `egress.jsonl` (a CONNECT the allowlist
+          proxy refused). Like `sandbox_denied` it is evidence, reported per run, and never
+          changes a verdict — nothing crossed.
 SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing barrier
           (F16 / T29). Every launch — worker, per-run auditor and each reachability check — is
           `sandbox-exec -f <rendered profile> <the frozen command>`. The frozen template
@@ -128,6 +132,25 @@ SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing
           may be invoked again, recorded). No sandbox-exec on the platform =>
           BLOCKED:SANDBOX_UNAVAILABLE. DISCLOSED: the NAMES of ancestor directories stay listable
           (a `literal` allows the directory node itself); their contents are not readable.
+          NETWORK: the file rules say nothing about the network, and live pilot #5 fetched
+          github.com from inside the sandbox while the public history holds every candidate fix
+          (F26). Every confined launch therefore runs with `(deny network-outbound)` and
+          `(deny network-bind)` plus exactly two loopback re-allows: the driver's CONNECT-only
+          allowlist proxy (`egress_v2.py`, outside the sandbox) and the launch's own `serve` port.
+          The proxy tunnels only `EGRESS_ALLOW = ("opencode.ai", "models.opencode.ai")` on 443,
+          answers 403 to everything else, and appends every request (time, host, port,
+          ALLOW/DENY) to the launch's driver-held `egress.jsonl`; it is stopped after the launch.
+          The launch itself is `opencode serve --hostname 127.0.0.1 --port <P>` inside the sandbox
+          (P chosen free per launch, a collision retried with a new port) plus
+          `opencode run --server http://127.0.0.1:<P> --auto --format json -m <model> <prompt>`;
+          both see the proxy and one random per-launch `OPENCODE_SERVER_PASSWORD` (environment
+          only, never argv, a record, a log or the event stream), and the serve process is killed
+          with its own process group. The confinement self-test additionally requires a direct
+          outside connect to fail and a proxied non-allowlisted CONNECT to be refused (403), or
+          the launch is BLOCKED:SANDBOX_NOT_CONFINING. DISCLOSED (F28): macOS `mktemp -d` without
+          a template ignores TMPDIR and uses the per-user confstr directory under /var/folders,
+          which the sandbox denies; both arms are affected identically and the worker adapts —
+          the directory is not opened.
 FRESH HOME every launch gets a brand-new `<runs_root>/.driver/<run_id>/home-<n>` (auditor:
           `audit-home-<n>`, reachability: `probe-home-<purpose>-<n>`), mode 0700, holding only the
           frozen `worker-profile/opencode.json` and its own XDG_* directories; TMPDIR is
@@ -201,11 +224,12 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 51 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 52 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
 confinement module and its frozen profile template
-(`sandbox_v2.py`, `worker-sandbox.sb.template`), the per-run collector and acceptance
+(`sandbox_v2.py`, `worker-sandbox.sb.template`), the CONNECT-only egress allowlist proxy
+(`egress_v2.py`, F26), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
 access audit and its four event fixtures (`access_audit.py`: two hand-built shape fixtures plus
 the two sanitised REAL streams the live pilot and the tool-name probe recorded, whose absolute
@@ -214,7 +238,7 @@ worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitis
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 52 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 53 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
@@ -297,10 +321,13 @@ run because each one silently changes what a gate measures:
 0. **Run only through the frozen driver.** An ordinary run is:
    `$PY $H/freeze-v2/run_h2r2.py run <run_id> --runs-root <SHARED_RUN_ROOT>`, with
    `next --runs-root <SHARED_RUN_ROOT>` printing the eligible run id and `status` printing the
-   plane. The driver owns the launch prompt and the two sublimits by construction: the worker is
-   `opencode run --standalone --auto --format json -m <plan model>` with the frozen prompt, the
-   profile env file's exports over a minimal base env, and a 90-minute wall clock; the per-run
-   auditor then runs the same command in `R/<run_id>/audit/`. Nothing about a run is typed by
+   plane. The driver owns the launch prompt and the two sublimits by construction: each launch
+   first starts `opencode serve --hostname 127.0.0.1 --port <P>` inside the sandbox, then the
+   worker is `opencode run --server http://127.0.0.1:<P> --auto --format json -m <plan model>`
+   with the frozen prompt, the
+   profile env file's exports over a minimal base env, the allowlist proxy and a 90-minute wall
+   clock; the per-run auditor then runs the same command in `R/<run_id>/audit/`. Nothing about a
+   run is typed by
    the operator except the run root.
 
 0. **Execute runs only through the frozen driver.** `freeze-v2/run_h2r2.py` is the single entry

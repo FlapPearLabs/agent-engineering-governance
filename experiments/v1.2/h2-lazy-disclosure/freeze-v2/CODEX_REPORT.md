@@ -2147,3 +2147,84 @@ $PY $H/freeze-v2/build_manifest.py check
 上面是写入本节时的记录遍（同一棵树，只差本节这些行）；写完后同一棵树再把全部 §0 GATES 跑一遍
 并与 commit 以 `&&` 串联，任一门失败则不提交。实验套件 426（T32）→ 442（合并 T34/T35 与 F22–F25
 之后），freeze-v2 本模块 133 项。
+
+## T36b（implementer: opencode deepseek-v4.1-flash）— 网络 egress allowlist（F26）与 mktemp 披露（F28）
+
+本票只做 F26/F28 与 F27 的 `egress_denied` 证据字段；F27 的静态审计修复在 T36a 的另一分支，
+本分支没有改 `access_audit.py` 的既有规则，只在其中新增一个独立函数 `egress_denied`。
+没有执行任何 H2-R2 run、没有调用模型、没有触碰 `~/.h2-worker-profile`、没有 push。
+
+### 1. 做了什么
+
+- **`freeze-v2/egress_v2.py`（新冻结模块）**：driver 在 sandbox 之外为每次 confined launch
+  （worker、auditor、每次 reachability）启动一个仅 CONNECT 的 HTTPS 代理，绑定
+  `127.0.0.1` 的空闲端口；allowlist 是冻结常量 `EGRESS_ALLOW = ("opencode.ai",
+  "models.opencode.ai")` 且只允许 443；非 CONNECT 返回 403；每个请求以
+  `(at, host, port, verdict, method)` 追加到该 launch 的 driver stream 目录下
+  `egress.jsonl`，launch 结束后停止。launch 的日志文件在启动时即创建，空日志也是证据。
+- **`run_h2r2.py` 的 launch 布局**：`WORKER_COMMAND` 改为
+  `("opencode", "run", "--server", SERVER_PLACEHOLDER, "--auto", "--format", "json", "-m")`；
+  新增 `SERVER_COMMAND = ("opencode", "serve", "--hostname", "127.0.0.1", "--port")`。
+  每次 launch 在 sandbox 内先起 serve（P 由 `free_port()` 选、撞车以新端口重渲染并重试，
+  最多 3 次，记录每次 attempt），再以 `--server http://127.0.0.1:<P>` 启动 client；两者共用
+  一个随机 `OPENCODE_SERVER_PASSWORD`（只经环境传递，绝不进 argv/记录/日志/事件流）、
+  `HTTPS_PROXY`/`HTTP_PROXY`（大小写）与 `NO_PROXY`/`no_proxy`。serve 随自己的进程组在
+  client 返回后立即被 SIGKILL 并回收。`run.json` 记录 `server_command`、
+  `server_loopback`、`server_placeholder`、`egress_allow`、`egress_port`、`worker_argv`、
+  `server`（端口/URL/停止返回码）与 `egress_log`；confinement step 记录 proxy/serve 端口。
+- **`worker-sandbox.sb.template` 与 `sandbox_v2.py`**：模板新增
+  `(deny network-outbound)`、`(allow network-outbound (remote unix-socket))`、
+  `(deny network-bind)`；渲染块按 launch 追加 proxy 端口与 P 的两条 loopback allow。
+  `render/profile/allow_rules/self_test` 增加 `proxy_port`/`serve_port`（关键字参数），
+  profile 记录两个端口。confinement 自检新增两个网络探针：直连 `github.com:443` 必须失败
+  （否则 `DIRECT_CONNECT_NOT_DENIED`），经代理 CONNECT `example.com:443` 必须得到 403
+  （否则 `PROXY_CONNECT_NOT_REFUSED`）；两者任一不成立即 `BLOCKED:SANDBOX_NOT_CONFINING`。
+- **`access_audit.egress_denied`**：只读 `egress.jsonl` 的 DENY 行，作为证据字段附加到
+  `access-audit.json`；driver 同时把 auditor 与 probe 的 egress 日志/deny 数记进
+  `run.json`。与 `sandbox_denied` 一样，它不改变任何 verdict。
+- **文档**：`protocol-v2.md` §4/§4.0/§5 与 `README.md` §3/§4/§5 记录 F26（allowlist、代理、
+  serve/run 布局、随机密码、自检与 `egress_denied`）与 F28（`mktemp -d` 无模板忽略 TMPDIR 的
+  披露，不开放 `/var/folders`）。README §4 的冻结文件数从 51 改为 52（含新模块），mutation
+  测试覆盖数从 52 改为 53（含 manifest 自身）。
+- **`build_manifest.py`**：`FROZEN_FILES` 加入 `egress_v2.py`；本票**不** re-pin
+  （T37 统一重生成 manifest/anchors/literals）。
+
+### 2. 新增/更新的测试（无模型；stub serve/run 对；真 sandbox-exec）
+
+- 新类 `EgressAllowlist`：allowlist 常量与 443；非 allowlist、allowlist 主机换端口、非 CONNECT
+  均 403 且逐条记 DENY；用本地 origin 验证被允许的 CONNECT 真被隧道并记 ALLOW；
+  `egress_denied` 只取 DENY 行、缺失日志为空、不改变 verdict；一次真实 driver run 的
+  `access-audit.json` 带 `egress_log`/`egress_denied`，且记录里没有密码 JSON 键。
+- 新类 `SandboxNetwork`（`skipUnless(darwin + sandbox-exec)`）：真 rendered profile 下直连
+  `github.com:443` 失败、连另一个 loopback 端口失败、经代理 CONNECT 非 allowlist 得到 403；
+  以及 `STUB_SERVER_SOURCE` + `STUB_CLIENT_SOURCE` 在真 sandbox 内以 per-launch 密码完成
+  server/client 握手（server 写 `.server-served`，client 写报告/遥测），run 正常注册 REJECT。
+- 更新既有测试以匹配新布局：`WORKER_COMMAND`/`SERVER_COMMAND` 冻结断言、worker/auditor 各自
+  `--server` 端口且 argv 不含密码、worker env 含代理/NO_PROXY/随机密码、stub 命令带
+  `--server` 占位符、render/profile/self_test 传端口。没有删除或放宽任何既有拒绝。
+
+### 3. GATES（前台逐条运行，退出码不经管道，PYTHONPATH 未设）
+
+```text
+$PY -m ruff check .                       All checks passed!            (exit 0)
+$PY scripts/validate_governance.py        35/35 checks passed           (exit 0)
+$PY scripts/validate_public_release.py    VIOLATIONS=0                  (exit 0)
+$PY -m unittest discover -s experiments/v1.2/tests \
+    -p test_v1_2_h2_freeze_v2.py          Ran 139 tests / 2 failures
+```
+
+两个失败**仅**因冻结 pin 未随本票移动（本票按要求不 re-pin，T37 统一重生成）：
+
+- `FreezeManifest.test_two_independent_anchors_and_materials_binding`
+- `FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected`
+
+移动的 pin（T37 需重算）：`access_audit.py`、`build_manifest.py`、`egress_v2.py`（新增成员）、
+`protocol-v2.md`、`run_h2r2.py`、`sandbox_v2.py`、`worker-sandbox.sb.template`。其余 137 项
+（含本票新增的 6 项）全通过。
+
+### 4. 未做/未证明
+
+- 未对真实 `opencode serve`/provider 做 live 观测：F26 的 allowlist 与 403 由本地代理/真
+  sandbox 自检证明，provider 端到端仍需 Claude 在 live pilot 中确认。
+- `run-plan-v2.json` 的 `runtime` 标签仍是 `opencode 2.0.25 --standalone`（历史字段）；
+  本票没有重生成 run plan，T37 在 re-pin 时一并决定是否更新该标签。

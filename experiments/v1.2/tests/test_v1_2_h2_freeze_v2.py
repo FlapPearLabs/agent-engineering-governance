@@ -8,9 +8,11 @@ import json
 import os
 import pwd
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from collections import Counter
@@ -2090,6 +2092,74 @@ print(json.dumps({"type": "text", "sessionID": "ses_stub", "part": {"text": "don
 '''
 
 
+STUB_SERVER_SOURCE = '''"""Test-only loopback server for one confined launch (F26 / T36b).
+
+The driver starts it in the launch's process group and waits for the port; a readiness probe that
+connects and leaves is ignored. The first real request must carry the per-launch password in its
+first line, which is the only handshake this stub needs: it proves the server and the client saw
+the SAME environment value without ever writing the secret to disk.
+"""
+import os
+import socket
+import sys
+import time
+
+port = int(sys.argv[-1])
+expected = os.environ["OPENCODE_SERVER_PASSWORD"]
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(("127.0.0.1", port))
+server.listen(16)
+server.settimeout(1.0)
+deadline = time.time() + 60
+while time.time() < deadline:
+    try:
+        conn, _ = server.accept()
+    except OSError:
+        continue
+    data = conn.recv(4096)
+    if not data:
+        conn.close()
+        continue
+    token = data.split(b"\\n", 1)[0].decode("latin-1")
+    if token == expected:
+        conn.sendall(b"OK\\n")
+        conn.close()
+        open(".server-served", "w").write("OK\\n")
+        sys.exit(0)
+    conn.close()
+    sys.exit(2)
+sys.exit(3)
+'''
+
+STUB_CLIENT_SOURCE = '''"""Test-only client behind the real sandbox (F26 / T36b).
+
+It names the per-launch server exactly as the frozen `run` command does, proves the server received
+the same password, then leaves the artefacts a run needs and nothing else.
+"""
+import json
+import os
+import socket
+import sys
+
+args = sys.argv
+url = args[args.index("--server") + 1]
+port = int(url.rsplit(":", 1)[1])
+expected = os.environ["OPENCODE_SERVER_PASSWORD"]
+sock = socket.create_connection(("127.0.0.1", port), timeout=10)
+sock.sendall((expected + "\\n").encode())
+ack = sock.recv(16).decode("latin-1").strip()
+sock.close()
+if ack != "OK":
+    print(json.dumps({"type": "error", "error": {"type": "client.no-server"}}))
+    sys.exit(1)
+open("report.md", "w").write("# report\\n\\nstub client behind the real sandbox server\\n")
+open(".h2-telemetry.log", "w").write("READ FULL repo/RULES.md\\n")
+print(json.dumps({"type": "text", "sessionID": "ses_stub",
+                  "part": {"text": "H2_STUB_CLIENT_RAN"}}))
+'''
+
+
 SCHEDULER_CHILD = '''"""Test-only scheduler child: one `run` child process, never a model, never a network call.
 
 It behaves like the frozen driver from the scheduler's point of view: it takes a live lock, holds
@@ -2247,20 +2317,23 @@ class StubSandbox:
         path.write_text("stub-plant\n", encoding="utf-8")
         return path, "stub-plant"
 
-    def profile(self, stream_dir, launch, home, python=None):
+    def profile(self, stream_dir, launch, home, python=None, *, proxy_port, serve_port):
         path = Path(stream_dir) / "worker.sb"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("(stub sandbox)\n", encoding="utf-8")
         return {"path": str(path), "sha256": digest(b"(stub sandbox)\n"), "template": "stub",
                 "template_sha256": digest(b"stub"), "launch": str(launch), "home": str(home),
-                "interpreter": str(python or sys.executable), "deny_roots": []}
+                "interpreter": str(python or sys.executable), "deny_roots": [],
+                "proxy_port": int(proxy_port), "serve_port": int(serve_port)}
 
     def confine(self, profile_path, argv):
         return [str(item) for item in argv]
 
-    def self_test(self, profile_path, launch, planted, python=None, token=None):
+    def self_test(self, profile_path, launch, planted, python=None, token=None, *,
+                  proxy_port, serve_port):
         return {"verdict": "PASS", "reasons": [],
-                "profile_sha256": digest(Path(profile_path).read_bytes())}
+                "profile_sha256": digest(Path(profile_path).read_bytes()),
+                "proxy_port": int(proxy_port), "serve_port": int(serve_port)}
 
 
 class StubAuth:
@@ -2284,7 +2357,8 @@ class StubAuth:
 class FailingSandbox(StubSandbox):
     """A rendered profile that does not confine: the driver must refuse to launch."""
 
-    def self_test(self, profile_path, launch, planted, python=None, token=None):
+    def self_test(self, profile_path, launch, planted, python=None, token=None, *,
+                  proxy_port, serve_port):
         return {"verdict": "FAIL", "reasons": ["PYTHON_READ_NOT_DENIED"],
                 "profile_sha256": digest(Path(profile_path).read_bytes())}
 
@@ -2301,14 +2375,29 @@ def stub_auditor(verdict="PASS"):
     return audit
 
 
+def stub_run_command(directory, mode, patch=None):
+    """A stub worker that also names the per-launch server, like the frozen `run` command."""
+    driver = load("run_h2r2")
+    return (sys.executable, str(stub_worker(directory, mode, patch)), "run",
+            "--server", driver.SERVER_PLACEHOLDER)
+
+
+def stub_server_command(directory):
+    """A stub `opencode serve`; the driver appends the port it chose for this launch."""
+    path = Path(directory) / "stub-server.py"
+    path.write_text(STUB_SERVER_SOURCE, encoding="utf-8")
+    return (sys.executable, str(path))
+
+
 def execute_stub(tmp, mode="noop", *, auditor=None, preflight=None, limit_seconds=None,
-                 probe=None, sandbox=None, auth=None):
+                 probe=None, sandbox=None, auth=None, server_command=None):
     driver = load("run_h2r2")
     task, _ = task_pair("f01")
     patch = candidate_patch(tmp, task) if mode in ("accept", "provider-once") else None
     runs = Path(tmp) / "runs"
     result = driver.execute("h2r2-f01-c", runs,
-                            worker_command=(sys.executable, str(stub_worker(tmp, mode, patch))),
+                            worker_command=stub_run_command(tmp, mode, patch),
+                            server_command=server_command or stub_server_command(tmp),
                             preflight=preflight or passing_preflight,
                             auditor=auditor or stub_auditor(),
                             profile_env=profile_env_file(tmp),
@@ -2324,11 +2413,15 @@ class RunDriver(unittest.TestCase):
 
     def test_the_launchable_facts_are_frozen_and_the_cli_exposes_no_replacement(self):
         driver = load("run_h2r2")
-        self.assertEqual(("opencode", "run", "--standalone", "--auto", "--format", "json", "-m"),
-                         driver.WORKER_COMMAND)
+        self.assertEqual(("opencode", "run", "--server", driver.SERVER_PLACEHOLDER, "--auto",
+                          "--format", "json", "-m"), driver.WORKER_COMMAND)
+        self.assertEqual(("opencode", "serve", "--hostname", "127.0.0.1", "--port"),
+                         driver.SERVER_COMMAND)
         self.assertEqual("Read ./CONTRACT.md and do what it asks.", driver.LAUNCH_PROMPT)
         self.assertEqual(("PATH", "LANG"), driver.ENV_ALLOW)
         self.assertEqual(90 * 60, driver.WALL_CLOCK_LIMIT_SECONDS)
+        self.assertEqual(("opencode.ai", "models.opencode.ai"),
+                         load("egress_v2").EGRESS_ALLOW)
         help_text = subprocess.run([sys.executable, str(FZ / "run_h2r2.py"), "run", "--help"],
                                    capture_output=True, text=True).stdout
         options = {token for token in help_text.split() if token.startswith("--")}
@@ -2363,7 +2456,8 @@ class RunDriver(unittest.TestCase):
             with mock.patch.object(driver, "launch", recording_launch):
                 result = driver.execute(
                     "h2r2-f01-c", runs,
-                    worker_command=(sys.executable, str(stub_worker(tmp, "noop"))),
+                    worker_command=stub_run_command(tmp, "noop"),
+                    server_command=stub_server_command(tmp),
                     preflight=passing_preflight, auditor=recording_auditor,
                     probe=passing_probe, profile_env=env_file,
                     sandbox=StubSandbox(), auth=StubAuth())
@@ -2376,7 +2470,16 @@ class RunDriver(unittest.TestCase):
                 self.assertEqual("1", auditor["PYTHONDONTWRITEBYTECODE"])
                 self.assertEqual(set(), set(worker) - (allowed | {
                     "HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME",
-                    "XDG_CACHE_HOME", "TMPDIR", "TMPPREFIX"}))
+                    "XDG_CACHE_HOME", "TMPDIR", "TMPPREFIX", "HTTPS_PROXY", "https_proxy",
+                    "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy",
+                    "OPENCODE_SERVER_PASSWORD"}))
+                # F26 / T36b: both spellings of the proxy, the loopback bypass and one random
+                # per-launch password (never argv, never a record).
+                self.assertEqual("127.0.0.1,localhost", worker["NO_PROXY"])
+                self.assertEqual("127.0.0.1,localhost", worker["no_proxy"])
+                self.assertEqual(worker["HTTPS_PROXY"], worker["https_proxy"])
+                self.assertEqual(worker["HTTP_PROXY"], worker["http_proxy"])
+                self.assertRegex(worker["OPENCODE_SERVER_PASSWORD"], r"^[0-9a-f]{32}$")
                 self.assertNotEqual(expected.get("HOME"), worker["HOME"])
                 self.assertEqual((run_dir.parent / ".driver" / "h2r2-f01-c"
                                   / "home-1").resolve(), Path(worker["HOME"]))
@@ -2552,6 +2655,7 @@ class RunDriver(unittest.TestCase):
             runs = Path(tmp) / "runs"
             blocked = driver.execute("h2r2-f01-c", runs,
                                      worker_command=(sys.executable, str(stub)),
+                                     server_command=stub_server_command(tmp),
                                      preflight=passing_preflight, auditor=must_not_audit,
                                      profile_env=profile_env_file(tmp), probe=unreachable,
                                      sandbox=StubSandbox(), auth=StubAuth())
@@ -2567,7 +2671,8 @@ class RunDriver(unittest.TestCase):
             patch = candidate_patch(tmp, task)
             accepted = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                worker_command=stub_run_command(tmp, "accept", patch),
+                server_command=stub_server_command(tmp),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
@@ -2594,7 +2699,8 @@ class RunDriver(unittest.TestCase):
             runs = Path(tmp) / "runs"
             result = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, str(stub_worker(tmp, "provider-once", patch))),
+                worker_command=stub_run_command(tmp, "provider-once", patch),
+                server_command=stub_server_command(tmp),
                 preflight=counting_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
@@ -2760,13 +2866,15 @@ class RunDriver(unittest.TestCase):
         class FlakyConfinement(StubSandbox):
             calls = 0
 
-            def self_test(self, profile_path, launch, planted, python=None, token=None):
+            def self_test(self, profile_path, launch, planted, python=None, token=None, *,
+                          proxy_port, serve_port):
                 if "audit" in Path(launch).parts:
                     FlakyConfinement.calls += 1
                     if FlakyConfinement.calls == 1:
                         return {"verdict": "FAIL", "reasons": ["PYTHON_READ_NOT_DENIED"],
                                 "profile_sha256": digest(Path(profile_path).read_bytes())}
-                return super().self_test(profile_path, launch, planted, python, token)
+                return super().self_test(profile_path, launch, planted, python, token,
+                                         proxy_port=proxy_port, serve_port=serve_port)
 
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "accept", sandbox=FlakyConfinement())
@@ -2868,6 +2976,7 @@ class RunDriver(unittest.TestCase):
             runs = Path(tmp) / "runs"
             result = driver.execute("h2r2-f01-c", runs,
                                     worker_command=(sys.executable, str(stub)),
+                                    server_command=stub_server_command(tmp),
                                     preflight=failed_preflight, auditor=must_not_run,
                                     profile_env=profile_env_file(tmp),
                                     sandbox=StubSandbox(), auth=StubAuth())
@@ -3197,10 +3306,12 @@ class BoundedConcurrency(unittest.TestCase):
             try:
                 result = driver.execute(
                     "h2r2-f01-c", runs,
-                    worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                    worker_command=stub_run_command(tmp, "accept", patch),
+                    server_command=stub_server_command(tmp),
                     preflight=passing_preflight, auditor=None,
                     profile_env=profile_env_file(tmp), probe=passing_probe,
                     sandbox=StubSandbox(), auth=StubAuth())
+                record = json.loads((runs / "h2r2-f01-c" / "run.json").read_text())
             finally:
                 driver.launch = real_launch
                 cleanup_run(runs / "h2r2-f01-c")
@@ -3211,8 +3322,24 @@ class BoundedConcurrency(unittest.TestCase):
             self.assertEqual(1, len(auditor))
             self.assertEqual(driver.FROZEN_MODEL, worker[0][-2])
             self.assertEqual(driver.FROZEN_MODEL, auditor[0][-2])
-            # Both launches are the same command plus the model plus their own prompt.
-            self.assertEqual(worker[0][:-2], auditor[0][:-2])
+            # F26 / T36b: both launches are the same command, but each names ITS OWN loopback
+            # server (`--server http://127.0.0.1:<P>`), and no argv carries the per-launch password.
+            def without_server(argv):
+                return [item for item in argv if not item.startswith("http://127.0.0.1:")]
+
+            self.assertEqual(without_server(worker[0][:-2]), without_server(auditor[0][:-2]))
+            urls = []
+            for argv in (worker[0], auditor[0]):
+                self.assertIn("--server", argv)
+                url = argv[argv.index("--server") + 1]
+                self.assertTrue(url.startswith("http://127.0.0.1:"), url)
+                self.assertNotIn(driver.SERVER_PLACEHOLDER, argv)
+                urls.append(url)
+            self.assertNotEqual(urls[0], urls[1])
+            self.assertEqual([driver.FROZEN_MODEL, driver.LAUNCH_PROMPT],
+                             record["worker_argv"][-2:])
+            self.assertIn("--server", record["worker_argv"])
+            self.assertNotIn("OPENCODE_SERVER_PASSWORD", json.dumps(record))
             self.assertEqual(driver.LAUNCH_PROMPT, worker[0][-1])
             self.assertEqual(audit_module.AUDIT_PROMPT, auditor[0][-1])
 
@@ -3529,13 +3656,21 @@ class SandboxConfinement(unittest.TestCase):
         module = load("sandbox_v2")
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, run_dir, home, _ = self.layout(tmp)
-            text = module.render(run_dir, home, sys.executable)
+            proxy_port, serve_port = 41001, 41002
+            text = module.render(run_dir, home, sys.executable, proxy_port=proxy_port,
+                                 serve_port=serve_port)
             self.assertIn("(deny file-read-data file-write*", text)
             for root in ("/Users", "/private/tmp", "/private/var/folders"):
                 self.assertIn(f'(subpath "{root}")', text, root)
             self.assertIn(f'(subpath "{run_dir}")', text)
             self.assertIn(f'(subpath "{home}")', text)
             self.assertIn(f'(literal "{runs}")', text)
+            # F26 / T36b: the network is closed except the proxy and this launch's server.
+            self.assertIn("(deny network-outbound)", text)
+            self.assertIn("(deny network-bind)", text)
+            self.assertIn(f'(remote ip "localhost:{proxy_port}")', text)
+            self.assertIn(f'(remote ip "localhost:{serve_port}")', text)
+            self.assertIn(f'(local ip "localhost:{serve_port}")', text)
             self.assertNotIn(module.PLACEHOLDER, text)
             self.assertEqual(module.template_bytes(), (FZ / module.TEMPLATE_NAME).read_bytes())
 
@@ -3546,7 +3681,8 @@ class SandboxConfinement(unittest.TestCase):
             _, runs, run_dir, home, driver = self.layout(tmp)
             planted, token = module.plant(driver)
             stream = driver / "attempt-1"
-            profile = module.profile(stream, run_dir, home, sys.executable)
+            profile = module.profile(stream, run_dir, home, sys.executable,
+                                     proxy_port=41001, serve_port=41002)
             encoded = base64.b64encode(str(planted).encode()).decode()
             attempts = (
                 ("cat", ["cat", str(planted)]),
@@ -3574,13 +3710,22 @@ class SandboxConfinement(unittest.TestCase):
             _, runs, run_dir, home, driver = self.layout(tmp)
             planted, token = module.plant(driver)
             stream = driver / "attempt-1"
-            profile = module.profile(stream, run_dir, home, sys.executable)
-            test = module.self_test(profile["path"], run_dir, planted, sys.executable, token)
+            proxy = load("egress_v2").start(stream)
+            try:
+                profile = module.profile(stream, run_dir, home, sys.executable,
+                                         proxy_port=proxy.port, serve_port=41002)
+                test = module.self_test(profile["path"], run_dir, planted, sys.executable, token,
+                                        proxy_port=proxy.port, serve_port=41002)
+            finally:
+                proxy.stop()
             self.assertEqual("PASS", test["verdict"], test["reasons"])
             self.assertTrue(Path(profile["path"]).is_file())
             self.assertEqual(digest(Path(profile["path"]).read_bytes()), profile["sha256"])
             self.assertEqual(digest(module.template_bytes()), profile["template_sha256"])
             self.assertFalse((run_dir / module.CONFINE_WRITE).exists())
+            self.assertNotEqual(0, test["direct_connect"]["returncode"])
+            self.assertEqual(0, test["proxied_connect"]["returncode"])
+            self.assertTrue(load("egress_v2").denied(stream / "egress.jsonl"))
 
     def test_a_profile_that_does_not_deny_fails_the_self_test(self):
         module = load("sandbox_v2")
@@ -3589,7 +3734,12 @@ class SandboxConfinement(unittest.TestCase):
             planted, token = module.plant(driver)
             permissive = driver / "permissive.sb"
             permissive.write_text("(version 1)\n(allow default)\n", encoding="utf-8")
-            test = module.self_test(permissive, run_dir, planted, sys.executable, token)
+            proxy = load("egress_v2").start(driver / "permissive-egress")
+            try:
+                test = module.self_test(permissive, run_dir, planted, sys.executable, token,
+                                        proxy_port=proxy.port, serve_port=41002)
+            finally:
+                proxy.stop()
             self.assertEqual("FAIL", test["verdict"])
             self.assertIn("CAT_READ_NOT_DENIED", test["reasons"])
             self.assertIn("PYTHON_READ_NOT_DENIED", test["reasons"])
@@ -3604,7 +3754,8 @@ class SandboxConfinement(unittest.TestCase):
             self.assertEqual((run_dir / ".tmp").resolve(), Path(env["TMPDIR"]).resolve())
             self.assertEqual((run_dir / ".tmp" / module.TMPPREFIX_NAME).resolve(),
                              Path(env["TMPPREFIX"]).resolve())
-            profile = module.profile(driver / "attempt-1", run_dir, home, sys.executable)
+            profile = module.profile(driver / "attempt-1", run_dir, home, sys.executable,
+                                     proxy_port=41001, serve_port=41002)
             for shell in ("zsh", "bash"):
                 with self.subTest(shell=shell):
                     result = subprocess.run(
@@ -3755,7 +3906,9 @@ class DriverConfinement(unittest.TestCase):
             driver = load("run_h2r2")
             result = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, "-c", SANDBOX_DYNAMIC_STUB),
+                worker_command=(sys.executable, "-c", SANDBOX_DYNAMIC_STUB, "run",
+                                "--server", driver.SERVER_PLACEHOLDER),
+                server_command=(sys.executable, "-c", STUB_SERVER_SOURCE),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 auth=StubAuth())
@@ -3812,7 +3965,9 @@ class RealProbePath(unittest.TestCase):
             runs = Path(tmp) / "runs"
             result = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, "-c", REAL_PROBE_STUB),
+                worker_command=(sys.executable, "-c", REAL_PROBE_STUB, "run",
+                                "--server", driver.SERVER_PLACEHOLDER),
+                server_command=(sys.executable, "-c", STUB_SERVER_SOURCE),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=None, auth=StubAuth())
             run_dir = runs / "h2r2-f01-c"
@@ -3855,7 +4010,8 @@ class HarnessDefect(unittest.TestCase):
             runs = Path(tmp) / "runs"
             result = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, str(stub_worker(tmp, "noop"))),
+                worker_command=stub_run_command(tmp, "noop"),
+                server_command=stub_server_command(tmp),
                 preflight=self.exploding_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
@@ -3882,7 +4038,8 @@ class HarnessDefect(unittest.TestCase):
             patch = candidate_patch(tmp, task)
             accepted = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                worker_command=stub_run_command(tmp, "accept", patch),
+                server_command=stub_server_command(tmp),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
@@ -3901,7 +4058,8 @@ class HarnessDefect(unittest.TestCase):
             runs = Path(tmp) / "runs"
             result = driver.execute(
                 "h2r2-f01-c", runs,
-                worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                worker_command=stub_run_command(tmp, "accept", patch),
+                server_command=stub_server_command(tmp),
                 preflight=passing_preflight, auditor=self.exploding_auditor,
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
@@ -3929,7 +4087,8 @@ class HarnessDefect(unittest.TestCase):
                 # registered means never started again
                 again = driver.execute(
                     "h2r2-f01-c", runs,
-                    worker_command=(sys.executable, str(stub_worker(tmp, "accept", patch))),
+                    worker_command=stub_run_command(tmp, "accept", patch),
+                    server_command=stub_server_command(tmp),
                     preflight=passing_preflight, auditor=stub_auditor(),
                     profile_env=profile_env_file(tmp), probe=passing_probe,
                     sandbox=StubSandbox(), auth=StubAuth())
@@ -4032,6 +4191,234 @@ class RunAuditV2(unittest.TestCase):
             self.assertEqual(findings, record["findings"])
             self.assertEqual(leakage, record["leakage"])
             self.assertEqual([], record["reasons"])
+
+
+class EgressAllowlist(unittest.TestCase):
+    """F26 / T36b: the CONNECT-only proxy, its allowlist and its evidence log (no model)."""
+
+    def status(self, port, request):
+        sock = socket.create_connection(("127.0.0.1", int(port)), timeout=5)
+        try:
+            sock.sendall(request)
+            data = b""
+            while b"\r\n" not in data:
+                chunk = sock.recv(1024)
+                if not chunk:
+                    break
+                data += chunk
+            return data.split(b"\r\n", 1)[0].decode("latin-1")
+        finally:
+            sock.close()
+
+    def connect_line(self, target):
+        return (f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n").encode()
+
+    def log(self, path):
+        return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+
+    def test_the_allowlist_is_frozen_and_non_allowlisted_or_non_connect_requests_get_403(self):
+        module = load("egress_v2")
+        self.assertEqual(("opencode.ai", "models.opencode.ai"), module.EGRESS_ALLOW)
+        self.assertEqual(443, module.EGRESS_PORT)
+        with tempfile.TemporaryDirectory() as tmp:
+            stream = Path(tmp) / "attempt-1"
+            proxy = module.start(stream)
+            try:
+                self.assertIsInstance(proxy.port, int)
+                self.assertTrue(proxy.port > 0)
+                self.assertEqual("HTTP/1.1 403 Forbidden",
+                                 self.status(proxy.port, self.connect_line("example.com:443")))
+                self.assertEqual("HTTP/1.1 403 Forbidden",
+                                 self.status(proxy.port, self.connect_line("opencode.ai:8443")))
+                self.assertEqual("HTTP/1.1 403 Forbidden",
+                                 self.status(proxy.port,
+                                             b"GET http://opencode.ai/ HTTP/1.1\r\n\r\n"))
+            finally:
+                proxy.stop()
+            entries = self.log(proxy.log_path)
+            self.assertEqual(3, len(entries), entries)
+            self.assertEqual({"DENY"}, {entry["verdict"] for entry in entries})
+            self.assertEqual({"example.com", "opencode.ai"},
+                             {entry["host"] for entry in entries})
+            for entry in entries:
+                self.assertTrue(entry["at"])
+                self.assertIn("port", entry)
+                self.assertIn("method", entry)
+
+    def test_an_allowed_connect_is_tunnelled_and_logged(self):
+        module = load("egress_v2")
+        origin = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        origin.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        origin.bind(("127.0.0.1", 0))
+        origin.listen(1)
+        origin.settimeout(10)
+        origin_port = int(origin.getsockname()[1])
+
+        def serve():
+            try:
+                conn, _ = origin.accept()
+                conn.sendall(b"origin-hello")
+                conn.close()
+            except OSError:
+                pass
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        with tempfile.TemporaryDirectory() as tmp:
+            stream = Path(tmp) / "attempt-1"
+            proxy = module.EgressProxy(stream, allow=("127.0.0.1",),
+                                       allow_port=origin_port).start()
+            try:
+                sock = socket.create_connection(("127.0.0.1", proxy.port), timeout=5)
+                try:
+                    sock.sendall(self.connect_line(f"127.0.0.1:{origin_port}"))
+                    data = b""
+                    while True:
+                        chunk = sock.recv(1024)
+                        if not chunk:
+                            break
+                        data += chunk
+                    self.assertTrue(data.startswith(b"HTTP/1.1 200"), data)
+                    self.assertIn(b"origin-hello", data)
+                finally:
+                    sock.close()
+            finally:
+                proxy.stop()
+                origin.close()
+                thread.join(timeout=5)
+            entries = self.log(proxy.log_path)
+            self.assertEqual(1, len(entries), entries)
+            self.assertEqual(("ALLOW", "127.0.0.1", origin_port),
+                             (entries[0]["verdict"], entries[0]["host"], entries[0]["port"]))
+
+    def test_egress_denied_is_evidence_and_never_changes_the_verdict(self):
+        audit_module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "egress.jsonl"
+            log.write_text(
+                json.dumps({"at": "t", "host": "opencode.ai", "port": 443, "verdict": "ALLOW",
+                            "method": "CONNECT"}) + "\n"
+                + json.dumps({"at": "t", "host": "example.com", "port": 443, "verdict": "DENY",
+                              "method": "CONNECT"}) + "\n",
+                encoding="utf-8")
+            denied = audit_module.egress_denied(log)
+            self.assertEqual(1, len(denied))
+            self.assertEqual(("example.com", 443, "DENY"),
+                             (denied[0]["host"], denied[0]["port"], denied[0]["verdict"]))
+            self.assertEqual([], audit_module.egress_denied(Path(tmp) / "missing.jsonl"))
+            result = {"verdict": "PASS", "hits": []}
+            result["egress_denied"] = denied
+            self.assertEqual("PASS", result["verdict"])
+            self.assertEqual([], result["hits"])
+
+    def test_a_run_records_the_egress_log_beside_the_access_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "accept")
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                audit = json.loads((run_dir / "access-audit.json").read_text())
+                self.assertEqual("PASS", audit["verdict"], audit["hits"])
+                self.assertEqual([], audit["egress_denied"])
+                self.assertTrue(Path(audit["egress_log"]).is_file())
+                self.assertTrue(Path(audit["egress_log"]).is_relative_to(
+                    (runs / ".driver" / "h2r2-f01-c").resolve()))
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(str(Path(audit["egress_log"])), record["egress_log"])
+                worker = next(step for step in record["steps"] if step["step"] == "worker")
+                self.assertIn("--server", worker["argv"])
+                self.assertNotIn("OPENCODE_SERVER_PASSWORD", json.dumps(record))
+            finally:
+                cleanup_run(run_dir)
+
+
+class SandboxNetwork(unittest.TestCase):
+    """F26 / T36b: the real rendered profile confines the network, not just the file system."""
+
+    def setUp(self):
+        if not SANDBOX_READY:
+            self.skipTest("sandbox-exec is not available on this platform")
+
+    def layout(self, tmp):
+        module = load("sandbox_v2")
+        runs = Path(tmp) / "runs"
+        run_dir = runs / "h2r2-f01-c"
+        run_dir.mkdir(parents=True)
+        driver = runs / ".driver" / "h2r2-f01-c"
+        home = module.fresh_home(driver, "home-1", run_dir)
+        return module, run_dir, home, driver
+
+    def run_in_profile(self, profile, run_dir, code):
+        return subprocess.run(["/usr/bin/sandbox-exec", "-f", profile["path"],
+                               sys.executable, "-c", code],
+                              cwd=str(run_dir), capture_output=True, text=True, timeout=30)
+
+    def test_a_direct_outside_connect_and_another_loopback_port_are_denied(self):
+        module = load("sandbox_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            _, run_dir, home, driver = self.layout(tmp)
+            proxy = load("egress_v2").start(driver / "egress")
+            other = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            other.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            other.bind(("127.0.0.1", 0))
+            other.listen(1)
+            other_port = int(other.getsockname()[1])
+            try:
+                profile = module.profile(driver / "attempt-1", run_dir, home, sys.executable,
+                                         proxy_port=proxy.port, serve_port=other_port + 1)
+                outside = self.run_in_profile(
+                    profile, run_dir,
+                    "import socket\n"
+                    f"socket.create_connection(('{module.EGRESS_SELF_TEST_HOST}', "
+                    f"{module.EGRESS_SELF_TEST_PORT}), timeout=5)\n")
+                self.assertNotEqual(0, outside.returncode, outside.stderr)
+                loopback = self.run_in_profile(
+                    profile, run_dir,
+                    "import socket\n"
+                    f"socket.create_connection(('127.0.0.1', {other_port}), timeout=5)\n")
+                self.assertNotEqual(0, loopback.returncode, loopback.stderr)
+                refused = self.run_in_profile(
+                    profile, run_dir,
+                    "import socket, sys\n"
+                    f"s = socket.create_connection(('127.0.0.1', {proxy.port}), timeout=5)\n"
+                    f"s.sendall(b'CONNECT {module.EGRESS_PROBE_HOST}:{module.EGRESS_PROBE_PORT} "
+                    "HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n')\n"
+                    "data = s.recv(1024)\n"
+                    "sys.exit(0 if data.startswith(b'HTTP/1.1 403') else 1)\n")
+                self.assertEqual(0, refused.returncode, refused.stderr)
+            finally:
+                proxy.stop()
+                other.close()
+            self.assertTrue(load("egress_v2").denied(driver / "egress" / "egress.jsonl"))
+
+    def test_a_stub_server_and_client_work_through_the_real_sandbox(self):
+        driver = load("run_h2r2")
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp) / "runs"
+            result = driver.execute(
+                "h2r2-f01-c", runs,
+                worker_command=(sys.executable, "-c", STUB_CLIENT_SOURCE, "run",
+                                "--server", driver.SERVER_PLACEHOLDER),
+                server_command=(sys.executable, "-c", STUB_SERVER_SOURCE),
+                preflight=passing_preflight, auditor=stub_auditor(),
+                profile_env=profile_env_file(tmp), probe=passing_probe, auth=StubAuth())
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("REJECT", result["verdict"], result["reasons"])
+                self.assertIn("H2_STUB_CLIENT_RAN",
+                              (run_dir / "events.jsonl").read_text())
+                self.assertEqual("OK\n", (run_dir / ".server-served").read_text())
+                record = json.loads((run_dir / "run.json").read_text())
+                url = record["server"]["url"]
+                self.assertTrue(url.startswith("http://127.0.0.1:"), url)
+                self.assertEqual(record["server"]["port"], int(url.rsplit(":", 1)[1]))
+                self.assertIn("--server", record["worker_argv"])
+                self.assertNotIn('"OPENCODE_SERVER_PASSWORD":', json.dumps(record))
+                self.assertEqual({"PYTHONDONTWRITEBYTECODE": "1"}, record["frozen_env"])
+                self.assertEqual("PASS", record["sandbox"]["confinement"]["verdict"])
+            finally:
+                cleanup_run(run_dir)
 
 
 def freeze_is_intact(root):
