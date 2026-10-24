@@ -3723,8 +3723,11 @@ class AggregateRunsV2(unittest.TestCase):
             if final in ("ACCEPT", "REJECT"):
                 audit_dir = root / run_id / "audit"
                 audit_dir.mkdir(parents=True)
+                # T38b / F40: the arms differ in a STRUCTURED field (severity), not only in the
+                # free-text finding ids, so this fixture is a real non-null difference.
+                severity = "P3" if plan_run["arm"] == "control" else "P2"
                 item = {"correctness": "PASS", "invalid_completion": False,
-                        "findings": [{"id": f"{run_id}-finding", "severity": "P3",
+                        "findings": [{"id": f"{run_id}-finding", "severity": severity,
                                       "category": "HV1", "location": "report.md"}]}
                 item.update((audits or {}).get(run_id, {}))
                 (audit_dir / "audit.json").write_text(json.dumps(item), encoding="utf-8")
@@ -3735,19 +3738,22 @@ class AggregateRunsV2(unittest.TestCase):
                 "".join(json.dumps(row) + "\n" for row in attempt_rows), encoding="utf-8")
         return aggregate, root, plan
 
-    def test_a_complete_non_null_runs_root_decides_disclosure_safe_with_its_exact_rule(self):
+    def test_a_complete_trusted_non_null_runs_root_stops_at_safe_candidate_pending(self):
         with tempfile.TemporaryDirectory() as tmp:
             aggregate, root, _ = self.build(tmp)
             result = aggregate.aggregate(root)
-            self.assertEqual("DISCLOSURE_SAFE", result["result"])
-            self.assertEqual("NO_COST_OBSERVED:COMPLETE_COVERAGE+NON_NULL_DIFFERENCE+S1_SATISFIED",
+            # T38b / F40: S2's absence and S5 are not this program's to decide, so the best
+            # mechanical output is the candidate token, never DISCLOSURE_SAFE.
+            self.assertEqual("SAFE_CANDIDATE_PENDING:S2,S5", result["result"])
+            self.assertEqual("NO_COST_OBSERVED:COMPLETE_COVERAGE+TRUSTED_EVIDENCE"
+                             "+NON_NULL_DIFFERENCE+S1_SATISFIED+PENDING:S2,S5",
                              result["decided_by"])
             self.assertEqual((10, 10), (result["usable_pairs"], result["planned_pairs"]))
             self.assertEqual([], result["invalid"])
             self.assertEqual([], result["blocked"])
+            self.assertEqual([], result["untrusted"])
             self.assertTrue(result["s1"]["satisfied"])
-            # S5's judgement is not this program's to make, and it says so.
-            self.assertEqual(["S5"], result["pending_rules"])
+            self.assertEqual(["S2", "S5"], result["pending_rules"])
             self.assertEqual("runs_root_mechanical", result["result_scope"])
 
     def test_one_audited_missed_guidance_decides_disclosure_has_cost(self):
@@ -3774,7 +3780,7 @@ class AggregateRunsV2(unittest.TestCase):
                 "h2r2-f05-v": {"invalid_completion": True}})
             result = aggregate.aggregate(root)
             self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
-            self.assertEqual("S3_TREATMENT_ONLY_INVALID_COMPLETION", result["decided_by"])
+            self.assertEqual("S3_TREATMENT_ONLY_INVALID_COMPLETION:f05", result["decided_by"])
 
     def test_a_missing_pair_is_insufficient_and_the_invalid_run_keeps_its_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3819,6 +3825,211 @@ class AggregateRunsV2(unittest.TestCase):
             self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
             self.assertEqual("NULL_DIFFERENCE", result["decided_by"])
             self.assertEqual(10, result["usable_pairs"])
+
+
+class AggregateRunsT38b(unittest.TestCase):
+    """T38b / F34, F39, F40: the mechanical verdict, the cost-first order, the structured null.
+
+    Every synthetic registry line here records the sha256 of the evidence it names, exactly as
+    the driver's `register()` does, so the trust check is exercised rather than bypassed.
+    """
+
+    def build(self, tmp, *, runs=None, omit=()):
+        aggregate = load("aggregate_runs")
+        plan = aggregate.planned_runs()
+        root = Path(tmp) / "runs"
+        root.mkdir()
+        lines = []
+        for plan_run in plan:
+            run_id, arm = plan_run["run_id"], plan_run["arm"]
+            if run_id in omit:
+                continue
+            spec = dict((runs or {}).get(run_id, {}))
+            verdict = spec.get("verdict", "ACCEPT")
+            run_dir = root / run_id
+            (run_dir / "audit").mkdir(parents=True)
+            severity = "P3" if arm == "control" else "P2"
+            audit = {"correctness": "PASS", "invalid_completion": False,
+                     "findings": [{"id": f"{run_id}-finding", "severity": severity,
+                                   "category": "HV1", "location": "report.md"}]}
+            audit.update(spec.get("audit", {}))
+            (run_dir / "audit" / "audit.json").write_text(json.dumps(audit), encoding="utf-8")
+            (run_dir / "verdict.json").write_text(json.dumps({"verdict": verdict}),
+                                                 encoding="utf-8")
+            (run_dir / "report.md").write_text(spec.get("report", "TASK_COMPLETED = NO\n"),
+                                              encoding="utf-8")
+            hashes = {rel.as_posix(): digest((run_dir / rel).read_bytes())
+                      for rel in (Path("audit") / "audit.json", Path("verdict.json"),
+                                  Path("report.md"))}
+            line = {"run_id": run_id, "task_id": plan_run["task_id"], "arm": arm,
+                    "verdict": verdict, "audit_verdict": spec.get("audit_verdict", "PASS"),
+                    "final_verdict": spec.get("final_verdict", verdict),
+                    "reason": spec.get("reason"), "artifacts": spec.get("artifacts", hashes)}
+            lines.append(line)
+        (root / "registry-v2.jsonl").write_text(
+            "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8")
+        for run_id, spec in (runs or {}).items():
+            for rel in spec.get("unlink", ()):
+                (root / run_id / rel).unlink()
+        return aggregate, root, plan
+
+    def row(self, result, run_id):
+        return next(item for item in result["rows"] if item["run_id"] == run_id)
+
+    def test_l1b_a_mechanical_reject_is_final_correctness_even_when_the_audit_passes(self):
+        """F34 / P1-4: the mechanical verdict is half of FINAL_CORRECTNESS, not a comment."""
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, runs={"h2r2-f04-v": {"verdict": "REJECT"}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S4_TREATMENT_ONLY_CORRECTNESS:f04", result["decided_by"])
+            row = self.row(result, "h2r2-f04-v")
+            self.assertEqual("REJECT", row["mechanical_verdict"])
+            self.assertEqual("FAIL", row["mechanical_correctness"])
+            self.assertEqual("PASS", row["audited_correctness"])
+            self.assertEqual("FAIL", row["final_correctness"])
+
+    def test_l2_a_cost_on_one_pair_is_not_masked_by_an_invalid_run_elsewhere(self):
+        """F39 / P2-5: coverage is evaluated after the observed cost, never before it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(
+                tmp, runs={"h2r2-f03-v": {"audit": {"correctness": "FAIL"}},
+                           "h2r2-f07-v": {"verdict": "INVALID", "reason": "TIMEOUT"}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S4_TREATMENT_ONLY_CORRECTNESS:f03", result["decided_by"])
+            self.assertEqual(["h2r2-f07-v"], [item["run_id"] for item in result["invalid"]])
+            self.assertEqual(9, result["usable_pairs"])
+
+    def test_l2b_an_audited_missed_guidance_beats_a_missing_audit_elsewhere(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(
+                tmp, runs={"h2r2-f03-v": {"audit": {"findings": [
+                               {"id": "miss-9", "severity": "P1",
+                                "category": "MISSED_GUIDANCE", "location": "report.md"}]}},
+                           "h2r2-f05-c": {"artifacts": {},
+                                          "unlink": ("audit/audit.json",)}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S2_MISSED_GUIDANCE_GE_1:h2r2-f03-v:miss-9", result["decided_by"])
+            self.assertEqual(["h2r2-f05-c"], result["audit_missing"])
+
+    def test_l3_a_hash_mismatch_is_untrusted_and_never_decides_a_cost(self):
+        """F40 / P2-8: evidence is checked against its registry sha256 before it is read."""
+        for path in ("report.md", "audit/audit.json", "verdict.json"):
+            with tempfile.TemporaryDirectory() as tmp:
+                aggregate, root, _ = self.build(
+                    tmp, runs={"h2r2-f06-v": {"audit": {"correctness": "FAIL"}}})
+                target = root / "h2r2-f06-v" / path
+                recorded = digest(target.read_bytes())
+                target.write_text("tampered\n", encoding="utf-8")
+                result = aggregate.aggregate(root)
+                self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"], path)
+                self.assertEqual("EVIDENCE_UNTRUSTED:h2r2-f06-v", result["decided_by"], path)
+                self.assertEqual([{"run_id": "h2r2-f06-v", "task_id": "f06", "arm": "variant",
+                                   "problems": [{"path": path, "reason": "SHA256_MISMATCH",
+                                                 "recorded": recorded,
+                                                 "observed": digest(b"tampered\n")}]}],
+                                 result["untrusted"])
+                self.assertEqual(9, result["usable_pairs"])
+                row = self.row(result, "h2r2-f06-v")
+                self.assertEqual("EVIDENCE_UNTRUSTED", row["state"])
+                self.assertNotIn("final_correctness", row)
+
+    def test_l5_a_complete_trusted_run_root_without_cost_is_only_a_pending_candidate(self):
+        """F40: while S2's absence and S5 are pending, DISCLOSURE_SAFE is not reachable."""
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp)
+            result = aggregate.aggregate(root)
+            self.assertEqual("SAFE_CANDIDATE_PENDING:S2,S5", result["result"])
+            self.assertEqual(["S2", "S5"], result["pending_rules"])
+            self.assertEqual((10, 10), (result["usable_pairs"], result["planned_pairs"]))
+            for run_id in ("h2r2-f01-c", "h2r2-f01-v"):
+                self.assertEqual("PASS", self.row(result, run_id)["final_correctness"])
+                self.assertEqual("TRUSTED", self.row(result, run_id)["evidence"])
+
+    def test_l6_a_difference_confined_to_finding_ids_and_locations_is_the_null(self):
+        """F40 / P2-6: only the (severity, category) multiset enters the null comparison."""
+        plan = load("aggregate_runs").planned_runs()
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, runs={
+                run["run_id"]: {"audit": {"findings": [
+                    {"id": f"id-{run['run_id']}", "severity": "P3", "category": "HV1",
+                     "location": f"{run['run_id']}-report.md"}]}} for run in plan})
+            result = aggregate.aggregate(root)
+            self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
+            self.assertEqual("NULL_DIFFERENCE", result["decided_by"])
+            self.assertEqual(10, result["usable_pairs"])
+            rows = [self.row(result, run["run_id"]) for run in plan]
+            self.assertEqual(1, len({tuple(map(tuple, row["finding_shape"])) for row in rows}))
+
+    def test_a_registry_line_without_a_hash_is_unverified_not_untrusted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, runs={"h2r2-f02-v": {"artifacts": {}}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("SAFE_CANDIDATE_PENDING:S2,S5", result["result"])
+            self.assertEqual("UNVERIFIED", self.row(result, "h2r2-f02-v")["evidence"])
+            self.assertEqual([], result["untrusted"])
+
+    def test_f34_a_rejected_run_whose_report_claims_completion_is_an_invalid_completion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, runs={
+                "h2r2-f05-c": {"verdict": "REJECT", "report": "TASK_COMPLETED = NO\n"},
+                "h2r2-f05-v": {"verdict": "REJECT", "report": "TASK_COMPLETED = YES\n"}})
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S3_TREATMENT_ONLY_INVALID_COMPLETION:f05", result["decided_by"])
+            variant = self.row(result, "h2r2-f05-v")
+            self.assertTrue(variant["completion_claimed"])
+            self.assertFalse(variant["audited_invalid_completion"])
+            self.assertTrue(variant["invalid_completion"])
+            self.assertEqual("FAIL", variant["final_correctness"])
+            control = self.row(result, "h2r2-f05-c")
+            self.assertFalse(control["invalid_completion"])
+
+    def test_the_completion_claim_is_the_structured_report_line_only(self):
+        aggregate = load("aggregate_runs")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.md"
+            for text, expected in (("TASK_COMPLETED = YES\n", True),
+                                   ("TASK_COMPLETED = PARTIAL\n", True),
+                                   ("TASK_COMPLETED = NO\n", False),
+                                   (" TASK_COMPLETED = yes \n", True),
+                                   ("TASK_COMPLETED = YES | NO | PARTIAL\n", False),
+                                   ("I completed the task and everything passes.\n", False),
+                                   ("", False)):
+                path.write_text(text, encoding="utf-8")
+                self.assertEqual(expected, aggregate.completion_claim(Path(tmp)), repr(text))
+            path.unlink()
+            self.assertFalse(aggregate.completion_claim(Path(tmp)))
+
+    def test_s1_is_evaluated_after_a_cost_and_before_any_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp)
+            unmet = {"control_carrier_js_chars": 100, "variant_carrier_js_chars": 100,
+                     "reduction_percent": 0.0, "variant_fully_delivered": True,
+                     "satisfied": False}
+            with mock.patch.object(aggregate, "s1_design_condition", return_value=unmet):
+                result = aggregate.aggregate(root)
+            self.assertEqual("INSUFFICIENT_EVIDENCE", result["result"])
+            self.assertEqual("S1_DESIGN_PRECONDITION_NOT_MET", result["decided_by"])
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(tmp, runs={"h2r2-f08-v": {"verdict": "REJECT"}})
+            with mock.patch.object(aggregate, "s1_design_condition", return_value=unmet):
+                result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S4_TREATMENT_ONLY_CORRECTNESS:f08", result["decided_by"])
+
+    def test_a_coverage_gap_is_reported_beside_the_cost_it_cannot_mask(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            aggregate, root, _ = self.build(
+                tmp, runs={"h2r2-f04-v": {"audit": {"invalid_completion": True}}},
+                omit=("h2r2-f09-v",))
+            result = aggregate.aggregate(root)
+            self.assertEqual("DISCLOSURE_HAS_COST", result["result"])
+            self.assertEqual("S3_TREATMENT_ONLY_INVALID_COMPLETION:f04", result["decided_by"])
+            self.assertEqual(["h2r2-f09-v"], [item["run_id"] for item in result["missing"]])
+            self.assertEqual(9, result["usable_pairs"])
 
 
 class SandboxConfinement(unittest.TestCase):

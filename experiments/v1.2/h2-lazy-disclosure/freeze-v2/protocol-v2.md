@@ -390,16 +390,28 @@ MODEL RULE    二十个 run 的每次 worker 与 auditor 启动只用 run-plan-v
 优先序与 S1–S5 的阈值和逐任务比较直接引用 rubric §9，不在此复制另一套定义。
 真实的 missed-guidance 或较差 correctness / invalid-completion 观测仍优先给出
 DISCLOSURE_HAS_COST，环境不足不抹掉它。未达到设计、机制或覆盖条件则
-INSUFFICIENT_EVIDENCE；只有满足全部规则且没有下面的 null 阻断，才可给 DISCLOSURE_SAFE。
+INSUFFICIENT_EVIDENCE；只有满足全部规则、没有下面的 null 阻断、且没有 pending rule 时，
+才可给 DISCLOSURE_SAFE。机械聚合在 closure report 之前另有一个非结果 token
+`SAFE_CANDIDATE_PENDING:<rules>`（见下），它绝不等于 DISCLOSURE_SAFE。
 
 所有明确偏离 / 适配预先登记如下，不随结果改变：
 
 - 任务集替换为十个可见 frozen-oracle repair，每任务每臂一条。旧 shape-level n=2 的覆盖
   门替换为十任务全部有有效配对；缺任一任务任一臂则不足。没有 within-task replication，
   必须报告这个限制；SAFE 结论只适用于本轮 cohort 与 runtime。
-- Null difference 事先定义为：每个有效配对的 audited correctness、invalid-completion
-  状态，以及按 rubric §2–§3、§7 审计确认的 finding 身份集合全部相同。无已观察到的
-  HAS_COST 原因时，这种 null 必须给 INSUFFICIENT_EVIDENCE，即使其余 S1–S5 满足；
+- Null difference 事先定义为（F40）：每个有效配对的 FINAL_CORRECTNESS、invalid-completion
+  状态，以及 findings 的 (severity, category) 多重集全部相同；finding 的 id、自由文本与
+  location 不参与比较。FINAL_CORRECTNESS 取机械裁定（ACCEPT → PASS 上限、REJECT → FAIL、
+  INVALID/BLOCKED 不可用）与 auditor correctness 中较严格者；invalid completion 除 auditor
+  记录外，还包括"worker 报告结构化声称完成（`TASK_COMPLETED = YES|PARTIAL`）而机械裁定为
+  REJECT"（F34）。机械聚合先在所有完整且证据可信的配对上判 S2/S3/S4：任何观测到的代价都
+  给出 DISCLOSURE_HAS_COST，并点明规则与配对；覆盖缺口、缺失 audit 与 S1 只能把本来会 SAFE
+  的结论降为 INSUFFICIENT_EVIDENCE（pending 规则降为 SAFE_CANDIDATE_PENDING），都不能掩盖
+  代价（F39）。audit / verdict / report 字节在读取前先与登记行记录的 sha256 比对，不符即该
+  run 证据不可信，结论为按 run 命名的 INSUFFICIENT_EVIDENCE（F40）。S2 的"未命中"需要臂感知判断、S5 是 rubric §5 的
+  disposition，两者列入 `pending_rules`；任一规则 pending 时机械聚合的最高输出只能是
+  `SAFE_CANDIDATE_PENDING:<rules>`，留给 closure report 裁定 —— 不是 DISCLOSURE_SAFE（F40）。
+  无已观察到的 HAS_COST 原因时，这种 null 必须给 INSUFFICIENT_EVIDENCE，即使其余 S1–S5 满足；
   这是 README §3 混杂对应的保守覆盖，不能仅凭两臂一样就宣布安全。
 - delivery 由仓内 CODEBUDDY 改为仓外 AGENTS；telemetry 改为 wrapper-relative；
   runtime/profile/model 改为第 4 节。HOT 降幅仍按实际 carrier 字节的原 JS 字符口径测量，
