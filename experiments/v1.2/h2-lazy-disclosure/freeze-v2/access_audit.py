@@ -53,6 +53,14 @@ What is flagged:
   * any tool that is not in `TOOL_ALLOW` (`webfetch`, `task`, `skill`, an `mcp__` tool …): a tool
     whose accesses this stream cannot show is not auditable from here.
 
+A heredoc body is NOT shell syntax and is never judged as one (F45): the lines after a `<<WORD`,
+`<<-WORD`, `<<'WORD'` or `<<"WORD"` operator up to the line holding exactly WORD are stdin data for
+the command that carries the operator, so they are cut before tokenising. The operator's own line —
+command words, arguments, redirect targets such as `cat <<EOF > x` — is judged exactly as before. A
+body fed to an interpreter (`python - <<'PY'`, `node`, `sh` …) is recorded as HEREDOC_PROGRAM
+evidence, like the program of `-c`: what it does with files is a dynamic construct the sandbox
+enforces.
+
 The allow-list is frozen to what a test run genuinely needs: the pinned interpreter (its path and
 prefix), `/usr`, `/bin`, `/sbin`, `/opt/homebrew`, `/System`, `/Library/Developer`, the OS temp
 roots and `/dev/null`. Everything else is out of run. The git location flags are judged against
@@ -110,10 +118,16 @@ INTERPRETERS = frozenset({"python", "python3", "sh", "bash", "zsh", "perl", "rub
 DECODERS = frozenset({"base64", "xxd"})
 UNRESOLVED_REASONS = {"command_substitution": "COMMAND_SUBSTITUTION",
                       "backtick": "BACKTICK", "eval": "EVAL", "inline_program": "INLINE_PROGRAM",
-                      "decoder": "DECODER", "xargs": "XARGS"}
+                      "decoder": "DECODER", "xargs": "XARGS",
+                      "heredoc_program": "HEREDOC_PROGRAM"}
 DENIED_TEXT = "operation not permitted"
 DENIED_REASON = "SANDBOX_DENIED"
 ABS_PATH_RE = re.compile(r"/[^\s'\"`:,;()\[\]{}<>]+")
+# F45 / T43: `<<WORD`, `<<-WORD`, `<<'WORD'` and `<<"WORD"`; the quoted forms keep their bytes but
+# the delimiter that ends the body is the word itself.
+HEREDOC_OPERATOR_RE = re.compile(
+    r"(?P<operator><<(?P<dash>-)?[ \t]*)"
+    r"(?:'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"|(?P<word>[^\s;&|<>()]+))")
 
 
 def allowed_roots(python: str | None = None) -> tuple[str, ...]:
@@ -196,6 +210,120 @@ def shell_tokens(command: str) -> list[str]:
         return list(lexer)
     except ValueError:
         return command.split()
+
+
+def arithmetic_end(line: str, index: int) -> int:
+    """The index after the `))` that closes an arithmetic expansion opened before `index`."""
+    depth = 0
+    while index < len(line):
+        char = line[index]
+        if char == "(":
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+        elif char == ")" and line.startswith("))", index):
+            return index + 2
+        index += 1
+    return index
+
+
+def heredoc_operators(line: str) -> list[dict]:
+    """The heredoc operators of one line: delimiter, `<<-` tab stripping, and the line prefix.
+
+    The scan is quote-aware, so a `<<` inside a quoted argument (`python -c 'print(1 << 2)'`) or
+    inside `$((...))` is not an operator; the shell's own heredoc forms are (F45).
+    """
+    operators: list[dict] = []
+    index = 0
+    quote = ""
+    while index < len(line):
+        char = line[index]
+        if quote:
+            if char == "\\" and quote == '"':
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+            index += 1
+            continue
+        if char in "'\"":
+            quote = char
+            index += 1
+            continue
+        if char == "\\":
+            index += 2
+            continue
+        if line.startswith("$((", index):
+            index = arithmetic_end(line, index + 3)
+            continue
+        if char == "#" and (index == 0 or line[index - 1].isspace()):
+            break
+        if line.startswith("<<<", index):
+            while index < len(line) and line[index] == "<":
+                index += 1
+            continue
+        if line.startswith("<<", index):
+            match = HEREDOC_OPERATOR_RE.match(line, index)
+            if match:
+                delimiter = match.group("single")
+                if delimiter is None:
+                    delimiter = match.group("double")
+                if delimiter is None:
+                    delimiter = match.group("word")
+                if delimiter:
+                    operators.append({"delimiter": delimiter,
+                                      "strip_tabs": match.group("dash") == "-",
+                                      "prefix": line[:index]})
+                    index = match.end()
+                    continue
+        index += 1
+    return operators
+
+
+def split_heredocs(command: str) -> tuple[str, list[dict]]:
+    """The command lines with every heredoc body cut out, and the bodies themselves.
+
+    A body starts on the line after its operator and ends on the line holding exactly the
+    delimiter (leading tabs stripped for `<<-`); the delimiter line is part of the body, not a
+    command. The operator's own line is kept verbatim, because its words, arguments and redirect
+    targets are shell syntax and are judged as before (F45).
+    """
+    lines = command.split("\n")
+    kept: list[str] = []
+    bodies: list[dict] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        kept.append(line)
+        for operator in heredoc_operators(line):
+            body: list[str] = []
+            while index < len(lines):
+                candidate = lines[index]
+                index += 1
+                compared = candidate.lstrip("\t") if operator["strip_tabs"] else candidate
+                if compared == operator["delimiter"]:
+                    break
+                body.append(candidate)
+            bodies.append({"delimiter": operator["delimiter"],
+                           "strip_tabs": operator["strip_tabs"],
+                           "prefix": operator["prefix"], "body": "\n".join(body)})
+    return "\n".join(kept), bodies
+
+
+def command_name(prefix: str) -> str:
+    """The program word of the command segment that ends at `prefix`, or "" when there is none.
+
+    A `NAME=value` prefix is an assignment, not the program; a control operator starts a new
+    segment, so `cd x && python -` names `python`.
+    """
+    name = ""
+    for token in shell_tokens(prefix):
+        if token in OPERATORS:
+            name = ""
+        elif not name and "=" not in token:
+            name = PurePosixPath(token).name
+    return name
 
 
 def git_subcommand(args: list[str]) -> tuple[str, list[str]]:
@@ -341,8 +469,11 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
     the run directory, not an escape from it.
     F43: `cwd` is the tool call's `workdir` (the directory the command starts in) when it has one,
     the run directory otherwise; the `cd` tracking and `git_hits` start from the same place.
+    F45 / T43: heredoc bodies are cut before tokenising, so a program's stdin data is never read as
+    shell words; the operator line itself is judged in full.
     """
-    tokens = shell_tokens(command)
+    command_line, _ = split_heredocs(command)
+    tokens = shell_tokens(command_line)
     hits: list[dict] = []
 
     def judge(values: list[str], base: str) -> None:
@@ -432,13 +563,18 @@ def path_shaped_search(value: str) -> bool:
 
 
 def unresolved_constructs(command: str) -> list[str]:
-    """The F16 constructs of one shell command: evidence that static resolution is incomplete."""
+    """The F16 constructs of one shell command: evidence that static resolution is incomplete.
+
+    F45 / T43: heredoc bodies are cut first — their contents are data, not shell syntax — and a
+    body fed to an interpreter is recorded as HEREDOC_PROGRAM, like the program of `-c`.
+    """
+    command_line, heredocs = split_heredocs(command)
     found: list[str] = []
-    if "$(" in command:
+    if "$(" in command_line:
         found.append(UNRESOLVED_REASONS["command_substitution"])
-    if "`" in command:
+    if "`" in command_line:
         found.append(UNRESOLVED_REASONS["backtick"])
-    tokens = shell_tokens(command)
+    tokens = shell_tokens(command_line)
     names = [PurePosixPath(token).name for token in tokens]
     if "eval" in names:
         found.append(UNRESOLVED_REASONS["eval"])
@@ -446,6 +582,8 @@ def unresolved_constructs(command: str) -> list[str]:
         if token == "-c" and index and names[index - 1] in INTERPRETERS:
             found.append(UNRESOLVED_REASONS["inline_program"])
             break
+    if any(command_name(body["prefix"]) in INTERPRETERS for body in heredocs):
+        found.append(UNRESOLVED_REASONS["heredoc_program"])
     if any(name in DECODERS for name in names):
         found.append(UNRESOLVED_REASONS["decoder"])
     if "xargs" in names:
