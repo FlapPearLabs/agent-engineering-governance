@@ -267,28 +267,27 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 53 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 54 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
 confinement module and its frozen profile template
 (`sandbox_v2.py`, `worker-sandbox.sb.template`), the CONNECT-only egress allowlist proxy
 (`egress_v2.py`, F26), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
-access audit and its five event fixtures (`access_audit.py`: two hand-built shape fixtures plus
-the three sanitised REAL streams the live pilots and the tool-name probe recorded, whose absolute
-path prefixes are placeholders re-expanded by the tests), the frozen
+access audit and its six event fixtures (`access_audit.py`: two hand-built shape fixtures plus
+the four sanitised REAL streams the earlier pilots, the tool-name probe and pilot #8 recorded,
+whose absolute path prefixes are placeholders re-expanded by the tests), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 54 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 55 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T39 re-pin commit; its parent — the merge that
-brought the confinement work (`T38a`, F31–F33/F35–F38/F41, P3-7) and the aggregate fixes
-(`T38b`, F34/F39/F40) together into this branch — is
-`7389f8b74f2ce5723ea04c0a2547a1260f47c975`, and that merge is what the run plan binds and what
+The content-freeze commit at this round is the T40 re-pin commit; its parent — the commit that
+records the F42 fix plan for the access audit's `cd` ordering — is
+`c86dae12068ff02697e3b4ee19c498b0dd0fd798`, and that commit is what the run plan binds and what
 [freeze-manifest.json](freeze-manifest.json) records as its freeze parent (materials = parent of
 the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
@@ -334,19 +333,22 @@ copy (F32/F33), the total registration path that records an unreadable file inst
 `base_sha`/`case_id` (F41), archive-before-delete of the previous attempt (P3-7), and the aggregate
 that folds the mechanical verdict into FINAL_CORRECTNESS/invalid completion (F34), decides costs
 before coverage (F39) and compares a structured null while checking evidence against the registry
-hashes (F40)). The T2
+hashes (F40)), and the F42 work (T40: the access audit judges the OPERAND of a `cd` against the
+directory before that `cd` and consumes it, in the shell path rules and in the git rule alike, so
+the scripted `cd repo … cd ..` excursion the live pilot #8 stream recorded is no longer an escape
+while a real escape still is; its sanitised stream is the fourth real event fixture). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `7389f8b` with the merged program. Every
+[delivery-anchors.json](delivery-anchors.json), taken at `c86dae1` with the frozen program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
 (each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33,
-T37 and T39 re-measurements moved only `materials_commit`; T39 additionally records the three
+T37, T39 and T40 re-measurements moved only `materials_commit`; T39 additionally records the three
 descriptive fields `confined`/`gate`/`style` that the T38a `run_gate` now writes — `false`, `null`
 and `RESOLVED` for every measurement cell, i.e. the anchors are still measured unconfined at the
 bare base, not through a gate), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
-measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37 and T39
-did, because
+measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37, T39 and
+T40 did, because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the

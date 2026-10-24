@@ -2844,3 +2844,152 @@ $PY $H/freeze-v2/build_manifest.py check
   关闭。
 - **没有 live run**：F31–F41 的结论来自真实 `sandbox-exec`、真实本地 socket 与合成分场景，不是真实
   provider；端到端仍需下一次 live pilot 确认。
+
+## T40（implementer: opencode deepseek-v4.1-flash）— `cd` 的操作数按它之前的目录判定（F42）、re-pin、全量门禁
+
+本票按 CODEX_FIXES_12 修 F42（P1）：live pilot #8（`0335de8`，`h2r2-f01-c`）因一条
+`...; cd repo && $PY -m unittest ...; cd ..; git -C repo status ...` 被判 `PATH_OUTSIDE_RUN`
+（命中值 `..`）而 INVALID。根因在 `shell_hits`（`git_hits` 同源）：循环遇到 `cd` token 时**先**
+把 `cwd` 更新到新目录，**再**判下一个 token —— 而下一个 token 正是 `cd` 的操作数，于是从
+`<run>/repo` 执行 `cd ..` 被当成 `<run>/..`（run 目录之外）。`cd repo` 当时只是侥幸没报
+（`<run>/repo/repo` 仍在 run 内），所以任何真实用 `cd repo ... cd ..` 的 run 都会 INVALID。
+
+### 1. 实现（`access_audit.py`，一条规则，缺点被修、别的没放宽）
+
+- 新增 `cd_argument(tokens, index)`：`cd` **消费**自己的操作数，返回 `(操作数, 下一个下标)`。
+- `shell_hits`：`cd` 自身那个 token 仍走原来的 `token_values` 路径判定（既有规则一条不减）；
+  随后用**更新前**的 `cwd` 判操作数，判完才把 `cwd` 设成该操作数的真实路径；循环改为显式下标，
+  操作数不会被第二遍当普通 token 再判一次（否则 `cd ..` 仍会误报）。
+- `git_hits`：同样的"先判后换"顺序与消费；操作数不会再被当成一次 `git` 调用（目录名正好叫
+  `git` 时也不会，见下面的 `cd git clone /tmp/other copy`）。
+- 模块 docstring 补上 F42：`cd` 的操作数是"从左到右"的唯一例外，因为它命名的是其后 token 的
+  判定目录。
+- 既有拒绝逐条保留：run 目录外仍 hit；`cd repo && cat ../../x`、`cd .. && cat x`、
+  `cd <run>/repo && cd ../../..` 仍 INVALID；`git clone /tmp/other`、`cd /srv/other && git log`、
+  `git remote add`、`webfetch` 等既有 hit 形状未被推翻（旧测试一条未删、一条未改）。
+
+### 2. 证据：真实流 fixture + 红/绿
+
+`fixtures/pilot-0335de8-f42-events.jsonl` 从**只读**的 pilot #8 事件流
+（`.driver/h2r2-f01-c/attempt-1/events.jsonl`，180 行）用程序取出**那一条**被误判的 `shell`
+调用（第 177 行），只替换两个绝对前缀（解释器 → `<PY>`，run 目录 → `<RUN_ROOT>`），其余
+字节原样保留；派生脚本在写盘前断言结果里不再出现 `/Users/`、`/home/`、`/private/`，且该事件
+仍含 `cd repo && `、`cd ..; git -C repo status`。它现在是第四个"真实流"事件 fixture，并进入
+`build_manifest.py` 的 `FROZEN_FILES`（见 §3 的成员变化）。
+
+红：把 T40P 里钉住的**旧**程序从 object DB 取出来（`git show <T40P>:...access_audit.py`），
+跑同一个 fixture 与同一组命令（没有手改工作树）：
+
+```text
+PRE-FIX (pinned at T40P): verdict=INVALID hits=[('PATH_OUTSIDE_RUN', '..')]
+FIXED (T40): verdict=PASS hits=[]
+  'cd repo; cd ..; ls'
+    PRE-FIX: [('PATH_OUTSIDE_RUN', '..')]
+    FIXED  : PASS
+  'cd repo && cat ../../x'
+    PRE-FIX: [('PATH_OUTSIDE_RUN', '../../x')]
+    FIXED  : [('PATH_OUTSIDE_RUN', '../../x')]
+  'cd .. && cat x'
+    PRE-FIX: [('PATH_OUTSIDE_RUN', '..'), ('PATH_OUTSIDE_RUN', 'cat'), ('PATH_OUTSIDE_RUN', 'x')]
+    FIXED  : [('PATH_OUTSIDE_RUN', '..'), ('PATH_OUTSIDE_RUN', 'cat'), ('PATH_OUTSIDE_RUN', 'x')]
+  'cd /srv/runs/h2r2-f01-c/repo && cd ../../..; ls'
+    PRE-FIX: [('PATH_OUTSIDE_RUN', '../../..'), ('PATH_OUTSIDE_RUN', 'ls')]
+    FIXED  : [('PATH_OUTSIDE_RUN', '../../..'), ('PATH_OUTSIDE_RUN', 'ls')]
+  'cd git clone /tmp/other copy'
+    PRE-FIX: [('GIT_REMOTE_REPOSITORY', 'clone')]
+    FIXED  : PASS
+```
+
+新测试类 `AccessAuditCdOrdering`（3 项，全部无模型、无真实 runs root）：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -k AccessAuditCdOrdering
+  Ran 3 tests in 0.032s / OK
+```
+
+1. `test_the_recorded_pilot_eight_command_passes_the_access_audit`：fixture 的净化断言
+   （无 `/Users/`、`/home/`、`/private/`，`<RUN_ROOT>` 与 `<PY>` 在），展开后 PASS、0 hit、
+   1 次 tool call。
+2. `test_a_cd_argument_is_judged_against_the_directory_before_it`：`cd repo; cd ..; ls`、
+   `cd repo && cat file.txt; cd ..; ls repo`（相对与绝对两种写法）PASS；`cd repo; cd ..; cd ..`
+   （真的出了 run 目录）、`cd repo && cat ../../x`、`cd .. && cat x`、
+   `cd <run>/repo && cd ../../..` INVALID 且命中 `PATH_OUTSIDE_RUN`。
+3. `test_a_cd_operand_is_never_read_again_as_a_git_invocation`：`cd git clone /tmp/other copy`
+   等三条命令在 `git_hits` 里 0 hit、整体 PASS —— 这一条是 `git_hits` 顺序修复的唯一可观测
+   形态（目录名叫 `git`，旧程序会把它当一次 `git clone /tmp/other`）。
+
+### 3. re-pin（Step 2，全部由仓库程序生成，没有任何手写 hash）
+
+`T40P = c86dae12068ff02697e3b4ee19c498b0dd0fd798`（F42 修复计划那次文档提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T40P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T40P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+     (360.91s user 55.78s system 85% cpu 8:05.83 total)
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T40P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=54 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t40/repin_literals.py .        # 只读 manifest，重写两个独立锚
+  -> LITERALS repinned=54 manifest_sha256=073b4bf6937c05f27ca4aa9dee730c39312794db8be1ae8090c6345c8d147f1a
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **run plan**：与上一轮（`7389f8b`）比较，**只有** 20 条 `materials_commit` 变化；把两边的
+  materials 值替换成同一个占位符后 `diff` 为空（顺序、arm 反平衡 C-first 5 / V-first 5、
+  `model`、`runtime`、`profile`、`fresh_episode` 逐字节未动）。
+- **anchors**：程序重新测量 10 个任务的全部 PRE/POST 单元，`WRAPPER` 仍 10/10
+  `DELIVERY_NEUTRAL`（`CODEBUDDY`/`AGENTS` 仍 0/10，与 T2 以来的记录一致）。与上一份 JSON 做结构化
+  比较（忽略 `materials_commit` 与 T38a 新增的描述字段 `confined`/`gate`/`style`）：
+  `environment`、`neutral_tasks_per_slot`、`program`、`repository`、`rows`、`shortlist_sha256`、
+  `wrapper_program_sha256` **全部相等**；`wrapper_program_sha256` 仍是 `f2dc995f…`（本票没有改
+  `wrapper_delivery.py`）。
+- **manifest**：54 个成员（53 + 本票的 `fixtures/pilot-0335de8-f42-events.jsonl`，`FROZEN_FILES`
+  同步加入）。相对上一份 manifest 变化的条目恰好是本票改动的文件：`access_audit.py`、
+  `build_manifest.py`、`delivery-anchors.json`、`run-plan-v2.json`、新增 fixture，加上
+  `freeze_parent` / `materials_commit` / `delivery_anchor_materials_commit` 三个 commit 字段；
+  `protocol-v2.md`、`wrapper_delivery.py`、`sandbox_v2.py`、路由、carrier、rubric、validator 与其余
+  全部 fixture 逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 54 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `073b4bf6…47f1a`。重写脚本先校验 manifest 与工作树
+  逐文件一致（不一致即退出），再"读 manifest → 按路径重写"，且拒绝任何旧字面量键在新 manifest 中
+  缺失的情况；没有任何 hand-edited hash。
+- **README §4**：文件数 53 → 54、mutation 覆盖 54 → 55、事件 fixture "five" → "six"（真实流
+  three → four）、content-freeze 段改写为 T40 / `c86dae1`，并把 F42 与本次 re-pin 加进"前移的内容"。
+  README 不在字节冻结内，§3 confound 段落一字未动（测试仍要求它与 protocol-v2 逐字节相等）。
+
+### 4. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+re-pin 之后、写入本节之前的同一棵树上：
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 26.815s / OK             (exit 0)
+=== EXPERIMENTS_TESTS    Ran 481 tests in 1189.012s / OK           (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空   (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                    (exit 0)
+=== MANIFEST_CHECK       {"verdict": "PASS", "mismatches": []}      (exit 0)
+```
+
+实验套件 478 → 481 项，正好是新增的 `AccessAuditCdOrdering` 3 项；`FreezeManifest` 的两条独立锚
+在 re-pin 后不再有预期红。写入本节之后，同一棵树把上面全部 §0 GATES **再跑一遍**，并与本提交
+以 `&&` 串联：任一门失败则不提交（没有拿前一次的结果替代这一次）。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **fixture 只收那一条真实事件**：pilot #8 的 180 行流里只有第 177 行含 `cd`，其余事件与本缺陷
+  无关；整条流要净化 58 处绝对路径（共享 runs 根与操作者主目录前缀各占一部分），收进来只会把
+  "那次误判的字节"稀释成一次大范围重写，因此按 T36a 的 pilot #5 先例只取相关事件。原流只读、
+  未复制进仓库。
+- **静态分词器的既有限制仍在**：`D=..; cd $D` 这类经变量间接给出的 `cd` 操作数无法静态解析
+  （`$D` 作为相对名判在 run 内），与 F16 已登记的"静态不可解析 → 证据而非裁定"同类；本票没有
+  扩大也没有收窄该限制。
+- **`git_hits` 的顺序修复只有构造形态可观测**：真实命令里 `cd` 的操作数很少正好叫 `git`；
+  第 3 条测试固定的是这一形态，而不是"真实 pilot 曾踩到它"。
+- **没有 live run**：结论来自真实 pilot #8 的只读事件流 + 合成命令 + 全套单测，不是新的 live
+  pilot；`cd repo ... cd ..` 在真实 run 里的 INVALID 消除仍需下一次 live pilot 端到端确认。

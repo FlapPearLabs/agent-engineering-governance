@@ -22,7 +22,11 @@ What is flagged:
     directory. Every token — the value of a `NAME=value` assignment included — resolves against
     the working directory the SAME command established with a preceding `cd`, not against the run
     directory: `cd repo && T=../.tmp/probe` names `<run>/.tmp/probe`, which is inside, while
-    `cd repo && T=../../x` names the parent of the run and is a hit (F27b);
+    `cd repo && T=../../x` names the parent of the run and is a hit (F27b). The operand of a `cd`
+    is the one exception to reading left to right, because it names the directory the tokens
+    after it are judged in: `cd repo ... cd ..` returns to `<run>` and is judged against
+    `<run>/repo` before the return, so a scripted excursion into `repo/` and back is not an
+    escape (F42);
   * a diff path in the `patch` tool's `patchText` (`--- a/x`, `+++ b/x`, `diff --git a/x b/x`);
   * `git push`, `git ls-remote`, `git submodule`, `git remote add|set-url|update|prune|rename|
     remove`, and a git command whose EFFECTIVE repository — the working directory after any `cd`
@@ -260,32 +264,49 @@ def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
     return hits
 
 
+def cd_argument(tokens: list[str], index: int) -> tuple[str | None, int]:
+    """The operand of the `cd` whose token ends at `index - 1`, and the index after it.
+
+    F42 / T40: a `cd` consumes its operand, so the operand is never read again as a command of its
+    own (a directory literally named `git` is not a `git` invocation).
+    """
+    following = tokens[index:index + 1]
+    if not following or following[0] in OPERATORS:
+        return None, index
+    return following[0], index + 1
+
+
 def git_hits(tokens: list[str], run_dir: Path, home: str | None) -> list[dict]:
     """Shell `git` invocations that reach another repository.
 
     The working directory follows a `cd` in the same command list; an argument list ends at the
     first control operator. Both are what make a scripted `cd <run> && ... && git -C repo ...`
     judgeable, and what keeps another program's `-C` out of git's argument list (F12 / F13).
+    F42 / T40: the `cd` operand is consumed, so it can never be mistaken for a `git` invocation.
     """
     hits: list[dict] = []
     command = " ".join(tokens)
     temps = temp_roots()
     cwd = str(run_dir)
-    for index, token in enumerate(tokens):
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
         if token in OPERATORS:
             continue
         name = PurePosixPath(token).name
         if name == "cd":
-            following = tokens[index + 1:index + 2]
-            if following and following[0] not in OPERATORS:
-                resolved = resolve(following[0], run_dir, home, base=cwd)
-                if resolved:
-                    cwd = resolved
+            argument, index = cd_argument(tokens, index)
+            if argument is None:
+                continue
+            resolved = resolve(argument, run_dir, home, base=cwd)
+            if resolved:
+                cwd = resolved
             continue
         if name != "git":
             continue
         args: list[str] = []
-        for argument in tokens[index + 1:]:
+        for argument in tokens[index:]:
             if argument in OPERATORS:
                 break
             args.append(argument)
@@ -299,24 +320,37 @@ def shell_hits(command: str, run_dir: Path, home: str | None,
 
     F27b: resolution follows the working directory the same command established with `cd`, so an
     assignment and any other relative token are judged against where the worker actually stood.
+    F42 / T40: the operand of a `cd` is judged against the working directory BEFORE that `cd` (it
+    is the directory the tokens after it are judged in), so `cd repo ... cd ..` is a return into
+    the run directory, not an escape from it.
     """
     tokens = shell_tokens(command)
     hits: list[dict] = []
-    cwd = str(run_dir)
-    for index, token in enumerate(tokens):
-        if token in OPERATORS:
-            continue
-        for value in token_values(token):
-            reason = path_reason(value, run_dir, home, allow, base=cwd)
+
+    def judge(values: list[str], base: str) -> None:
+        for value in values:
+            reason = path_reason(value, run_dir, home, allow, base=base)
             if reason:
                 hits.append({"tool": "shell", "reason": reason, "value": command.strip(),
                              "path": value})
-        if PurePosixPath(token).name == "cd":
-            following = tokens[index + 1:index + 2]
-            if following and following[0] not in OPERATORS:
-                resolved = resolve(following[0], run_dir, home, base=cwd)
-                if resolved:
-                    cwd = resolved
+
+    cwd = str(run_dir)
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
+        if token in OPERATORS:
+            continue
+        judge(token_values(token), cwd)
+        if PurePosixPath(token).name != "cd":
+            continue
+        argument, index = cd_argument(tokens, index)
+        if argument is None:
+            continue
+        judge(token_values(argument), cwd)
+        resolved = resolve(argument, run_dir, home, base=cwd)
+        if resolved:
+            cwd = resolved
     hits.extend(git_hits(tokens, run_dir, home))
     return hits
 

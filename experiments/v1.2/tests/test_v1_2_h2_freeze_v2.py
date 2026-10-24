@@ -34,14 +34,14 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "224bf00ac9febe79d15d2b389815ac5a6611aafe1dcb595b532fc6548cf7105a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "45b163518d19f4a45a84f34877de988e4f9c31b8160dd6be273a9364c7d3d4a7",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "e75bef927e08bd8fd07837c66fdbf70eac1095e8bc62452dd19c0d097a59f56d",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "e60ecccfde78eccbb3202464d9b386c5bf9ead296cc43caaa575da3b4516989a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "3b2cdd51d3878ff5337eddc5a081d87d52ffd94ec76717ccafba42632e4bf657",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "fd6ce1765508bbbbd4eeee19d6174aaaa508b595b958028a4d361ddc6fe30027",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "df62149c85bc9a9eab86efae7988414ac9cb69817e192a47a9066f045b3275a6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "6ed4dbb74bc5e43c90231a6174c3978140911e8c769ca56735e545d7ad3ca2e0",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "16407d2b2075a0a1d1a10d5b42218cf5f7cd3edde53d5ddd0ddc63a3df57f834",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "494fe04e2ce11fd1b26ae84e49cb713cd3db19d1b796f685025c1fe7352ef62b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/egress_v2.py": "2fbe5f91c7b9936c3bdecc8bef857c419bdd54d68cba41bc87c63e6f56a76429",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
@@ -49,6 +49,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-0335de8-f42-events.jsonl": "5bf6c837c3e459cfb5a3c475cf081446804939d57b0ff76a97cd5a7789eb81e7",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-efc46fc-f27-events.jsonl": "eea5516714f36aef54f058f036e568d09478f25b41a75902471e5346a242ff37",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-f01-c-events.jsonl": "8df3d734070e50bdd6e425da3fa43f9206daa1ffa1754b7ba5c28c4867d0e099",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
@@ -59,7 +60,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "72ba2da99addc7dcb47a79a08a05a9ac30152774c7ff06003083527275d13ffc",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "416939df43685e744f16fb4f0555ad127843f079ae16809b1c0a8fe36a7f71f2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "a50440e51d8e5a0e8e1f387ac3cdc2ce19947dc91c7589d93b6791bd30927c81",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "3cfee4c69f590787fa7ef2e30d0db602a6fca697de9ce307ffc1e46baf3cf5fc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "98a1d756d1bd41e8947b55b303e3e07ee8a89fa0262d4a9da37d6c6bd38c30ca",
@@ -78,7 +79,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "4157cf1078e278811379e90792ac1c4644a561f8048ba8549082c2156770c50b"
+MANIFEST_SHA256 = "073b4bf6937c05f27ca4aa9dee730c39312794db8be1ae8090c6345c8d147f1a"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -1404,6 +1405,81 @@ class AccessAuditFalsePositives(unittest.TestCase):
         self.assertEqual("SANDBOX_DENIED", entry["reason"])
         self.assertEqual("/var/folders/xy/T/tmp.abc", entry["path"])
         self.assertIn("Operation not permitted", entry["value"])
+
+
+class AccessAuditCdOrdering(unittest.TestCase):
+    """T40 / F42: the operand of a `cd` is judged against the directory BEFORE that `cd`.
+
+    The fixture is the ONE real shell call of the live pilot #8 stream (0335de8, h2r2-f01-c) that
+    the audit reported as PATH_OUTSIDE_RUN: the worker entered `repo/`, ran the task's test there,
+    came back with `cd ..` and asked git about `repo` from the run directory. It is sanitised the
+    way the earlier real-stream fixtures are — only the `<RUN_ROOT>` and `<PY>` path prefixes are
+    replaced — so the recorded bytes themselves decide the verdict.
+    """
+
+    FIXTURE = "pilot-0335de8-f42-events.jsonl"
+    RUN = Path("/srv/runs/h2r2-f01-c")
+    HOME = "/srv/profile-home"
+
+    def tool(self, name, **inputs):
+        return {"type": "tool_use", "part": {"tool": name, "state": {"input": inputs}}}
+
+    def expand(self, raw):
+        return raw.replace("<RUN_ROOT>", str(self.RUN)).replace("<PY>", sys.executable)
+
+    def audit_text(self, text):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(text, encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def audit_command(self, command):
+        return self.audit_text(json.dumps(self.tool("shell", command=command)))
+
+    def test_the_recorded_pilot_eight_command_passes_the_access_audit(self):
+        """F42: a scripted `cd repo ... cd ..` is an excursion INSIDE the run, not an escape."""
+        raw = (FZ / "fixtures" / self.FIXTURE).read_text(encoding="utf-8")
+        for forbidden in ("/Users/", "/home/", "/private/"):
+            self.assertNotIn(forbidden, raw)
+        self.assertIn("<RUN_ROOT>", raw)
+        self.assertIn("<PY>", raw)
+        self.assertIn("cd repo && ", raw)
+        self.assertIn("cd ..; git -C repo status", raw)
+        result = self.audit_text(self.expand(raw))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(1, result["tool_calls"])
+        self.assertEqual([], result["sandbox_denied"])
+
+    def test_a_cd_argument_is_judged_against_the_directory_before_it(self):
+        for command in ("cd repo; cd ..; ls",
+                        "cd repo && cat file.txt; cd ..; ls repo",
+                        f"cd {self.RUN}/repo && cat file.txt; cd ..; ls repo"):
+            with self.subTest(command=command):
+                result = self.audit_command(command)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+        for command in ("cd repo; cd ..; cd ..",
+                        "cd repo && cat ../../x",
+                        "cd .. && cat x",
+                        f"cd {self.RUN}/repo && cd ../../..; ls"):
+            with self.subTest(command=command):
+                result = self.audit_command(command)
+                self.assertEqual("INVALID", result["verdict"], command)
+                self.assertIn("PATH_OUTSIDE_RUN",
+                              [hit["reason"] for hit in result["hits"]], command)
+
+    def test_a_cd_operand_is_never_read_again_as_a_git_invocation(self):
+        """The same ordering in `git_hits`: a directory named `git` is not a `git` command."""
+        module = load("access_audit")
+        for command in ("cd git clone /tmp/other copy",
+                        "cd repo/git && git status",
+                        "cd git; git status --porcelain"):
+            with self.subTest(command=command):
+                self.assertEqual([], module.git_hits(module.shell_tokens(command), self.RUN,
+                                                     self.HOME), command)
+                result = self.audit_command(command)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
 
 
 class RegistryV2(unittest.TestCase):
