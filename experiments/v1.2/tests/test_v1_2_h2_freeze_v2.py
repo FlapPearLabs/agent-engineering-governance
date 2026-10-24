@@ -1631,6 +1631,137 @@ class AccessAuditShellWorkdir(unittest.TestCase):
                 self.assertEqual([], result["hits"])
 
 
+class AccessAuditHeredocBodies(unittest.TestCase):
+    """T43 / F45: a heredoc body is stdin data for the command that carries the operator.
+
+    The fixture is the WHOLE real event stream of live pilot #10 (8850187, h2r2-f01-c, 256 lines,
+    81 tool calls), sanitised the way the earlier real-stream fixtures are — the run root, the
+    shared runs root, the driver's fresh home, the interpreter and its prefix, one host binary and
+    the operator login become placeholders, nothing else is rewritten. The pinned pre-fix program
+    audits it INVALID with exactly two live hits for the path `/` (events 167 and 223, both the
+    bodies of `python - <<'PY'` programs); the fixed program audits it PASS and records the four
+    interpreter-fed bodies as HEREDOC_PROGRAM evidence.
+    """
+
+    FIXTURE = "pilot-8850187-f45-events.jsonl"
+    PILOTS = ("pilot-f01-c-events.jsonl", "pilot-efc46fc-f27-events.jsonl",
+              "pilot-0335de8-f42-events.jsonl", "pilot-6db87cf-f43-events.jsonl", FIXTURE)
+    RUN = Path("/srv/runs/h2r2-f01-c")
+    HOME = "/srv/profile-home"
+    PLACEHOLDERS = {"<RUN_ROOT>": str(RUN), "<RUNS_ROOT>": "/srv/runs",
+                    "<DRIVER_HOME>": "/srv/driver-home", "<PY>": sys.executable,
+                    "<PY_ROOT>": "/srv/py-root", "<PATH_TO_BINARY>": "/srv/bin/codegraph",
+                    "<LOCAL_LOGIN>": "operator", "<HOME>": HOME, "<TMP>": "/tmp"}
+
+    def tool(self, name, **inputs):
+        return {"type": "tool_use", "part": {"tool": name, "state": {"input": inputs}}}
+
+    def expand(self, raw):
+        for placeholder, value in self.PLACEHOLDERS.items():
+            raw = raw.replace(placeholder, value)
+        return raw
+
+    def audit_text(self, text):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(text, encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def audit_command(self, command, **inputs):
+        return self.audit_text(json.dumps(self.tool("shell", command=command, **inputs)))
+
+    def constructs(self, result):
+        return [item["construct"] for item in result["unresolved_constructs"]]
+
+    def test_the_recorded_pilot_ten_stream_passes_with_heredoc_evidence(self):
+        raw = (FZ / "fixtures" / self.FIXTURE).read_text(encoding="utf-8")
+        for forbidden in ("/Users/", "/home/", "/private/", "/opt/homebrew"):
+            self.assertNotIn(forbidden, raw, forbidden)
+        self.assertNotIn(pwd.getpwuid(os.getuid()).pw_name, raw)
+        self.assertIn("<RUN_ROOT>/repo", raw)
+        self.assertIn("<PY> - <<'PY'", raw)
+        self.assertIn("<LOCAL_LOGIN>", raw)
+        events = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        self.assertEqual(256, len(events))
+        self.assertEqual(81, sum(1 for event in events if event.get("type") == "tool_use"))
+        result = self.audit_text(self.expand(raw))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(256, result["events"])
+        self.assertEqual(81, result["tool_calls"])
+        self.assertEqual([], result["sandbox_denied"])
+        heredocs = [item for item in result["unresolved_constructs"]
+                    if item["construct"] == "HEREDOC_PROGRAM"]
+        recorded = [event for event in events if event.get("type") == "tool_use"
+                    and "<<'PY'" in json.dumps(event["part"].get("state", {}).get("input", {}))]
+        self.assertEqual(4, len(recorded))
+        self.assertEqual(len(recorded), len(heredocs))
+        self.assertTrue(all("python" in item["command"] for item in heredocs))
+
+    def test_a_heredoc_body_is_data_not_a_shell_path_or_program(self):
+        for label, command in (
+                ("an interpreter body with a division and a shift",
+                 f"{sys.executable} - <<'PY'\nx = a / b\nprint(1 << 2)\nPY"),
+                ("a data body naming places",
+                 "cat > repo/notes.txt <<'EOF'\na / b\n../../x\n/etc/passwd\nEOF"),
+                ("a tab-stripped body", "cat <<-'EOF'\n\t../../x\n\tEOF"),
+                ("two bodies on one operator line", "cat <<A <<B\n../../x\nA\n../../y\nB"),
+                ("a body line that only starts with the delimiter",
+                 f"{sys.executable} - <<'PY'\nPYTHON = 1\nx = a / b\nPY"),
+        ):
+            with self.subTest(label=label):
+                result = self.audit_command(command)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+                self.assertEqual([], result["hits"])
+        program = self.audit_command(f"{sys.executable} - <<'PY'\nx = a / b\nPY")
+        self.assertIn("HEREDOC_PROGRAM", self.constructs(program))
+        data = self.audit_command("cat > repo/notes.txt <<'EOF'\na / b\n../../x\nEOF")
+        self.assertNotIn("HEREDOC_PROGRAM", self.constructs(data))
+
+    def test_the_operator_line_is_judged_and_the_cut_ends_at_the_delimiter(self):
+        for command, path in (
+                ("cat <<EOF > /outside/x", "/outside/x"),
+                ("cat /outside/x <<EOF", "/outside/x"),
+                ("cat <<EOF > ../x", "../x"),
+                ("cat > /outside/x <<'EOF'\nbody\nEOF", "/outside/x"),
+                (f"{sys.executable} - <<'PY'\nx = 1\nPY\ncat /outside/x", "/outside/x"),
+                ("cat <<'EOF'\n../../x\nEOF\ncat /outside/x", "/outside/x")):
+            with self.subTest(command=command):
+                result = self.audit_command(command)
+                self.assertEqual("INVALID", result["verdict"], command)
+                self.assertIn("PATH_OUTSIDE_RUN",
+                              [hit["reason"] for hit in result["hits"]], command)
+                self.assertIn(path, [hit["path"] for hit in result["hits"]], command)
+        for command in ("cat <<EOF > repo/x", "cat repo/x <<EOF", "cat repo/x <<'EOF'\nx\nEOF"):
+            with self.subTest(command=command):
+                self.assertEqual("PASS", self.audit_command(command)["verdict"], command)
+
+    def test_a_quoted_or_arithmetic_shift_is_not_heredoc_operator(self):
+        quoted = self.audit_command("python3 -c 'print(1 << 2)'")
+        self.assertEqual("PASS", quoted["verdict"], quoted["hits"])
+        self.assertIn("INLINE_PROGRAM", self.constructs(quoted))
+        self.assertNotIn("HEREDOC_PROGRAM", self.constructs(quoted))
+        arithmetic = self.audit_command("echo $((1 << 2))")
+        self.assertEqual("PASS", arithmetic["verdict"], arithmetic["hits"])
+        self.assertNotIn("HEREDOC_PROGRAM", self.constructs(arithmetic))
+        here_string = self.audit_command("cat <<< 'a / b'")
+        self.assertEqual("PASS", here_string["verdict"], here_string["hits"])
+        self.assertNotIn("HEREDOC_PROGRAM", self.constructs(here_string))
+        # a quoted shift opens no body, so the command after it is still judged
+        result = self.audit_command("python3 -c 'print(1 << 2)' && cat /outside/x")
+        self.assertEqual("INVALID", result["verdict"])
+        self.assertIn("PATH_OUTSIDE_RUN", [hit["reason"] for hit in result["hits"]])
+
+    def test_every_pilot_fixture_still_passes(self):
+        for name in self.PILOTS:
+            with self.subTest(fixture=name):
+                raw = (FZ / "fixtures" / name).read_text(encoding="utf-8")
+                result = self.audit_text(self.expand(raw))
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+                self.assertEqual([], result["hits"])
+
+
 class RegistryV2(unittest.TestCase):
     def test_generator_is_byte_deterministic_and_matches_checked_in_output(self):
         with tempfile.TemporaryDirectory() as tmp:

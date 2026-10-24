@@ -3141,3 +3141,129 @@ re-pin 之后、写入本节之前的同一棵树上：
   第 4 条测试固定的是规则形态，而不是"真实 run 曾踩到它"。
 - **没有 live run**：结论来自真实 pilot #9 的只读事件流 + 合成命令 + 全套单测，不是新的 live
   pilot；"live pilot #9 现在会判 PASS"仍需下一次 counted run 端到端确认。
+
+## T43（implementer: opencode deepseek-v4.1-flash）— heredoc 体是数据，不是 shell 路径（F45）
+
+本票按 CODEX_FIXES_15 修 F45（P1）：live pilot #10（`8850187`，`h2r2-f01-c`，81 次工具调用）
+以 INVALID 收场，两条 `PATH_OUTSIDE_RUN` 的命中路径都是 `/`。根因：worker 用
+`cd <run>/repo && <PY> - <<'PY' … PY` 跑程序，审计把 heredoc **体**当 shell 词切分，程序里的
+`a / b` 于是产出 `/` 这个 token，被判成 run 外路径。heredoc 体是命令的 stdin 数据，不是 shell
+语法；它对文件做什么属于动态行为，由 sandbox 执行（与 `python -c` 同类）。
+
+### 1. 实现（`access_audit.py`，只加这一条规则，既有拒绝一条未减）
+
+- `heredoc_operators(line)`：引号感知的逐字符扫描，识别 `<<WORD`、`<<-WORD`、`<<'WORD'`、
+  `<<"WORD"` 四种算子，返回分隔词、是否 `<<-`（去前导 tab）与该算子之前的行前缀。引号内的
+  `<<`（`python3 -c 'print(1 << 2)'`）与 `$(( … ))` 算术展开里的 `<<` 不算算子；`<<<` here-string
+  也不是 heredoc。
+- `split_heredocs(command)`：按物理行切掉每个 heredoc 体——算子行之后的若干行，直到**整行恰好等于
+  分隔词**的那一行（`<<-` 时先去掉该行前导 tab）；分隔行属于体，不是命令。**算子行原样保留**，
+  因此 `cat <<EOF > /outside/x`、`cat /outside/x <<EOF` 里的命令词、参数、重定向目标仍照旧判定。
+- `shell_hits` 先 `split_heredocs` 再 `shell_tokens`；`git_hits` 拿到的是切掉体之后的 token，
+  所以体里的 `git …` 也不会被当成命令。
+- `unresolved_constructs` 同样先切体（体里的 `$(`、反引号不再触发证据），并对"体喂给解释器"的
+  情况追加 `HEREDOC_PROGRAM`（新增 `UNRESOLVED_REASONS["heredoc_program"]`）：`command_name(prefix)`
+  取算子行当前命令段的程序名（跳过 `NAME=value`，`cd x && python -` 取到 `python`），程序名在
+  `INTERPRETERS` 里即为证据。证据永不改变裁定。
+- 证据字段形如 `{"tool": "shell", "construct": "HEREDOC_PROGRAM", "command": …}`，`command` 仍按
+  既有约定截到 200 字符。
+
+### 2. 证据：真实流 fixture + 红/绿
+
+`fixtures/pilot-8850187-f45-events.jsonl` 来自**只读**的 pilot #10 事件流
+（`.driver/h2r2-f01-c/attempt-1/events.jsonl`，256 行、81 次工具调用），整条派生：只替换七类
+前缀 token —— run 目录 → `<RUN_ROOT>`、共享 runs 根 → `<RUNS_ROOT>`、driver 的 fresh home →
+`<DRIVER_HOME>`、解释器 → `<PY>`、解释器前缀 → `<PY_ROOT>`、一个宿主二进制 →
+`<PATH_TO_BINARY>`、操作者登录名 → `<LOCAL_LOGIN>` —— 其余字节原样。派生脚本在写盘前断言：结果里
+没有 `/Users/`、`/home/`、`/private/`、`/opt/homebrew`，没有登录名，256 行全部仍是合法 JSON，
+事件数与工具调用数不变。文件 957764 字节，sha256 =
+`1d595a747235743510d31131c810b8505028b0ab75779a3b11208fc2bd51de98`。
+
+红/绿（同一份 fixture、同一组展开值与参数；红用的程序是从 object DB 取出的**上一提交**的
+`access_audit.py`，没有手改工作树）：
+
+```text
+PRE-FIX (pinned at HEAD 08fe6d3): verdict=INVALID
+  hits = [PATH_OUTSIDE_RUN "/" (event 167), PATH_OUTSIDE_RUN "/" (event 223)]
+  tool_calls=81 events=256 constructs=[INLINE_PROGRAM] sandbox_denied=0
+FIXED (T43):                      verdict=PASS  hits=[]
+  tool_calls=81 events=256 constructs=[HEREDOC_PROGRAM x4, INLINE_PROGRAM] sandbox_denied=0
+```
+
+两条 hit 与 live pilot #10 的两处**逐条相同**（事件 167 / 223，都是 `python - <<'PY'` 的体）；
+四个 `HEREDOC_PROGRAM` 正好对应流里四条 `<PY> … <<'PY'` 命令。原流只读、未复制进仓库。
+
+新测试类 `AccessAuditHeredocBodies`（5 项，全部无模型、不碰真实 runs root）：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -k AccessAuditHeredocBodies
+  Ran 5 tests / OK
+```
+
+1. `test_the_recorded_pilot_ten_stream_passes_with_heredoc_evidence`：净化断言（无宿主前缀与登录名、
+   占位符在）、256 事件 / 81 工具调用、展开后 PASS / 0 hit / 0 denied，`HEREDOC_PROGRAM` 证据数与
+   流里 `<<'PY'` 命令数（4）相等。
+2. `test_a_heredoc_body_is_data_not_a_shell_path_or_program`：体里的 `a / b`、`../../x`、
+   `/etc/passwd`、`print(1 << 2)` 都不是 hit；`<<-` 去 tab、同一行两个算子、以分隔词开头的体行
+   （`PYTHON = 1`）都不提前结束；解释器体记 `HEREDOC_PROGRAM`，`cat` 体不记。
+3. `test_the_operator_line_is_judged_and_the_cut_ends_at_the_delimiter`：`cat <<EOF > /outside/x`、
+   `cat /outside/x <<EOF`、`cat <<EOF > ../x`、`cat > /outside/x <<'EOF'` 仍 INVALID；算子行在 run
+   内的三种写法 PASS；体结束后紧跟的 `cat /outside/x` 仍被判定（切体不会吞掉后续命令）。
+4. `test_a_quoted_or_arithmetic_shift_is_not_heredoc_operator`：引号内 `<<`、`$((1 << 2))`、`<<<`
+   都不开体；引号内的 `<<` 之后那条 `cat /outside/x` 仍 INVALID（不因跳过而失明）。
+5. `test_every_pilot_fixture_still_passes`：五份真实流 pilot fixture（#4c/#5/#8/#9/#10）逐一展开后
+   全部 PASS、0 hit。
+
+既有访问审计四类（`AccessAudit` / `AccessAuditFalsePositives` / `AccessAuditCdOrdering` /
+`AccessAuditShellWorkdir`）26 项在改后全部通过，一条既有拒绝与测试都未改。
+
+### 3. 本票不 re-pin（按 CODEX_FIXES_15）
+
+`freeze-manifest.json`、`build_manifest.py` 与测试里的 `EXPECTED_V2_HASHES` 字面量一字未动；
+`run_h2r2.py` 未触碰（它在并行分支上改）。合并后的 re-pin 提交需要：(a) 把
+`fixtures/pilot-8850187-f45-events.jsonl` 加入 `build_manifest.py` 的 `FROZEN_FILES`；
+(b) 重建 manifest 与字面量；(c) 更新 README §4 的文件数与 fixture 计数。本票刻意不提前做这些，
+以免在并行分支上制造第二份冻结数据。
+
+### 4. Gate（CODEX_FIXES_9 T34 的 speed rule；前台，PYTHONPATH 未设，退出码不经管道）
+
+```text
+$PY -m ruff check .                                      -> All checks passed!
+$PY scripts/validate_governance.py                       -> 35/35 checks passed
+$PY scripts/validate_public_release.py                   -> VIOLATIONS=0
+$PY -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h2_freeze_v2.py
+                                                         -> Ran 182 tests / FAILED (failures=2)
+```
+
+`TMPDIR` 按本仓 §0 GATES 的既有做法解析为物理路径（`TMPDIR=$(cd "$TMPDIR" && pwd -P)`）。不解析时
+`EgressAllowlist.test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal` 与
+`WorkerCodeConfinement.test_a_detached_survivor_is_swept_and_the_verdict_comes_from_the_snapshot`
+会因 `/var/folders` 与 `/private/var/folders` 的拼写差异失败；这两项在解析后的同一条命令里单独重跑
+`Ran 2 tests / OK`，与本票改动无关（T41 的 §0 GATES 同样要求解析 TMPDIR）。
+
+**预期红（仅因 `access_audit.py` 字节变化，按本票要求不 re-pin、不改字面量）：**
+
+```text
+FreezeManifest.test_two_independent_anchors_and_materials_binding
+FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "FAIL", "mismatches": ["experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py"]}
+```
+
+mismatches 只有 `access_audit.py` 一项：新 fixture 尚未进 `FROZEN_FILES`，manifest 文件本身与
+测试字面量都未变，所以两条红都只来自"被冻结程序的字节变了"。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **没有 live run**：结论来自真实 pilot #10 的只读事件流 + 合成命令 + 全套单测，不是新的 live
+  pilot；"live pilot #10 现在会判 PASS"仍需下一次 counted run 端到端确认。
+- **按物理行切体**：跨多行的引号参数（例如 `python3 -c "line1\nline2"` 这种真实换行）仍按行当作
+  命令切分，这是改动前就存在的静态限制，本票没有扩大也没有收窄；heredoc 体本身不扫描，因此体里
+  任何引号/算子都不会影响后续判定。
+- **解释器识别是程序名启发式**：`env python - <<EOF`、`sudo python - <<EOF` 这种经包装器到达的
+  解释器不会记 `HEREDOC_PROGRAM`（体仍被切掉，裁定不受影响）；`<PY>` 的 basename 是 `python`，
+  在 `INTERPRETERS` 内。
+- **`echo 1 << 2` 按 shell 语义确实是 heredoc**（词 `1` 后接 heredoc 重定向），因此按算子处理；
+  引号内与 `$(( ))` 内的 `<<` 才是被排除的两种形态。
+- **fixture 只做前缀替换**：体里的 `a / b`、`../../x` 等字节原样保留，这是本次要证明的输入；
+  替换面由派生脚本断言与本类第 1 条测试固定。
