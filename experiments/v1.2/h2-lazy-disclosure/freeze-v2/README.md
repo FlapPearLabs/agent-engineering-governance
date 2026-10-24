@@ -382,6 +382,20 @@ path is held to the validator's `shadow_paths` rule plus the startup-hook refusa
 The re-pin definition (materials = parent of the re-pin commit, proven byte-equal at HEAD) and this
 scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 
+T45 (F46/F47) is implemented and deliberately NOT re-pinned yet — a protocol decision is pending.
+The JSONL readers of `access_audit.py` (driver/audit events, egress log), `run_h2r2.py` (registry,
+attempts, driver events, scheduler child log), `egress_v2.py`, `aggregate_runs.py` and
+`isolation_canary.py` now split a stream on `"\n"` only, so a JSON line that carries U+2028, U+2029,
+U+0085, `\v`, `\f` or `\x1c`–`\x1e` inside a string is one event instead of five. The audit no longer
+judges the script/program/pattern operand of `sed`, `awk`/`gawk` and `grep`/`egrep`/`fgrep`/`rg` as
+a path (each `-e`/`--expression`/`--regexp` value included), while `-f`/`--file`, the input files
+after the script and every other operand stay judged exactly as before. Two sanitised real streams
+join the fixtures — `fixtures/pilot-bf2ca30-f01-c-events.jsonl` (the split-line stream) and
+`fixtures/pilot-bf2ca30-f03-c-events.jsonl` (the `sed`-script stream) — and, together with the five
+changed program hashes, they join [freeze-manifest.json](freeze-manifest.json) and the test literals
+at the next re-pin; until then both still describe the T44 bytes and the two `FreezeManifest` tests
+are expected red for exactly those five files.
+
 ## 5. Before the first run
 
 No H2-R2 run was executed by the implementer. All of the following remain operator/Claude work:

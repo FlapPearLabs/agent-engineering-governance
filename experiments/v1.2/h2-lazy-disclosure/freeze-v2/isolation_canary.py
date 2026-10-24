@@ -471,7 +471,9 @@ def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
     step_finishes = 0
     last_kind = None
     try:
-        events = [json.loads(line) for line in stream.splitlines() if line.strip()]
+        # F46 / T45: an event stream is JSONL, so its lines end at "\n" only — a Unicode line
+        # boundary inside a recorded string never splits one event into several.
+        events = [json.loads(line) for line in stream.split("\n") if line.strip()]
     except (ValueError, TypeError):
         events = []
         reasons.add("MALFORMED_JSONL")

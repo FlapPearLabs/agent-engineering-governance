@@ -1763,6 +1763,285 @@ class AccessAuditHeredocBodies(unittest.TestCase):
                 self.assertEqual([], result["hits"])
 
 
+class AccessAuditScriptOperands(unittest.TestCase):
+    """T45 / F47: a sed script, an awk program and a grep pattern are text, not places.
+
+    The fixture is the WHOLE real event stream of the pilot batch's h2r2-f03-c run (bf2ca30, 180
+    events, 73 tool calls), sanitised the way the earlier real-stream fixtures are — the run root,
+    the shared runs root, the one MISTYPED run root the worker named, the interpreter, its prefix,
+    one unpinned interpreter path and the operator login become placeholders, nothing else is
+    rewritten. The pinned pre-fix program audits it INVALID with two hits: event 72's mistyped run
+    root (a real escape, kept by this ticket) and event 168's `sed` SCRIPT (the false positive this
+    ticket removes). The fixed program reports the first and not the second.
+    """
+
+    FIXTURE = "pilot-bf2ca30-f03-c-events.jsonl"
+    SHA256 = "2f1b05ca8d0755be3b9e0fac781563ff276c55ad4af167b4b42f2568319301b7"
+    RUN = Path("/srv/runs/h2r2-f03-c")
+    HOME = "/srv/profile-home"
+    STRAY = "/srv/runs/pilotbatch-h2r2-f03-c"
+    PLACEHOLDERS = {"<RUN_ROOT>": str(RUN), "<RUNS_ROOT>": "/srv/runs",
+                    "<STRAY_RUN_ROOT>": STRAY, "<PY>": sys.executable,
+                    "<PY_ROOT>": "/srv/py-root", "<PY_UNPINNED>": "/srv/unpinned/bin/python",
+                    "<LOCAL_LOGIN>": "operator"}
+
+    def tool(self, name, **inputs):
+        return {"type": "tool_use", "part": {"tool": name, "state": {"input": inputs}}}
+
+    def expand(self, raw):
+        for placeholder, value in self.PLACEHOLDERS.items():
+            raw = raw.replace(placeholder, value)
+        return raw
+
+    def audit_text(self, text):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(text, encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def audit_command(self, command):
+        return self.audit_text(json.dumps(self.tool("shell", command=command)))
+
+    def paths(self, result):
+        return [hit.get("path") for hit in result["hits"]]
+
+    def test_the_recorded_f03_c_stream_keeps_the_real_escape_and_drops_the_script(self):
+        raw = (FZ / "fixtures" / self.FIXTURE).read_text(encoding="utf-8")
+        for forbidden in ("/Users/", "/home/", "/private/", "/opt/homebrew"):
+            self.assertNotIn(forbidden, raw, forbidden)
+        self.assertNotIn(pwd.getpwuid(os.getuid()).pw_name, raw)
+        self.assertEqual(self.SHA256, digest(raw.encode("utf-8")))
+        self.assertIn("<RUN_ROOT>/repo", raw)
+        self.assertIn("<STRAY_RUN_ROOT>/repo/scripts/review_evidence.py", raw)
+        events = [json.loads(line) for line in raw.split("\n") if line.strip()]
+        self.assertEqual(180, len(events))
+        self.assertEqual(73, sum(1 for event in events if event.get("type") == "tool_use"))
+        sed = [event for event in events
+               if event.get("type") == "tool_use"
+               and event["part"].get("tool") == "shell"
+               and "sed -i" in event["part"].get("state", {}).get("input", {}).get("command", "")]
+        self.assertEqual(2, len(sed))
+        commands = [event["part"]["state"]["input"]["command"] for event in sed]
+        self.assertTrue(any("/^ROUTE" in command and ".h2-telemetry.log" in command
+                            for command in commands), commands)
+        result = self.audit_text(self.expand(raw))
+        self.assertEqual(180, result["events"])
+        self.assertEqual(73, result["tool_calls"])
+        # F47 removes the SCRIPT hit; the worker's mistyped run root stays a real escape.
+        self.assertEqual("INVALID", result["verdict"], result["hits"])
+        self.assertEqual([f"{self.STRAY}/repo/scripts/review_evidence.py"],
+                         [hit["value"] for hit in result["hits"]])
+        self.assertEqual([72], [hit["event"] for hit in result["hits"]])
+        self.assertEqual(["edit"], [hit["tool"] for hit in result["hits"]])
+        self.assertEqual(["PATH_OUTSIDE_RUN"],
+                         [hit["reason"] for hit in result["hits"]])
+        self.assertNotIn("ROUTE", json.dumps(result["hits"]))
+        self.assertNotIn(".h2-telemetry.log", json.dumps(result["hits"]))
+
+    def test_the_script_program_and_pattern_operands_are_not_paths(self):
+        for label, command in (
+                ("the recorded sed script", "sed -i '' '/^ROUTE n\\/a   repo\\/x.py   "
+                                           "SKIPPED$/d' .h2-telemetry.log"),
+                ("a substitution script", "sed -i '' 's/x/y/' repo/x"),
+                ("an extended script", "sed -nE '/re/p' repo/x"),
+                ("a script with a slash-bearing pattern", "sed 's|/etc/passwd|X|' repo/x"),
+                ("a grep pattern operand", "grep pat repo/x"),
+                ("a grep -e pattern", "grep -e pat repo/x"),
+                ("an egrep -e pattern", "egrep -e pat repo/x"),
+                ("a fgrep -e pattern", "fgrep -e pat repo/x"),
+                ("an rg -e pattern", "rg -e pat repo/x"),
+                ("an awk program operand", "awk '{print $1}' repo/x"),
+                ("an awk program with a path in it", "awk '/etc/passwd/{print}' repo/x")):
+            with self.subTest(label=label):
+                result = self.audit_command(command)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+                self.assertEqual([], result["hits"])
+
+    def test_every_other_operand_is_still_judged_as_a_path(self):
+        for command, path in (
+                ("sed -i '' 's/x/y/' /outside/f", "/outside/f"),
+                ("sed 's/x/y/' /outside/f", "/outside/f"),
+                ("sed -e 's/x/y/' /outside/f", "/outside/f"),
+                ("sed -es/x/y/ /outside/f", "/outside/f"),
+                ("sed -f /outside/script /outside/f", "/outside/script"),
+                ("grep -e pat /outside/f", "/outside/f"),
+                ("grep pat /outside/f", "/outside/f"),
+                ("grep -f /outside/pats repo/x", "/outside/pats"),
+                ("rg -e pat /outside/f", "/outside/f"),
+                ("awk -f /outside/prog x", "/outside/prog"),
+                ("awk -f /outside/prog /outside/data", "/outside/prog"),
+                ("gawk -f /outside/prog x", "/outside/prog"),
+                ("cat /outside/f | grep pat", "/outside/f"),
+                ("sed 's/x/y/' /outside/f | cat /outside/g", "/outside/g"),
+                ("cd repo && sed -i '' 's/a/b/' ../../f", "../../f"),
+                ("cd repo && grep -e pat ../../f", "../../f")):
+            with self.subTest(command=command):
+                result = self.audit_command(command)
+                self.assertEqual("INVALID", result["verdict"], command)
+                self.assertIn("PATH_OUTSIDE_RUN",
+                              [hit["reason"] for hit in result["hits"]], command)
+                self.assertIn(path, self.paths(result), command)
+
+    def test_the_script_file_and_the_pattern_file_are_paths_not_scripts(self):
+        """`-f` names a FILE: its value stays judged, and no positional operand is a script then."""
+        result = self.audit_command("awk -f /outside/prog /outside/data")
+        self.assertEqual({"/outside/prog", "/outside/data"}, set(self.paths(result)))
+        result = self.audit_command("grep -f /outside/pats /outside/f")
+        self.assertEqual({"/outside/pats", "/outside/f"}, set(self.paths(result)))
+
+
+class JsonlUnicodeSeparators(unittest.TestCase):
+    """T45 / F46: a JSON line ends at "\\n" and nowhere else.
+
+    Live pilot-batch h2r2-f01-c recorded one valid event — a shell tool call whose command carried
+    a regex with U+2028 and U+2029 — that `str.splitlines()` cut into nine pieces: 193 events plus
+    five MALFORMED_EVENT_LINE hits, registered INVALID:MALFORMED_EVENT_LINES:5. The fixture is that
+    whole real stream (194 events, 63 tool calls), sanitised like the other real-stream fixtures.
+    """
+
+    FIXTURE = "pilot-bf2ca30-f01-c-events.jsonl"
+    SHA256 = "691993b54e001a28f4aa3709ee4eb539643c5566ff248eba7313660a337a0b89"
+    RUN = Path("/srv/runs/h2r2-f01-c")
+    HOME = "/srv/profile-home"
+    SEPARATORS = ("\u2028", "\u2029", "\u0085", "\v", "\f", "\x1c", "\x1d", "\x1e")
+    PLACEHOLDERS = {"<RUN_ROOT>": str(RUN), "<RUNS_ROOT>": "/srv/runs",
+                    "<STRAY_RUN_ROOT>": "/srv/runs/pilotbatch-h2r2-f03-c",
+                    "<PY>": sys.executable, "<PY_ROOT>": "/srv/py-root",
+                    "<PY_UNPINNED>": "/srv/unpinned/bin/python", "<LOCAL_LOGIN>": "operator"}
+
+    def expand(self, raw):
+        for placeholder, value in self.PLACEHOLDERS.items():
+            raw = raw.replace(placeholder, value)
+        return raw
+
+    def write(self, tmp, text, name="events.jsonl"):
+        path = Path(tmp) / name
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def audit_path(self, path):
+        return load("access_audit").audit(path, self.RUN, home=self.HOME, python=sys.executable)
+
+    def splitlines_malformed(self, text):
+        """What the pre-fix reader saw: the same lines read with `str.splitlines()`."""
+        malformed = 0
+        for line in text.splitlines():
+            if not line.strip():
+                continue
+            try:
+                json.loads(line)
+            except ValueError:
+                malformed += 1
+        return malformed
+
+    def test_a_stream_line_carrying_unicode_separators_is_one_event(self):
+        payload = "a" + "".join(self.SEPARATORS) + "b"
+        events = [{"type": "step_start", "part": {"type": "step-start"}},
+                  {"type": "tool_use", "part": {"tool": "shell", "state": {
+                      "input": {"command": f"grep -e '{payload}' repo/x"}}}},
+                  {"type": "text", "part": {"type": "text", "text": payload}}]
+        text = "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n"
+        self.assertEqual(3, len([line for line in text.split("\n") if line.strip()]))
+        self.assertGreater(len(text.splitlines()), 3, "the pre-fix reader split one line")
+        self.assertGreater(self.splitlines_malformed(text), 0,
+                           "the pre-fix reader saw malformed lines in this stream")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, text)
+            result = self.audit_path(path)
+            parsed, malformed = load("run_h2r2").read_events(path)
+        self.assertEqual(3, result["events"])
+        self.assertEqual(1, result["tool_calls"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual((3, 0), (len(parsed), malformed))
+        self.assertEqual([], [hit for hit in result["hits"]
+                              if hit["reason"] == "MALFORMED_EVENT_LINE"])
+        canary = load("isolation_canary").check_stream(text, self.RUN)
+        self.assertNotIn("MALFORMED_JSONL", canary["reasons"])
+        self.assertEqual(3, canary["event_count"])
+
+    def test_every_ledger_and_log_reader_splits_on_newline_only(self):
+        separator = "\u2028"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            registry = root / "registry-v2.jsonl"
+            registry.write_text("\n".join(json.dumps({"run_id": run_id,
+                                                      "reason": f"a{separator}b"})
+                                          for run_id in ("h2r2-f01-c", "h2r2-f01-v")) + "\n",
+                                encoding="utf-8")
+            entries = load("run_h2r2").read_registry(root)
+            self.assertEqual({"h2r2-f01-c", "h2r2-f01-v"}, set(entries))
+            self.assertEqual(2, len(load("aggregate_runs").read_jsonl(registry)))
+            attempts = root / "attempts-v2.jsonl"
+            attempts.write_text(json.dumps({"run_id": "h2r2-f01-c", "attempt": 1,
+                                            "reason": f"a{separator}b"}) + "\n",
+                                encoding="utf-8")
+            self.assertEqual(2, load("run_h2r2").next_attempt_number(root, "h2r2-f01-c"))
+            log = root / "scheduler-child.log"
+            log.write_text(f"noise{separator}line\n"
+                           + json.dumps({"outcome": f"NOT_REGISTERED{separator}"}) + "\n",
+                           encoding="utf-8")
+            self.assertEqual({"outcome": f"NOT_REGISTERED{separator}"},
+                             load("run_h2r2").last_json_object(log))
+            egress = root / "egress.jsonl"
+            egress.write_text(json.dumps({"verdict": "DENY", "host": f"a{separator}b"}) + "\n",
+                              encoding="utf-8")
+            self.assertEqual(1, len(load("egress_v2").denied(egress)))
+            self.assertEqual(1, len(load("access_audit").egress_denied(egress)))
+
+    def test_a_truncated_line_is_still_malformed(self):
+        good = json.dumps({"type": "text", "part": {"type": "text", "text": "ok"}})
+        truncated = '{"type":"tool_use","part":{"tool":"shell","state":{"input":{"command":"ls'
+        text = good + "\n" + truncated + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, text)
+            result = self.audit_path(path)
+            parsed, malformed = load("run_h2r2").read_events(path)
+            registry = self.write(tmp, json.dumps({"run_id": "h2r2-f01-c"}) + "\n" + truncated,
+                                  name="registry-v2.jsonl")
+            with self.assertRaises(ValueError) as raised:
+                load("run_h2r2").read_registry(Path(tmp))
+            with self.assertRaises(ValueError) as ledger:
+                load("aggregate_runs").read_jsonl(registry)
+        self.assertEqual("INVALID", result["verdict"])
+        self.assertEqual(["MALFORMED_EVENT_LINE"],
+                         [hit["reason"] for hit in result["hits"]])
+        self.assertTrue(result["hits"][0]["value"].startswith('{"type":"tool_use"'))
+        self.assertEqual((1, 1), (len(parsed), malformed))
+        self.assertIn("REGISTRY_MALFORMED_LINE:2", str(raised.exception))
+        self.assertIn("REGISTRY-V2.JSONL_MALFORMED_LINE:2", str(ledger.exception))
+
+    def test_the_recorded_f01_c_stream_reads_as_events_not_lines(self):
+        raw = (FZ / "fixtures" / self.FIXTURE).read_text(encoding="utf-8")
+        for forbidden in ("/Users/", "/home/", "/private/", "/opt/homebrew"):
+            self.assertNotIn(forbidden, raw, forbidden)
+        self.assertNotIn(pwd.getpwuid(os.getuid()).pw_name, raw)
+        self.assertEqual(self.SHA256, digest(raw.encode("utf-8")))
+        self.assertIn("\u2028", raw)
+        self.assertIn("\u2029", raw)
+        self.assertIn("<PY_UNPINNED>", raw)
+        text = self.expand(raw)
+        # The live stream's own red: the pre-fix reader produced exactly MALFORMED_EVENT_LINES:5.
+        self.assertEqual(5, self.splitlines_malformed(text))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, text)
+            result = self.audit_path(path)
+            parsed, malformed = load("run_h2r2").read_events(path)
+        self.assertEqual(194, result["events"])
+        self.assertEqual(63, result["tool_calls"])
+        self.assertEqual((194, 0), (len(parsed), malformed))
+        self.assertNotIn("MALFORMED_EVENT_LINE",
+                         [hit["reason"] for hit in result["hits"]])
+        # F46 removes only the split lines; the unpinned interpreter the worker named stays a hit.
+        self.assertEqual(["PATH_OUTSIDE_RUN"], [hit["reason"] for hit in result["hits"]])
+        self.assertEqual(["/srv/unpinned/bin/python"],
+                         [hit["path"] for hit in result["hits"]])
+        split = [event for event in parsed
+                 if event.get("type") == "tool_use"
+                 and "\u2028" in json.dumps(event.get("part", {}), ensure_ascii=False)]
+        self.assertEqual(1, len(split))
+
+
 class RegistryV2(unittest.TestCase):
     def test_generator_is_byte_deterministic_and_matches_checked_in_output(self):
         with tempfile.TemporaryDirectory() as tmp:

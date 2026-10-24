@@ -3551,3 +3551,187 @@ T43 记录的红/绿对照（红用 object DB 里上一提交的 `access_audit.p
   只有 `materials_commit` 变化；没有把"上一次的测量"直接 copy 过来。
 - **未验证**：`run-plan` 在真实 provider 负载下的并发耗时与限流；T43 登记的静态限制（跨物理行的
   引号参数按行切分、`env`/`sudo` 包装的解释器不记证据）本轮没有扩大也没有收窄。
+
+## T45（implementer: opencode deepseek-v4.1-flash）— JSONL 只按 `"\n"` 切行（F46）、脚本/模式操作数不是路径（F47）
+
+本票按 CODEX_FIXES_16 修 F46（P1）与 F47（P2）。四条并行的 pilot 批（`bf2ca30`）里，`h2r2-f01-c` 以
+`INVALID:MALFORMED_EVENT_LINES:5` 收场，`h2r2-f03-c` 以 `INVALID`（两条 `PATH_OUTSIDE_RUN`）收场；
+两条都不是任务失败，而是读取器与判定器把 worker 的合法输入读错。
+
+- **F46**：`str.splitlines()` 把 U+2028、U+2029、U+0085、`\v`、`\f`、`\x1c`–`\x1e` 也当行界，而 JSON
+  字符串里允许出现这些字符。f01-c 有**一条**合法事件（`shell` 工具调用，其命令里的正则含这些分隔符）
+  被切成 9 段，留下 193 事件 + 5 条 `MALFORMED_EVENT_LINE` —— 与 registry 的
+  `MALFORMED_EVENT_LINES:5` 逐条对应。JSON Lines 只由 `"\n"` 分隔。
+- **F47**：`sed -i '' '/^ROUTE …/d' .h2-telemetry.log` 的**脚本**被当成路径判定，命中
+  `PATH_OUTSIDE_RUN`。sed 的脚本、awk 的程序、grep 的模式是程序要解释的文本，不是位置。
+
+### 1. 实现（只加"按 `\n` 切"与"脚本不是路径"两条，既有拒绝一条未减）
+
+F46 —— 五个 JSONL 读取器把 `splitlines()` 换成 `split("\n")`，每处就地注明 F46：
+
+| 文件 | 读的东西（被修的函数） |
+|---|---|
+| `access_audit.py` | driver/audit 事件流（`audit`）、egress 日志（`egress_denied`） |
+| `run_h2r2.py` | registry（`read_registry`）、attempts 账本（`next_attempt_number`）、事件流（`read_events`）、调度器子进程日志（`last_json_object`） |
+| `egress_v2.py` | egress 日志的 DENY 行（`denied`） |
+| `aggregate_runs.py` | registry / attempts 两个 append-only 账本（`read_jsonl`） |
+| `isolation_canary.py` | canary 事件流（`check_stream`） |
+
+F47 —— `access_audit.py` 新增两个纯函数，由 `shell_hits` 使用：
+
+- `script_operand_indexes(tokens)`：按控制操作符分段（`OPERATORS` 既有集合），跳过 `NAME=value`
+  前缀取程序词，只对 `sed`/`gsed`、`awk`/`gawk`、`grep`/`egrep`/`fgrep`/`rg` 计算脚本下标。
+- `script_indexes(name, tokens, start, end)`：每个 `-e` / `--expression` / `--regexp` 的值是模式
+  （`--expression=` 与 `-e` 紧贴值两种写法也算）；否则**第一个非选项操作数**是脚本/程序/模式；
+  空 token（BSD `sed -i ''` 的空后缀）只是选项自己的参数，不占操作数位置；一旦给了
+  `-f`/`--file`（脚本/模式文件），它的值与其后的位置参数都照旧是**路径**。
+- `shell_hits` 在判定循环里跳过这些下标的 token；**其它一切不变**：`cd` 操作数按 `cd` 之前的目录判定
+  （F42）、git 规则（F13/F27a）、heredoc 切体（F45）、`unresolved_constructs` 证据、workdir（F43）
+  都没有改动，脚本之后的输入文件、`-f` 的值、别的程序的每一个操作数仍按原规则判定。
+
+### 2. 证据：两份真实流 fixture + 红/绿
+
+两份 fixture 都从**只读**的 pilot 批事件流整条派生（`.driver/<run_id>/attempt-1/events.jsonl`），
+替换面只有七类 token，其余字节原样：run 目录 → `<RUN_ROOT>`、共享 runs 根 → `<RUNS_ROOT>`、worker
+写错的 run 根 → `<STRAY_RUN_ROOT>`、解释器 → `<PY>`、解释器前缀 → `<PY_ROOT>`、一个**不在允许表
+里**的解释器路径 → `<PY_UNPINNED>`、操作者登录名 → `<LOCAL_LOGIN>`。派生脚本写盘前断言：没有
+`/Users/`、`/home/`、`/private/`、`/opt/homebrew`、没有 runs 根字面、没有登录名，每一行仍是一个合法
+JSON 事件，事件数与工具调用数不变。
+
+```text
+fixtures/pilot-bf2ca30-f01-c-events.jsonl  795966 字节  sha256 691993b54e001a28f4aa3709ee4eb539643c5566ff248eba7313660a337a0b89
+                                          194 事件 / 63 工具调用；按 "\n" 194 行，按 splitlines() 202 行
+fixtures/pilot-bf2ca30-f03-c-events.jsonl  671794 字节  sha256 2f1b05ca8d0755be3b9e0fac781563ff276c55ad4af167b4b42f2568319301b7
+                                          180 事件 / 73 工具调用；两种切法都是 180 行（它的缺陷在 F47，不在 F46）
+```
+
+红/绿用**同一份 fixture、同一组展开值与参数**；红用的程序是从 object DB 取出的**上一提交**的
+`access_audit.py`（`git show HEAD:…` 到临时目录，没有手改工作树）：
+
+```text
+PRE-FIX (pinned HEAD)  f01-c: verdict=INVALID events=193 tool_calls=62 hits=6
+   5 × MALFORMED_EVENT_LINE（拆出的第 116/118/120/122/124 行）
+   1 × PATH_OUTSIDE_RUN <PY_UNPINNED>
+FIXED   (T45)          f01-c: verdict=INVALID events=194 tool_calls=63 hits=1
+   1 × PATH_OUTSIDE_RUN <PY_UNPINNED>（worker 自己写错的解释器路径，真命中，保留）
+PRE-FIX (pinned HEAD)  f03-c: verdict=INVALID events=180 tool_calls=73 hits=2
+   1 × PATH_OUTSIDE_RUN <STRAY_RUN_ROOT>/repo/scripts/review_evidence.py（真命中，保留）
+   1 × PATH_OUTSIDE_RUN 脚本 `/^ROUTE n\/a …$/d`（F47 要消除的假命中）
+FIXED   (T45)          f03-c: verdict=INVALID events=180 tool_calls=73 hits=1
+   1 × PATH_OUTSIDE_RUN <STRAY_RUN_ROOT>/repo/scripts/review_evidence.py
+```
+
+两条 PRE-FIX 结果与该批 registry 逐项相同（f01-c 的 `MALFORMED_EVENT_LINES:5`、审计 `tool_calls` 62；
+f03-c 的两条 `PATH_OUTSIDE_RUN` 其中一条就是 sed 脚本），所以 fixture 复现的是真实缺陷，不是构造。
+**修好之后两份 fixture 仍然不是 PASS**：它们各自保留 worker 真实犯下的另一个越界（写错的 run 根、
+写错的解释器路径）。本票没有为了让 fixture 变绿而删掉任何一条真命中。
+
+新测试类两项（共 8 项，全部无模型、不碰真实 runs root、只用 fixture 与临时目录）：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -k AccessAuditScriptOperands -k JsonlUnicodeSeparators
+  Ran 8 tests / OK
+```
+
+`AccessAuditScriptOperands`（F47，4 项）：
+
+1. `test_the_recorded_f03_c_stream_keeps_the_real_escape_and_drops_the_script`：净化断言、fixture
+   sha256、180 事件 / 73 工具调用；两条真实 `sed -i` 调用在流里（含 `/^ROUTE …$/d` 那条）；展开后
+   只剩一条命中（写错的 run 根，`event 72`，`tool=edit`），脚本与 `.h2-telemetry.log` 不出现在命中里。
+2. `test_the_script_program_and_pattern_operands_are_not_paths`：11 个写法（含 f03-c 原样命令、
+   `sed -nE`、`s|/etc/passwd|X|`、`grep/egrep/fgrep/rg -e`、`awk '{print $1}'`、`awk` 程序里带
+   `/etc/passwd`）全部 PASS、0 命中。
+3. `test_every_other_operand_is_still_judged_as_a_path`：16 个写法仍 INVALID ——
+   `sed -i '' 's/x/y/' /outside/f`、`sed 's/x/y/' /outside/f`、`sed -e …`、`sed -es/x/y/ …`、
+   `sed -f /outside/script /outside/f`、`grep -e pat /outside/f`、`grep pat /outside/f`、
+   `grep -f /outside/pats repo/x`、`rg -e pat /outside/f`、`awk -f /outside/prog x`、
+   `awk -f /outside/prog /outside/data`、`gawk -f /outside/prog x`、管线两侧、
+   `cd repo && … ../../f`。
+4. `test_the_script_file_and_the_pattern_file_are_paths_not_scripts`：`-f` 的值与位置参数一起被判定
+   （`awk -f /outside/prog /outside/data` 两个都命中；`grep -f /outside/pats /outside/f` 两个都命中）。
+
+`JsonlUnicodeSeparators`（F46，4 项）：
+
+1. `test_a_stream_line_carrying_unicode_separators_is_one_event`：合成流里 U+2028、U+2029、U+0085、
+   `\v`、`\f`、`\x1c`–`\x1e` 全在字符串内；`splitlines()` 会拆开（断言），读取器读出 3 事件 /
+   1 工具调用 / 0 命中 / 0 malformed，canary 的 `check_stream` 也不报 `MALFORMED_JSONL`。
+2. `test_every_ledger_and_log_reader_splits_on_newline_only`：registry、attempts、调度器子进程日志、
+   egress 日志（`egress_v2.denied` 与 `access_audit.egress_denied`）、`aggregate_runs.read_jsonl`
+   六个读取器逐个用带 U+2028 的记录验证，条数都对。
+3. `test_a_truncated_line_is_still_malformed`：真截断的行仍然是 `MALFORMED_EVENT_LINE`、
+   `read_events` 计 1 条 malformed、`read_registry` 抛 `REGISTRY_MALFORMED_LINE:2`、
+   `aggregate_runs.read_jsonl` 抛 `…_MALFORMED_LINE:2`。修 F46 没有把"合法 JSON"放宽成"任意字节"。
+4. `test_the_recorded_f01_c_stream_reads_as_events_not_lines`：真实流 fixture 用**上一版读取方式**数
+   出恰好 5 条坏行（与 live 的 `MALFORMED_EVENT_LINES:5` 相同），用新读取器读出 194 事件 / 63 工具
+   调用 / 0 malformed，命中也只剩那条真越界。
+
+既有访问审计四个类（`AccessAudit` / `AccessAuditFalsePositives` / `AccessAuditCdOrdering` /
+`AccessAuditShellWorkdir`）与 `AccessAuditHeredocBodies` 全部仍在，含"五份既有 pilot fixture 仍
+PASS"那一条；`IsolationCanary` / `EgressAllowlist` / `AggregateRunsV2` 等读取器用例同样未改。
+
+### 3. 本票不 re-pin（按 CODEX_FIXES_16）
+
+`freeze-manifest.json`、`build_manifest.py` 与测试里的 `EXPECTED_V2_HASHES` / `MANIFEST_SHA256`
+字面量一字未动；两份新 fixture 也没有加进 `build_manifest.py` 的 `FROZEN_FILES`。下一次 re-pin 提交
+需要：(a) 把两份 fixture 加进 `FROZEN_FILES`；(b) 重建 manifest 与字面量；(c) 更新 README §4 的
+文件数/计数（README §4 已如实写明 T45 未 re-pin）。本票刻意不提前做，protocol 决定仍在待定。
+
+`build_manifest.py check` 当前输出（断言"红只来自这五个文件"）：
+
+```text
+{"verdict": "FAIL", "mismatches": ["experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py", "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py", "experiments/v1.2/h2-lazy-disclosure/freeze-v2/egress_v2.py", "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py", "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py"]}
+```
+
+### 4. Gate（CODEX_FIXES_9 T34 的 speed rule；前台，PYTHONPATH 未设，退出码不经管道）
+
+```text
+$PY -m ruff check .                                      -> All checks passed!          (exit 0)
+$PY scripts/validate_governance.py                       -> 35/35 checks passed         (exit 0)
+$PY scripts/validate_public_release.py                   -> VIOLATIONS=0                (exit 0)
+$PY -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h2_freeze_v2.py
+                                                         -> Ran 190 tests in 563.657s / FAILED (failures=4)
+   same command with TMPDIR resolved to its physical path
+                                                         -> Ran 190 tests in 562.555s / FAILED (failures=2)
+```
+
+实验模块 182 → 190：+8 全部来自本票的两个新类，既有 182 项一条未删、一条未改。
+
+上面两条测试数字取自**代码与测试文件已经定稿、本文件尚未写入**的同一棵树。写入本节后只删掉了本文件
+末尾的一个多余空行（`git diff --check` 因此由 `new blank line at EOF` 转绿），代码、测试文件与 fixture
+一个字节未变；没有测试读取本文件（`ProtocolV2` 只读 protocol-v2 与 README §3），因此那两条各约 9 分钟
+的测试命令没有为这行空白重跑，其余三等门与 `git diff --check` 在最终树上重跑过（见下）。
+
+**预期红（仅因被冻结程序的字节变了，按本票要求不 re-pin、不改字面量）**：
+
+```text
+FreezeManifest.test_two_independent_anchors_and_materials_binding          （freeze_is_intact 首行断言）
+FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected     （同一断言，建好临时树后立即为 False）
+```
+
+两处都只说 `freeze_is_intact(…) is False`，mismatches 就是上面那五个被本票改动的冻结程序；manifest
+文件本身、`MANIFEST_SHA256` 与 56 条 `EXPECTED_V2_HASHES` 都未变，所以这两条红不含第二个原因。
+
+**另两条红与 F46/F47 无关，是 TMPDIR 拼写差异（T41/T43 已登记）**：未解析 TMPDIR 时
+`WorkerCodeConfinement.test_a_detached_survivor_is_swept_and_the_verdict_comes_from_the_snapshot`
+与 `EgressAllowlist.test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal` 会因为
+`/var/folders…` 与 `/private/var/folders…` 的比较失败；把 `TMPDIR` 解析成物理路径后这两条转绿，
+失败数从 4 降到 2（只剩上面的预期红）。本票没有改这两项，也没有改它们的断言。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **没有 live run**：两条修复的证据是**真实并行批的只读事件流** + 合成命令 + 单测；"下一次 counted
+  run 不会再因为这两个原因判 INVALID"仍需真实 end-to-end 确认。
+- **fixture 仍然 INVALID 是如实结果**：f01-c 保留 worker 写错的解释器路径，f03-c 保留写错的 run 根；
+  本票没有为了让 fixture PASS 而放宽任何一条规则（也就不存在"用修 bug 的机会洗掉一条真命中"）。
+- **脚本识别的边界**：`env sed …`、`sudo sed …` 这类经包装器到达的 sed 不会被识别成程序词，它的
+  脚本仍按路径判定（方向是**多报**而不是漏报）；`sed -i` 的 BSD 空后缀按"选项参数"处理，GNU 语义下
+  的同一写法不在本 runtime 的路径上；未加引号、且自身含 `|`/`;` 的脚本仍会被 shell 标点切开，这是
+  改动前就有的静态限制。
+- **仍未按 `\n` 切的 `splitlines()` 都不是 JSONL 读取器**，逐个说明：`access_audit.sandbox_denied`
+  （tool result 的人读文本行，用来实现"路径与 EPERM 同行的才算 denial"）、
+  `isolation_canary.parse_profile_env` / `parse_debug_paths` / `sources_claims` / `text_reasons`
+  （`env.sh` 行、`opencode debug paths` 行与散文）、`wrapper_delivery` / `build_registry`（`git`
+  输出行）、`collect_v2`（diff/文本行，`keepends`）。它们不解析 JSON，因此不在 F46 的范围内，本票
+  没有顺手改。
+- **两份 fixture 各约 0.7 MB**：与既有五份真实流 fixture 同一做法（整条派生、只换前缀 token），
+  代价是仓库体积；它们尚未进 manifest，re-pin 时才成为冻结成员。

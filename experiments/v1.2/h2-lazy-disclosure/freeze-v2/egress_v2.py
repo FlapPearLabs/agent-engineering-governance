@@ -257,12 +257,16 @@ def start(stream_dir, *, allow=EGRESS_ALLOW, allow_port: int = EGRESS_PORT) -> E
 
 
 def denied(log_path) -> list[dict]:
-    """The DENY lines of one launch's egress log: evidence, never a verdict by itself."""
+    """The DENY lines of one launch's egress log: evidence, never a verdict by itself.
+
+    F46 / T45: the log is JSONL, separated by "\n" only; a Unicode line boundary inside a recorded
+    field never starts a new entry.
+    """
     path = Path(log_path)
     if not path.is_file():
         return []
     entries: list[dict] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
         if not line.strip():
             continue
         try:

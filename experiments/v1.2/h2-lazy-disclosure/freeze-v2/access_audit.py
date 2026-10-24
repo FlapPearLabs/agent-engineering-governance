@@ -53,6 +53,19 @@ What is flagged:
   * any tool that is not in `TOOL_ALLOW` (`webfetch`, `task`, `skill`, an `mcp__` tool …): a tool
     whose accesses this stream cannot show is not auditable from here.
 
+A JSONL stream is split on "\n" only (F46): a JSON line ends at a newline and nowhere else, while
+`str.splitlines()` also breaks on U+2028, U+2029, U+0085, `\v`, `\f` and `\x1c`–`\x1e`. Live pilot
+h2r2-f01-c recorded one valid event whose shell command carried those characters inside a regex
+string; read with `splitlines()` it became five lines and five MALFORMED_EVENT_LINE hits, and the run
+was registered INVALID:MALFORMED_EVENT_LINES:5. A truncated line is still malformed.
+
+A script, program or pattern operand is not a place (F47): the first non-option operand of `sed`
+(its script), of `awk`/`gawk` (its program) and of `grep`/`egrep`/`fgrep`/`rg` (its pattern), and
+every `-e`/`--expression`/`--regexp` value, is text the program interprets, not a path. A live
+h2r2-f03-c stream was reported PATH_OUTSIDE_RUN for the `/^ROUTE …$/d` script of
+`sed -i '' … .h2-telemetry.log`. `-f`/`--file` names a FILE and stays a path, as does every other
+operand — including the input files after the script — judged exactly as before.
+
 A heredoc body is NOT shell syntax and is never judged as one (F45): the lines after a `<<WORD`,
 `<<-WORD`, `<<'WORD'` or `<<"WORD"` operator up to the line holding exactly WORD are stdin data for
 the command that carries the operator, so they are cut before tokenising. The operator's own line —
@@ -110,6 +123,13 @@ GIT_LOCATION_FLAGS = ("--git-dir=", "--work-tree=")
 # Shell control operators: a command list is analysed segment by segment (F12), and a git argument
 # list ends at the first operator, so `tar -x -C <dir>` after a pipe is never read as git's own -C.
 OPERATORS = frozenset({";", ";;", "&", "&&", "|", "||", "(", ")", "{", "}", "\n"})
+# F47 / T45: the program whose first non-option operand is a script/program/pattern, not a place,
+# the options whose VALUE is such a pattern, and the options whose value is a FILE of them.
+SCRIPT_TOOLS = frozenset({"sed", "gsed", "awk", "gawk", "grep", "egrep", "fgrep", "rg"})
+SCRIPT_VALUE_FLAGS = {"sed": ("-e", "--expression"), "gsed": ("-e", "--expression"),
+                      "grep": ("-e", "--regexp"), "egrep": ("-e", "--regexp"),
+                      "fgrep": ("-e", "--regexp"), "rg": ("-e", "--regexp")}
+SCRIPT_FILE_FLAGS = ("-f", "--file")
 DIFF_PATH_RE = re.compile(r"^(?:diff --git a/(?P<both>\S+)|--- a/(?P<old>\S+)|\+\+\+ b/(?P<new>\S+))$",
                           re.M)
 # F16 / T29: constructs a static tokenizer cannot resolve. They are EVIDENCE, not hits: the OS
@@ -326,6 +346,73 @@ def command_name(prefix: str) -> str:
     return name
 
 
+def script_indexes(name: str, tokens: list[str], start: int, end: int) -> set[int]:
+    """The script/program/pattern token indexes of one sed/awk/grep invocation (F47 / T45).
+
+    `start`..`end` is the argument list of a program named `name`, ending at a control operator.
+    Every `-e`/`--expression`/`--regexp` value is a pattern, and so is the first non-option
+    operand — unless a script/pattern FILE was named (`-f`/`--file`, whose value is a path) or the
+    patterns were given explicitly, in which case the positional operands are FILE operands and
+    stay judged. An empty token (BSD `sed -i ''`) is an option's own argument, never an operand.
+    """
+    skip: set[int] = set()
+    values = SCRIPT_VALUE_FLAGS.get(name, ())
+    short = tuple(flag for flag in values if flag.startswith("-") and not flag.startswith("--"))
+    explicit = False
+    script_file = False
+    operands: list[int] = []
+    index = start
+    while index < end:
+        token = tokens[index]
+        if token in values:
+            explicit = True
+            if index + 1 < end:
+                skip.add(index + 1)
+            index += 2
+            continue
+        if any(token.startswith(f"{flag}=") for flag in values) or (
+                any(token.startswith(flag) and len(token) > len(flag) for flag in short)):
+            explicit = True
+            skip.add(index)
+        elif token.startswith("-") and token != "-":
+            if token in SCRIPT_FILE_FLAGS:
+                script_file = True
+                index += 2
+                continue
+            script_file = script_file or token.startswith(("-f", "--file="))
+        elif token.strip():
+            operands.append(index)
+        index += 1
+    if operands and not explicit and not script_file:
+        skip.add(operands[0])
+    return skip
+
+
+def script_operand_indexes(tokens: list[str]) -> set[int]:
+    """Every token of a command list that is a script/program/pattern rather than a place (F47).
+
+    The list is walked segment by segment — a control operator starts a new command, and a
+    `NAME=value` prefix is an assignment rather than the program word — so `cd repo && sed …` is
+    read as `sed` with the script the audit must not judge as a path, while `cat x | grep pat` is
+    read as two commands.
+    """
+    skip: set[int] = set()
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token in OPERATORS or "=" in token:
+            index += 1
+            continue
+        end = index + 1
+        while end < len(tokens) and tokens[end] not in OPERATORS:
+            end += 1
+        name = PurePosixPath(token).name
+        if name in SCRIPT_TOOLS:
+            skip |= script_indexes(name, tokens, index + 1, end)
+        index = end
+    return skip
+
+
 def git_subcommand(args: list[str]) -> tuple[str, list[str]]:
     """The subcommand of one git argument list and its positional arguments.
 
@@ -471,9 +558,14 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
     the run directory otherwise; the `cd` tracking and `git_hits` start from the same place.
     F45 / T43: heredoc bodies are cut before tokenising, so a program's stdin data is never read as
     shell words; the operator line itself is judged in full.
+    F47 / T45: the script/program/pattern operand of sed/awk/grep is text the program interprets,
+    not a place, so it is the one kind of operand that is not judged as a path.
     """
     command_line, _ = split_heredocs(command)
     tokens = shell_tokens(command_line)
+    # F47: a script/pattern token is skipped, so `sed -i '' '/^ROUTE …/d' .h2-telemetry.log` is
+    # judged on its input file and not on its own script.
+    scripts = script_operand_indexes(tokens)
     hits: list[dict] = []
 
     def judge(values: list[str], base: str) -> None:
@@ -486,9 +578,12 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
     cwd = cwd or str(run_dir)
     index = 0
     while index < len(tokens):
+        position = index
         token = tokens[index]
         index += 1
         if token in OPERATORS:
+            continue
+        if position in scripts:
             continue
         judge(token_values(token), cwd)
         if PurePosixPath(token).name != "cd":
@@ -639,7 +734,8 @@ def egress_denied(log_path) -> list[dict]:
     if not path.is_file():
         return []
     entries: list[dict] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    # F46 / T45: a JSONL stream is separated by "\n" only; splitlines() also breaks on U+2028 etc.
+    for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
         if not line.strip():
             continue
         try:
@@ -749,8 +845,10 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
         result["verdict"] = "INVALID"
         return result
     seen: set[str] = set()
+    # F46 / T45: one JSON line ends at "\n" and nowhere else, so a line that carries U+2028,
+    # U+2029, U+0085, \v, \f or \x1c-\x1e inside a string is read as ONE event.
     for index, line in enumerate(path.read_text(encoding="utf-8", errors="replace")
-                                 .splitlines(), 1):
+                                 .split("\n"), 1):
         if not line.strip():
             continue
         try:

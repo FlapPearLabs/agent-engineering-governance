@@ -93,11 +93,12 @@ COMPLETION_LINE = re.compile(r"^\s*TASK_COMPLETED\s*=\s*(YES|NO|PARTIAL)\s*$",
 
 
 def read_jsonl(path: Path) -> list[dict]:
+    """The rows of one append-only ledger; F46 / T45: lines end at "\n" only, never at U+2028."""
     path = Path(path)
     if not path.is_file():
         return []
     rows = []
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
         if not line.strip():
             continue
         try:

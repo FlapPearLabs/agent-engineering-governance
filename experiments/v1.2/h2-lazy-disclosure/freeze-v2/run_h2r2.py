@@ -316,7 +316,8 @@ def read_registry(runs_root: Path) -> dict[str, dict]:
     entries: dict[str, dict] = {}
     if not path.is_file():
         return entries
-    for number, line in enumerate(read_text_locked(path).splitlines(), 1):
+    # F46 / T45: JSON Lines are separated by "\n" only, never by a Unicode line boundary.
+    for number, line in enumerate(read_text_locked(path).split("\n"), 1):
         if not line.strip():
             continue
         try:
@@ -650,12 +651,18 @@ def server_output(stream_dir: Path) -> dict:
 
 
 def read_events(path: Path) -> tuple[list, int]:
-    """The JSON event stream, line by line; the count of lines that are not JSON."""
+    """The JSON event stream, line by line; the count of lines that are not JSON.
+
+    F46 / T45: JSON Lines are separated by "\n" and by nothing else. `str.splitlines()` also breaks
+    on U+2028, U+2029, U+0085, \v, \f and \x1c-\x1e, which a JSON string may carry unescaped; live
+    pilot h2r2-f01-c recorded one such event (a shell command holding those characters in a regex)
+    and it read as five lines, registering the run INVALID:MALFORMED_EVENT_LINES:5.
+    """
     events: list = []
     malformed = 0
     if not Path(path).is_file():
         return events, malformed
-    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in Path(path).read_text(encoding="utf-8", errors="replace").split("\n"):
         if not line.strip():
             continue
         try:
@@ -939,7 +946,8 @@ def next_attempt_number(runs_root: Path, run_id: str) -> int:
     number = 1
     if not path.is_file():
         return number
-    for text in read_text_locked(path).splitlines():
+    # F46 / T45: the attempt ledger is JSONL, separated by "\n" only.
+    for text in read_text_locked(path).split("\n"):
         if not text.strip():
             continue
         try:
@@ -2077,9 +2085,13 @@ def child_outcome(runs_root: Path, run_id: str, item: dict, returncode: int) -> 
 
 
 def last_json_object(path: Path) -> dict:
-    """The last JSON object in a child's log, or {} when there is none."""
+    """The last JSON object in a child's log, or {} when there is none.
+
+    F46 / T45: a log line ends at "\n" and nowhere else, so a JSON object printed by the child is
+    found whole even when the surrounding stderr text carries a Unicode separator.
+    """
     try:
-        lines = read_text_locked(path).splitlines()
+        lines = read_text_locked(path).split("\n")
     except OSError:
         return {}
     for line in reversed(lines):
