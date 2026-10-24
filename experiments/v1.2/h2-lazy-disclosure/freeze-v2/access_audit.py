@@ -13,6 +13,16 @@ What is flagged:
   * a path argument (`path`, `filePath`, `file_path`, `directory`, `dir`) that resolves outside the
     run directory — relative paths resolve against the worker's cwd, which IS the run directory, so
     only absolute, `~`, `$HOME` and `..`-escaping values can hit;
+  * the `workdir` of a shell tool call (F43): it is the directory the command starts in, so it is
+    judged like a path — outside the run directory and the allow-list is a hit — and it is the base
+    that every relative token of that command, every `cd` in it and git's effective repository
+    resolve against. A missing `workdir` means the run directory, as before. 85 of the 149 real
+    shell calls across the pilot set carry it, and ignoring it reported the live pilot #9 stream
+    INVALID for `>> ../.h2-telemetry.log` issued with `workdir = <run>/repo`, which is
+    `<run>/.h2-telemetry.log` — inside the run;
+  * for glob/grep-style tools (F43, defensive: no live stream has done it yet), a `pattern` or
+    `include` value that is itself a place rather than a name — an absolute path, or one carrying a
+    `..` segment — judged like a path against the tool's own `path`, or the run directory;
   * the same rule applied to every token of a shell command (`shell`, and `bash` for streams that
     still name it that way) after `--flag=value` and `KEY=value` splitting. The command is
     tokenised with SHELL PUNCTUATION, so `a && b; c | d` yields `a`, `b`, `c`, `d`, not one token
@@ -71,6 +81,10 @@ PATH_TOOLS = frozenset({"read", "write", "edit", "multiedit", "patch", "glob", "
 SHELL_TOOLS = frozenset({"bash", "shell"})
 PATH_KEYS = ("path", "filePath", "file_path", "directory", "dir")
 COMMAND_KEYS = ("command", "cmd")
+# F43: the shell tool's starting directory, and the pattern-carrying keys of the search tools.
+SHELL_WORKDIR_KEYS = ("workdir",)
+SEARCH_TOOLS = frozenset({"glob", "grep"})
+SEARCH_PATH_KEYS = ("pattern", "include")
 SYSTEM_ALLOW = ("/usr", "/bin", "/sbin", "/opt/homebrew", "/System", "/Library/Developer",
                 "/dev/null", "/dev/stdout", "/dev/stderr")
 # The OS temp roots a test run may legitimately write to. The broad `/var/folders` prefix is NOT
@@ -276,18 +290,20 @@ def cd_argument(tokens: list[str], index: int) -> tuple[str | None, int]:
     return following[0], index + 1
 
 
-def git_hits(tokens: list[str], run_dir: Path, home: str | None) -> list[dict]:
+def git_hits(tokens: list[str], run_dir: Path, home: str | None,
+             cwd: str | None = None) -> list[dict]:
     """Shell `git` invocations that reach another repository.
 
     The working directory follows a `cd` in the same command list; an argument list ends at the
     first control operator. Both are what make a scripted `cd <run> && ... && git -C repo ...`
     judgeable, and what keeps another program's `-C` out of git's argument list (F12 / F13).
     F42 / T40: the `cd` operand is consumed, so it can never be mistaken for a `git` invocation.
+    F43: `cwd` is the tool call's `workdir` when it has one, the run directory otherwise.
     """
     hits: list[dict] = []
     command = " ".join(tokens)
     temps = temp_roots()
-    cwd = str(run_dir)
+    cwd = cwd or str(run_dir)
     index = 0
     while index < len(tokens):
         token = tokens[index]
@@ -314,8 +330,8 @@ def git_hits(tokens: list[str], run_dir: Path, home: str | None) -> list[dict]:
     return hits
 
 
-def shell_hits(command: str, run_dir: Path, home: str | None,
-               allow: tuple[str, ...]) -> list[dict]:
+def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, ...],
+               cwd: str | None = None) -> list[dict]:
     """Every path-shaped token of one shell command, plus the git rules above.
 
     F27b: resolution follows the working directory the same command established with `cd`, so an
@@ -323,6 +339,8 @@ def shell_hits(command: str, run_dir: Path, home: str | None,
     F42 / T40: the operand of a `cd` is judged against the working directory BEFORE that `cd` (it
     is the directory the tokens after it are judged in), so `cd repo ... cd ..` is a return into
     the run directory, not an escape from it.
+    F43: `cwd` is the tool call's `workdir` (the directory the command starts in) when it has one,
+    the run directory otherwise; the `cd` tracking and `git_hits` start from the same place.
     """
     tokens = shell_tokens(command)
     hits: list[dict] = []
@@ -334,7 +352,7 @@ def shell_hits(command: str, run_dir: Path, home: str | None,
                 hits.append({"tool": "shell", "reason": reason, "value": command.strip(),
                              "path": value})
 
-    cwd = str(run_dir)
+    cwd = cwd or str(run_dir)
     index = 0
     while index < len(tokens):
         token = tokens[index]
@@ -351,8 +369,66 @@ def shell_hits(command: str, run_dir: Path, home: str | None,
         resolved = resolve(argument, run_dir, home, base=cwd)
         if resolved:
             cwd = resolved
-    hits.extend(git_hits(tokens, run_dir, home))
+    hits.extend(git_hits(tokens, run_dir, home, cwd))
     return hits
+
+
+def shell_workdir(inputs: dict, run_dir: Path, home: str | None,
+                  allow: tuple[str, ...]) -> tuple[str, list[dict]]:
+    """F43: the directory one shell command starts in, and a hit when that place is out of run.
+
+    The `workdir` is a path like any other (a relative value resolves against the run directory,
+    `~`/`$HOME` against the profile home) and is judged with the same allow-list. An unreadable or
+    absent value leaves the run directory as the base, which is what the audit always assumed.
+    """
+    base = str(run_dir)
+    hits: list[dict] = []
+    for key in SHELL_WORKDIR_KEYS:
+        value = inputs.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        reason = path_reason(value, run_dir, home, allow)
+        if reason:
+            hits.append({"reason": reason, "value": value})
+        resolved = resolve(value, run_dir, home)
+        if resolved:
+            base = resolved
+    return base, hits
+
+
+def search_input_hits(inputs: dict, run_dir: Path, home: str | None,
+                      allow: tuple[str, ...]) -> list[dict]:
+    """F43: a glob/grep `pattern`/`include` that is a place, judged against the tool's `path`.
+
+    A pattern is a name (`*.py`) until it is absolute or carries a `..` segment; then it names a
+    directory tree, and it is judged like any other path token. No live stream has done this yet;
+    the rule is here so that the audit does not depend on that luck.
+    """
+    base = str(run_dir)
+    raw = inputs.get("path")
+    if isinstance(raw, str) and raw.strip():
+        resolved = resolve(raw, run_dir, home)
+        if resolved:
+            base = resolved
+    hits: list[dict] = []
+    for key in SEARCH_PATH_KEYS:
+        value = inputs.get(key)
+        if not isinstance(value, str) or not path_shaped_search(value):
+            continue
+        reason = path_reason(value, run_dir, home, allow, base=base)
+        if reason:
+            hits.append({"reason": reason, "value": value})
+    return hits
+
+
+def path_shaped_search(value: str) -> bool:
+    """True when a search pattern names a place: absolute, `~`/`$HOME`, or with a `..` segment."""
+    text = value.strip().strip("'\"")
+    if not text:
+        return False
+    if text.startswith(("/", RUN_ROOT, "$HOME", "${HOME}")) or text == "~" or text.startswith("~/"):
+        return True
+    return ".." in PurePosixPath(text).parts
 
 
 def unresolved_constructs(command: str) -> list[str]:
@@ -475,11 +551,16 @@ def event_hits(event, index: int, run_dir: Path, home: str | None,
             if reason:
                 hits.append({"event": index, "tool": tool, "reason": reason, "value": value})
     if tool in SHELL_TOOLS:
+        base, workdir_hits = shell_workdir(inputs, run_dir, home, allow)
+        hits.extend({**hit, "event": index, "tool": tool} for hit in workdir_hits)
         for key in COMMAND_KEYS:
             command = inputs.get(key)
             if isinstance(command, str):
                 hits.extend({**hit, "event": index, "tool": tool}
-                            for hit in shell_hits(command, run_dir, home, allow))
+                            for hit in shell_hits(command, run_dir, home, allow, cwd=base))
+    if tool in SEARCH_TOOLS:
+        hits.extend({**hit, "event": index, "tool": tool}
+                    for hit in search_input_hits(inputs, run_dir, home, allow))
     if tool == "patch":
         for value in patch_paths(inputs.get("patchText")):
             reason = path_reason(value, run_dir, home, allow)

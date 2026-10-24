@@ -2993,3 +2993,151 @@ re-pin 之后、写入本节之前的同一棵树上：
   第 3 条测试固定的是这一形态，而不是"真实 pilot 曾踩到它"。
 - **没有 live run**：结论来自真实 pilot #8 的只读事件流 + 合成命令 + 全套单测，不是新的 live
   pilot；`cd repo ... cd ..` 在真实 run 里的 INVALID 消除仍需下一次 live pilot 端到端确认。
+
+## T41（implementer: opencode deepseek-v4.1-flash）— shell 工具的 `workdir`（F43）、re-pin、全量门禁
+
+本票按 CODEX_FIXES_13 修 F43（P1）：live pilot #9（`6db87cf`，`h2r2-f01-c`）以 INVALID 收场，
+四条 `PATH_OUTSIDE_RUN` 全部指向 `>> ../.h2-telemetry.log`，而那几条命令的 `workdir` 是
+`<run>/repo` —— 实际写入的是 `<run>/.h2-telemetry.log`，在 run 目录之内，是 run 自己的遥测文件。
+根因：审计把每个相对 token 都按 run 目录解析，而 `workdir` 是 opencode 工具输入里**唯一**带路径
+却没有被使用的键。真实流的键面抽样（read `{path, offset, limit}`、shell `{command, workdir}`、
+edit `{path, oldString, newString}`、write `{path, content}`）与 149 次真实 shell 调用中 85 次
+带 `workdir` 这一事实，都在 F43 里；本票只按它修，不扩大别的规则。
+
+### 1. 实现（`access_audit.py`，一条新规则，别的没放宽）
+
+- `shell_workdir(inputs, run_dir, home, allow)` → `(起始目录, hits)`：`workdir` 按普通路径 token
+  判定（相对值按 run 目录解析、`~`/`$HOME` 按 profile home、用同一份 allow-list），**它自己**出了
+  run 目录与 allow-list 就是一条 `PATH_OUTSIDE_RUN`（命中值就是 `workdir` 原文）；同时它的真实
+  路径成为该次 `shell` 调用的起始目录。缺失、空串或非字符串 → run 目录（与旧行为一致）。
+- `shell_hits(..., cwd=None)` 与 `git_hits(..., cwd=None)` 新增可选的起始目录（默认仍是 run 目录，
+  既有调用点不变）：`cd` 跟踪、每个相对 token、`..` 判定与 git 的"有效仓库"全部从 `workdir` 起算。
+  于是 `workdir = <run>/repo` 下的 `>> ../.h2-telemetry.log` 落在 `<run>/`（内），
+  `cat ../../x`、`cd ../..` 仍落在 run 之外（hit），`git -C ..` 从 `repo/` 看是 run 目录（内）。
+- 防御性（真实流尚未出现）：`glob`/`grep` 的 `pattern` / `include`，只要**本身是位置而非名字**
+  （绝对路径、`~`/`$HOME`/`<RUN_ROOT>` 前缀，或带 `..` 段），就按路径判定，基准是该工具的 `path`
+  （不走 `path` 时用 run 目录）。`*.txt`、`scripts/tests/*.py` 这类名字形态一律不判。
+- 模块 docstring 补上 F43 两条；既有拒绝一条未减：run 外路径、`..` 逃逸、`git clone /tmp/other`、
+  `git -C /srv/other`、非 allow-list 工具、`cd repo && cat ../../x`、`cd .. && cat x` 等仍 INVALID
+  （旧测试一条未删、一条未改，见 §4 的 486 项）。
+
+### 2. 证据：真实流 fixture + 红/绿
+
+`fixtures/pilot-6db87cf-f43-events.jsonl` 来自**只读**的 pilot #9 事件流
+（`.driver/h2r2-f01-c/attempt-1/events.jsonl`，162 行、51 次工具调用），用程序整条派生：只替换
+五类前缀 token —— run 目录 → `<RUN_ROOT>`（142 处）、解释器 → `<PY>`（35 处）、解释器前缀 →
+`<PY_ROOT>`（6 处，只在 traceback 输出里）、宿主二进制路径 → `<PATH_TO_BINARY>`（2 处）、
+操作者登录名 → `<LOCAL_LOGIN>`（2 处，只在一句 `grep` 参数里）——其余字节原样。派生脚本在写盘前
+断言：结果里没有 `/Users/`、`/home/`、`/opt/homebrew`、`/private/`，没有登录名，162 行全部仍是
+合法 JSON，事件数与工具调用数不变，仍含 `"workdir":"<RUN_ROOT>/repo"` 与
+`>> ../.h2-telemetry.log`。它进入 `build_manifest.py` 的 `FROZEN_FILES`（成员 54 → 55），
+sha256 = `8bc206159d53a518303d85c9e164d166dc4ca5cae87c4a39e2fa1d9c5dbe1b76`。
+
+红/绿（同一份 fixture、同一组参数；红用的程序是从 object DB 取出的**上一提交**的
+`access_audit.py`，没有手改工作树）：
+
+```text
+PRE-FIX (pinned at 35e796a): verdict=INVALID
+  hits = [PATH_OUTSIDE_RUN ../.h2-telemetry.log] x4   (event 28/31/46/104)
+  tool_calls=51 events=162 sandbox_denied=0
+FIXED (T41):                verdict=PASS  hits=[]  tool_calls=51 events=162 sandbox_denied=0
+```
+
+四条 hit 与 live pilot #9 的四处**逐条相同**（同四条命令、同一个 `workdir`），没有多也没有少。
+
+新测试类 `AccessAuditShellWorkdir`（5 项，全部无模型、不碰真实 runs root）：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -k AccessAuditShellWorkdir
+  Ran 5 tests / OK
+```
+
+1. `test_the_recorded_pilot_nine_stream_passes_the_access_audit`：净化断言（无宿主前缀与登录名、
+   `<RUN_ROOT>`/`<PY>`/`workdir` 占位在）、162 事件 / 51 工具调用 / 四种工具，展开后 PASS、0 hit。
+2. `test_the_workdir_is_the_starting_directory_of_the_command`：`workdir = <run>/repo` 下追加遥测
+   （`printf` 与 heredoc 两种写法）、`git status`、`git -C ..`、`cd scripts`、`cd ..` 全部 PASS；
+   `cat ../../x`、`cd ../.. && cat x`、`cd ../..; ls` INVALID 且命中 `PATH_OUTSIDE_RUN`。
+3. `test_a_workdir_outside_the_run_is_a_hit`：`/srv/other`、`~`、`../h2r2-other`、
+   `<run>/../outside` 四种 `workdir` INVALID，且命中值就是 `workdir` 原文；缺失 `workdir`、
+   `workdir = <run>`、`workdir = repo` 与 `git -C repo status` 仍 PASS。
+4. `test_a_glob_or_grep_pattern_that_is_a_place_is_judged_as_a_path`：`/Users/**`、`../../**`、
+   `path=/etc`、`include=/etc/hosts`、`include=../../../**` INVALID；`*.txt`、
+   `scripts/tests/*.py`（`path` 在 repo）、`../*.py`（从 `scripts/` 出发仍在 run 内）、
+   `def accept` + `include=*.py` PASS。
+5. `test_every_existing_pilot_fixture_still_passes`：四份真实流 pilot fixture（#4c/#5/#8/#9）逐一
+   展开后全部 PASS、0 hit —— 新规则没有把任何一份已经判干净的流重新打开。
+
+### 3. re-pin（全部由仓库程序生成，没有任何手写 hash）
+
+`T41P = 35e796ac99aa4d0dda63d3ac0add77e21b5f6752`（F43 修复计划那次文档提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T41P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T41P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T41P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=55 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t41/repin_literals.py .
+  -> LITERALS repinned=55 manifest_sha256=58043f7fd7717977468e3b109414eff87818fa43cce36c8624f5b09653e39fc3
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **run plan**：与上一轮（`c86dae1`）逐字段比较，忽略 `materials_commit` 后完全相等；只有 20 条
+  `materials_commit` 从 `c86dae1` 移到 `35e796a`。
+- **anchors**：程序重新测量 10 个任务的全部 PRE/POST 单元，`WRAPPER` 仍 10/10
+  `DELIVERY_NEUTRAL`（`CODEBUDDY`/`AGENTS` 仍 0/10，与 T2 以来一致）。与上一份 JSON 做逐键比较：
+  除 `materials_commit` 外，`environment`、`neutral_tasks_per_slot`、`program`、`repository`、
+  `rows`、`shortlist_sha256`、`wrapper_program_sha256` **全部相等**；`wrapper_program_sha256`
+  仍是 `f2dc995f…`（本票没有改 `wrapper_delivery.py`，也没有改 `delivery_anchors.py`）。
+  文件层面只有一行变化（`materials_commit`）。
+- **manifest**：55 个成员（54 + 本票的 `fixtures/pilot-6db87cf-f43-events.jsonl`，`FROZEN_FILES`
+  同步加入）。相对上一份变化：`access_audit.py`、`build_manifest.py`、`delivery-anchors.json`、
+  `run-plan-v2.json`、新 fixture，加上 `freeze_parent` / `materials_commit` /
+  `delivery_anchor_materials_commit` 三个 commit 字段；`protocol-v2.md`、`wrapper_delivery.py`、
+  `sandbox_v2.py`、路由、carrier、rubric、validator 与其余全部 fixture 逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 55 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `58043f7f…e39fc3`。重写脚本先校验 manifest 与工作树
+  逐文件一致（不一致即退出），再"读 manifest → 按路径重写"，并拒绝任何旧字面量键在新 manifest 中
+  缺失的情况；没有任何 hand-edited hash。
+- **README §4**：文件数 54 → 55、mutation 覆盖 55 → 56、事件 fixture "six" → "seven"、真实流
+  "four" → "five"，content-freeze 段改写为 T41 / `35e796a`，并把 F43 与本次 re-pin 写进"前移的内容"。
+  README 不在字节冻结内，§3 confound 段落一字未动（测试仍要求它与 protocol-v2 逐字节相等）。
+
+### 4. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+re-pin 之后、写入本节之前的同一棵树上：
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 29.783s / OK             (exit 0)
+=== EXPERIMENTS_TESTS    Ran 486 tests in 1174.503s / OK           (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空   (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                    (exit 0)
+=== MANIFEST_CHECK       {"verdict": "PASS", "mismatches": []}      (exit 0)
+```
+
+实验套件 481 → 486 项，正好是新增的 `AccessAuditShellWorkdir` 5 项；`FreezeManifest` 的两条独立锚
+在 re-pin 后不再有预期红。写入本节之后，同一棵树把上面全部 §0 GATES **再跑一遍**，并与本提交
+以 `&&` 串联：任一门失败则不提交。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **一整条真实流进仓**：与 T36a/T40 的"只收相关事件"不同，本票收了 pilot #9 的**全部** 162 行。
+  理由：这次误判不是某一条命令的局部病，而是 `workdir` 这个**全流普遍存在**的输入键被忽略
+  （27 次 shell 调用全部带 `workdir`），整条流 PASS 才是"这次 live run 现在会判 PASS"的直接证据；
+  代价是 717248 字节的 fixture 与 5 处前缀替换，替换面已由派生脚本的断言与本类第 1 条测试固定。
+- **`<PATH_TO_BINARY>` 出现 4 次而不是 2 次**：流里被读到的 `AGENTS.md` 正文本身就两次拼写了这个
+  占位符 token（`output` 与元数据各一份）。这两次是记录内容，不是替换，派生脚本对此有注释与断言。
+- **`workdir` 只按静态 token 判定**：`workdir` 里若写了 `$VAR` / `$(...)`，静态分词器不展开
+  （`resolve` 会把它当相对名字，落在 run 内）。这与 F16 已登记的"静态不可解析 → 证据而非裁定"同类，
+  本票没有扩大也没有收窄该限制。
+- **glob/grep 的 `pattern`/`include` 规则是防御性的**：真实 pilot 集里还没有出现过这类取值，
+  第 4 条测试固定的是规则形态，而不是"真实 run 曾踩到它"。
+- **没有 live run**：结论来自真实 pilot #9 的只读事件流 + 合成命令 + 全套单测，不是新的 live
+  pilot；"live pilot #9 现在会判 PASS"仍需下一次 counted run 端到端确认。
