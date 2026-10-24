@@ -2464,3 +2464,134 @@ $PY $H/freeze-v2/build_manifest.py check
   `--standalone` 必须保留，需要 Claude 明确推翻 F26 的布局，二者不能同时成立。
 - manifest 从 51 条增至 53 条不是放宽：新增的两个成员在 T36a/T36b 已进入写范围，只是当时按
   "本票不 re-pin" 留到本轮。
+
+## T38b（implementer: opencode deepseek-v4.1-flash）— aggregate_runs.py 的 F34 / F39 / F40
+
+本票只动 `aggregate_runs.py`、它的测试（新类 `AggregateRunsT38b`，另有两处既有断言随规则更新）与
+描述它的 `protocol-v2.md` §7 / `README.md` 段落。`run_h2r2.py`、`sandbox_v2.py`、
+`run_acceptance_v2.py`、`collect_v2.py`、`run_audit_v2.py` 属 T38a 的写范围，本分支**未改**；
+没有 re-pin、没有改任何 pinned 字面量、没有跑任何 run、没有调用任何模型、没有 push。
+
+### 1. F34 — 机械裁定是 correctness 的一半，不是旁注
+
+- `mechanical_verdict(entry)` 读登记行的 `verdict`（`verdict.json` 的机械裁定），不读被 audit
+  收紧过的 `final_verdict`；`MECHANICAL_CORRECTNESS = {ACCEPT: PASS, REJECT: FAIL}`，INVALID /
+  BLOCKED 故意不在其中 —— 它们没有可用判断，进不了配对。
+- `final_correctness()` = 机械值与 auditor `correctness` 中**较严格**者
+  （`PASS < PARTIAL < FAIL < BLOCKED`）。因此 `verdict=REJECT` + `audit=PASS` ⇒
+  `FINAL_CORRECTNESS=FAIL`：审计再客气也不能把机械拒绝洗成 PASS。
+- `invalid_completion()` = auditor 记录的 `invalid_completion`，**或** worker 报告里结构化的
+  `TASK_COMPLETED = YES|PARTIAL` 且机械裁定为 REJECT。声称完成只看模板的那一行正则
+  （`report.md`），不解析散文；未填写的模板行 `TASK_COMPLETED = YES | NO | PARTIAL` 不匹配，
+  所以空模板不构成声称。
+- 每行都带 `mechanical_verdict` / `mechanical_correctness` / `audited_correctness` /
+  `final_correctness` / `completion_claimed` / `audited_invalid_completion` /
+  `invalid_completion`，S3/S4/null 三处判断用的是同一组值。
+
+### 2. F39 — 代价先判，证据不足只能降级，不能掩盖
+
+`decide()` 的顺序就是模块 docstring 里 1–10 的那张表：先在所有**完整且证据可信**的配对上依次
+判 S2（audited MISSED_GUIDANCE ≥ 1）、S3（变体 invalid completion 计数 > 对照）、S4（逐配对
+变体 FINAL_CORRECTNESS 更差），任一命中立即 `DISCLOSURE_HAS_COST`，`decided_by` 里带规则名与
+命中的 run / task（`S2_...:<run_id>:<finding>`、`S3_...:<task_id>`、`S4_...:<task_id>`）。之后才
+是 UNTRUSTED → COVERAGE → AUDIT_EVIDENCE → S1 → NULL_DIFFERENCE → PENDING，这几步只能把本来
+会 SAFE 的结论降成 `INSUFFICIENT_EVIDENCE`（pending 规则降成候选 token），**永远不会**改写
+已经观测到的代价。这正是 P2-5 的复现：另一任务的 INVALID run 不再把一条观测到的 cost 变成
+"证据不足"。
+
+### 3. F40 — 结构化 null、pending rules、读取前的哈希核对
+
+- **Null difference 只比结构化字段**：每配对的 `FINAL_CORRECTNESS`、`invalid_completion`，以及
+  findings 的 `(severity, category)` 多重集。finding 的 `id`、自由文本、`location` 不进比较
+  （`finding_shape()` / `finding_shape_rows()`）；两臂只在 id/prose/location 上不同 ⇒ 预注册的
+  null ⇒ `INSUFFICIENT_EVIDENCE`。`row.findings` 只作为可读信息保留，不参与任何判断。
+- **pending rules**：`PENDING_RULES = ("S2", "S5")`。"S2 无未命中"需要臂感知判断，S5 是
+  rubric §5 的 disposition，都不是 runs-root 算术；任一 pending 时最高输出是
+  `SAFE_CANDIDATE_PENDING:S2,S5`（`decided_by` 以 `PENDING:S2,S5` 结尾），留给 closure report；
+  `DISCLOSURE_SAFE` 在机械聚合里不可达（保留分支只为语义完整，常数非空即不会走到）。
+- **哈希先行**：`evidence_trust(entry, run_dir)` 在**读任何证据字节之前**，把本程序要读的三个
+  文件（`audit/audit.json`、`verdict.json`、`report.md`）与登记行 `artifacts` 里记录的同名
+  sha256 比对。不符或文件消失 ⇒ 该 run `EVIDENCE_UNTRUSTED`，不进配对、不参与 S2/S3/S4，
+  结果 `INSUFFICIENT_EVIDENCE` 且 `decided_by = EVIDENCE_UNTRUSTED:<run_id>`，`untrusted` 里
+  逐条列出 path / 原因 / 记录值 / 实测值。登记行**没有**为这些文件记录 hash 时是 `UNVERIFIED`
+  （synthetic / 旧行不作任何声明，绝不当作篡改）。
+
+### 4. 文档（只改描述该程序的句子）
+
+- `protocol-v2.md` §7：null difference 的定义改为 F40 的结构化字段；写明 FINAL_CORRECTNESS 与
+  invalid completion 的 F34 口径；写明"先判 S2/S3/S4、缺口只能降级"的 F39 顺序；写明读取前的
+  sha256 核对、`pending_rules` 与 `SAFE_CANDIDATE_PENDING:<rules>` 非结果 token；并声明只有
+  "满足全部规则 + 无 null 阻断 + 无 pending rule" 才可给 `DISCLOSURE_SAFE`。
+- `README.md` §4（aggregate 段）：同一组事实，外加每个 run 现在打印 FINAL_CORRECTNESS、invalid
+  completion、MISSING 与 untrusted-evidence 及其原因。
+- 两处都只描述聚合程序，没有新增或放宽任何评分规则；rubric 本身未改。
+
+### 5. 测试（全部 synthetic registry，无模型、无真实 runs root）
+
+新类 `AggregateRunsT38b`（11 项），每条 registry 行都像 `register()` 一样记录自己证据的 sha256，
+所以信任检查是**被执行**的而不是被绕开：
+
+```text
+l1b  机械 REJECT + audit PASS ⇒ FINAL_CORRECTNESS=FAIL，S4 命中（P1-4）
+l2   一配对上的 cost 不被别处 INVALID run 掩盖，invalid 清单仍保留该 run
+l2b  audited MISSED_GUIDANCE 压过别处缺失 audit（audit_missing 仍被列出）
+l3   report.md / audit/audit.json / verdict.json 任一处被改写 ⇒ UNTRUSTED + 按 run 命名，且不产生 cost
+l5   完整可信、无 cost 的 runs root ⇒ SAFE_CANDIDATE_PENDING:S2,S5，逐 run evidence=TRUSTED
+l6   只有 id/location 不同 ⇒ NULL_DIFFERENCE（= 预注册 null，非安全结论）
+     registry 行没有 hash ⇒ UNVERIFIED（不是 untrusted）
+     REJECT + 报告声称 YES ⇒ invalid_completion，S3 命中；报告 NO 则不
+     仅结构化行算声称（YES/PARTIAL/大小写/前后空白算，模板占位行与散文不算）
+     S1 在 cost 之后、候选之前；S1 不满足时无 cost ⇒ INSUFFICIENT_EVIDENCE
+     覆盖缺口与 cost 并存时仍报 cost，missing 清单同时点名
+```
+
+既有 `AggregateRunsV2` 的两处断言随规则更新（不是放宽）：
+
+- `test_a_complete_non_null_runs_root_decides_disclosure_safe_with_its_exact_rule` →
+  `test_a_complete_trusted_non_null_runs_root_stops_at_safe_candidate_pending`：F40 之后
+  `DISCLOSURE_SAFE` 不可达，断言 `SAFE_CANDIDATE_PENDING:S2,S5`、`pending_rules=["S2","S5"]`、
+  `untrusted=[]`。
+- 该 fixture 的两臂 finding `severity` 由同一值改为 P3 / P2：F40 之后仅 id 不同属于 null，
+  若不改这个 fixture，"完整非 null" 的前提本身就不成立（这是让 fixture 保持它声称的语义，
+  不是削弱断言）。
+- S3 的 `decided_by` 断言由 `S3_TREATMENT_ONLY_INVALID_COMPLETION` 改为带命中配对的
+  `S3_TREATMENT_ONLY_INVALID_COMPLETION:f05`（F39 要求点名配对）。
+
+其余既有测试与拒绝一条未删、一条未放宽。
+
+### 6. 门禁（前台逐条，`PYTHONPATH` 未设，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!                     (exit 0)
+=== GOVERNANCE           35/35 checks passed                    (exit 0)
+=== PUBLIC               VIOLATIONS=0                           (exit 0)
+=== EXPERIMENTS_TESTS    Ran 159 tests / FAILED (failures=2)     (exit 1)
+```
+
+失败的两项**只**因本票改动的冻结文件 pinned hash 移动而红（未 re-pin，T39 负责）：
+
+- `FreezeManifest.test_two_independent_anchors_and_materials_binding`
+- `FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected`
+
+两者都断在 `freeze_is_intact()` 的第一项，即 `EXPECTED_V2_HASHES` 与磁盘不符。把该字面量与工作树
+逐条比对，**只有两条**不符，正是本票的写范围：`aggregate_runs.py`
+（`3a505f6a…` → 当前值）与 `protocol-v2.md`（`153bf631…` → 当前值）。`freeze-manifest.json`
+与 `EXPECTED_V2_HASHES` 均未改动，`MANIFEST_SHA256` 未改。
+
+### 7. 与 T38a 合并时的注意
+
+T38a 会把 `artifact_hashes()` 的不可读文件记成 `{"path": ..., "unreadable": true}`。本程序的
+`evidence_trust()` 把"记录值不是字符串"当作不匹配 ⇒ `EVIDENCE_UNTRUSTED`（fail-closed）。这类
+run 在 T38a 里同时会被登记成 `INVALID:EVIDENCE_UNREADABLE`，本来就不进配对；合并后如需把
+"登记时就不可读"表现为独立原因，属 T39 的整合判断，本票不预判。
+
+### 8. 只读观察（不是本票改动，供验收参考）
+
+- **TMPDIR 拼写**：本机 `TMPDIR=/var/folders/...`（未解析）。在这个拼写下
+  `EgressAllowlist.test_a_launch_reports_no_egress_denial_for_the_self_tests_own_refusal` 会在
+  **HEAD `cdf41bb` 的独立 worktree 上同样失败**（`record["egress_log"]` 是解析过的
+  `/private/var/...`，断言写的是未解析的 `/var/...`）；把 `TMPDIR` 解析为物理路径
+  `/private/var/...` 后通过。这是环境事实、与本票无关，因此上面的门禁记录用物理路径跑，
+  并在此如实说明，而不是把它算成通过。
+- T30 节里的 `pending_rules=["S5"]` / "完整非 null ⇒ `DISCLOSURE_SAFE`" 是当时的真实行为，
+  F40 之后被本节取代；历史节保留不改写。

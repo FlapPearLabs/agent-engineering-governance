@@ -357,10 +357,27 @@ run because each one silently changes what a gate measures:
    predecessors are not registered and refuses any run id that is registered or was started and
    reached work, so no operator input can change what a run does or how often it happens.
    A third program closes the loop over a runs root: `$PY $H/freeze-v2/aggregate_runs.py
-   <SHARED_RUN_ROOT>` prints the per-task per-arm valid pairs, the INVALID and BLOCKED runs with
-   their reasons, and the protocol-v2 §7 result token with the exact rule that decided it;
+   <SHARED_RUN_ROOT>` prints the per-task per-arm valid pairs, each run's FINAL_CORRECTNESS and
+   invalid completion, the INVALID, BLOCKED, MISSING and untrusted-evidence runs with their
+   reasons, and the protocol-v2 §7 result token with the exact rule that decided it;
    `status` reports the same `usable_pairs` plus the `blocked`/`invalid` counts, so
    "registered=20" cannot be mistaken for a result.
+   **What decides (T38b, F34/F39/F40).** FINAL_CORRECTNESS is the stricter of the mechanical
+   verdict (ACCEPT is a PASS ceiling, REJECT is FAIL, INVALID/BLOCKED is not usable) and the
+   auditor's correctness; invalid completion is the auditor's flag or a worker report that claims
+   completion (`TASK_COMPLETED = YES|PARTIAL`) while the mechanical verdict is REJECT — a
+   mechanically rejected run is never a PASS just because the audit was polite. The aggregate
+   evaluates S2/S3/S4 on every complete, trusted pair FIRST: an observed cost is
+   `DISCLOSURE_HAS_COST` with the rule and pair named, and a coverage gap, a missing audit, S1 or a
+   pending rule can never mask that cost (the first three can only turn a would-be SAFE into
+   `INSUFFICIENT_EVIDENCE`, a pending rule into `SAFE_CANDIDATE_PENDING`).
+   The null difference compares structured fields only (FINAL_CORRECTNESS, invalid completion and
+   the multiset of (severity, category) findings; never finding ids, prose or locations). Before
+   any audit/verdict/report byte is read it is checked against the sha256 the run's own registry
+   line recorded; a mismatch makes that run's evidence untrusted and names it in the result. S2's
+   absence (it needs an arm-aware judgement) and S5 stay in `pending_rules`, so the best possible
+   mechanical output is `SAFE_CANDIDATE_PENDING:S2,S5` for the closure report — never
+   `DISCLOSURE_SAFE`.
 
    **Infrastructure failure is not a result (F14).** The rule was decided before any counted run and
    is recorded in protocol-v2 §6.1; the driver owns both halves. Immediately before the worker (and
