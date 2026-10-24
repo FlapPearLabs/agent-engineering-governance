@@ -3414,3 +3414,140 @@ mismatches 只有 `access_audit.py` 一项：新 fixture 尚未进 `FROZEN_FILES
   引号内与 `$(( ))` 内的 `<<` 才是被排除的两种形态。
 - **fixture 只做前缀替换**：体里的 `a / b`、`../../x` 等字节原样保留，这是本次要证明的输入；
   替换面由派生脚本断言与本类第 1 条测试固定。
+
+## T42–T44（implementer: opencode deepseek-v4.1-flash）— 合并 T43、re-pin、F44–F45 证据、全量门禁
+
+T44 收尾按 T39 的做法：Step 1 合并 T43 分支，Step 2 用仓库自己的程序重生成 run plan / manifest /
+delivery anchors / 测试字面量，补本节证据，然后前台跑完 CODEX_PLAN.md §0 GATES。**没有**执行任何
+H2-R2 run、没有调用任何模型、没有触碰 `~/.h2-worker-profile`、没有 push、没有改 `CODEX_PLAN.md` /
+`CODEX_FIXES_*.md`、没有 rebase/reset/force、也没有对真实 runs root 跑过 `run_h2r2.py`。
+
+### 1. 合并（Step 1）
+
+```text
+git merge --no-ff refs/heads/experiment/v1.2-h2-freeze-v2-par
+  -> b74d25c1909883f0db87f3bb18dc310e24a70a1e
+     父：eeeba9b（T42，F44 资格规则 + re-pin） e90f2a1（T43，F45 heredoc 体）
+```
+
+冲突只有一个文件：`CODEX_REPORT.md`，两侧在同一位置各追加自己的一节。解决方式是**两节都保留**
+（T42 在前、T43 在后），没有删掉任何一侧的文字，也没有改写任何一侧的结论；合并提交 `b74d25c`
+里就是这份解决结果。
+
+其余文件由 git 自动合并，逐项核验（保留双方行为，不是"取一边"）：
+
+- **`access_audit.py`**：只有 T43 一侧改过，合并后逐字节等于 `e90f2a1` 的版本（heredoc 体切除 +
+  `HEREDOC_PROGRAM` 证据，既有拒绝一条未减）。
+- **`run_h2r2.py`**：只有 T42 一侧改过，合并后逐字节等于 `eeeba9b` 的版本（`first_arm_gap` /
+  `started_state` / `waiting_on_first_arm` 与规则 (d) 的豁免）。
+- **`protocol-v2.md`**：只有 T42 一侧改过，逐字节等于 `eeeba9b`；T43 按 CODEX_FIXES_15 没有改协议。
+- **`fixtures/pilot-8850187-f45-events.jsonl`**、`CODEX_FIXES_15.md`：来自 T43 一侧，逐字节未动。
+- **测试模块**：T42 的 `BoundedConcurrency` 与 T43 的 `AccessAuditHeredocBodies` 两个类都在，两条
+  既有的资格/拒绝断言与五类访问审计一条不少。
+
+合并后、re-pin 前先跑两个受影响类作为合并正确性的快速反馈（stub / fixture，无模型，无真实
+runs root）：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h2_freeze_v2.py -k AccessAuditHeredocBodies
+  Ran 5 tests in 0.131s / OK
+$PY -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h2_freeze_v2.py -k BoundedConcurrency
+  Ran 15 tests in 38.817s / OK
+```
+
+### 2. re-pin（Step 2，全部由仓库程序生成，没有任何手写 hash）
+
+`T44P = b74d25c1909883f0db87f3bb18dc310e24a70a1e`（合并提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T44P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T44P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T44P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=56 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t44/repin_literals.py .
+  -> LITERAL_KEYS_ADDED ['…/fixtures/pilot-8850187-f45-events.jsonl']
+     LITERALS repinned=56 manifest_sha256=92b4635b944d5cd4b5a8ceeb4741f86fe1616ea436effb0178c437d21b89ab83
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **`build_manifest.py`**：`FROZEN_FILES` 加入 T43 的真实流 fixture
+  `fixtures/pilot-8850187-f45-events.jsonl`（T43 按它自己的票要求留给合并后做，见 T43 §3）。成员
+  55 → 56，这是本轮唯一的新增文件；其余成员集合不变。
+- **run plan**：与上一份逐字段比较，忽略 `materials_commit` 后完全相等；只有 20 条
+  `materials_commit` 从 `13a12a4` 移到 `b74d25c`（反平衡 C-first 5 / V-first 5、唯一模型、唯一
+  runtime、`fresh_episode` 均未动）。
+- **anchors**：程序重新测量 10 个任务的全部 PRE/POST 单元（约 8 分钟），`WRAPPER` 仍 10/10
+  `DELIVERY_NEUTRAL`（`CODEBUDDY`/`AGENTS` 仍 0/10，与 T2 以来一致）。与上一份 JSON 做结构化比较
+  （忽略 `materials_commit`）：`EQUAL_IGNORING_MATERIALS: True`，`wrapper_program_sha256` 未变
+  （本票没改 `wrapper_delivery.py` / `delivery_anchors.py`，交付载荷与 T2 字节相等，
+  `delivery_payload_equivalent_to_T2=YES`）。
+- **manifest**：相对上一份变化的条目恰好是本轮合并进来的字节：`access_audit.py`（T43）、
+  `build_manifest.py`（fixture 成员）、`delivery-anchors.json` 与 `run-plan-v2.json`（重新生成）、
+  新 fixture，加上 `freeze_parent` / `materials_commit` / `delivery_anchor_materials_commit` 三个
+  commit 字段；`run_h2r2.py`、`protocol-v2.md`、`sandbox_v2.py`、`wrapper_delivery.py`、路由、
+  carrier、rubric、validator 与其余全部 fixture 逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 56 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `92b4635b…9ab83`。重写脚本先校验 manifest 与工作树
+  逐文件一致（不一致即退出），再"读 manifest → 按路径重写"；它会拒绝任何旧字面量在新 manifest 中
+  已消失的键，并把新增键（本轮恰为新 fixture 一条）打印出来，没有任何 hand-edited hash。
+- **README §4**：文件数 55 → 56、mutation 覆盖 56 → 57、访问审计 fixture "seven" → "eight"
+  （两份手写形状 fixture + 六份真实流），content-freeze 段改写为 T44 / 合并提交 `b74d25c`，anchors
+  段落改成"taken at `b74d25c`"，并把 F45/T43 写进"前移的内容"、把 T44 加进 re-measurement 名单。
+  README 不在字节冻结内；§3 confound 段落一字未动（测试仍要求它与 protocol-v2 逐字节相等）。
+
+### 3. F44（T42）与 F45（T43）：合并后仍然成立的行为与固定它的证据
+
+两处修复的证据都在冻结范围内可复跑，全部是 stub / fixture / 真实子进程 / 真实 pilot 的只读流，
+**没有**模型调用，也没有真实 runs root。逐条实现在各自小节（T42 §1、T43 §1）已写明，这里只固定
+"合并之后双方都还在"：
+
+| 项 | 合并后的实现 | 合并后复跑的证据 |
+|---|---|---|
+| F44（P2）有界并发被规则 (d) 串行化 | `run_h2r2.py` 的规则 (d) 额外豁免"只在自己任务的先臂上等待"的更早 run；被启动过但进程已死的 run 不豁免（仍走 INTERRUPTED）；`MAX_PARALLEL`、退避、唯一冻结模型、三条拒绝词表未动 | `BoundedConcurrency` 15 项 OK（真实 20-run plan + 真实子进程：前四个 start 是四个任务的先臂、第二臂在先臂登记后立即开始、`f01-v` 先于 `f05-c`、任一时刻 ≤ 4、同任务两臂不重叠、先臂保持 plan 顺序） |
+| F45（P1）heredoc 体被当成 shell 路径 | `access_audit.py` 先按物理行切掉 `<<WORD` / `<<-WORD` / `<<'WORD'` / `<<"WORD"` 的体，算子行（命令词、参数、重定向目标）照旧判定；体喂给解释器记 `HEREDOC_PROGRAM` 证据，永不改裁定 | `AccessAuditHeredocBodies` 5 项 OK；真实 pilot #10 的只读流（sha256 `1d595a74…51de98`，957764 字节，256 事件 / 81 工具调用）展开后 PASS、0 hit、`HEREDOC_PROGRAM` 恰 4 条；`cat <<EOF > /outside/x`、`cat /outside/x <<EOF` 仍 INVALID；五份既有 pilot fixture 仍 PASS |
+
+T43 记录的红/绿对照（红用 object DB 里上一提交的 `access_audit.py`，没有手改工作树）在 T43 §2：
+同一份 fixture 改前 `INVALID`（两条 `PATH_OUTSIDE_RUN` `/`，事件 167/223，与 live pilot #10 逐条
+相同），改后 `PASS`。本轮把该 fixture 纳入冻结成员后，上述绿由冻结字节固定。
+
+### 4. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+合并 + re-pin 之后、写入本节之前的同一棵树上，用一份把每条命令与退出码直接相连的脚本逐条
+前台运行（`=== GATES_STATUS=0 ===`）：
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 27.231s / OK             (exit 0)
+=== EXPERIMENTS_TESTS    Ran 491 tests in 1209.658s / OK           (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空   (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                    (exit 0)
+=== MANIFEST_CHECK       {"verdict": "PASS", "mismatches": []}      (exit 0)
+```
+
+实验套件 486 → 491：+5 来自 T43 的 `AccessAuditHeredocBodies`（T42 只改写了既有并发用例，没有增删
+测试方法）。这一遍里 `FreezeManifest` 的两条独立锚已是绿的（re-pin 后没有预期红）。
+
+写入本节之后，同一棵树把上面全部 §0 GATES **再跑一遍**，并与本提交以 `&&` 串联：任一门失败则不
+提交（没有拿前一次的结果替代这一次）。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **没有 live run**：F44 的效果仍由"真实子进程 stub + 真实 `run-plan-v2.json`"的调度证明，F45 的
+  效果由真实 pilot #10 的只读流证明；两者都不是新的 live pilot，下一次 counted run 仍需人工确认
+  四路并行确实发生、且 heredoc 程序不再被判成路径。
+- **两处修复互相独立**：T42 只动 `run_h2r2.py`，T43 只动 `access_audit.py`，合并没有让任何一侧的
+  判定路径改变（上一节的逐字节核验）；但"资格放宽后并发更多 + 审计只切 heredoc 体"这个组合的真实
+  行为，本票只有单元层证据，没有组合的 live 证据。
+- **`build_manifest.py` 的成员表是本轮唯一需要人工改的冻结源码**：加的是 T43 已产出的真实流
+  fixture，hash 仍由 manifest 生成；票内没有删除任何既有成员（脚本会以 stale key 拒绝）。
+- **anchors 重新测量取代了沿用**：本票按指令重新测了 10 个任务的 PRE/POST，结果与上一份逐键相同、
+  只有 `materials_commit` 变化；没有把"上一次的测量"直接 copy 过来。
+- **未验证**：`run-plan` 在真实 provider 负载下的并发耗时与限流；T43 登记的静态限制（跨物理行的
+  引号参数按行切分、`env`/`sudo` 包装的解释器不记证据）本轮没有扩大也没有收窄。

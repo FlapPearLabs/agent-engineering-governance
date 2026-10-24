@@ -267,29 +267,29 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 55 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 56 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
 confinement module and its frozen profile template
 (`sandbox_v2.py`, `worker-sandbox.sb.template`), the CONNECT-only egress allowlist proxy
 (`egress_v2.py`, F26), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
-access audit and its seven event fixtures (`access_audit.py`: two hand-built shape fixtures plus
-the five sanitised REAL streams the earlier pilots, the tool-name probe, pilot #8 and pilot #9
+access audit and its eight event fixtures (`access_audit.py`: two hand-built shape fixtures plus
+the six sanitised REAL streams the earlier pilots, the tool-name probe and pilots #8, #9 and #10
 recorded, whose absolute path prefixes are placeholders re-expanded by the tests), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 56 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 57 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T42 re-pin commit; its parent — the commit that
-records the F44 fix plan for the bounded scheduler's eligibility rule — is
-`13a12a41f0407428dc08f93796408cbe57b32a6f`, and that commit is what the run plan binds and what
-[freeze-manifest.json](freeze-manifest.json) records as its freeze parent (materials = parent of
-the re-pin commit, proven byte-equal at HEAD). The delivered payload —
+The content-freeze commit at this round is the T44 re-pin commit; its parent — the merge commit
+that joins the F44 eligibility rule (T42, `run_h2r2.py`) with the F45 heredoc fix (T43,
+`access_audit.py`) — is `b74d25c1909883f0db87f3bb18dc310e24a70a1e`, and that commit is what the
+run plan binds and what [freeze-manifest.json](freeze-manifest.json) records as its freeze parent
+(materials = parent of the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
 `wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
@@ -345,19 +345,24 @@ for the bounded scheduler — an earlier run that is only waiting for its own ta
 longer holds the frontier, so the first arms of up to four tasks start together in plan order and a
 second arm starts as soon as its own first arm is registered; the frozen within-task
 counterbalancing, the explicit refusals and the never-two-arms-of-one-task invariant are
-unchanged; the rule was changed before the first counted run, see §5 and protocol-v2 §5). The T2
-delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `13a12a4` with the frozen program. Every
+unchanged; the rule was changed before the first counted run, see §5 and protocol-v2 §5), and the
+F45 work (T43/T44: a heredoc body is stdin data for the command, not shell syntax — the audit cuts
+`<<WORD`/`<<-WORD`/`<<'WORD'`/`<<"WORD"` bodies before tokenising while the operator line itself
+(command words, arguments, redirect targets) is judged exactly as before, and a body fed to an
+interpreter is recorded as `HEREDOC_PROGRAM` evidence, never a verdict; its sanitised stream is the
+sixth real event fixture). The T2 delivery anchors were re-measured instead of being carried over;
+the last measurement is [delivery-anchors.json](delivery-anchors.json), taken at `b74d25c` with the
+frozen program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
 (each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33,
-T37, T39, T40, T41 and T42 re-measurements moved only `materials_commit`; T39 additionally records the
+T37, T39, T40, T41, T42 and T44 re-measurements moved only `materials_commit`; T39 additionally records the
 descriptive fields `confined`/`gate`/`style` that the T38a `run_gate` now writes — `false`, `null`
 and `RESOLVED` for every measurement cell, i.e. the anchors are still measured unconfined at the
 bare base, not through a gate), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
 measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37, T39,
-T40, T41 and T42 did, because
+T40, T41, T42 and T44 did, because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the

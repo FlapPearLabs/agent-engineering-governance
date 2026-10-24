@@ -34,14 +34,14 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "11e6dce6917a0d9691023fd0c6b4a59777039336f78a8ac87f1ca4010b2ffb43",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/access_audit.py": "91e53c1e88d6626568ce7c6ba4b90e19d0041610f8a4ff36c4c0ed45fb8bd59f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_runs.py": "e75bef927e08bd8fd07837c66fdbf70eac1095e8bc62452dd19c0d097a59f56d",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/aggregate_set.py": "dc36eef9419904123361a060833aa8287f106e961d183101487c6e91d4f0eb55",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "582c3b85ae4732ac015fb96d93b1c0455f1c2003b8d0fe565cbdd99b3f346dd0",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_manifest.py": "ae774146096629b7652063671a108586e64772151b4eb2203b0f7793d3df2aca",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "fd6ce1765508bbbbd4eeee19d6174aaaa508b595b958028a4d361ddc6fe30027",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "df62149c85bc9a9eab86efae7988414ac9cb69817e192a47a9066f045b3275a6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "436d6cd59ca79fd2d5a46e65d2b7c327bb4d79b1b6e2d27038a3e48cfbf94109",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "d1b39eff4c25ae4119454807ebb8ceaa22fa32be8b0c8c4c1c67fea2c368bd4a",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "494fe04e2ce11fd1b26ae84e49cb713cd3db19d1b796f685025c1fe7352ef62b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/egress_v2.py": "2fbe5f91c7b9936c3bdecc8bef857c419bdd54d68cba41bc87c63e6f56a76429",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
@@ -51,6 +51,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-0335de8-f42-events.jsonl": "5bf6c837c3e459cfb5a3c475cf081446804939d57b0ff76a97cd5a7789eb81e7",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-6db87cf-f43-events.jsonl": "8bc206159d53a518303d85c9e164d166dc4ca5cae87c4a39e2fa1d9c5dbe1b76",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-8850187-f45-events.jsonl": "1d595a747235743510d31131c810b8505028b0ab75779a3b11208fc2bd51de98",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-efc46fc-f27-events.jsonl": "eea5516714f36aef54f058f036e568d09478f25b41a75902471e5346a242ff37",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/pilot-f01-c-events.jsonl": "8df3d734070e50bdd6e425da3fa43f9206daa1ffa1754b7ba5c28c4867d0e099",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
@@ -61,7 +62,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "a20fecb215b757723df469956f71aab97fd9764856ad9b3076a0854bfdcb6adf",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "463fe0f16dedd02053d41613db69dc146520295850e33e54e7c3c8cfa9c95345",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "a50440e51d8e5a0e8e1f387ac3cdc2ce19947dc91c7589d93b6791bd30927c81",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "3cfee4c69f590787fa7ef2e30d0db602a6fca697de9ce307ffc1e46baf3cf5fc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "bc82ef1bfb2713c8f3b3dd69a1ebb6dd18828ea92aeaab103ffad500bd276151",
@@ -80,7 +81,7 @@ EXPECTED_V2_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "aaa00944de45d5811c15e732ed8ec16a1425ecf700d034193ca9148780915733"
+MANIFEST_SHA256 = "92b4635b944d5cd4b5a8ceeb4741f86fe1616ea436effb0178c437d21b89ab83"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
