@@ -285,9 +285,10 @@ hash there. Tests reject a one-byte mutation of each of these 54 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T37 re-pin commit; its parent — the merge that
-brought the access-audit work (`T36a`, F27/F29) into this branch — is
-`052c3614d435b28bd982ec638999e72232053657`, and that merge is what the run plan binds and what
+The content-freeze commit at this round is the T39 re-pin commit; its parent — the merge that
+brought the confinement work (`T38a`, F31–F33/F35–F38/F41, P3-7) and the aggregate fixes
+(`T38b`, F34/F39/F40) together into this branch — is
+`7389f8b74f2ce5723ea04c0a2547a1260f47c975`, and that merge is what the run plan binds and what
 [freeze-manifest.json](freeze-manifest.json) records as its freeze parent (materials = parent of
 the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
@@ -324,16 +325,28 @@ the CONNECT-only egress allowlist proxy (`egress_v2.py`), the `opencode serve` +
 rules and the two network probes of the confinement self-test, the `egress_denied` evidence field,
 the tunnel that stays open after CONNECT (F30) with the self-test's own refusal recorded separately,
 the access audit's own-repository clone rule and its `cd`-relative assignment resolution (F27), the
-same-line EPERM rule for `sandbox_denied` (F29), and the sanitised pilot #5 fixture). The T2
+same-line EPERM rule for `sandbox_denied` (F29), and the sanitised pilot #5 fixture), and the
+F31–F41 / P3-7 work (T38a/T38b/T39: a write WHITELIST with signal and DNS confinement (F31/F35/F36)
+and driver executables resolved to absolute paths once, the sweep + snapshot evidence boundary with
+the gate sandbox that runs every oracle and full-suite execution of worker-written code in its own
+copy (F32/F33), the total registration path that records an unreadable file instead of raising
+(F37), the driver-held CONTRACT whose run-dir copy is compared (F38), the blind bundle without
+`base_sha`/`case_id` (F41), archive-before-delete of the previous attempt (P3-7), and the aggregate
+that folds the mechanical verdict into FINAL_CORRECTNESS/invalid completion (F34), decides costs
+before coverage (F39) and compares a structured null while checking evidence against the registry
+hashes (F40)). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `052c361` with the merged program. Every
+[delivery-anchors.json](delivery-anchors.json), taken at `7389f8b` with the merged program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
-(each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33
-and T37 re-measurements moved only `materials_commit`), which was
+(each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33,
+T37 and T39 re-measurements moved only `materials_commit`; T39 additionally records the three
+descriptive fields `confined`/`gate`/`style` that the T38a `run_gate` now writes — `false`, `null`
+and `RESOLVED` for every measurement cell, i.e. the anchors are still measured unconfined at the
+bare base, not through a gate), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
-measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33 and T37 did,
-because
+measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37 and T39
+did, because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the

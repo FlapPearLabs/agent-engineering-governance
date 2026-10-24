@@ -2700,3 +2700,147 @@ run 在 T38a 里同时会被登记成 `INVALID:EVIDENCE_UNREADABLE`，本来就�
   并在此如实说明，而不是把它算成通过。
 - T30 节里的 `pending_rules=["S5"]` / "完整非 null ⇒ `DISCLOSURE_SAFE`" 是当时的真实行为，
   F40 之后被本节取代；历史节保留不改写。
+
+## T38–T39（implementer: opencode deepseek-v4.1-flash）— 合并 T38a/T38b、re-pin、全量门禁
+
+T39 按 CODEX_FIXES_11 收尾：Step 1 合并 T38b 分支，Step 2 用仓库自己的程序重生成 run plan /
+manifest / delivery anchors / 测试字面量，补本节证据，然后一次跑完 CODEX_PLAN.md §0 GATES。
+**没有**执行任何 H2-R2 run、没有调用任何模型、没有触碰 `~/.h2-worker-profile`、没有 push、
+没有改 `CODEX_PLAN.md` / `CODEX_FIXES_*.md`、没有 rebase/reset/force。
+
+### 1. 合并（Step 1）
+
+```text
+git merge --no-ff refs/heads/experiment/v1.2-h2-freeze-v2-par
+  -> 7389f8b74f2ce5723ea04c0a2547a1260f47c975
+     父：4c30d6c（T38a，F31–F33/F35–F38/F41、P3-7） dcfc916（T38b，F34/F39/F40）
+```
+
+冲突只有一个文件：`CODEX_REPORT.md`，两侧在同一位置各追加自己的一节。解决方式是**两节都保留**
+（T38a 在前、T38b 在后），没有删除任何一侧的文字，也没有改写任何一侧的结论；合并提交
+`7389f8b` 里就是这份解决结果。
+
+`README.md`、`protocol-v2.md`、`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py` 由 git 自动合并，
+逐项核验（保留双方行为，不是"取一边"）：
+
+- **README.md**：T38a 的 SANDBOX（写入白名单、signal、DNS/unix socket）与 EVIDENCE（sweep、
+  snapshot、CONTRACT 副本、gate 沙箱、`INVALID:EVIDENCE_UNREADABLE`、archive-before-delete）
+  段落与 T38b 的 "What decides (T38b, F34/F39/F40)" 段落同时存在。
+- **protocol-v2.md**：§4.0 的 F31/F32/F33/F35/F36/F37/F38/F41 与 §7 的 F34/F39/F40 措辞同时存在
+  （前者只出现一次，后者只出现一次，互相不覆盖）。
+- **测试模块**：T38a 的 `WorkerCodeConfinement`（10 项）与 T38b 的 `AggregateRunsT38b`（10 项）
+  两个类都在；两处随规则更新的既有断言（T38b 的 `AggregateRunsV2` 规则更新、T38a 的盲包投影 /
+  F1 shadow / `stub_auditor` 关键字）也都在。
+- **`aggregate_runs.py`**：只有 T38b 一侧改过，合并后逐字节等于 dcfc916 的版本；
+  `sandbox_v2.py` / `run_h2r2.py` / `collect_v2.py` / `run_audit_v2.py` / `run_acceptance_v2.py` /
+  `worker-sandbox.sb.template` 只有 T38a 一侧改过，同样没有被动过。
+
+合并后、re-pin 前先跑聚合器两个类的子集作为合并正确性的快速反馈：
+
+```text
+$PY -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h2_freeze_v2.py -k AggregateRuns
+  Ran 17 tests in 0.209s / OK
+```
+
+### 2. re-pin（Step 2，全部由仓库程序生成，没有任何手写 hash）
+
+`T39P = 7389f8b74f2ce5723ea04c0a2547a1260f47c975`（合并提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T39P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T39P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T39P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=53 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t39/repin_literals.py .        # 只读 manifest，重写两个独立锚
+  -> LITERALS repinned=53 manifest_sha256=4157cf1078e278811379e90792ac1c4644a561f8048ba8549082c2156770c50b
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **run plan**：与上一轮（`052c361`）逐字段比较，**只有** `materials_commit` 变化；20 条 run 的
+  顺序、arm 反平衡（C-first 5 / V-first 5）、`model`、`runtime`、`profile`、`fresh_episode`
+  全部逐字节未动（把两边的 materials 值都替换成同一个占位符后 `diff` 为空）。
+- **anchors**：程序重新测量了 10 个任务的全部 PRE/POST 单元，`WRAPPER` 仍 10/10
+  `DELIVERY_NEUTRAL`（`CODEBUDDY`/`AGENTS` 仍 0/10，与 T2 以来的记录一致）。与上一份 JSON 做结构化
+  比较（忽略 `materials_commit`）：`EQUAL_IGNORING_MATERIALS_AND_GATE_FIELDS: True` —— 每个
+  PRE/POST 的 `not_passing` 集合、`ran`、`rc`、每格 `verdict` 逐字节相同，`wrapper_program_sha256`
+  也未变（本票没改 `wrapper_delivery.py`）。唯一的形状变化是 T38a 让 `run_gate` 记录
+  `confined`/`gate`/`style` 三个描述字段，本轮的锚测量仍是 `confined=false`、`gate=null`、
+  `style=RESOLVED`（锚依旧在裸 base 上、不在 gate 沙箱里测），README §4 已如实写明。
+- **manifest**：仍是 53 个成员（无增删）。相对上一份 manifest 变化的条目恰好是本轮源码/派生文件的
+  集合：`aggregate_runs.py`、`collect_v2.py`、`delivery_anchors.py`、`run_acceptance_v2.py`、
+  `run_audit_v2.py`、`run_h2r2.py`、`sandbox_v2.py`、`worker-sandbox.sb.template`、
+  `protocol-v2.md`、`run-plan-v2.json`、`delivery-anchors.json`，加上 `freeze_parent` /
+  `materials_commit` / `delivery_anchor_materials_commit` 三个 commit 字段；
+  `wrapper_delivery.py`、`egress_v2.py`、路由、carrier、rubric、validator 与全部 fixture 逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 53 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `4157cf10…0c50b`。重写脚本先校验 manifest 与工作树
+  逐文件一致（不一致即退出），再"读 manifest → 按路径重写"，且拒绝任何旧字面量键在新 manifest 中
+  缺失的情况（失效名字必须是失败，不能被静默丢掉）；没有任何 hand-edited hash。
+- **README §4**：content-freeze 段改为 T39 / `7389f8b`，并把 F31–F41 与 P3-7 加进"前移的内容"，
+  同时记录 T39 锚测量新增的三个描述字段。README §3 的 confound 段落一字未动（测试仍要求它与
+  protocol-v2 逐字节相等）。
+
+### 3. F31–F41 与 P3-7：实现与固定它的证据（逐条）
+
+所有证据都在冻结范围内可复跑：测试全部是 stub / fixture / 真实 `sandbox-exec` / 本地 socket，
+**没有**模型调用，也没有真实 runs root。
+
+| 项 | 状态 | 实现 | 固定它的测试 |
+|---|---|---|---|
+| F31 (P1) 写入是 deny-list、系统目录可写 | 关闭（T38a + 本票 re-pin） | `worker-sandbox.sb.template` 改为写入白名单 `(deny file-write* (subpath "/"))` + 只重放行 launch 目录、per-launch home、`/dev/null`、`/dev/tty`、`/dev/fd`、`/dev/ttysN`；`sandbox_v2.TOOLS` 在 import 时一次性把 `git`/`sandbox-exec`/`opencode`/`python` 解析为绝对路径，`absolute_argv()` 用于 driver 每次 spawn | `test_the_template_is_a_write_whitelist_with_signal_and_dns_confined`、`test_a_write_outside_a_signal_and_dns_are_denied_inside_the_profile`（真实 profile 内写系统临时目录 EPERM）、`test_the_drivers_tools_are_absolute_and_never_a_late_path_lookup` |
+| F32 (P1) 验收在 driver 进程里执行 worker 代码 | 关闭 | `sandbox_v2.Gate`（每次执行一份 snapshot 的 `repo/` 副本 + gate home + 两种 TMPDIR 拼写 + `.pycache`）、`delivery_anchors.run_gate(..., gate=)`、`run_acceptance_v2.gate_run`：验收的 6 次执行（base/worker × oracle × 两种拼写 + 全量套件 × 两种拼写）全部在 gate 沙箱内，第一次执行前做 confinement 自检（`GATE_SANDBOX_NOT_CONFINING` ⇒ INVALID） | `test_worker_code_in_a_gate_cannot_read_or_write_outside_its_copy`（真实 profile：读不到 gate 外投放的 secret、写不出 gate 目录）、`test_the_two_temp_root_spellings_differ_inside_the_gate_sandbox` |
+| F33 (P1) 启动后无进程清理、证据可被改写 | 关闭 | `sandbox_v2.sweep` / `sandbox_v2.snapshot`：launch 一结束（正常/错误/超时）killpg + `lsof +D` 找 cwd 或打开文件在 run 目录下的残留进程并 SIGKILL，逐 pid/command 写 `sweep.json`；随后整目录复制到 `.driver/<run_id>/attempt-<n>/snapshot/` + 逐文件 sha256 manifest；collect / scope / oracle hash / gate / audit bundle 只读 snapshot | `test_a_detached_survivor_is_swept_and_the_verdict_comes_from_the_snapshot`（detached 子进程在 worker 退出后改 oracle：它出现在 `sweep.json`、被杀、从未写成，verdict 与 collected changes 只来自 snapshot） |
+| F34 (P1) 机械裁定不进 correctness | 关闭（T38b） | `aggregate_runs.mechanical_verdict` 读登记行的 `verdict`（不是被 audit 收紧的 `final_verdict`）；`MECHANICAL_CORRECTNESS = {ACCEPT: PASS, REJECT: FAIL}`，INVALID/BLOCKED 不可用；`final_correctness` 取机械与 audit 的较严格者；`invalid_completion` 除 auditor 记录外，还包括结构化报告行 `TASK_COMPLETED = YES|PARTIAL` 而机械为 REJECT | `test_l1b_a_mechanical_reject_is_final_correctness_even_when_the_audit_passes`、`test_f34_a_rejected_run_whose_report_claims_completion_is_an_invalid_completion`、`test_the_completion_claim_is_the_structured_report_line_only` |
+| F35 (P2) 无信号隔离 | 关闭 | 模板 `(deny signal)` + `(allow signal (target same-sandbox))`；自检新增"对沙箱外进程发 SIGCONT 必须 EPERM" | `test_the_template_is_a_write_whitelist_with_signal_and_dns_confined`、`test_a_write_outside_a_signal_and_dns_are_denied_inside_the_profile` |
+| F36 (P2) unix socket egress 与 DNS 开放 | 关闭 | 模板不再有 `remote unix-socket` 放行（省略即关闭）并 `(deny mach-lookup (global-name "com.apple.dnssd.service"))`；自检新增"DNS 解析必须失败、直连外部失败" | 同上两个测试 |
+| F37 (P2) 一个不可读文件让登记路径抛异常 | 关闭 | `run_h2r2.artifact_hashes` 用 `os.walk(onerror=...)` 把不可读文件记成 `{"path": ..., "unreadable": true}`；snapshot manifest 记录不可读项，driver 见到即登记 `INVALID:EVIDENCE_UNREADABLE`（不跑验收、不重试） | `test_an_unreadable_file_in_the_run_dir_registers_invalid_evidence_unreadable` |
+| F38 (P2) CONTRACT 从 worker 可写目录读回盲包 | 关闭 | driver 把渲染字节存 `.driver/<run_id>/CONTRACT.md` + sha256，audit bundle 只用这份（`run_audit_v2.prepare_bundle(contract_path=)`）；run 目录副本不同 ⇒ `CONTRACT_TAMPERED`（INVALID，登记） | `test_a_tampered_contract_in_the_run_dir_is_detected_and_invalid` |
+| F39 (P2) 覆盖/S1 先于 S2/S3/S4，代价被掩盖 | 关闭（T38b） | `decide()` 先在所有 COMPLETE 且可信的配对上判 S2（missed guidance）、S3（treatment-only invalid completion）、S4（treatment-only correctness）；任何命中即 `DISCLOSURE_HAS_COST` 并点明规则与配对；覆盖缺口 / 缺 audit / S1 / pending 只能把本会 SAFE 的结论降级 | `test_l2_a_cost_on_one_pair_is_not_masked_by_an_invalid_run_elsewhere`、`test_l2b_an_audited_missed_guidance_beats_a_missing_audit_elsewhere`、`test_s1_is_evaluated_after_a_cost_and_before_any_candidate`、`test_a_coverage_gap_is_reported_beside_the_cost_it_cannot_mask` |
+| F40 (P2) null 比较自由文本 id；S2 不可达却不 pending；audit 文件不与登记 hash 核对 | 关闭（T38b） | null 只比 `FINAL_CORRECTNESS`、invalid completion 与 `(severity, category)` 多重集；`PENDING_RULES = ("S2", "S5")`，任一 pending 时最高输出 `SAFE_CANDIDATE_PENDING:<rules>`；读任何 audit/verdict/report 字节前先与登记行 sha256 比对，不符即 `EVIDENCE_UNTRUSTED` ⇒ 按 run 命名的 `INSUFFICIENT_EVIDENCE`；登记行没有 hash 是 unverified（不当作 untrusted） | `test_l3_a_hash_mismatch_is_untrusted_and_never_decides_a_cost`、`test_l5_a_complete_trusted_run_root_without_cost_is_only_a_pending_candidate`、`test_l6_a_difference_confined_to_finding_ids_and_locations_is_the_null`、`test_a_registry_line_without_a_hash_is_unverified_not_untrusted` |
+| F41 (P2) base_sha/case_id 进入审计盲包 | 关闭 | `run_audit_v2.VERDICT_KEEP` 投影去掉 `base_sha` 与 `case_id`；二者只留在 driver 侧 registry/run.json；protocol-v2 §4.0 F41 与 README §3 EVIDENCE 同步 | `test_the_auditor_projection_drops_the_base_sha_and_the_case_id` |
+| P3-7 (P3) 下一个 attempt 抹掉上一个证据目录 | 关闭 | `run_h2r2.archive_stream`：`fresh_state` 先把手里的 stream 目录改名 `<name>-superseded-<stamp>`（不删），名字记在 `run.json` 的 `archived_streams` | `test_a_restarted_attempt_archives_the_earlier_evidence_directory` |
+
+审查者给出的合成分场景与本实现的机械读法一致（测试名即断言）：L1b/L2/L2b → `DISCLOSURE_HAS_COST`
+（分别由 S4/S4/S2 判出，且点明 f04/f03/`h2r2-f03-v`）；L3 → `INSUFFICIENT_EVIDENCE`
+（`EVIDENCE_UNTRUSTED:h2r2-f06-v`）；L5 → `SAFE_CANDIDATE_PENDING:S2,S5`；l6 → `INSUFFICIENT_EVIDENCE`
+（`NULL_DIFFERENCE`）。
+
+### 4. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+合并 + re-pin 之后、写入本节之前的同一棵树上，逐条前台运行并直接读退出码（没有用管道吞掉
+`$?`）：
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 24.280s / OK             (exit 0)
+=== EXPERIMENTS_TESTS    Ran 478 tests in 1178.039s / OK           (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空   (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                    (exit 0)
+=== MANIFEST_CHECK       {"verdict": "PASS", "mismatches": []}      (exit 0)
+```
+
+实验套件 478 项（T37 时为 457）：新增部分来自 T38a 的 `WorkerCodeConfinement`、T38b 的
+`AggregateRunsT38b`（各 10 项）以及并入既有类的用例；全部 478 项在上面这一遍里跑过并通过，
+包括 `FreezeManifest` 的两条独立锚（re-pin 后不再有预期红）。
+
+写入本节之后，同一棵树把上面全部 §0 GATES **再跑一遍**，并与本提交以 `&&` 串联：
+任一门失败则不提交（没有拿前一次的结果替代这一次）。
+
+### 5. 仍未关闭 / 需裁决（不隐瞒）
+
+- **gate 保留 loopback**（对 CODEX_FIXES_11 F32 "no loopback" 字面的偏离，T38a 已登记）：`scripts/tests`
+  里有测试在 127.0.0.1 上起本地 HTTP server（f04 的 oracle 就是），冻结 PRE 集合也是在允许 loopback
+  的环境下测得的；关掉会把一个 PRE 通过的测试变成假的 worker 失败。gate 关的是出口、DNS、proxy 与
+  serve 端口。
+- **`wrapper_delivery.git` 仍按名找 `git`**（T38a 已登记）：该文件不在 T38a/T38b 的文件清单内，改它会让
+  `delivery-anchors.json` 的 `wrapper_program_sha256` 失效。F31 的根因（系统目录可写）已由写入白名单
+  关闭。
+- **没有 live run**：F31–F41 的结论来自真实 `sandbox-exec`、真实本地 socket 与合成分场景，不是真实
+  provider；端到端仍需下一次 live pilot 确认。
