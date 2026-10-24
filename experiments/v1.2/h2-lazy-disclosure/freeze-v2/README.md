@@ -285,9 +285,9 @@ hash there. Tests reject a one-byte mutation of each of these 56 files on a temp
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T41 re-pin commit; its parent — the commit that
-records the F43 fix plan for the access audit's shell `workdir` — is
-`35e796ac99aa4d0dda63d3ac0add77e21b5f6752`, and that commit is what the run plan binds and what
+The content-freeze commit at this round is the T42 re-pin commit; its parent — the commit that
+records the F44 fix plan for the bounded scheduler's eligibility rule — is
+`13a12a41f0407428dc08f93796408cbe57b32a6f`, and that commit is what the run plan binds and what
 [freeze-manifest.json](freeze-manifest.json) records as its freeze parent (materials = parent of
 the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
@@ -314,9 +314,9 @@ and every unexpected driver exception has a state, decided by the worker-launch 
 contract states the delivered neutral head instead of the original base, which also leaves
 `receipt.json`; and TMPPREFIX joins TMPDIR so zsh heredocs work under the sandbox), and the
 T34/T35 work on the parallel branch, merged here before any counted run: bounded concurrency
-(`MAX_PARALLEL = 4`, plan-order starts, the second arm of a task only after the first is
-registered), the `run-plan` scheduler with exponential backoff and its own log, the
-`fcntl.flock` registry/attempt appends, overlap reporting in the aggregate, the per-run
+(`MAX_PARALLEL = 4`, plan-order starts among the runs that may start, the second arm of a task only
+after the first is registered), the `run-plan` scheduler with exponential backoff and its own log,
+the `fcntl.flock` registry/attempt appends, overlap reporting in the aggregate, the per-run
 preflight service port handed to the fresh-home attestation with a bounded collision retry, and
 the pre-registered single-model rule (`MODEL_NOT_FROZEN`), and the F26–F30 work (T36a/T36b/T37:
 the CONNECT-only egress allowlist proxy (`egress_v2.py`), the `opencode serve` + `opencode run
@@ -340,19 +340,24 @@ while a real escape still is; its sanitised stream is the fourth real event fixt
 work (T41: the shell tool's `workdir` is the directory the command starts in — judged as a path
 and used as the base for every relative token, for the `cd` tracking and for the effective git
 repository — and a glob/grep `pattern`/`include` that names a tree rather than a name is judged as
-a path; its sanitised stream is the fifth real event fixture). The T2
+a path; its sanitised stream is the fifth real event fixture), and the F44 work (T42: eligibility
+for the bounded scheduler — an earlier run that is only waiting for its own task's first arm no
+longer holds the frontier, so the first arms of up to four tasks start together in plan order and a
+second arm starts as soon as its own first arm is registered; the frozen within-task
+counterbalancing, the explicit refusals and the never-two-arms-of-one-task invariant are
+unchanged; the rule was changed before the first counted run, see §5 and protocol-v2 §5). The T2
 delivery anchors were re-measured instead of being carried over; the last measurement is
-[delivery-anchors.json](delivery-anchors.json), taken at `35e796a` with the frozen program. Every
+[delivery-anchors.json](delivery-anchors.json), taken at `13a12a4` with the frozen program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
 (each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33,
-T37, T39, T40 and T41 re-measurements moved only `materials_commit`; T39 additionally records the
+T37, T39, T40, T41 and T42 re-measurements moved only `materials_commit`; T39 additionally records the
 descriptive fields `confined`/`gate`/`style` that the T38a `run_gate` now writes — `false`, `null`
 and `RESOLVED` for every measurement cell, i.e. the anchors are still measured unconfined at the
 bare base, not through a gate), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
 measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37, T39,
-T40 and T41 did, because
+T40, T41 and T42 did, because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
@@ -404,8 +409,10 @@ run because each one silently changes what a gate measures:
    runs the preflight before any worker, renders the contract, launches the frozen worker command
    under the profile environment with the 90-minute wall clock, collects, accepts, starts the blind
    per-run audit, and appends one `registry-v2.jsonl` line per run. It refuses a run whose
-   predecessors are not registered and refuses any run id that is registered or was started and
-   reached work, so no operator input can change what a run does or how often it happens.
+   predecessors are neither registered nor live (or whose own task's first arm is not yet
+   registered, and only a predecessor that is itself waiting on its own first arm is skipped) and
+   refuses any run id that is registered or was started and reached work, so no operator input can
+   change what a run does or how often it happens.
    A third program closes the loop over a runs root: `$PY $H/freeze-v2/aggregate_runs.py
    <SHARED_RUN_ROOT>` prints the per-task per-arm valid pairs, each run's FINAL_CORRECTNESS and
    invalid completion, the INVALID, BLOCKED, MISSING and untrusted-evidence runs with their
@@ -461,10 +468,16 @@ run because each one silently changes what a gate measures:
    **Four runs at a time, with backoff and one frozen model (T34, T35).** `$PY
    $H/freeze-v2/run_h2r2.py run-plan --runs-root <SHARED_RUN_ROOT>` schedules the whole plan: at
    most `MAX_PARALLEL = 4` runs of that root are in flight, each a separate `run` child process, so
-   one crash cannot take another run down. Starts stay in plan order — a run starts only when every
-   earlier run is registered or running, and the second arm of a task starts only after the first
-   arm is registered — so only finishing overlaps and a concurrent set is always different tasks.
-   `run` refuses a non-eligible id with `PREDECESSOR_NOT_STARTED:<id>`,
+   one crash cannot take another run down. Starts stay in plan order among the runs that may start:
+   the first arms of up to four tasks start together, a second arm starts as soon as its own first
+   arm is registered and before a later task that has not started, and the second arm of a task
+   never starts before the first — so only finishing overlaps and a concurrent set is always
+   different tasks. (The eligibility rule was changed once, still before the first counted run, F44:
+   the earlier form — every earlier run registered or in progress — let the second arm of task k
+   hold the whole frontier, and a live `run-plan` at MAX_PARALLEL = 4 started exactly one run
+   (h2r2-f01-c) in five minutes instead of four at a time.)
+   `run` refuses a non-eligible id with `PREDECESSOR_NOT_STARTED:<id>` (only an earlier run that is
+   neither started nor waiting on its own task's first arm),
    `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`; start/end lines (time, pid, run id,
    outcome) go to `<runs_root>/scheduler-v2.jsonl`; registry and attempt lines are appended under an
    exclusive `fcntl.flock`, so two finishing runs cannot interleave. A run that ends BLOCKED before

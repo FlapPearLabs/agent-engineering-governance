@@ -1,6 +1,6 @@
 {
-  "delivery_anchor_materials_commit": "35e796ac99aa4d0dda63d3ac0add77e21b5f6752",
-  "freeze_parent": "35e796ac99aa4d0dda63d3ac0add77e21b5f6752",
+  "delivery_anchor_materials_commit": "13a12a41f0407428dc08f93796408cbe57b32a6f",
+  "freeze_parent": "13a12a41f0407428dc08f93796408cbe57b32a6f",
   "hashes": {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json": "2b8aadff933c80966b780f86854bce8c87644d753338d7aa60d736f0fea36726",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/ledger.json": "765c21b90044646882256cbbfee66554e8cbd0580f07aacc27c080154d4e7305",
@@ -19,7 +19,7 @@
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_registry.py": "57a06cb8f090c4499399c7942da4b5cb17a41178efab07365206b61033918c0f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/build_run_plan.py": "fd6ce1765508bbbbd4eeee19d6174aaaa508b595b958028a4d361ddc6fe30027",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/collect_v2.py": "df62149c85bc9a9eab86efae7988414ac9cb69817e192a47a9066f045b3275a6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "ba8c1d92551f627691031cbc2809a09d3ec92fa8f4247e3be5ddcd6647a8da7b",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery-anchors.json": "436d6cd59ca79fd2d5a46e65d2b7c327bb4d79b1b6e2d27038a3e48cfbf94109",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/delivery_anchors.py": "494fe04e2ce11fd1b26ae84e49cb713cd3db19d1b796f685025c1fe7352ef62b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/egress_v2.py": "2fbe5f91c7b9936c3bdecc8bef857c419bdd54d68cba41bc87c63e6f56a76429",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
@@ -35,14 +35,14 @@
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/isolation_canary.py": "d30f3b1fcbf1b77cfc58eb9ae39bcdb98053fcd86c76186438f76db655421f59",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "4061a164a6d53158c7738dfcbd9d75741a9caef940f5c0abbdf9fad36879f191",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/protocol-v2.md": "faf47547a50f1ff13923e687baca3f7b6d1a6712a1f867947c6ede4353bbf349",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/render_brief.py": "ec08dc60227adeaba088416dfcf22d099496a91a258d841553dc5a6aa42c218b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route-preconditions.json": "31e4108d079a9125c1292dddca3c8a9c0246b070533a7b648a07b16ea2cb4815",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/route_preconditions.py": "9fabe14ca56ad7b94f763edc69bf15ec6fd5ec2b4c43f51c5ee72fa381e7026c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "20850ffa617fa9d5acc6da64fc190f2c0b256ed140f8bbefa85e3a846f120b80",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run-plan-v2.json": "a20fecb215b757723df469956f71aab97fd9764856ad9b3076a0854bfdcb6adf",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_acceptance_v2.py": "a50440e51d8e5a0e8e1f387ac3cdc2ce19947dc91c7589d93b6791bd30927c81",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_audit_v2.py": "3cfee4c69f590787fa7ef2e30d0db602a6fca697de9ce307ffc1e46baf3cf5fc",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "98a1d756d1bd41e8947b55b303e3e07ee8a89fa0262d4a9da37d6c6bd38c30ca",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v2/run_h2r2.py": "bc82ef1bfb2713c8f3b3dd69a1ebb6dd18828ea92aeaab103ffad500bd276151",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/sandbox_v2.py": "a8e2e8416a71363871f18c4c102ea0f3b14a9b54943e0cc1234b9f42fdadd88b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/scope_v2.py": "7c0e0b0b7bf0c3b68452e914ff6831dbaea59fcf2666ad34cb0f9fe682075d9f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v2/task-registry-v2.json": "1f4185426076af40d67bc6a4df171979cf1b92ec81c7d3de87e786a989b8a98c",
@@ -58,6 +58,6 @@
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137"
   },
-  "materials_commit": "35e796ac99aa4d0dda63d3ac0add77e21b5f6752",
+  "materials_commit": "13a12a41f0407428dc08f93796408cbe57b32a6f",
   "schema_version": 2
 }

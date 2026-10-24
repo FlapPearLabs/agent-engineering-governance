@@ -226,8 +226,11 @@ merge 是评审历史的外部锚，不改变已选定的 materials object snaps
 freeze-manifest 哈希，改动它是设计变更，不是参数）。run 仍按 plan 顺序**开始**：一个 run 可以
 开始时，(a) 它未登记且未启动，(b) 同一任务的另一臂若在 plan 中更早出现则已登记（任务内
 counterbalancing 顺序原样保留，因此同一任务的两臂永不重叠），(c) 本 runs root 中在进行的 run
-（活锁持有者）少于 MAX_PARALLEL，(d) plan 中每个更早的 run 都已登记或正在进行；只有**完成**
-可以重叠。拒绝原因保持显式：`PREDECESSOR_NOT_STARTED:<id>`、
+（活锁持有者）少于 MAX_PARALLEL，(d) plan 中每个更早的 run 都已登记、正在进行，**或它自己只在
+等规则 (b)**（即它所属任务的先臂尚未登记）。因此最多四个任务的先臂按 plan 顺序一起开始，某个
+任务的第二臂在它的先臂登记后立即开始（早于尚未开始的更晚任务），可开始者之间仍保持 plan 顺序；
+只有**完成**可以重叠，同时存活的两臂永不来自同一任务。拒绝原因保持显式：
+`PREDECESSOR_NOT_STARTED:<id>`（只用于既未启动、也不在等规则 (b) 的更早 run）、
 `SAME_TASK_ARM_NOT_REGISTERED:<id>`、`PARALLEL_LIMIT:<n>`。调度器把每个 run 作为独立的 `run`
 子进程启动，一个崩溃不会带走另一个；开始/结束（时间、pid、run id、结果）与每次等待（requeue
 序号、秒数）追加到 `<runs_root>/scheduler-v2.jsonl`。每个 run.json 记录 `concurrent_with`
@@ -237,11 +240,15 @@ counterbalancing 顺序原样保留，因此同一任务的两臂永不重叠）
 记录。一个在工作之前结束且未登记的 run 由调度器按第 6 节退避重排；二十个 run 的每次 worker 与
 auditor 启动只用第 6.1 节冻结的单一模型。
 
-理由（在第一次计数 run 之前固定，2026-10-23；T34 取 2，T35 在任一计数 run 之前改为 4）：单个
-run 需要 10–90 分钟，严格串行会让二十个 run 耗掉大半个工作日；而并发的 run 之间没有相互影响的
-通道——各有独立 run dir、fresh home、渲染后的 sandbox 与 driver 持有的流，sandbox 拒绝另一个
-run 的内容，跨 run 唯一共享的是 provider 负载；并发的 run 必然是**不同任务**，且两臂顺序在 plan
-中交替，因此该负载对臂对称。registry 与 attempts 文件以 `fcntl.flock` 独占追加，两个几乎同时
+理由（在第一次计数 run 之前固定，2026-10-23；T34 取 2，T35 在任一计数 run 之前改为 4；规则 (d)
+在任一计数 run 之前改为上面的形式，F44）：单个 run 需要 10–90 分钟，严格串行会让二十个 run
+耗掉大半个工作日；而并发的 run 之间没有相互影响的通道——各有独立 run dir、fresh home、渲染后的
+sandbox 与 driver 持有的流，sandbox 拒绝另一个 run 的内容，跨 run 唯一共享的是 provider 负载；
+并发的 run 必然是**不同任务**，且两臂顺序在 plan 中交替，因此该负载对臂对称。规则 (d) 的旧形式
+（每个更早的 run 都已登记或正在进行）会被同一任务的第二臂占住 frontier：实测一次 pilot 的
+`run-plan` 在 MAX_PARALLEL = 4 下五分钟只启动了 h2r2-f01-c 一个 run，用户批准的提速从未发生，
+所以改为"更早的 run 若只在等自己的先臂则不占 frontier"，任务内两臂顺序不变。registry 与
+attempts 文件以 `fcntl.flock` 独占追加，两个几乎同时
 结束的 run 不会交错写行。
 
 执行只有一条路径：`freeze-v2/run_h2r2.py`（`next` / `run <run_id>` / `status` / `run-plan`）是唯一允许启动
@@ -321,7 +328,9 @@ F37），run 目录的 CONTRACT.md 与 driver 副本不同登记 INVALID:CONTRAC
 attempt 的 provider 前状态）：在 plan 位置等待后重试，等待为指数退避加抖动——60 s、120 s、
 240 s、480 s，上限 900 s；每次调度器调用对该 run 至多 6 次重排。等待不占 slot，其他已启动的
 run 继续持有自己的 slot；每次等待（requeue 序号与秒数）写入 scheduler-v2.jsonl；预算用尽即停止
-并打印剩余 run，由操作员重新调用。已登记的 run 永不被调度器重跑，调度器也不改写任何裁定——
+并打印剩余 run，由操作员重新调用。哪些 run 可以同时开始由第 5 节的资格规则（含 F44 的规则 (d)）
+决定；本节只决定**已结束且未登记**的 run 是否重排，两者互不改写。已登记的 run 永不被调度器重跑，
+调度器也不改写任何裁定——
 包括 §6.1 中三次 before-work 失败后被登记为 BLOCKED 的 run：它是终局登记，只交给操作员裁决，
 不因"在工作之前"这一形状被重排。调度器本身被杀时不做清理：已启动的 run 仍归本节规则处理——
 下一次 `run` 遇到其残留锁会登记为 INVALID:INTERRUPTED。

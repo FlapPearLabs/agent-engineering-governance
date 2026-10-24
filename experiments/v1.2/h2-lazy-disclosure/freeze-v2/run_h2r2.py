@@ -100,19 +100,25 @@ an unexpected exception BEFORE the worker launch ends the invocation as
 attempt consumed, nothing registered, the same run id may be invoked again) while one AFTER the
 launch registers the run `INVALID:HARNESS_DEFECT:<ExceptionType>`. The rule is decided by the
 launch boundary alone, so it is outcome-blind and cannot re-roll anything the worker did.
-BOUNDED CONCURRENCY (T34 / T35). Twenty runs of ten to ninety minutes each would take most of a day
-if they were strictly serial, so `run-plan` keeps at most `MAX_PARALLEL` runs of one runs root in
-flight at once — four, frozen with the program. Each run is still its own `run` child process in its
-own run dir, fresh home, rendered sandbox and driver-held streams, so runs of DIFFERENT tasks
-cannot see each other. START order is unchanged: a run is eligible only when every earlier run is
-registered or in progress, and the second arm of a task waits until the first arm is registered, so
-only FINISHING may overlap and a concurrent set is always different tasks (which is what keeps
-shared provider load arm-symmetric). `run` refuses a non-eligible id with
-`PREDECESSOR_NOT_STARTED:<id>`, `SAME_TASK_ARM_NOT_REGISTERED:<id>` or `PARALLEL_LIMIT:<n>`, the
-scheduler's start/end lines (pid, run id, outcome) are appended to
+BOUNDED CONCURRENCY (T34 / T35 / T42). Twenty runs of ten to ninety minutes each would take most of
+a day if they were strictly serial, so `run-plan` keeps at most `MAX_PARALLEL` runs of one runs root
+in flight at once — four, frozen with the program. Each run is still its own `run` child process in
+its own run dir, fresh home, rendered sandbox and driver-held streams, so runs of DIFFERENT tasks
+cannot see each other. START order is the plan's order among the runs that may start: a run is
+eligible when every EARLIER run is registered, in progress, or is itself only waiting for its own
+task's first arm (its own arm order is frozen, so it has nothing else to wait for). The first arms
+of up to MAX_PARALLEL tasks therefore start together in plan order, a second arm starts as soon as
+its own first arm is registered and before a later task that has not started, and a concurrent set
+never contains both arms of one task (which is what keeps shared provider load arm-symmetric).
+`run` refuses a non-eligible id with `PREDECESSOR_NOT_STARTED:<id>` (only an earlier run that is
+neither started nor waiting on its own first arm), `SAME_TASK_ARM_NOT_REGISTERED:<id>` or
+`PARALLEL_LIMIT:<n>`, the scheduler's start/end lines (pid, run id, outcome) are appended to
 `<runs_root>/scheduler-v2.jsonl`, and every registry/attempt line is appended under an exclusive
 `fcntl.flock` so two finishing runs cannot interleave. The rule was decided before the first
-counted run; the constant is hashed with this program, so changing it is a design change.
+counted run; the constant is hashed with this program, so changing it is a design change. F44
+changed rule (d) once, still before the first counted run: "every earlier run registered or in
+progress" made the second arm of task k hold the whole frontier, so four slots started four runs
+one after the other (one run in five live minutes) and the approved speed-up never happened.
 
 WAITING IS THE ONLY ANSWER TO AN OUTAGE (T35). A run that ends BLOCKED before work — a failed
 reachability check, or any pre-work provider state that registered nothing — is re-queued by the
@@ -351,6 +357,56 @@ def next_run_id(runs_root: Path, root: Path = ROOT) -> str | None:
     return None
 
 
+def first_arm_gap(plan_run: dict, planned: list[dict],
+                  entries: dict[str, dict]) -> str | None:
+    """This run's own task arm that precedes it in plan order and is not registered (rule b).
+
+    Within-task counterbalancing (c-first vs v-first) is frozen: a second arm never starts before
+    the first arm of its task. A run for which this returns an id is waiting on THAT rule alone,
+    which is what lets rule (d) keep plan order without serialising the plan (F44).
+    """
+    order = [run["run_id"] for run in planned]
+    run_id = plan_run["run_id"]
+    if run_id not in order:
+        return None
+    earlier = order[:order.index(run_id)]
+    for other in planned:
+        other_id = other["run_id"]
+        if (other["task_id"] == plan_run["task_id"] and other_id != run_id
+                and other_id in earlier and other_id not in entries):
+            return other_id
+    return None
+
+
+def started_state(runs_root: Path, run_id: str) -> bool:
+    """Whether this run id already has a start on disk: a lock file or a run dir past attempts/.
+
+    An attempt archive is evidence, not a start (see `refusal`), so a run dir that holds only
+    `attempts/` does not count.
+    """
+    if lock_path(runs_root, run_id).is_file():
+        return True
+    run_dir = Path(runs_root) / run_id
+    return run_dir.exists() and any(entry.name != ATTEMPTS_DIR for entry in run_dir.iterdir())
+
+
+def waiting_on_first_arm(runs_root: Path, plan_run: dict, planned: list[dict],
+                         entries: dict[str, dict]) -> bool:
+    """Whether this run may not start ONLY because its own task's first arm is unregistered (F44).
+
+    Rule (d) skips such an earlier run: it holds no frontier, because the only thing it waits for
+    is the arm the plan put before it. A run that is registered, is live, or really started is not
+    waiting on rule (b) — a started-but-dead run is the INTERRUPTED case and keeps blocking until
+    the driver registers it.
+    """
+    if first_arm_gap(plan_run, planned, entries) is None:
+        return False
+    run_id = plan_run["run_id"]
+    if run_id in entries or live_lock(runs_root, run_id) is not None:
+        return False
+    return not started_state(runs_root, run_id)
+
+
 def refusal(runs_root: Path, plan_run: dict, planned: list[dict],
             entries: dict[str, dict]) -> str | None:
     """Why `run` may not start this run, or None. Every refusal is checkable, none is advisory.
@@ -361,8 +417,14 @@ def refusal(runs_root: Path, plan_run: dict, planned: list[dict],
     the same task, if it comes earlier in plan order, is registered — within-task
     counterbalancing order is preserved exactly, so the two arms of a task never overlap, (c)
     fewer than MAX_PARALLEL runs of this runs root are in progress (live lock holders), and (d)
-    every run earlier in plan order is registered or in progress — runs START in plan order, only
-    finishing may overlap.
+    every run earlier in plan order is registered, in progress, or itself waiting only on rule (b)
+    (F44: its own task's first arm is not yet registered).
+
+    Rule (d) is what makes the bounded concurrency real. Under the old form — every earlier run
+    registered or in progress — the second arm of task k was earlier than every later task, so a
+    slot was blocked until that arm had finished and the twenty runs were effectively serial.
+    Plan order among the runs that MAY start is still the plan's order, and step (b) still fires
+    before this loop, so the frozen c-first / v-first counterbalancing is unchanged.
     """
     run_id = plan_run["run_id"]
     order = [run["run_id"] for run in planned]
@@ -370,25 +432,22 @@ def refusal(runs_root: Path, plan_run: dict, planned: list[dict],
         return "RUN_ALREADY_REGISTERED"
     if live_lock(runs_root, run_id) is not None:
         return "RUN_IN_PROGRESS"
-    if lock_path(runs_root, run_id).is_file():
-        return "RUN_ALREADY_STARTED"
-    run_dir = Path(runs_root) / run_id
-    # An attempt archive is evidence, not a start: a run dir that holds only `attempts/` is a run
-    # whose in-flight attempt was dropped by a reachability BLOCKED (no attempt consumed), so it may
-    # be started again. Anything else under the run id means a start really happened.
-    if run_dir.exists() and any(entry.name != ATTEMPTS_DIR for entry in run_dir.iterdir()):
+    if started_state(runs_root, run_id):
         return "RUN_ALREADY_STARTED"
     earlier = order[:order.index(run_id)]
     live = in_progress(runs_root, planned, entries)
-    for other in (run["run_id"] for run in planned
-                  if run["task_id"] == plan_run["task_id"] and run["run_id"] != run_id):
-        if other in earlier and other not in entries:
-            return f"SAME_TASK_ARM_NOT_REGISTERED:{other}"
+    gap = first_arm_gap(plan_run, planned, entries)
+    if gap is not None:
+        return f"SAME_TASK_ARM_NOT_REGISTERED:{gap}"
     if len(live) >= MAX_PARALLEL:
         return f"PARALLEL_LIMIT:{len(live)}"
+    by_id = {run["run_id"]: run for run in planned}
     for other in earlier:
-        if other not in entries and other not in live:
-            return f"PREDECESSOR_NOT_STARTED:{other}"
+        if other in entries or other in live:
+            continue
+        if waiting_on_first_arm(runs_root, by_id[other], planned, entries):
+            continue
+        return f"PREDECESSOR_NOT_STARTED:{other}"
     return None
 
 
@@ -2065,13 +2124,15 @@ def schedule(runs_root: Path, *, root: Path = ROOT, spawn=None, sleep=time.sleep
 
     `run` stays the only program that executes a run: this scheduler only decides WHEN to start
     one, starts it as its own `run` child, waits, and records what happened. START order is the
-    plan's order (see `refusal`), so only finishing may overlap. A run that ended BLOCKED before
-    work and registered nothing is re-queued in plan position after an exponential backoff with
-    jitter (T35), at most SCHEDULER_REQUEUES times per invocation; every wait is a line in the
-    scheduler log, the other live runs keep their slots meanwhile, and after the budget the
-    scheduler stops and reports what is left (the operator re-invokes). A registered run is never
-    started again. `clock`/`sleep`/`backoff`/`jitter` exist so a test can drive the waits without
-    waiting; the CLI passes none of them.
+    plan's order among the runs that may start (see `refusal`): the first arms of up to
+    MAX_PARALLEL tasks start together, a second arm starts once its own first arm is registered,
+    and a live set never holds both arms of one task, so only finishing may overlap. A run that
+    ended BLOCKED before work and registered nothing is re-queued in plan position after an
+    exponential backoff with jitter (T35), at most SCHEDULER_REQUEUES times per invocation; every
+    wait is a line in the scheduler log, the other live runs keep their slots meanwhile, and after
+    the budget the scheduler stops and reports what is left (the operator re-invokes). A
+    registered run is never started again. `clock`/`sleep`/`backoff`/`jitter` exist so a test can
+    drive the waits without waiting; the CLI passes none of them.
     """
     runs_root = check_runs_root(Path(runs_root))
     runs_root.mkdir(parents=True, exist_ok=True)

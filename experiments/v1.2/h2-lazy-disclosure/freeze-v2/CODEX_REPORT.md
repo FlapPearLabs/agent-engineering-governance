@@ -3141,3 +3141,149 @@ re-pin 之后、写入本节之前的同一棵树上：
   第 4 条测试固定的是规则形态，而不是"真实 run 曾踩到它"。
 - **没有 live run**：结论来自真实 pilot #9 的只读事件流 + 合成命令 + 全套单测，不是新的 live
   pilot；"live pilot #9 现在会判 PASS"仍需下一次 counted run 端到端确认。
+## T42（implementer: opencode deepseek-v4.1-flash）— 让有界并发真正并行的资格规则（F44）、re-pin、全量门禁
+
+本票按 CODEX_FIXES_14 修 F44（P2）：`run-plan-v2.json` 把同一任务的两臂排在相邻位置
+（f01 c,v / f02 v,c / …），而 T34 的资格规则 (d)「plan 中每个更早的 run 都已登记或正在进行」
+使任务 k 的第二臂成为它之后所有 run 的 predecessor：只要任务 k 的先臂没跑完，后面就一个都开不了。
+实测一次 pilot 的 `run-plan` 在 `MAX_PARALLEL = 4` 下五分钟只启动了 h2r2-f01-c 一个 run，
+用户批准的"同时四路"从未发生，二十个 run 会耗掉大半个工作日。规则 (a)/(b)/(c) 与任务内
+counterbalancing 顺序都不动。
+
+### 1. 实现（`run_h2r2.py`：一条规则改形，别的没收窄）
+
+- 新增 `first_arm_gap(plan_run, planned, entries)`：返回本 run 所属任务中**排在 plan 更早**
+  且**尚未登记**的那一臂（即规则 (b) 的唯一对象）。规则 (b) 的拒绝原因由它产生，措辞不变。
+- 新增 `started_state(runs_root, run_id)`：把「已启动」的判定（锁文件，或 run 目录里除
+  `attempts/` 之外还有内容）集中到一处；「只有 attempt 归档不算启动」的既有语义原样保留，
+  `refusal` 与新的 (d) 共用同一判定。
+- 新增 `waiting_on_first_arm(runs_root, plan_run, planned, entries)`：该 run 是否**只**在等
+  规则 (b)。它必须同时满足：`first_arm_gap` 非空、未登记、不是活锁持有者、没有真的启动过。
+  最后一条把「调度器被杀后残留的已启动 run」排除在 (d) 的豁免之外——那属于既有的
+  INVALID:INTERRUPTED 规则，仍应挡住后来的 run，直到它被登记。
+- 规则 (d) 改为：遍历更早的 run，凡已登记或正在进行就跳过；凡 `waiting_on_first_arm` 为真就
+  跳过；否则返回 `PREDECESSOR_NOT_STARTED:<id>`。遍历仍按 plan 顺序，`refusal` 仍在 (b) 之后
+  才走 (d)，因此「可开始的 run 之间保持 plan 顺序」「同一任务两臂永不重叠」两条不变。
+- `run-plan` 调度器本身**不需要改逻辑**：它每个循环仍启动"plan 顺序里第一个 eligible 的 run"，
+  资格变宽后自然得到「四个任务的先臂一起开始；先臂一登记，它的第二臂就排到更晚任务之前」。
+  只改了它的 docstring，明确 START order = 可开始者之间的 plan 顺序。
+- 显式拒绝仍是三条：`PREDECESSOR_NOT_STARTED:<id>`（只用于既未启动、也不在等自己先臂的更早
+  run）、`SAME_TASK_ARM_NOT_REGISTERED:<id>`、`PARALLEL_LIMIT:<n>`；既有拒绝一条未删。
+
+### 2. 文档（protocol-v2 §5、§6、README）
+
+- protocol-v2 §5 的规则 (d) 改写为「已登记、正在进行，或它自己只在等规则 (b)」，并在同一段给出
+  效果（最多四个先臂同时开始、第二臂在先臂登记后立即开始、可开始者仍按 plan 顺序、同时存活
+  永不同任务）与三条拒绝的新语义；理由段补上 F44 的实测（五分钟一个 run）与「在第一次计数
+  run 之前修改」这一时点，任务内 counterbalancing 不变。
+- protocol-v2 §6 只加一句指针：哪些 run 可以同时开始由 §5 的资格规则决定，本节只决定已结束且
+  未登记的 run 是否重排，两者互不改写（不在两处重复定义同一规则）。
+- README §1 的前移内容清单加入 F44/T42；§4 的 content-freeze 段改写为 T42 / `13a12a4`；
+  §5 的调度器段落改写为新的资格规则，并保留「只完成可以重叠、并发集永远不同任务」、
+  退避、单一模型与三条拒绝说明。
+
+### 3. 测试（stub worker，无模型；既有测试一条未删）
+
+`BoundedConcurrency`（15 项）里改动/新增的用例：
+
+- `test_max_parallel_is_frozen_four_and_the_three_refusals_are_explicit`：在原有断言上补 F44 的
+  三组反例——(i) f01-c 是**活锁持有者**（未登记）时，f01-v 仍 `SAME_TASK_ARM_NOT_REGISTERED`，
+  而 f02-v **eligible**（它只在等规则 (b)）；但 f03-c 仍被 f02-v 挡住（f02-v 是先臂，不等 (b)）。
+  (ii) f01-c 登记后 f01-v eligible，而 f02-v 被 f01-v 挡住。 (iii) f02-v 已启动但进程已死
+  （run 目录里有 run.json、无活锁）时，它**不**被当成规则 (b) 豁免，f03-c 仍是
+  `PREDECESSOR_NOT_STARTED:h2r2-f02-v`——即被杀调度器的残留仍归 INTERRUPTED 规则。
+- `test_the_scheduler_keeps_four_alive_and_starts_in_plan_order`：用真子进程 stub 跑完整 20 run
+  计划（f01-c 的时长特意比其余短）。断言：前四个 start 恰是四个任务的先臂、按 plan 顺序
+  （f01-c、f02-v、f03-c、f04-v）；每个任务的第二臂 start 严格晚于先臂 end（= 先臂已登记）；
+  f01-v 早于 f05-c 启动（先臂一完成，第二臂不排在更晚任务之后）；任一时刻存活 ≤ 4；
+  重叠对永远不同任务；先臂之间的启动顺序保持 plan 顺序；20 个 run 各启动一次、全部 COMPLETE；
+  第二次调用不重跑任何已登记 run。
+- `test_a_reachability_blocked_run_is_retried_in_plan_position_and_frees_its_slot` 与
+  `test_a_blocked_before_work_run_is_requeued_with_growing_waits_then_runs`：F44 后 f01-c 的
+  阻塞/重排**不再是**唯一在跑的 run（其余任务的先臂此时本来就该在跑），断言改为：f01-c 仍是
+  第一个 start、它的 start/end/wait 序列与 60/120 s 退避不变、重排后 ACCEPT、f01-v 仍要等
+  f01-c 登记。
+- `test_the_scheduler_stops_at_the_requeue_budget_and_lists_the_run`：f01-c 永久 blocked 时，
+  它自己的重排预算仍是 6 次（共 7 次 start），只重排它一个（`requeues` 只有它），预算用尽即
+  STOPPED 并把它留在 `left`、registry 里没有它；等待序列 60/120/240/480/900/900 与 requeue
+  序号仍逐条断言。其他任务的 run 在新规则下会正常完成，不再要求"整份 registry 不存在"。
+- `test_a_killed_scheduler_leaves_a_started_run_to_the_interrupted_rule`（既有，未改）：被杀
+  调度器留下的已启动 run 仍由第二次 `run` 登记 INVALID:INTERRUPTED。
+
+### 4. re-pin（全部由仓库程序生成，没有任何手写 hash）
+
+`T42P = 13a12a41f0407428dc08f93796408cbe57b32a6f`（F44 修复计划那次文档提交 = 本 re-pin 提交的父提交）。
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials $T42P --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+    --materials $T42P --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent $T42P \
+    --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=55 delivery_payload_equivalent_to_T2=YES
+$PY <TMP>/t42/repin_literals.py .
+  -> LITERALS repinned=55 manifest_sha256=aaa00944de45d5811c15e732ed8ec16a1425ecf700d034193ca9148780915733
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+```
+
+- **run plan**：与上一份逐字段比较，忽略 `materials_commit` 后完全相等；只有 20 条
+  `materials_commit` 从 `35e796a` 移到 `13a12a4`。
+- **anchors**：程序重新测量 10 个任务的全部 PRE/POST 单元，`WRAPPER` 仍 10/10
+  `DELIVERY_NEUTRAL`（`CODEBUDDY`/`AGENTS` 仍 0/10，与 T2 以来一致）。与上一份 JSON 逐键比较，
+  **只有一行变化**：`materials_commit`；`wrapper_program_sha256` 仍是 `f2dc995f…`（本票没有改
+  `wrapper_delivery.py`，也没有改 `delivery_anchors.py`，交付载荷与 T2 的字节相等）。
+- **manifest**：55 个成员不变（本票没有新增冻结文件）。相对上一份变化：`protocol-v2.md`、
+  `run-plan-v2.json`、`run_h2r2.py`、`delivery-anchors.json`，加上 `freeze_parent` /
+  `materials_commit` / `delivery_anchor_materials_commit` 三个 commit 字段；`sandbox_v2.py`、
+  `wrapper_delivery.py`、路由、carrier、rubric、validator 与全部 fixture 逐字节未动。
+- **测试字面量**：`EXPECTED_V2_HASHES` 的 55 条与 manifest 的 `hashes` 逐字相同，
+  `MANIFEST_SHA256` = manifest 文件 sha256 = `aaa00944…15733`。重写脚本先校验 manifest 与工作树
+  逐文件一致（不一致即退出），再"读 manifest → 按路径重写"，并拒绝旧字面量键集合与新 manifest
+  不一致；没有任何 hand-edited hash。
+- **README §4**：文件数仍 55 / mutation 覆盖仍 56（本票没有新增文件），content-freeze 段改写为
+  T42 / `13a12a4`，anchors 段落改成"taken at `13a12a4`"，并把 F44/T42 写进"前移的内容"。
+  README 不在字节冻结内，§3 confound 段落一字未动（测试仍要求它与 protocol-v2 逐字节相等）。
+
+### 5. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+re-pin 之后、写入本节之前的同一棵树（代码、测试、pin、README/protocol 与 F44 分析均已在位）：
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== SCRIPTS_TESTS        Ran 602 tests in 27.657s / OK             (exit 0)
+=== EXPERIMENTS_TESTS    Ran 486 tests in 1193.592s / OK           (exit 0)
+=== NEVER_TOUCH          写范围之外对 c40266f 的 diff --stat 为空   (exit 0)
+=== DIFF_CHECK           git diff --check 无输出                    (exit 0)
+=== MANIFEST_CHECK       {"verdict": "PASS", "mismatches": []}      (exit 0)
+```
+
+实验套件仍是 486 项（本票没有增删测试方法，只改写既有并发用例并补断言；第一次全量运行曾在
+临时 runs root 的清理上暴露一个真实缺陷：被停止的调度器留下仍在跑的子进程，`TemporaryDirectory`
+删除时撞上 ENOTEMPTY。修法是测试侧 `reap_spawner` 在断言前 kill+wait 自己 spawn 的子进程——
+调度器"被杀后不清理、交给 INTERRUPTED 规则"的语义不变；修复后 486 项 OK）。写入本节与下一节
+之后，同一棵树把上面全部 §0 GATES **再跑一遍**，并与本提交以 `&&` 串联：任一门失败则不提交。
+
+### 6. 未做 / 未证明 / 风险（不隐瞒）
+
+- **没有 live run**：本票没有执行任何 H2-R2 run。F44 的效果由"真子进程 stub + 真实
+  run-plan-v2.json"的调度证明（前四个 start 是四个任务的先臂、第二臂在先臂登记后立即开始、
+  任一时刻 ≤ 4、同一任务两臂不重叠），不是新的 live pilot；下一次 counted run 的调度器日志
+  仍需人工确认它确实四路并行。
+- **资格规则只会放宽，不会放宽错误**：豁免仅限"未登记、未在跑、没有真的启动过、且其先臂尚未
+  登记"的更早 run；已启动但进程已死的 run（调度器被杀）**不**被豁免，仍走既有
+  INVALID:INTERRUPTED 路径（有测试）。`MAX_PARALLEL = 4`、退避预算、单一冻结模型与三条拒绝
+  词表均未改动。
+- **plan 顺序的唯一重排是"跳过本来就不能跑的 run"**：被跳过的 run 是同一任务中排在后面的那一臂，
+  它在自己的先臂登记前根本不可能开始；因此可开始者之间的启动顺序仍是 plan 顺序（测试断言先臂
+  之间的相对顺序）。
+- **`first_arm_gap` 对每个更早 run 重算一次**：20 个 run 的规模下是无意义开销，没有做缓存，也
+  没有引入新的状态文件。
+- **re-measured anchors 需要时间**：本票按指令重新测量了 10 个任务的全部 PRE/POST 单元（约
+  1 小时），结果与上一份逐键相同、只有 `materials_commit` 变化；没有把"上一次的测量"直接沿用。
+- **未验证**：`run-plan` 在真实 provider 负载下的调度（并发 run 的真实耗时、provider 端限流）
+  不在本票证据范围内；本票只证明资格与启动顺序。
