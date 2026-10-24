@@ -6,6 +6,14 @@ temp-root spellings and the full-suite comparison, but no program implemented it
 program. It is fail-closed in one direction only: ACCEPT needs every check to be measured and to
 pass, and everything unmeasured is recorded as such instead of being read as a success.
 
+T38a (F32 / F33): acceptance never reads the worker's live run directory and never executes
+worker-written code in the driver's own process. The driver hands in the SNAPSHOT it took after the
+process sweep (`sandbox_v2.snapshot`), and every gate — the oracle on the base tree, the oracle on
+the worker's tree and the full suite — runs in a fresh per-gate copy of that evidence tree inside a
+rendered `sandbox-exec` profile that allows no proxy port, no serve port, no outside connect and no
+DNS (`sandbox_v2.Gate`). The two temp-root spellings live inside the gate directory as a real
+directory and a symlink to it, so RESOLVED and SYMLINKED still differ.
+
 Order (each stage terminal):
   1. collect_v2.collect     the base->worker delta, report, telemetry, delivered bytes; an INVALID
                             collection cannot be accepted.
@@ -32,11 +40,13 @@ import shlex
 import shutil
 import sys
 import tempfile
+import uuid
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 import collect_v2
 import delivery_anchors
+import sandbox_v2
 import scope_v2
 import wrapper_delivery
 from wrapper_delivery import H2_REL, ROOT, sha256
@@ -45,6 +55,7 @@ SPELLINGS = ("RESOLVED", "SYMLINKED")
 DELIVERED_NAMES = ("AGENTS.md", "H2_RULES.md", "H2_WARM")
 WRAPPER_ARTIFACTS = (".h2-telemetry.log", "receipt.json", "report.md", "contract.md",
                      "worker-report-template.md")
+GATE_PLANT_NAME = "gate-confinement-plant.txt"
 
 
 def registry(root: Path = ROOT) -> dict:
@@ -137,23 +148,54 @@ def base_tree(root: Path, base: str):
             shutil.rmtree(tree, ignore_errors=True)
 
 
+def gate_run(gate_root: Path | None, source: Path, pattern: str | None, style: str,
+             *, number: int, planted: Path | None = None, token: str | None = None) -> tuple[dict, dict]:
+    """One gate execution in a fresh copy of `source`, confined and without egress (F32 / T38a).
+
+    There is no unconfined path here on purpose: the oracle and the full suite execute code the
+    worker wrote, so a missing gate root is a refusal, not a silent fallback to the driver's own
+    process.
+    """
+    if gate_root is None:
+        raise ValueError("GATE_ROOT_REQUIRED")
+    gate = sandbox_v2.Gate(Path(gate_root) / f"{sandbox_v2.GATE_PREFIX}{number}", sys.executable)
+    info = gate.prepare(source, planted=planted, token=token)
+    result = delivery_anchors.run_gate(gate.repo, pattern, style, gate=gate)
+    return result, {"number": number, "path": info["gate"], "style": style,
+                    "launch": str(gate.repo), "network": info["network"],
+                    "profile_sha256": info["profile"]["sha256"],
+                    "self_test": (info["self_test"] or {}).get("verdict"),
+                    "self_test_reasons": (info["self_test"] or {}).get("reasons", [])}
+
+
 def oracle_passes(result: dict) -> bool:
     return (result["rc"] == 0 and (result["ran"] or 0) > 0 and not result["not_passing"]
             and not result["skipped"] and not result["expected_failures"]
             and not result["unexpected_successes"])
 
 
-def gate(tree: Path, pattern: str | None, style: str) -> dict:
-    return delivery_anchors.run_gate(tree, pattern, style=style)
+def accept(root: Path = ROOT, run_dir: Path | None = None, *, snapshot: Path | None = None,
+           gate_root: Path | None = None) -> dict:
+    """The per-run verdict. `snapshot` is the driver's post-sweep copy of the run dir (F33).
 
-
-def accept(root: Path = ROOT, run_dir: Path | None = None) -> dict:
-    root, run_dir = Path(root).resolve(), Path(run_dir).resolve()
+    Every piece of worker-written evidence (repo/, report, telemetry, delivered bytes, the
+    receipt) is read from `snapshot` when the driver supplies one; `run_dir` then only identifies
+    the run (its `.driver` sibling holds the base manifest and receives the gate copies). The CLI
+    passes no snapshot and measures the directory it is given, as before.
+    """
+    root = Path(root).resolve()
+    identity = Path(run_dir).resolve() if run_dir is not None else None
+    evidence = Path(snapshot).resolve() if snapshot is not None else identity
+    if evidence is None:
+        raise ValueError("NO_RUN_DIR")
+    gate_root = (Path(gate_root) if gate_root is not None else
+                 wrapper_delivery.driver_root(identity or evidence))
     verdict = {"schema_version": 1, "program": "freeze-v2/run_acceptance_v2.py",
-               "run_dir": str(run_dir), "verdict": "REJECT", "reasons": [],
-               "spellings": list(SPELLINGS)}
-    collected = collect_v2.collect(root, run_dir)
-    collected["_repo"] = run_dir / "repo"
+               "run_dir": str(identity or evidence), "evidence_dir": str(evidence),
+               "verdict": "REJECT", "reasons": [], "spellings": list(SPELLINGS),
+               "gates": []}
+    collected = collect_v2.collect(root, evidence, identity_dir=identity)
+    collected["_repo"] = evidence / "repo"
     verdict.update({"run_id": collected["run_id"], "task_id": collected["task_id"],
                     "arm": collected["arm"], "base_sha": collected["base_sha"],
                     "materials_commit": collected["materials_commit"],
@@ -175,7 +217,8 @@ def accept(root: Path = ROOT, run_dir: Path | None = None) -> dict:
     if verdict["scope"]["reasons"]:
         verdict["reasons"] = verdict["scope"]["reasons"]
         return verdict
-    worker_oracle = run_dir / "repo" / task["oracle"]["path"]
+    worker_repo = evidence / "repo"
+    worker_oracle = worker_repo / task["oracle"]["path"]
     worker_hash = sha256(worker_oracle.read_bytes()) if worker_oracle.is_file() else None
     verdict["oracle"] = {"path": task["oracle"]["path"], "module": oracle_module(task),
                          "base_blob_sha256": task["oracle"]["base_blob_sha256"],
@@ -186,12 +229,37 @@ def accept(root: Path = ROOT, run_dir: Path | None = None) -> dict:
         verdict["reasons"].append("ORACLE_BYTES_CHANGED")
     if verdict["reasons"]:
         return verdict
+    number = 0
+
+    def next_gate(source: Path, pattern: str | None, style: str) -> tuple[dict, dict]:
+        nonlocal number
+        number += 1
+        planted = token = None
+        if number == 1:
+            # F32 / T38a: the first gate proves its own rendered profile confines before any
+            # worker-written code runs; the planted file lives outside the gate copy.
+            gate_root.mkdir(parents=True, exist_ok=True)
+            planted = gate_root / GATE_PLANT_NAME
+            token = uuid.uuid4().hex
+            planted.write_text(f"{token}\n", encoding="utf-8")
+        result, info = gate_run(gate_root, source, pattern, style, number=number,
+                                planted=planted, token=token)
+        if planted is not None:
+            planted.unlink(missing_ok=True)
+        verdict["gates"].append(info)
+        return result, info
+
     with base_tree(root, task["base_sha"]) as base:
         verdict["oracle"]["base"] = {}
         verdict["oracle"]["worker"] = {}
         for style in SPELLINGS:
-            base_result = gate(base, oracle_module(task), style)
-            worker_result = gate(run_dir / "repo", oracle_module(task), style)
+            base_result, base_gate = next_gate(base, oracle_module(task), style)
+            worker_result, _ = next_gate(worker_repo, oracle_module(task), style)
+            if base_gate.get("self_test") not in (None, "PASS"):
+                verdict["verdict"] = "INVALID"
+                verdict["reasons"] = [f"GATE_SANDBOX_NOT_CONFINING:"
+                                      f"{','.join(base_gate['self_test_reasons'])}"]
+                return verdict
             verdict["oracle"]["base"][style] = base_result
             verdict["oracle"]["worker"][style] = worker_result
             if oracle_passes(base_result):
@@ -203,7 +271,7 @@ def accept(root: Path = ROOT, run_dir: Path | None = None) -> dict:
     pre = set(pre_not_passing(root, task))
     verdict["full_suite"] = {"pre_not_passing": sorted(pre), "worker": {}}
     for style in SPELLINGS:
-        result = gate(run_dir / "repo", None, style)
+        result, _ = next_gate(worker_repo, None, style)
         newly = sorted(set(result["not_passing"]) - pre)
         verdict["full_suite"]["worker"][style] = result
         verdict["full_suite"][f"newly_not_passing_{style.lower()}"] = newly

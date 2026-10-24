@@ -71,6 +71,26 @@ nothing.
 a stub worker, a stub reachability check and a fake credential hand-off (never a model, never a real
 credential). The `run` CLI exposes none of them.
 
+THE EVIDENCE IS FROZEN WHEN THE WORKER STOPS (F31 / F32 / F33 / F37 / F38 / F41, T38a). The review of
+9f8699d showed three ways a run could still be decided by something the worker controlled:
+
+  * a detached survivor kept write access to the run dir and rewrote the oracle between collection,
+    hashing and the gate run. Now the launch ends, the driver sweeps the launch's process group and
+    every process whose cwd or open files are under the run dir (`sandbox_v2.sweep`, each pid and
+    command in `sweep.json`), copies the run dir to `.driver/<run_id>/attempt-<n>/snapshot/` with a
+    per-file sha256 manifest, and collects, hashes the oracle, gates and audits ONLY that snapshot;
+  * acceptance executed worker-written code in the driver's own process. Every gate now runs in a
+    fresh copy of the snapshot inside a rendered `sandbox-exec` profile that allows no proxy port,
+    no serve port, no outside connect and no DNS (`sandbox_v2.Gate`), with the two temp-root
+    spellings inside that copy;
+  * the contract was read back from the worker's tree. The driver keeps the rendered bytes in
+    `.driver/<run_id>/CONTRACT.md` with their sha256, builds the audit bundle from that copy, and a
+    differing run-dir copy is `CONTRACT_TAMPERED` (INVALID). The auditor's projection drops
+    `base_sha` and `case_id`; both stay in the driver-side registry.
+  An unreadable file in the snapshot is `INVALID:EVIDENCE_UNREADABLE` (registered, never a raised
+  exception), and preparing a later attempt ARCHIVES the earlier attempt's stream directory instead
+  of deleting it (P3-7). Driver-side executables are resolved to absolute paths once, at import.
+
 A HARNESS DEFECT IS NOT A RESULT (F23 / T32). The first live pilot drove the real reachability path
 for the first time and it raised `KeyError: 'profile'`; only OSError/ValueError were caught, so the
 driver died with a traceback and left the run prepared but unregistered. Every future defect of
@@ -155,6 +175,7 @@ AUDIT_STREAM_PREFIX = "audit-attempt"
 PROBE_STREAM_PREFIX = "probe"
 RECORD_NAME = "run.json"
 CONTRACT_NAME = "CONTRACT.md"
+DRIVER_CONTRACT_NAME = "CONTRACT.md"
 TEMPLATE_NAME = "worker-report-template.md"
 COLLECTED_NAME = "collected.json"
 VERDICT_NAME = "verdict.json"
@@ -162,6 +183,8 @@ EVENTS_NAME = "events.jsonl"
 STDERR_NAME = "stderr.txt"
 ACCESS_NAME = "access-audit.json"
 PROBE_NAME = "probe.json"
+REPORT_NAME = "report.md"
+SUPERSEDED_SUFFIX = "superseded"
 
 # The launchable facts of a run. Pinning the module in the manifest pins these.
 # F26 / T36b: a confined launch is a loopback server plus a client that names it. The client keeps
@@ -454,10 +477,16 @@ def worker_env(env_file: Path) -> dict[str, str]:
 
 def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
            stdout_path: Path, stderr_path: Path) -> dict:
-    """One command in its own process group, stdin closed, killed as a group at the limit."""
+    """One command in its own process group, stdin closed, killed as a group at the limit.
+
+    F31 / T38a: the executable is the absolute path resolved ONCE at import (`sandbox_v2.TOOLS`),
+    so no launch can change which program the driver executes next. The returned
+    `process_group` is the handle the post-launch sweep kills (F33).
+    """
+    argv = sandbox_v2.absolute_argv(argv)
     with (Path(stdout_path).open("wb") as out, Path(stderr_path).open("wb") as err,
           open(os.devnull, "rb") as null):
-        process = subprocess.Popen(list(argv), cwd=str(cwd), env=dict(env), stdin=null,
+        process = subprocess.Popen(argv, cwd=str(cwd), env=dict(env), stdin=null,
                                    stdout=out, stderr=err, start_new_session=True)
         timed_out = False
         try:
@@ -469,7 +498,8 @@ def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
             except (ProcessLookupError, PermissionError):
                 process.kill()
             code = process.wait()
-    return {"returncode": code, "timed_out": timed_out, "command": list(argv)}
+    return {"returncode": code, "timed_out": timed_out, "command": argv,
+            "pid": process.pid, "process_group": process.pid}
 
 
 def server_url(port: int) -> str:
@@ -499,11 +529,13 @@ def server_env(env: dict[str, str], proxy: egress_v2.EgressProxy, password: str)
 def launch_server(argv, cwd: Path, env: dict[str, str], stdout_path: Path,
                   stderr_path: Path) -> dict:
     """Start the launch's server in its own process group; it is killed with that group."""
+    argv = sandbox_v2.absolute_argv(argv)
     with (Path(stdout_path).open("wb") as out, Path(stderr_path).open("wb") as err,
           open(os.devnull, "rb") as null):
-        process = subprocess.Popen(list(argv), cwd=str(cwd), env=dict(env), stdin=null,
+        process = subprocess.Popen(argv, cwd=str(cwd), env=dict(env), stdin=null,
                                    stdout=out, stderr=err, start_new_session=True)
-    return {"process": process, "pid": process.pid, "command": [str(item) for item in argv]}
+    return {"process": process, "pid": process.pid, "process_group": process.pid,
+            "command": argv}
 
 
 def stop_server(handle: dict, limit_seconds: int = SERVER_STOP_SECONDS) -> dict:
@@ -604,17 +636,40 @@ def worker_reasons(result: dict, events: list, malformed: int) -> list[str]:
     return reasons
 
 
-def artifact_hashes(run_dir: Path) -> dict[str, str]:
-    """sha256 of every run artifact; the task repository under repo/ is not a run artifact."""
-    hashes: dict[str, str] = {}
+def artifact_hashes(run_dir: Path) -> dict:
+    """sha256 of every run artifact; the task repository under repo/ is not a run artifact.
+
+    F37 / T38a: one unreadable file must never make a registration path raise. It is recorded as
+    `{"path": ..., "unreadable": true}` instead, so the registry line stays total and the state is
+    visible; the driver turns an unreadable file in the SNAPSHOT into INVALID:EVIDENCE_UNREADABLE.
+    """
+    hashes: dict = {}
     run_dir = Path(run_dir)
-    for path in sorted(run_dir.rglob("*")):
-        if path.is_symlink() or not path.is_file():
-            continue
-        rel = path.relative_to(run_dir)
-        if rel.parts and rel.parts[0] in ARTIFACT_EXCLUDED:
-            continue
-        hashes[rel.as_posix()] = sha256(path.read_bytes())
+    for directory, dirnames, filenames in os.walk(run_dir, onerror=lambda error: None,
+                                                  followlinks=False):
+        current = Path(directory)
+        keep = []
+        for name in sorted(dirnames):
+            path = current / name
+            if path.is_symlink():
+                continue                                  # never followed, never hashed
+            rel = path.relative_to(run_dir)
+            if rel.parts and rel.parts[0] in ARTIFACT_EXCLUDED:
+                continue
+            keep.append(name)
+        dirnames[:] = keep
+        for name in sorted(filenames):
+            path = current / name
+            if path.is_symlink():
+                continue
+            rel = path.relative_to(run_dir)
+            if rel.parts and rel.parts[0] in ARTIFACT_EXCLUDED:
+                continue
+            try:
+                hashes[rel.as_posix()] = sha256(path.read_bytes())
+            except OSError as exc:
+                hashes[rel.as_posix()] = {"path": rel.as_posix(), "unreadable": True,
+                                          "error": type(exc).__name__}
     return hashes
 
 
@@ -850,6 +905,23 @@ def attempt_line(plan_run: dict, pending: dict, archived: dict) -> dict:
             "artifacts": archived.get("artifacts", {})}
 
 
+def archive_stream(stream_dir: Path) -> str | None:
+    """P3-7 / T38a: archive an existing evidence dir instead of deleting it, never wipe it.
+
+    A re-invocation restarts the attempt counter, so attempt-1's stream directory is about to be
+    recreated. It holds the earlier launch's rendered profile, self-test and event stream, and an
+    evidence directory is never deleted to make room: it is renamed beside itself and named in the
+    run record.
+    """
+    stream_dir = Path(stream_dir)
+    if not stream_dir.exists():
+        return None
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    target = stream_dir.with_name(f"{stream_dir.name}-{SUPERSEDED_SUFFIX}-{stamp}")
+    stream_dir.rename(target)
+    return target.name
+
+
 def hold_run_dir(runs_root: Path, run_dir: Path) -> Path | None:
     """Move the live run dir aside (its attempts/ archives travel with it) and return it."""
     run_dir = Path(run_dir)
@@ -1079,9 +1151,13 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 "session_id": None, "wall_clock_seconds": 0.0}
 
     def fresh_state(launch_dir: Path, home_name: str, stream_dir: Path) -> dict:
-        """A brand-new home plus the credential moved in; the launch's own stream directory."""
+        """A brand-new home plus the credential moved in; the launch's own stream directory.
+
+        P3-7 / T38a: an existing stream directory is ARCHIVED (renamed beside itself), never
+        deleted; its name is recorded with the launch so the earlier attempt's evidence survives.
+        """
         stream_dir = Path(stream_dir)
-        shutil.rmtree(stream_dir, ignore_errors=True)
+        archived_stream = archive_stream(stream_dir)
         stream_dir.mkdir(parents=True)
         home = sandbox_v2.fresh_home(driver_dir, home_name, launch_dir)
         env = sandbox_v2.home_env(state["master_env"] or {}, home, launch_dir)
@@ -1091,6 +1167,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             encoding="utf-8")
         ok = bool(auth_record.get("ok"))
         return {"ok": ok, "home": home, "env": env, "stream": stream_dir,
+                "archived_stream": archived_stream,
                 "auth": sandbox_v2.summary(auth_record),
                 "reason": None if ok else
                 f"CREDENTIAL_IMPORT_FAILED:{auth_record.get('reason', 'UNKNOWN')}"}
@@ -1219,7 +1296,6 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 prepared["egress_stop"] = proxy.stop()
                 prepared["egress"] = None
         result["stream"] = str(stream)
-        result["command"] = resolved
         result["server"] = {"port": prepared.get("serve_port"), "url": url,
                             "stop": prepared.get("server_stop")}
         return result
@@ -1369,6 +1445,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             prepared = fresh_state(run_dir, f"{HOME_PREFIX}-{attempt}",
                                    driver_dir / f"{STREAM_PREFIX}-{attempt}")
             record["fresh_home"] = str(prepared["home"])
+            if prepared["archived_stream"]:
+                record.setdefault("archived_streams", []).append(prepared["archived_stream"])
             record["auth"] = prepared["auth"]
             record["sandbox"] = {"template": sandbox_v2.TEMPLATE_NAME,
                                  "template_sha256": sha256(sandbox_v2.template_bytes())}
@@ -1406,7 +1484,15 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 finish_step(entry, "FAILED", returncode=brief.returncode)
                 release(prepared, run_dir)
                 return settle("INVALID", [f"BRIEF_FAILED:{brief.returncode}"])
-            finish_step(entry, "DONE", sha256=sha256((run_dir / CONTRACT_NAME).read_bytes()),
+            # F38 / T38a: the contract is DRIVER evidence. The rendered bytes are copied out of the
+            # worker's cwd, hashed, and become the only contract the audit bundle is built from; a
+            # run-dir copy that differs from it is a tamper, not a source.
+            contract_bytes = (run_dir / CONTRACT_NAME).read_bytes()
+            driver_contract = driver_dir / DRIVER_CONTRACT_NAME
+            driver_contract.write_bytes(contract_bytes)
+            record["contract"] = {"driver_path": str(driver_contract),
+                                  "sha256": sha256(contract_bytes)}
+            finish_step(entry, "DONE", sha256=sha256(contract_bytes),
                         template=(run_dir / TEMPLATE_NAME).is_file())
             save(record)
 
@@ -1459,9 +1545,31 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # so the guard registers it INVALID instead of dropping it as an unstarted invocation.
             state["worker_launched"] = True
             result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit)
+            # F33 / T38a: the launch is over (normal exit, error or timeout). Nothing that is still
+            # alive may touch the evidence again: the sweep kills the launch's process group and
+            # every process whose cwd or open files are under the run dir, and records each pid and
+            # command in `sweep.json`. The SNAPSHOT is then taken below the driver directory, and
+            # collection, the oracle hashes, the gate runs and the audit bundle read only that.
+            launch_sweep = sandbox_v2.sweep(run_dir, pgid=result.get("process_group"),
+                                            log_path=stream / sandbox_v2.SWEEP_NAME)
+            record["sweep"] = launch_sweep
+            snapshot_record = sandbox_v2.snapshot(run_dir, stream / sandbox_v2.SNAPSHOT_NAME)
+            record["snapshot"] = {key: snapshot_record[key] for key in
+                                  ("path", "manifest_path", "manifest_sha256", "count",
+                                   "unreadable")}
+            evidence = Path(snapshot_record["path"])
             record["worker_argv"] = list(result.get("command", []))
             record["server"] = result.get("server")
             record["auth_logout"] = release(prepared, run_dir)
+            if snapshot_record["unreadable"]:
+                # F37 / T38a: an unreadable file in the evidence is a registered terminal state,
+                # not an exception in the middle of the registration path.
+                finish_step(entry, "INVALID", reasons=sandbox_v2.unreadable_entries(snapshot_record))
+                return terminate("INVALID", sandbox_v2.unreadable_entries(snapshot_record))
+            if contract_tampered(evidence, driver_dir / DRIVER_CONTRACT_NAME):
+                finish_step(entry, "INVALID", reasons=["CONTRACT_TAMPERED"])
+                return terminate("INVALID", [f"CONTRACT_TAMPERED:"
+                                             f"{record['contract']['sha256']}"])
             driver_events = stream / EVENTS_NAME
             driver_stderr = stream / STDERR_NAME
             if (not driver_events.is_file() or not os.access(driver_events, os.R_OK)
@@ -1519,15 +1627,18 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         reasons=access_reasons)
             save(record)
             if reasons:
-                return worker_terminal(run_dir, record, root, settle, reasons)
+                return worker_terminal(run_dir, record, root, settle, reasons,
+                                       evidence=evidence, stream=stream)
             if access_reasons:
-                return worker_terminal(run_dir, record, root, settle, access_reasons)
+                return worker_terminal(run_dir, record, root, settle, access_reasons,
+                                       evidence=evidence, stream=stream)
 
             entry = start_step(record, "acceptance")
-            collected = collect_v2.collect(root, run_dir)
+            collected = collect_v2.collect(root, evidence, identity_dir=run_dir)
             (run_dir / COLLECTED_NAME).write_text(
                 json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            verdict = run_acceptance_v2.accept(root, run_dir)
+            verdict = run_acceptance_v2.accept(root, run_dir, snapshot=evidence,
+                                              gate_root=stream)
             (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
                                                 encoding="utf-8")
             finish_step(entry, verdict["verdict"], reasons=verdict["reasons"],
@@ -1602,7 +1713,9 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                                 command=command, env=audit_prepared["env"],
                                 limit_seconds=audit_limit,
                                 events_path=audit_stream / EVENTS_NAME,
-                                stderr_path=audit_stream / STDERR_NAME)
+                                stderr_path=audit_stream / STDERR_NAME,
+                                contract_path=driver_dir / DRIVER_CONTRACT_NAME,
+                                report_path=evidence / REPORT_NAME)
                         except (ValueError, OSError) as exc:
                             audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
                                      "leakage": []}
@@ -1736,17 +1849,34 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             "wall_clock_seconds": record.get("wall_clock_seconds")}
 
 
-def worker_terminal(run_dir: Path, record: dict, root: Path, settle, reasons):
+def contract_tampered(evidence: Path, driver_contract: Path) -> bool:
+    """F38 / T38a: the driver's copy is the contract; a differing evidence copy is a tamper.
+
+    The contract states the delivered HEAD and the delivery identity the worker was given. It is
+    rendered by the driver and copied out before the launch, so the copy in the worker's own tree
+    can never be the source of anything an auditor is shown. A missing or different copy is
+    recorded as `CONTRACT_TAMPERED` and makes the run INVALID.
+    """
+    copy = Path(evidence) / CONTRACT_NAME
+    if not copy.is_file() or not Path(driver_contract).is_file():
+        return True
+    return copy.read_bytes() != Path(driver_contract).read_bytes()
+
+
+def worker_terminal(run_dir: Path, record: dict, root: Path, settle, reasons, *,
+                    evidence: Path | None = None, stream: Path | None = None):
     """An invalid worker is terminal, but the run still gets its collection and its verdict.
 
     Collecting after a timeout or an error is evidence, not a second chance: acceptance is run so
-    the run has exactly one verdict JSON, and the terminal reason is never softened by it.
+    the run has exactly one verdict JSON, and the terminal reason is never softened by it. T38a:
+    the collection reads the driver's snapshot and the gates run inside their own copies of it.
     """
+    evidence = Path(evidence) if evidence is not None else Path(run_dir)
     entry = start_step(record, "acceptance")
-    collected = collect_v2.collect(root, run_dir)
+    collected = collect_v2.collect(root, evidence, identity_dir=run_dir)
     (run_dir / COLLECTED_NAME).write_text(
         json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    verdict = run_acceptance_v2.accept(root, run_dir)
+    verdict = run_acceptance_v2.accept(root, run_dir, snapshot=evidence, gate_root=stream)
     (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
                                         encoding="utf-8")
     finish_step(entry, verdict["verdict"], collected=collected["status"],

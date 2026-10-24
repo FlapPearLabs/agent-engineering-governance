@@ -18,6 +18,9 @@ what changed:
   * every delivered byte is re-verified twice: against the receipt's own hashes and against a fresh
     recomposition from the materials commit, so a receipt that agrees with tampered files is still
     refused;
+  * F33 / T38a: the evidence tree is the driver's post-sweep SNAPSHOT (`.driver/<run_id>/
+    attempt-<n>/snapshot`), never the live run directory, while the base manifest keeps being read
+    from the run's own driver directory (`identity_dir`);
   * report and telemetry must both exist and carry content. A missing or empty one makes the run
     INVALID; a reason string is recorded instead of an invented log line.
 """
@@ -256,8 +259,16 @@ def repository_shape(repo: Path, reasons: list[str]) -> bool:
     return True
 
 
-def collect(root: Path = ROOT, run_dir: Path | None = None) -> dict:
+def collect(root: Path = ROOT, run_dir: Path | None = None, *,
+            identity_dir: Path | None = None) -> dict:
+    """Collect one run. `run_dir` is the EVIDENCE tree (the driver's snapshot when it has one).
+
+    `identity_dir` is the run's own directory and is used only for the driver-side base snapshot
+    (`.driver/<run_id>/base-manifest.json`), which lives outside the evidence tree; it defaults to
+    `run_dir` for the CLI form.
+    """
     root, run_dir = Path(root).resolve(), Path(run_dir).resolve()
+    identity_dir = Path(identity_dir).resolve() if identity_dir is not None else run_dir
     registry_data = registry(root)
     receipt, delivered, reasons = verify_delivery(root, run_dir)
     repo = run_dir / "repo"
@@ -272,7 +283,7 @@ def collect(root: Path = ROOT, run_dir: Path | None = None) -> dict:
     elif repo.is_symlink():
         reasons.append("TASK_REPOSITORY_UNREADABLE")
     else:
-        manifest = base_snapshot(run_dir, reasons)
+        manifest = base_snapshot(identity_dir, reasons)
         if manifest is not None:
             base = str(manifest.get("base_sha") or "")
             if task is not None and base != task["base_sha"]:
@@ -284,7 +295,7 @@ def collect(root: Path = ROOT, run_dir: Path | None = None) -> dict:
             try:
                 state = worktree_state(repo)
                 changes = changes_against(manifest, state)
-                diff = render_diff(wrapper_delivery.base_dir(run_dir), repo, manifest, state,
+                diff = render_diff(wrapper_delivery.base_dir(identity_dir), repo, manifest, state,
                                    changes).encode("utf-8", "surrogateescape")
             except OSError:
                 # An unreadable worktree (permissions, a vanished race) is never a clean delta.

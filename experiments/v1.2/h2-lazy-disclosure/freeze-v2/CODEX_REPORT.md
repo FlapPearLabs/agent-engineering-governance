@@ -2464,3 +2464,109 @@ $PY $H/freeze-v2/build_manifest.py check
   `--standalone` 必须保留，需要 Claude 明确推翻 F26 的布局，二者不能同时成立。
 - manifest 从 51 条增至 53 条不是放宽：新增的两个成员在 T36a/T36b 已进入写范围，只是当时按
   "本票不 re-pin" 留到本轮。
+
+## T38a（implementer: opencode deepseek-v4.1-flash）— 让"执行 worker 代码"不再决定任何一个裁定
+
+本票按 CODEX_FIXES_11 T38a 实现 F31/F32/F33/F35/F36/F37/F38/F41 与 P3-7。**没有**执行任何
+H2-R2 run、没有调用任何模型、没有触碰 `~/.h2-worker-profile`、没有 push、没有改
+`aggregate_runs.py`（T38b 在另一分支）、没有改 `CODEX_PLAN.md` / `CODEX_FIXES_*.md`、没有 re-pin
+（manifest 与两条独立 literal 留给 T39）。写范围只有 `freeze-v2/**` 与
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`。
+
+### 1. 逐条实现
+
+| 项 | 实现位置 | 做法 |
+|---|---|---|
+| F31 P1 写入是 deny-list、系统目录可写 | `worker-sandbox.sb.template`、`sandbox_v2.allow_rules` | 模板改成写入白名单：`(deny file-write* (subpath "/"))`，渲染块只重新放行 launch 目录、per-launch home 与 `/dev/null`、`/dev/tty`、`/dev/fd`、`/dev/ttysN`。读取仍是共享根上的拒绝表（launch 必须读解释器与系统库）。`sandbox_v2.TOOLS` 在 import 时（进程启动）一次性解析 `git`/`sandbox-exec`/`opencode`/`python` 的绝对路径，`absolute_argv()` 用于 driver 的每次 spawn（worker、server、reachability、auth export/import/logout、render_brief），此后不再经 PATH 查找。 |
+| F35 P2 无信号隔离 | 模板 + `sandbox_v2.self_test` | `(deny signal)` + `(allow signal (target same-sandbox))`；自检新增"对沙箱外进程（driver pid）发 SIGCONT 必须 EPERM"。 |
+| F36 P2 unix socket 与 DNS 开放 | 模板 + 自检 | 模板不再有 `remote unix-socket` 放行（省略即关闭），并 `(deny mach-lookup (global-name "com.apple.dnssd.service"))`；自检新增"`getaddrinfo` 必须失败"。 |
+| F33 P1 启动后无进程清理、证据可被改写 | `sandbox_v2.sweep` / `sandbox_v2.snapshot`、`run_h2r2.drive` | worker launch 一结束（正常/错误/超时）立即 `sweep()`：killpg(pgid) + `lsof +D` 找 cwd 或打开文件位于 run 目录下的残留进程并逐个 SIGKILL，逐 pid/command 写入 `.driver/<run_id>/attempt-<n>/sweep.json`（`lingering_processes`/`killed`/`survivors`/`process_query`）；随后 `snapshot()` 把整个 run 目录复制到 `.driver/<run_id>/attempt-<n>/snapshot/` 并写 `snapshot-manifest.json`（逐 entry type/mode/sha256）。collect、scope、oracle hash、gate、audit bundle 全部只读 snapshot（`collect_v2.collect(..., identity_dir=run_dir)` 只把 base manifest 仍读 driver 侧）。 |
+| F32 P1 验收在 driver 进程里执行 worker 代码 | `sandbox_v2.Gate`、`delivery_anchors.run_gate(..., gate=)`、`run_acceptance_v2.gate_run` | 每个 gate 一次执行：在 `.driver/<run_id>/attempt-<n>/gate-<k>/` 里放一份 snapshot 的 `repo/` 副本 + gate home + `TMPDIR` 的两种拼写（真目录 `.tmp/resolved` 与其符号链接 `.tmp/link`）+ `.pycache`；launch 目录是该 gate 目录本身；渲染 profile 不给 proxy 端口、不给 serve 端口、无外部连接、DNS 拒绝（loopback 保留，理由见 §4）。验收的 6 次执行（base/worker × oracle × 两种拼写 + 全量套件 × 两种拼写）全部走这条路径，第一次执行前还做一次真实 confinement 自检（`GATE_SANDBOX_NOT_CONFINING` 时该 run 为 INVALID）。 |
+| F37 P2 一个不可读文件让登记路径抛异常 | `run_h2r2.artifact_hashes`、`sandbox_v2.snapshot`、`run_h2r2.drive` | `artifact_hashes` 用 `os.walk(onerror=...)`，不可读文件记为 `{"path": ..., "unreadable": true}`，登记行永远是完整的一行；snapshot manifest 记录不可读文件，driver 见到即登记 `INVALID:EVIDENCE_UNREADABLE:<path>`（不跑验收、不重试）。 |
+| F38 P2 CONTRACT 被 worker 改写后进审计包 | `run_h2r2`（brief 步骤）、`run_audit_v2.prepare_bundle(contract_path=)` | driver 把渲染后的字节复制到 `.driver/<run_id>/CONTRACT.md` 并记 sha256；audit bundle 只用这份；snapshot 里的 `CONTRACT.md` 与它不同 => `CONTRACT_TAMPERED`（INVALID，登记）。 |
+| F41 P2 base_sha/case_id 进入盲包 | `run_audit_v2.VERDICT_KEEP` | 投影不再含 `base_sha`、`case_id`；二者只留在 driver 侧 registry/run.json。protocol-v2 §4.0 F41、§5 与 README §3 EVIDENCE 段落同步。 |
+| P3-7 下一个 attempt 抹掉上一个证据目录 | `run_h2r2.archive_stream` | `fresh_state` 先把手里的 stream 目录改名为 `<name>-superseded-<stamp>`（不删），名字记在 `run.json` 的 `archived_streams`。 |
+
+### 2. 新增测试（同一个类，stub 与真实 sandbox 混合，永不用模型）
+
+`WorkerCodeConfinement`（10 项）：
+
+```text
+test_the_template_is_a_write_whitelist_with_signal_and_dns_confined
+test_a_write_outside_a_signal_and_dns_are_denied_inside_the_profile
+test_a_detached_survivor_is_swept_and_the_verdict_comes_from_the_snapshot
+test_worker_code_in_a_gate_cannot_read_or_write_outside_its_copy
+test_the_two_temp_root_spellings_differ_inside_the_gate_sandbox
+test_an_unreadable_file_in_the_run_dir_registers_invalid_evidence_unreadable
+test_a_tampered_contract_in_the_run_dir_is_detected_and_invalid
+test_the_auditor_projection_drops_the_base_sha_and_the_case_id
+test_a_restarted_attempt_archives_the_earlier_evidence_directory
+test_the_drivers_tools_are_absolute_and_never_a_late_path_lookup
+```
+
+其中实际攻击面由真实 `sandbox-exec` 与真实本地 socket 证明：向 `/private/var/tmp` 写入 EPERM、
+向沙箱外进程发信号 EPERM、DNS 解析失败、直连外部失败；gate 里的 worker 代码读不到 gate 目录外
+的投放文件、也写不出 gate 目录；RESOLVED 与 SYMLINKED 在 gate 内仍是两种拼写（两个不同测试模块
+分别只在对应拼写下通过）。survivor 测试用一个 detached 子进程 + 测试在 run 结束后才写入的 trigger
+证明：它出现在 `sweep.json`、被杀、从未写过 `repo/SURVIVOR.txt`，而 verdict 与 collected changes
+只来自 snapshot。
+
+既有测试只改了三处断言，均不放松规则：盲包投影少两个字段（F41 的直接后果）、F1 shadow 复现改为
+在 gate 里跑（它本来执行的就是 worker 写的代码）、`stub_auditor` 接受 driver 新增的
+`contract_path`/`report_path` 关键字。
+
+### 3. 偏离与未做（逐条，不隐藏）
+
+1. **gate 的 loopback 没有关闭**（对 CODEX_FIXES_11 F32 字面 "no loopback" 的偏离，被测出的
+   事实迫使）。`scripts/tests` 里有测试在本机 127.0.0.1 上起 HTTP server，f04 的 oracle
+   （`test_p1_t06_producer_trust_boundary.py`）就是其中之一：完全关掉 loopback 会让它在 gate 里
+   `PermissionError`，把一个 PRE 通过的测试变成"worker 失败"。PRE 集合（delivery-anchors.json）
+   是在允许 loopback 的同一环境里测得的，因此 gate 保留 loopback、关闭出口/DNS/proxy/serve 端口。
+   这是"保持验收环境可比"的必要条件，不是放宽；报告在此登记，供 Claude 裁决。
+2. **`wrapper_delivery.git` / `repo_git` 仍用 PATH 上的 `git`**。该文件不在本票文件清单内，改它
+   会让 `delivery-anchors.json` 的 `wrapper_program_sha256` 失效（`build_manifest.verify` 与
+   `FreezeManifest` 会因此出现与 pin 无关的失败）。F31 的根因（系统目录可写）已由写入白名单关闭：
+   launch 现在写不进 PATH 上任何目录，因此即使那里仍按名查找也无法被投放。遗留登记为下一轮项。
+3. **没有 re-pin**：`freeze-manifest.json`、`EXPECTED_V2_HASHES`、`MANIFEST_SHA256`、
+   `delivery-anchors.json` 全未改动，留给 T39。因此 `FreezeManifest` 两项按 §5 预期为红。
+4. **没有 live run**：所有结论来自 stub worker、真实 sandbox-exec、真实 loopback socket；`opencode
+   serve/run` 的真实行为仍需下一次 live pilot（与本票无关的既有遗留）。
+5. **gate 目录不回收**：每个 attempt 的 `gate-*` 保留为证据（与 attempt 目录同寿命）；回收策略不在
+   本票范围。
+
+### 4. 门禁（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+```text
+=== RUFF                 All checks passed!                        (exit 0)
+=== GOVERNANCE           35/35 checks passed                       (exit 0)
+=== PUBLIC               VIOLATIONS=0                              (exit 0)
+=== EXPERIMENTS_MODULE   Ran 158 tests in 569.654s / FAILED (failures=2)   (exit 1)
+```
+
+158 项里只有下面两项红，且都只因为"被改动的 freeze-v2 文件所对应的 pin 尚未更新"（本票按指令不
+re-pin，T39 一次重钉）：
+
+```text
+FAIL test_two_independent_anchors_and_materials_binding   (FreezeManifest) — freeze_is_intact(ROOT)
+FAIL test_one_byte_mutation_of_every_frozen_file_is_rejected (FreezeManifest) — 同一前置断言
+```
+
+`build_manifest.verify()` 给出的不一致集合恰好是本票改动的 8 个冻结文件，没有成员增删：
+
+```text
+collect_v2.py  delivery_anchors.py  protocol-v2.md  run_acceptance_v2.py
+run_audit_v2.py  run_h2r2.py  sandbox_v2.py  worker-sandbox.sb.template
+```
+
+`README.md` 与 `CODEX_REPORT.md` 是 operator 文档，不在字节冻结内（README §4 已如此声明）。
+
+### 5. 一处运行环境的故障与处理（如实记录）
+
+第一次全量模块跑到 158 项中的一部分时报 `OSError: [Errno 28] No space left on device`。原因不是
+本票逻辑，而是**修复前**的 gate 目录：旧实现把 launch 目录设成 gate 里的 `repo/` 副本，而 TMPDIR
+指向同级的 `.tmp/`，于是 `tempfile` 的候选目录全部被拒、回落到 cwd（即 `repo/`），治理套件里
+`test_p1_t16_*` 的 scratch 树因此写进 repo 并被下一次 surface 复制递归放大（两个临时目录合计 64 G）。
+修复（launch 目录 = gate 目录本身）之后 gate 内 `tempfile.gettempdir()` 稳定为
+`<gate>/.tmp/resolved`（SYMLINKED 为 `<gate>/.tmp/link`），`mkdtemp` 不再落进 repo；清理掉那两个
+废弃目录后同一棵树跑完整套件通过（上面 §4 的那一遍）。这条也解释了为什么 gate 的 launch 目录必须
+是 gate 根而不是 `repo/`。

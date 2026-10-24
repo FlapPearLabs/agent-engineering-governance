@@ -1982,6 +1982,7 @@ class AcceptanceV2(unittest.TestCase):
         """F1 end to end: the added module really turns the unfixed oracle green."""
         acceptance = load("run_acceptance_v2")
         anchors = load("delivery_anchors")
+        sandbox = load("sandbox_v2")
         task, _ = task_pair("f01")
         with tempfile.TemporaryDirectory() as tmp:
             run = prepare_run(tmp, "f01")
@@ -1989,7 +1990,12 @@ class AcceptanceV2(unittest.TestCase):
                 write_artifacts(run)
                 (run / "repo" / "scripts" / "tests" / "json.py").write_text(
                     F1_SHADOW_SOURCE, encoding="utf-8")
-                fooled = anchors.run_gate(run / "repo", "test_review_evidence_contract.py")
+                # T38a / F32: this is worker-written code, so it runs in a gate copy, never in
+                # this process' own sandbox-free environment.
+                gate = sandbox.Gate(Path(tmp).resolve() / "gates" / "gate-1")
+                gate.prepare(run / "repo")
+                fooled = anchors.run_gate(gate.repo, "test_review_evidence_contract.py", gate=gate)
+                self.assertTrue(fooled["confined"])
                 self.assertEqual(0, fooled["rc"], "the F1 reproduction no longer fools the gate")
                 self.assertEqual([], fooled["not_passing"])
                 verdict = acceptance.accept(ROOT, run)
@@ -2105,6 +2111,7 @@ verdict, its attempt retries and its registry lines can be exercised without a w
 MODE "provider-once" fails on the first launch only, which is how a retry is observed.
 """
 import json
+import os
 import subprocess
 import sys
 import time
@@ -2145,7 +2152,25 @@ if MODE == "provider-always":
     provider_failure()
 if MODE == "provider-once" and launches() == 1:
     provider_failure()
-if MODE in ("accept", "provider-once"):
+if MODE == "survivor":
+    # T38a / F33: a DETACHED survivor that would rewrite repo/ once the test says so. The driver's
+    # sweep must kill it before the snapshot is taken, and the test proves it never wrote.
+    trigger = os.path.join(os.getcwd(), "survivor.trigger")
+    target = os.path.join("repo", "SURVIVOR.txt")
+    child = subprocess.Popen([sys.executable, "-c", __SURVIVOR__,
+                              trigger, target], start_new_session=True)
+    open("survivor.pid", "w").write(str(child.pid))
+if MODE == "unreadable":
+    # T38a / F37: one unreadable file in the run dir, which registration must survive.
+    handle = open("secret.txt", "w")
+    handle.write("unreadable by design\\n")
+    handle.close()
+    os.chmod("secret.txt", 0o000)
+if MODE == "contract-tamper":
+    # T38a / F38: the worker rewrites the contract it was given.
+    with open("CONTRACT.md", "a") as handle:
+        handle.write("\\nworker append\\n")
+if MODE in ("accept", "provider-once", "survivor"):
     subprocess.run(["git", "-C", "repo", "apply", "--whitespace=nowarn", PATCH], check=True)
     work()
 elif MODE == "provider-after-tool":
@@ -2182,6 +2207,22 @@ elif MODE == "timeout":
     time.sleep(30)
 else:
     print(json.dumps({"type": "error", "sessionID": "ses_stub", "part": {"text": "stub"}}))
+'''
+
+
+SURVIVOR = '''
+import os
+import sys
+import time
+
+trigger, target = sys.argv[1], sys.argv[2]
+deadline = time.time() + 60
+while time.time() < deadline:
+    if os.path.exists(trigger):
+        with open(target, "w") as handle:
+            handle.write("SURVIVOR WROTE\\n")
+        break
+    time.sleep(0.02)
 '''
 
 
@@ -2394,6 +2435,7 @@ def stub_worker(directory, mode, patch=None):
     counter = Path(directory) / f"launches-{mode}.txt"
     path.write_text(STUB_WORKER.replace("__MODE__", mode)
                     .replace("__PATCH__", str(patch or ""))
+                    .replace("__SURVIVOR__", repr(SURVIVOR))
                     .replace("__COUNTER__", str(counter)),
                     encoding="utf-8")
     return path
@@ -2507,7 +2549,7 @@ class SelfTestingSandbox(StubSandbox):
 
 def stub_auditor(verdict="PASS"):
     def audit(run_dir, plan_run, task, *, launch, command, env, limit_seconds,
-              events_path=None, stderr_path=None):
+              events_path=None, stderr_path=None, **kwargs):
         audit_dir = Path(run_dir) / "audit"
         audit_dir.mkdir(exist_ok=True)
         (audit_dir / "audit.json").write_text(json.dumps(
@@ -2535,7 +2577,8 @@ def execute_stub(tmp, mode="noop", *, auditor=None, preflight=None, limit_second
                  probe=None, sandbox=None, auth=None, server_command=None):
     driver = load("run_h2r2")
     task, _ = task_pair("f01")
-    patch = candidate_patch(tmp, task) if mode in ("accept", "provider-once") else None
+    patch = candidate_patch(tmp, task) if mode in ("accept", "provider-once",
+                                                   "survivor") else None
     runs = Path(tmp) / "runs"
     result = driver.execute("h2r2-f01-c", runs,
                             worker_command=stub_run_command(tmp, mode, patch),
@@ -2589,7 +2632,7 @@ class RunDriver(unittest.TestCase):
                 return real_launch(argv, cwd, env, limit, stdout_path, stderr_path)
 
             def recording_auditor(run_dir, plan_run, task, *, launch, command, env,
-                                  limit_seconds, events_path=None, stderr_path=None):
+                                  limit_seconds, events_path=None, stderr_path=None, **kwargs):
                 captured["auditor"] = dict(env)
                 return stub_auditor()(run_dir, plan_run, task, launch=launch,
                                       command=command, env=env, limit_seconds=limit_seconds)
@@ -2942,7 +2985,7 @@ class RunDriver(unittest.TestCase):
         calls = []
 
         def flaky_audit(run_dir, plan_run, task, *, launch, command, env, limit_seconds,
-                        events_path=None, stderr_path=None):
+                        events_path=None, stderr_path=None, **kwargs):
             calls.append(1)
             audit_dir = Path(run_dir) / "audit"
             audit_dir.mkdir(exist_ok=True)
@@ -4278,7 +4321,11 @@ class RunAuditV2(unittest.TestCase):
                           "control_full_v1"):
                 self.assertNotIn(token, contract)
             projection = json.loads((audit_dir / audit_module.VERDICT_NAME).read_text())
-            self.assertEqual({"verdict", "reasons", "task_id", "base_sha"}, set(projection))
+            # T38a / F41: the base sha and the case id stay in the driver's records; the auditor
+            # judges the four files, not a task it can look up.
+            self.assertEqual({"verdict", "reasons", "task_id"}, set(projection))
+            for dropped in ("base_sha", "case_id"):
+                self.assertNotIn(dropped, projection)
             for path in audit_dir.iterdir():
                 self.assertNotIn("READ FULL", path.read_text(errors="replace"), path.name)
             self.assertIn({"file": "report.md", "token": "control_full_v1"}, bundle["leakage"])
@@ -4664,6 +4711,324 @@ class SandboxNetwork(unittest.TestCase):
                 self.assertEqual("PASS", record["sandbox"]["confinement"]["verdict"])
             finally:
                 cleanup_run(run_dir)
+
+
+GATE_PROBE_SOURCE = '''"""Worker-written probe: inside the gate copy it can read and write nothing else."""
+import unittest
+
+PLANTED = "__PLANTED__"
+OUTSIDE = "__OUTSIDE__"
+
+
+class GateProbe(unittest.TestCase):
+    def test_the_planted_file_outside_the_copy_is_unreadable(self):
+        with open(PLANTED) as handle:
+            self.assertEqual("GATE-TOKEN", handle.read().strip())
+
+    def test_a_write_outside_the_copy_is_denied(self):
+        with open(OUTSIDE, "w") as handle:
+            handle.write("escaped")
+'''
+
+
+def spelling_probe(style):
+    """A test module that passes only in the temp-root spelling it was written for."""
+    assertion = ("self.assertEqual(os.path.realpath(tmp), tmp)" if style == "RESOLVED"
+                 else "self.assertNotEqual(os.path.realpath(tmp), tmp)")
+    return ('''"""Worker-written probe: the gate copy provides the %s temp-root spelling."""
+import os
+import unittest
+
+
+class SpellingProbe(unittest.TestCase):
+    def test_the_temp_root_has_this_spelling(self):
+        tmp = os.environ["TMPDIR"]
+        %s
+''' % (style, assertion))
+
+
+class WorkerCodeConfinement(unittest.TestCase):
+    """T38a: confinement of every execution of worker code (F31 / F32 / F33 / F35 / F36 / F37 /
+    F38 / F41 / P3-7). Real sandbox-exec and real loopback sockets only; never a model."""
+
+    def layout(self, tmp):
+        module = load("sandbox_v2")
+        runs = Path(tmp).resolve() / "runs"
+        run_dir = runs / "h2r2-f01-c"
+        run_dir.mkdir(parents=True)
+        driver = runs / ".driver" / "h2r2-f01-c"
+        home = module.fresh_home(driver, "home-1", run_dir)
+        return module, run_dir, home, driver
+
+    def test_the_template_is_a_write_whitelist_with_signal_and_dns_confined(self):
+        """F31 / F35 / F36: the rules are in the frozen template, not only in the render block."""
+        module = load("sandbox_v2")
+        text = module.template_bytes().decode()
+        self.assertIn('(deny file-write* (subpath "/"))', text)
+        self.assertIn("(deny signal)", text)
+        self.assertIn("(allow signal (target same-sandbox))", text)
+        self.assertIn('(deny mach-lookup (global-name "com.apple.dnssd.service"))', text)
+        self.assertNotIn("(remote unix-socket", text)
+        with tempfile.TemporaryDirectory() as tmp:
+            _, run_dir, home, driver = self.layout(tmp)
+            record = module.profile(driver / "attempt-1", run_dir, home, sys.executable,
+                                    proxy_port=41001, serve_port=41002)
+            body = Path(record["path"]).read_text()
+            self.assertIn(f'(subpath "{run_dir}")', body)
+            self.assertIn('(literal "/dev/null")', body)
+            self.assertEqual("loopback_proxy_and_serve", record["network"])
+            # A gate re-allows LOOPBACK ONLY: no proxy port, no serve port, no outside connect.
+            closed = module.profile(driver / "gate-1", driver / "gate-1" / "repo",
+                                    driver / "gate-1" / ".home", sys.executable)
+            self.assertEqual("gate_loopback_only", closed["network"])
+            closed_body = Path(closed["path"]).read_text()
+            for port in (41001, 41002):
+                self.assertNotIn(f'localhost:{port}', closed_body)
+            self.assertIn('(remote ip "localhost:*")', closed_body)
+            self.assertIn('(local ip "localhost:*")', closed_body)
+            self.assertIn("(deny network-outbound)", closed_body)
+
+    @unittest.skipUnless(SANDBOX_READY, "sandbox-exec is not available on this platform")
+    def test_a_write_outside_a_signal_and_dns_are_denied_inside_the_profile(self):
+        """F31 / F35 / F36 end to end: the three reviewed attacks fail with EPERM."""
+        module = load("sandbox_v2")
+        with tempfile.TemporaryDirectory() as tmp:
+            _, run_dir, home, driver = self.layout(tmp)
+            planted, token = module.plant(driver)
+            stream = driver / "attempt-1"
+            proxy = load("egress_v2").start(stream)
+            outside = Path(module.WRITE_PROBE_DIR) / f"h2-t38a-{os.getpid()}-{time.monotonic_ns()}"
+            try:
+                record = module.profile(stream, run_dir, home, sys.executable,
+                                        proxy_port=proxy.port, serve_port=41002)
+                test = module.self_test(record["path"], run_dir, planted, sys.executable, token,
+                                        proxy_port=proxy.port, serve_port=41002)
+
+                def confined(code):
+                    return subprocess.run(
+                        module.confine(record["path"], [sys.executable, "-c", code]),
+                        cwd=str(run_dir), env=dict(os.environ), capture_output=True,
+                        text=True, timeout=60)
+            finally:
+                proxy.stop()
+            self.assertEqual("PASS", test["verdict"], test["reasons"])
+            self.assertNotEqual(0, test["write_outside"]["returncode"])
+            self.assertNotEqual(0, test["signal_outside"]["returncode"])
+            self.assertNotEqual(0, test["dns"]["returncode"])
+            self.assertNotEqual(0, test["direct_connect"]["returncode"])
+            self.assertEqual(0, test["python_write"]["returncode"])
+            self.assertFalse(outside.exists())
+            self.assertFalse(Path(test["write_outside_path"]).exists())
+            write = confined(f"open({str(outside)!r}, 'w').write('x')")
+            self.assertNotEqual(0, write.returncode)
+            self.assertIn("Operation not permitted", write.stderr)
+            self.assertFalse(outside.exists())
+            signal = confined(f"import os, signal; os.kill({os.getpid()}, signal.SIGCONT)")
+            self.assertNotEqual(0, signal.returncode)
+            dns = confined("import socket; socket.getaddrinfo('example.com', 443)")
+            self.assertNotEqual(0, dns.returncode)
+            inside = confined("open('inside.txt', 'w').write('ok')")
+            self.assertEqual(0, inside.returncode, inside.stderr)
+            self.assertEqual("ok", (run_dir / "inside.txt").read_text())
+
+    def test_a_detached_survivor_is_swept_and_the_verdict_comes_from_the_snapshot(self):
+        """F33: a survivor cannot rewrite the oracle after the worker exits."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "survivor")
+            run_dir = runs / "h2r2-f01-c"
+            driver_dir = runs / ".driver" / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
+                pid = int((run_dir / "survivor.pid").read_text().strip())
+                sweep = json.loads((driver_dir / "attempt-1" / "sweep.json").read_text())
+                self.assertEqual("lsof", sweep["process_query"])
+                self.assertGreaterEqual(sweep["process_group"], 1)
+                self.assertIn(pid, [entry["pid"] for entry in sweep["lingering_processes"]])
+                self.assertTrue(sweep["killed"], sweep)
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(pid, 0)
+                snapshot = driver_dir / "attempt-1" / "snapshot"
+                self.assertTrue((snapshot / "repo").is_dir())
+                manifest = json.loads((driver_dir / "attempt-1" / "snapshot-manifest.json")
+                                      .read_text())
+                self.assertEqual([], manifest["unreadable"])
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(str(snapshot), record["snapshot"]["path"])
+                self.assertEqual(manifest["count"], record["snapshot"]["count"])
+                collected = json.loads((run_dir / "collected.json").read_text())
+                self.assertNotIn("SURVIVOR.txt",
+                                 [change["path"] for change in collected["changes"]])
+                # the survivor has not run: the trigger appears only after the run is over
+                (run_dir / "survivor.trigger").write_text("go\n")
+                time.sleep(1.0)
+                self.assertFalse((run_dir / "repo" / "SURVIVOR.txt").exists())
+                self.assertFalse((snapshot / "repo" / "SURVIVOR.txt").exists())
+                verdict = json.loads((run_dir / "verdict.json").read_text())
+                self.assertEqual("ACCEPT", verdict["verdict"], verdict["reasons"])
+                self.assertEqual(6, len(verdict["gates"]))
+                for gate in verdict["gates"]:
+                    self.assertEqual("gate_loopback_only", gate["network"])
+                    self.assertTrue(Path(gate["path"]).is_relative_to(driver_dir.resolve()),
+                                    gate["path"])
+                    self.assertFalse(Path(gate["path"]).is_relative_to(run_dir.resolve()))
+                self.assertEqual("PASS", verdict["gates"][0]["self_test"])
+            finally:
+                cleanup_run(run_dir)
+
+    @unittest.skipUnless(SANDBOX_READY, "sandbox-exec is not available on this platform")
+    def test_worker_code_in_a_gate_cannot_read_or_write_outside_its_copy(self):
+        """F32: the oracle/suite execute in a copy that is the whole world."""
+        module = load("sandbox_v2")
+        anchors = load("delivery_anchors")
+        root = Path(tempfile.mkdtemp(prefix="h2-t38a-gate-")).resolve()
+        try:
+            source = root / "source"
+            (source / "scripts" / "tests").mkdir(parents=True)
+            planted = root / "planted.txt"
+            planted.write_text("GATE-TOKEN\n")
+            outside = root / "escaped.txt"
+            (source / "scripts" / "tests" / "test_probe.py").write_text(
+                GATE_PROBE_SOURCE.replace("__PLANTED__", str(planted))
+                .replace("__OUTSIDE__", str(outside)), encoding="utf-8")
+            gate = module.Gate(root / "gates" / "gate-1")
+            info = gate.prepare(source, planted=planted, token="GATE-TOKEN")
+            result = anchors.run_gate(gate.repo, None, "RESOLVED", gate=gate)
+            self.assertTrue(result["confined"])
+            self.assertEqual(str(gate.root), result["gate"])
+            self.assertNotEqual(0, result["rc"])
+            self.assertEqual(2, len(result["not_passing"]), result["not_passing"])
+            self.assertFalse(outside.exists(), "worker code wrote outside its gate copy")
+            self.assertEqual("PASS", info["self_test"]["verdict"], info["self_test"]["reasons"])
+            # T38a: the file it could not read is still outside, unmodified.
+            self.assertEqual("GATE-TOKEN\n", planted.read_text())
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    @unittest.skipUnless(SANDBOX_READY, "sandbox-exec is not available on this platform")
+    def test_the_two_temp_root_spellings_differ_inside_the_gate_sandbox(self):
+        """F32: RESOLVED and SYMLINKED are still different, and both live inside the gate."""
+        module = load("sandbox_v2")
+        anchors = load("delivery_anchors")
+        root = Path(tempfile.mkdtemp(prefix="h2-t38a-spelling-")).resolve()
+        try:
+            source = root / "source"
+            (source / "scripts" / "tests").mkdir(parents=True)
+            for style in ("RESOLVED", "SYMLINKED"):
+                (source / "scripts" / "tests" / f"test_spelling_{style.lower()}.py").write_text(
+                    spelling_probe(style), encoding="utf-8")
+            seen = {}
+            for number, style in enumerate(("RESOLVED", "SYMLINKED"), 1):
+                gate = module.Gate(root / "gates" / f"gate-{number}")
+                gate.prepare(source)
+                result = anchors.run_gate(gate.repo, f"test_spelling_{style.lower()}.py",
+                                          style, gate=gate)
+                self.assertEqual(0, result["rc"], (style, result))
+                self.assertEqual([], result["not_passing"], style)
+                self.assertEqual(1, result["ran"], style)
+                seen[style] = gate.env(style)["TMPDIR"]
+            self.assertNotEqual(seen["RESOLVED"], seen["SYMLINKED"])
+            self.assertTrue(seen["RESOLVED"].startswith(str(root.resolve())))
+            self.assertTrue(seen["SYMLINKED"].startswith(str(root.resolve())))
+            self.assertTrue(Path(seen["SYMLINKED"]).is_symlink())
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_an_unreadable_file_in_the_run_dir_registers_invalid_evidence_unreadable(self):
+        """F37: registration stays total and names the file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "unreadable")
+            run_dir = runs / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("INVALID", result["verdict"])
+                self.assertIn("EVIDENCE_UNREADABLE:secret.txt", result["reasons"])
+                registry = [json.loads(line) for line in
+                            (runs / "registry-v2.jsonl").read_text().splitlines()]
+                self.assertEqual(1, len(registry))
+                self.assertEqual("INVALID", registry[0]["verdict"])
+                self.assertIn("EVIDENCE_UNREADABLE:secret.txt", registry[0]["reason"])
+                self.assertEqual({"path": "secret.txt", "unreadable": True},
+                                 {key: value for key, value in
+                                  registry[0]["artifacts"]["secret.txt"].items()
+                                  if key in ("path", "unreadable")})
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(["secret.txt"], record["snapshot"]["unreadable"])
+                self.assertTrue(Path(record["snapshot"]["path"], "repo").is_dir())
+            finally:
+                cleanup_run(run_dir)
+
+    def test_a_tampered_contract_in_the_run_dir_is_detected_and_invalid(self):
+        """F38: the driver's copy is the contract; the run-dir copy is not a source."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, runs, result = execute_stub(tmp, "contract-tamper")
+            run_dir = runs / "h2r2-f01-c"
+            driver_dir = runs / ".driver" / "h2r2-f01-c"
+            try:
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual("INVALID", result["verdict"])
+                self.assertTrue(result["reasons"][0].startswith("CONTRACT_TAMPERED:"),
+                                result["reasons"])
+                driver_contract = driver_dir / "CONTRACT.md"
+                self.assertTrue(driver_contract.is_file())
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual(digest(driver_contract.read_bytes()), record["contract"]["sha256"])
+                self.assertNotEqual(driver_contract.read_bytes(),
+                                    (run_dir / "CONTRACT.md").read_bytes())
+                audit_dir = run_dir / "audit"
+                bundle = (audit_dir / "CONTRACT.md")
+                if bundle.is_file():
+                    self.assertNotIn("worker append", bundle.read_text())
+            finally:
+                cleanup_run(run_dir)
+
+    def test_the_auditor_projection_drops_the_base_sha_and_the_case_id(self):
+        audit = load("run_audit_v2")
+        projection = audit.project_verdict({"verdict": "REJECT", "reasons": ["X"],
+                                            "task_id": "f01", "base_sha": "0" * 40,
+                                            "case_id": "t01", "run_id": "h2r2-f01-c",
+                                            "arm": "control"})
+        self.assertEqual({"verdict", "reasons", "task_id"}, set(projection))
+
+    def test_a_restarted_attempt_archives_the_earlier_evidence_directory(self):
+        """P3-7: an evidence directory is archived, never deleted, when an attempt restarts."""
+        def failing_probe(purpose, attempt):
+            return {"verdict": "FAIL", "reasons": ["EXIT:1"], "purpose": purpose,
+                    "attempt": attempt, "token_seen": False, "events": 1}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            driver, runs, blocked = execute_stub(tmp, "accept", probe=failing_probe)
+            driver_dir = runs / ".driver" / "h2r2-f01-c"
+            try:
+                self.assertEqual("BLOCKED", blocked["outcome"], blocked)
+                self.assertFalse(blocked["registered"])
+                earlier = driver_dir / "attempt-1" / "confinement.json"
+                self.assertTrue(earlier.is_file(), sorted(driver_dir.iterdir()))
+                _, _, accepted = execute_stub(tmp, "accept")
+                run_dir = runs / "h2r2-f01-c"
+                self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
+                archived = sorted(driver_dir.glob(f"attempt-1-{driver.SUPERSEDED_SUFFIX}-*"))
+                self.assertEqual(1, len(archived), sorted(driver_dir.iterdir()))
+                self.assertTrue((archived[0] / "confinement.json").is_file())
+                record = json.loads((run_dir / "run.json").read_text())
+                self.assertEqual([archived[0].name], record["archived_streams"])
+            finally:
+                cleanup_run(runs / "h2r2-f01-c")
+
+    @unittest.skipUnless(SANDBOX_READY, "sandbox-exec is not available on this platform")
+    def test_the_drivers_tools_are_absolute_and_never_a_late_path_lookup(self):
+        module = load("sandbox_v2")
+        self.assertTrue(Path(module.binary()).is_absolute())
+        self.assertEqual(module.binary(), module.TOOLS["sandbox-exec"])
+        resolved = module.absolute_argv(["sandbox-exec", "-f", "profile", "/bin/echo"])
+        self.assertTrue(Path(resolved[0]).is_absolute())
+        self.assertEqual(["/usr/bin/env", "-i"], module.absolute_argv(["/usr/bin/env", "-i"]))
+        driver = load("run_h2r2")
+        launched = driver.launch(["/bin/echo", "hi"], Path(tempfile.gettempdir()),
+                                 dict(os.environ), 30, Path(tempfile.mkdtemp()) / "o",
+                                 Path(tempfile.mkdtemp()) / "e")
+        self.assertEqual(["/bin/echo", "hi"], launched["command"])
+        self.assertEqual(launched["pid"], launched["process_group"])
 
 
 def freeze_is_intact(root):

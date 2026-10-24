@@ -85,15 +85,25 @@ def delivery(root: Path, materials: str, arm: str) -> dict[str, bytes]:
     return out
 
 
-def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED") -> dict:
+def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED", *, gate=None) -> dict:
     """Run one gate in the validator's own environment (RESOLVED unless a caller asks for the
-    SYMLINKED temp-root spelling) and read the per-test statuses back out of -v output."""
+    SYMLINKED temp-root spelling) and read the per-test statuses back out of -v output.
+
+    F32 / T38a: a caller that passes a `sandbox_v2.Gate` executes worktree code that a WORKER wrote,
+    so the command runs inside that gate's rendered `sandbox-exec` profile with no network at all,
+    in the gate's own copy and with its temp roots inside the copy. There is no unconfined fallback
+    on that path: the caller either holds a gate or does not execute worker code.
+    """
     cmd = [sys.executable, "-s", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"]
     if pattern:
         cmd += ["-p", pattern]
-    with ctc.acceptance_env(style) as env:
-        r = subprocess.run(cmd, cwd=str(wt), env=env, capture_output=True, text=True,
-                           timeout=TIMEOUT)
+    if gate is None:
+        with ctc.acceptance_env(style) as env:
+            r = subprocess.run(cmd, cwd=str(wt), env=env, capture_output=True, text=True,
+                               timeout=TIMEOUT)
+    else:
+        r = subprocess.run(gate.argv(cmd), cwd=str(wt), env=gate.env(style),
+                           capture_output=True, text=True, timeout=TIMEOUT)
     out = r.stdout + r.stderr
     ran = RAN_RE.findall(out)
     skipped = set(SKIPPED_RE.findall(out))
@@ -101,7 +111,9 @@ def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED") -> dict:
     unexpected = set(UNEXPECTED_SUCCESS_RE.findall(out))
     return {"rc": r.returncode, "ran": int(ran[-1]) if ran else None, "skipped": sorted(skipped),
             "expected_failures": sorted(expected), "unexpected_successes": sorted(unexpected),
-            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped | expected | unexpected)}
+            "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped | expected | unexpected),
+            "confined": gate is not None, "style": style,
+            "gate": str(gate.root) if gate is not None else None}
 
 
 def reset(wt: Path, rev: str = "HEAD") -> None:

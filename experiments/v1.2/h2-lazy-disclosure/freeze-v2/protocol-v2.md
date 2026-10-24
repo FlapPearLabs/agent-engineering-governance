@@ -105,6 +105,39 @@ F16  CONFINEMENT  每次 launch（worker、per-auditor、以及每次 reachabili
        `sandbox_denied`（tool result 含 "Operation not permitted" 且路径在 launch 目录之外）。
        预注册：被 sandbox 拒绝的动态访问没有获得任何东西，按 run 记录并在 closure report 中
        报告，不判 INVALID；静态命中仍判 INVALID（不放宽任何规则）。
+F31  WRITE WHITELIST  (T38a) 写入改为白名单：模板 `(deny file-write* (subpath "/"))` 拒绝全部写入，
+       渲染块只重新放行 launch 目录、per-launch home 与 /dev/null、/dev/tty、/dev/fd、/dev/ttysN，
+       因此系统目录（包括 operator PATH 上的目录）不可写，launch 无法投放一个稍后被 driver 以非沙箱
+       方式执行的二进制。driver 侧可执行文件（git、sandbox-exec、opencode、python）在启动时一次性
+       解析为绝对路径，launch 之后不再经 PATH 查找。读取仍是共享根上的拒绝表，因为 launch 必须读取
+       解释器与系统库。
+F32  GATE SANDBOX     (T38a) 验收中任何执行 worker 所写代码的步骤（两种 temp-root spelling 下的 oracle
+       与完整 scripts/tests）都在渲染沙箱内运行：launch 目录 = 该 attempt 下的 fresh gate 目录
+       `.driver/<run_id>/attempt-<n>/gate-<k>/`（snapshot 的副本在其中的 `repo/`），不给 proxy 端口、
+       不给 serve 端口，外部连接与 DNS 一律拒绝，写入只在该 gate 目录内；两种 temp-root spelling 以
+       真实目录与其符号链接提供在该目录内，因此 RESOLVED 与 SYMLINKED 仍然不同。loopback 本身保留：
+       治理测试套件里有测试在本机 127.0.0.1 上起 HTTP server（f04 的 oracle 就是），而冻结的 PRE 集合
+       是在允许该能力的同一环境中测得的；移除 loopback 会改变验收环境、把 PRE 通过的测试变成假的
+       worker 失败。因此 gate 关闭的是出口、DNS、proxy 与 serve 端口，不是本机 IPC 能力。
+F33  SWEEP+SNAPSHOT   (T38a) worker launch 结束（正常退出、错误或超时）后立即由 driver：(a) 杀掉该
+       launch 的进程组，以及所有 cwd 或打开文件位于 run 目录之下的残留进程（`lsof +D` 等价），逐 pid
+       与 command 记入 `.driver/<run_id>/attempt-<n>/sweep.json`；(b) 将 run 目录（repo/、报告、遥测、
+       投放文件）复制到 `.driver/<run_id>/attempt-<n>/snapshot/` 并记录逐文件 sha256 manifest。此后
+       collection、scope、oracle hashing、gate 运行与 audit bundle 只读该 snapshot。
+F35  SIGNAL           (T38a) 模板 `(deny signal)` + `(allow signal (target same-sandbox))`：kill(2) 只能
+       作用于同沙箱内进程，无法对 driver、调度器或其他 run 发信号。confinement 自检新增"对沙箱外进程
+       发信号必须失败"。
+F36  DNS / UNIX       (T38a) 模板不含 `remote unix-socket` 放行（省略即关闭 unix socket egress），并
+       `(deny mach-lookup (global-name "com.apple.dnssd.service"))`。confinement 自检新增"DNS 解析必须
+       失败"。
+F37  TOTAL REGISTRY   (T38a) 注册路径不得因单个不可读文件抛异常：artifact hashes 把不可读文件记为
+       `{"path": ..., "unreadable": true}`；snapshot 中出现不可读文件时该 run 登记为
+       INVALID:EVIDENCE_UNREADABLE。
+F38  CONTRACT         (T38a) driver 把渲染后的 CONTRACT 字节保存在 `.driver/<run_id>/CONTRACT.md` 并记
+       sha256；audit bundle 只由该副本构建；run 目录中的 CONTRACT.md 与它不同即记 `CONTRACT_TAMPERED`
+       并使该 run INVALID。
+F41  BUNDLE           (T38a) auditor bundle 的 verdict 投影不再含 base_sha 与 case_id，二者只留在
+       driver 侧记录。
 F19  FRESH STATE 每次 launch 使用全新 `<runs_root>/.driver/<run_id>/home-<n>`（auditor 为
        `audit-home-<n>`，每次 reachability 为 `probe-home-<purpose>-<n>`），mode 0700，只含冻结的
        worker-profile/opencode.json 与自己的 XDG_* 目录。credential 以
@@ -144,9 +177,12 @@ F28  MKTEMP     macOS `mktemp -d` 不带模板时忽略 TMPDIR，改用 /var/fol
        confstr 临时目录（sandbox 拒绝）。两臂同样受影响，worker 已自行适配。披露，不开放
        /var/folders。
 SELF TEST 每次 launch 之前，driver 在同一 rendered sandbox 内用 `cat` 与 `<PY> -c open(...)` 读
-       自己在 `.driver/<run_id>/` 下投放的文件，两者必须失败且不泄漏其 token，且在 launch 目录内
-       写入必须成功；否则 BLOCKED:SANDBOX_NOT_CONFINING（不消耗 attempt、可再次 `run`、已记录）。
-       平台无 sandbox-exec => BLOCKED:SANDBOX_UNAVAILABLE。preflight 针对 fresh home 运行。
+       自己在 `.driver/<run_id>/` 下投放的文件，两者必须失败且不泄漏其 token；在 launch 目录内写入
+       必须成功；launch 目录之外的写入（系统目录，例如 /private/var/tmp）必须失败；对沙箱外进程发
+       信号必须失败；DNS 解析必须失败；直连外部主机必须失败；经代理 CONNECT 非 allowlist 主机必须
+       被拒（403 并记录，仅在渲染了代理端点的 profile 上）；否则 BLOCKED:SANDBOX_NOT_CONFINING
+       （不消耗 attempt、可再次 `run`、已记录）。平台无 sandbox-exec => BLOCKED:SANDBOX_UNAVAILABLE。
+       preflight 针对 fresh home 运行。
 ```
 
 worker 与 per-run auditor 的运行环境固定为：最小基础环境（PATH、LANG）、profile env 文件的
@@ -237,6 +273,8 @@ wrapper_delivery.py 只准备 standalone 任务仓库和投放，render_brief.py
 `collect_v2.py` 采集 base→worker 全量差异、报告、遥测并复核投放字节；
 `run_acceptance_v2.py` 产出唯一 verdict JSON 且只在 ACCEPT 时退出 0。收集判 INVALID、
 scope 违规、oracle 字节变动均为终局，不再绕过去测量；每个 run 一个 verdict，不合并、不补造。
+两者都只读第 4.0 节 F33 的 snapshot，验收的每次执行都在 F32 的 gate 沙箱内，合同来自 F38 的
+driver 副本；auditor 的盲包不含 base_sha 与 case_id（F41）。
 
 准备后再次确认 base HEAD、含 ignored 文件的干净状态、全部投放 hash。完成后收集完整
 base→worker 差异（含 worker 违约提交时的完整改动）、报告与原始遥测，复核只读投放 hash。
@@ -276,6 +314,8 @@ driver 副本缺失（EVIDENCE_MISSING）是 INVALID 的独立原因，且永不
 credential 无法导入 fresh home（CREDENTIAL_IMPORT_FAILED）都发生在 worker 动作之前，属于
 BLOCKED：不消耗 attempt、不登记，记录在 driver 目录，可在有 sandbox 的环境再次 `run`。
 被 sandbox 拒绝的动态访问（`sandbox_denied`）不是 INVALID 原因，按 4.0 节报告。
+T38a：snapshot 中出现不可读文件登记 INVALID:EVIDENCE_UNREADABLE（注册路径不因单个文件抛异常，
+F37），run 目录的 CONTRACT.md 与 driver 副本不同登记 INVALID:CONTRACT_TAMPERED（F38）。
 
 调度器（第 5 节）只重排**未登记**且在工作之前结束的 run（reachability 失败，或任何未消耗
 attempt 的 provider 前状态）：在 plan 位置等待后重试，等待为指数退避加抖动——60 s、120 s、

@@ -9,10 +9,15 @@ turns it into the audit half of the run's verdict.
 THE BUNDLE IS BLIND BY CONSTRUCTION, NOT BY TRUST:
 
   * `CONTRACT.md` is the worker contract with the delivery-identity block (RUN_ID, ARM,
-    CARRIER_KIND, CARRIER_SHA256, MATERIALS_COMMIT) removed between its two markers;
+    CARRIER_KIND, CARRIER_SHA256, MATERIALS_COMMIT) removed between its two markers, and T38a
+    (F38) builds it from the DRIVER's copy (`.driver/<run_id>/CONTRACT.md`) rather than from the
+    run directory the worker can write; a run-dir copy that differs is a tamper, not a source;
   * `verdict.json` is a whitelist projection of the mechanical verdict: `run_id`, `arm`,
-    `run_dir` and `materials_commit` never enter the bundle;
-  * `diff.patch` is the collected base->worker delta and `report.md` is the worker's own report;
+    `run_dir`, `materials_commit`, `base_sha` and `case_id` never enter the bundle (T38a / F41:
+    the last two name the task and its base, so the auditor would judge a known task instead of
+    the four files in front of it);
+  * `diff.patch` is the collected base->worker delta and `report.md` is the worker's own report
+    (from the driver's snapshot, when the driver supplies one);
   * the carrier text, the `H2_WARM/` bundle and the telemetry are NOT copied — and where a
     remaining string still names the arm (a worker that wrote the carrier name into its report,
     say) the frozen scan below records it as `LEAKAGE` against rubric §10 instead of pretending
@@ -65,7 +70,9 @@ ARM_REVEALING = ("h2r2-", "control_full_v1", "variant_lean_v1", "control-carrier
                  "H2_LEAN_BOOTSTRAP", "ARM = control", "ARM = variant", "CARRIER_KIND",
                  "CARRIER_SHA256")
 # The mechanical verdict is copied field by field; run identity and arm never enter the bundle.
-VERDICT_KEEP = ("schema_version", "verdict", "reasons", "task_id", "case_id", "base_sha",
+# T38a / F41: `base_sha` and `case_id` are gone too — they name the task and its registered base,
+# which the auditor must not be able to look up while judging the four files it was given.
+VERDICT_KEEP = ("schema_version", "verdict", "reasons", "task_id",
                 "oracle", "scope", "full_suite", "collected", "collected_diff_sha256",
                 "spellings")
 
@@ -117,8 +124,15 @@ def scan(files: dict[str, str]) -> list[dict]:
     return hits
 
 
-def prepare_bundle(run_dir: Path, plan_run: dict, task: dict) -> dict:
-    """Copy the blind bundle into `<run_dir>/audit/` and record what went in and what leaked."""
+def prepare_bundle(run_dir: Path, plan_run: dict, task: dict, *,
+                   contract_path: Path | None = None,
+                   report_path: Path | None = None) -> dict:
+    """Copy the blind bundle into `<run_dir>/audit/` and record what went in and what leaked.
+
+    T38a (F38 / F33): `contract_path` is the DRIVER's copy of the rendered contract and
+    `report_path` is the worker's report inside the driver's snapshot. The driver passes both;
+    without them the run directory is used, which is the CLI form only.
+    """
     run_dir = Path(run_dir).resolve()
     if plan_run["task_id"] != task["task_id"]:
         raise ValueError("TASK_ID_MISMATCH")
@@ -126,16 +140,17 @@ def prepare_bundle(run_dir: Path, plan_run: dict, task: dict) -> dict:
     # F19 / T29: the driver creates the auditor's launch directory before the fresh home (its
     # TMPDIR lives inside it); the bundle still goes in before the auditor is launched.
     audit_dir.mkdir(exist_ok=True)
-    contract = (run_dir / CONTRACT_NAME).read_text(encoding="utf-8")
+    contract = Path(contract_path or run_dir / CONTRACT_NAME).read_text(encoding="utf-8")
     collected = json.loads((run_dir / COLLECTED_NAME).read_text(encoding="utf-8"))
     verdict = json.loads((run_dir / VERDICT_NAME).read_text(encoding="utf-8"))
-    if not (run_dir / REPORT_NAME).is_file():
+    report = Path(report_path or run_dir / REPORT_NAME)
+    if not report.is_file():
         raise ValueError("REPORT_MISSING")
     files = {
         CONTRACT_NAME: blind_contract(contract),
         DIFF_NAME: str(collected.get("diff", "")),
         VERDICT_NAME: json.dumps(project_verdict(verdict), indent=2, sort_keys=True) + "\n",
-        REPORT_NAME: (run_dir / REPORT_NAME).read_text(encoding="utf-8", errors="replace"),
+        REPORT_NAME: report.read_text(encoding="utf-8", errors="replace"),
     }
     for name, text in files.items():
         (audit_dir / name).write_text(text, encoding="utf-8")
@@ -148,6 +163,7 @@ def prepare_bundle(run_dir: Path, plan_run: dict, task: dict) -> dict:
                             "arm label"],
                "observation_scope": ("Best-effort blinding: the bundle is built from the run's "
                                      "artefacts, and what remains is recorded as leakage."),
+               "contract_sha256": sha256(contract.encode("utf-8")),
                "correctness": list(CORRECTNESS),
                "severity": list(SEVERITIES),
                "category": CATEGORIES,
@@ -220,14 +236,17 @@ def evaluate(audit_dir: Path, bundle: dict) -> dict:
 
 def audit(run_dir: Path, plan_run: dict, task: dict, *, launch, command, env,
           limit_seconds: int, events_path: Path | None = None,
-          stderr_path: Path | None = None) -> dict:
+          stderr_path: Path | None = None, contract_path: Path | None = None,
+          report_path: Path | None = None) -> dict:
     """Build the blind bundle, run one fresh session in it, and validate what it wrote.
 
     F17 / T29: `events_path`/`stderr_path` let the driver keep the authoritative copy of the
     stream outside the audit directory (and outside the sandbox's writable set); the bundle's own
-    directory only receives what the auditor writes there.
+    directory only receives what the auditor writes there. T38a: `contract_path` and
+    `report_path` are the driver's contract copy and the snapshot's report.
     """
-    bundle = prepare_bundle(run_dir, plan_run, task)
+    bundle = prepare_bundle(run_dir, plan_run, task, contract_path=contract_path,
+                            report_path=report_path)
     audit_dir = Path(bundle["audit_dir"])
     result = launch([*command, plan_run["model"], AUDIT_PROMPT], audit_dir, env, limit_seconds,
                     Path(events_path) if events_path else audit_dir / EVENTS_NAME,

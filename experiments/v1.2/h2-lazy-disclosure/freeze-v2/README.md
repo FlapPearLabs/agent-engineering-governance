@@ -131,20 +131,31 @@ SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing
           (run dir for the worker, audit dir for the auditor) and the fresh per-launch home
           read-write, the interpreter prefix read-only, each ANCESTOR of the launch directory as a
           read-only `literal`; every other path under /Users, /private/tmp and /private/var/folders
-          is denied for file-read-data and file-write*. The rendered profile and its sha256 are
-          archived per attempt. Before each launch a model-free self-test must deny `cat` and
-          `<PY> -c open(...)` of a driver-planted file and allow a write inside the launch
-          directory; otherwise BLOCKED:SANDBOX_NOT_CONFINING (no attempt consumed, the same run id
-          may be invoked again, recorded). No sandbox-exec on the platform =>
-          BLOCKED:SANDBOX_UNAVAILABLE. DISCLOSED: the NAMES of ancestor directories stay listable
-          (a `literal` allows the directory node itself); their contents are not readable.
+          is denied for file-read-data. WRITES ARE A WHITELIST (F31 / T38a): `(deny file-write*
+          (subpath "/"))` denies every write in the system and only the launch directory, the fresh
+          home and `/dev/null`, `/dev/tty`, `/dev/fd`, `/dev/ttysN` are re-allowed, so a system
+          directory on the operator PATH is not writable and a launch cannot plant a binary the
+          driver would later run unsandboxed; driver-side executables (`git`, `sandbox-exec`,
+          `opencode`, `python`) are resolved to absolute paths once, at driver start. SIGNALS are
+          confined too (F35 / T38a): `(deny signal)` plus `(allow signal (target same-sandbox))`,
+          so a launch can kill its own children but not the driver, the scheduler or another run.
+          The rendered profile and its sha256 are archived per attempt. Before each launch a
+          model-free self-test must deny `cat` and `<PY> -c open(...)` of a driver-planted file,
+          deny a write OUTSIDE the launch directory, deny a signal to a process outside the
+          sandbox, deny a DNS lookup, and allow a write inside the launch directory; otherwise
+          BLOCKED:SANDBOX_NOT_CONFINING (no attempt consumed, the same run id may be invoked again,
+          recorded). No sandbox-exec on the platform => BLOCKED:SANDBOX_UNAVAILABLE. DISCLOSED: the
+          NAMES of ancestor directories stay listable (a `literal` allows the directory node
+          itself); their contents are not readable.
           NETWORK: the file rules say nothing about the network, and live pilot #5 fetched
           github.com from inside the sandbox while the public history holds every candidate fix
           (F26). Every confined launch therefore runs with `(deny network-outbound)` and
           `(deny network-bind)` plus exactly two loopback re-allows: the driver's CONNECT-only
           allowlist proxy (`egress_v2.py`, outside the sandbox) and the launch's own `serve` port.
-          The proxy tunnels only `EGRESS_ALLOW = ("opencode.ai", "models.opencode.ai")` on 443,
-          answers 403 to everything else, and appends every request (time, host, port,
+          Unix-socket egress is closed by omission (there is no `remote unix-socket` rule) and
+          `com.apple.dnssd.service` is denied, so DNS resolution fails inside the profile (F36 /
+          T38a). The proxy tunnels only `EGRESS_ALLOW = ("opencode.ai", "models.opencode.ai")` on
+          443, answers 403 to everything else, and appends every request (time, host, port,
           ALLOW/DENY) to the launch's driver-held `egress.jsonl`; it is stopped after the launch.
           The launch itself is `opencode serve --hostname 127.0.0.1 --port <P>` inside the sandbox
           (P chosen free per launch, a collision retried with a new port) plus
@@ -163,6 +174,26 @@ SANDBOX   static auditing cannot be complete, so the OS sandbox is the enforcing
           a template ignores TMPDIR and uses the per-user confstr directory under /var/folders,
           which the sandbox denies; both arms are affected identically and the worker adapts —
           the directory is not opened.
+EVIDENCE  a launch's evidence is frozen the moment it ends (F33 / T38a). The driver kills the
+          launch's process group and every process whose cwd or open files are still under the run
+          directory (`lsof +D` equivalent), records each pid and command in
+          `.driver/<run_id>/attempt-<n>/sweep.json`, and copies the run directory — `repo/`,
+          report, telemetry, delivered files — to `.driver/<run_id>/attempt-<n>/snapshot/` with a
+          per-file sha256 manifest. Collection, the scope check, the oracle hashes, the gate runs
+          and the audit bundle read ONLY that snapshot, so a detached survivor cannot change what
+          was collected, hashed or gated. The rendered CONTRACT is kept by the driver as
+          `.driver/<run_id>/CONTRACT.md` with its sha256; the audit bundle is built from that copy
+          and a run-dir copy that differs is `CONTRACT_TAMPERED` (INVALID) (F38). An unreadable
+          file in the snapshot is `INVALID:EVIDENCE_UNREADABLE`, registered rather than raised
+          (F37). A later attempt archives the previous attempt's stream directory instead of
+          deleting it (P3-7). ACCEPTANCE runs every oracle and full-suite execution in a fresh
+          gate directory below the attempt (`.driver/<run_id>/attempt-<n>/gate-<k>/`, the snapshot's
+          copy in its `repo/`) inside a rendered profile that allows NO proxy port, NO serve port,
+          no outside connect and no DNS, with a real temp directory and a symlink to it inside that
+          directory so RESOLVED and SYMLINKED still differ (F32 / T38a). Loopback itself stays open:
+          governance tests start a local HTTP server (the f04 oracle does) and the frozen PRE set
+          was measured in an environment that allows it — the gate closes egress, DNS, the proxy
+          and the serve port, not local IPC.
 FRESH HOME every launch gets a brand-new `<runs_root>/.driver/<run_id>/home-<n>` (auditor:
           `audit-home-<n>`, reachability: `probe-home-<purpose>-<n>`), mode 0700, holding only the
           frozen `worker-profile/opencode.json` and its own XDG_* directories; TMPDIR is
