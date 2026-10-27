@@ -13,6 +13,10 @@ could support a result. This program reads ONE runs root — `registry-v2.jsonl`
     reason the driver registered,
   * the attempt ledger of every run, so a retried run keeps its history,
   * the OVERLAP PAIRS of registered runs (T34: two runs of different tasks execute at once),
+  * the DENIED OUT-OF-RUN ATTEMPTS (T46): per arm and per task, the counts and the lists, plus the
+    total per arm — a reported quantity, never a decision rule. A hit the launch's own rendered
+    profile and the egress allowlist provably refuse obtained nothing, so it can never enter a
+    result; an asymmetry between the arms is discussed in the closure report,
   * the protocol-v2 §7 result token and the EXACT rule that decided it.
 
 WHAT ENTERS THE JUDGEMENT (T38b).
@@ -69,6 +73,7 @@ REGISTRY_NAME = "registry-v2.jsonl"
 ATTEMPT_REGISTRY_NAME = "attempts-v2.jsonl"
 VERDICT_NAME = Path("verdict.json")
 AUDIT_NAME = Path("audit") / "audit.json"
+ACCESS_NAME = Path("access-audit.json")
 REPORT_NAME = Path("report.md")
 ARMS = ("control", "variant")
 # A run is usable only when the mechanical verdict and the audit both produced a judgement.
@@ -224,6 +229,62 @@ def missed_guidance(findings: list[dict]) -> list[str]:
             or item.get("missed_guidance") is True]
 
 
+def denied_attempts(entry: dict, run_dir: Path) -> dict:
+    """T46: the DENIED_BY_POLICY attempts of one run — a reported quantity, never a rule.
+
+    The COUNT is the run's own registry line (the driver writes it from the audit). The LIST is
+    read from `<run_id>/access-audit.json` only when that file still matches the sha256 the same
+    registry line recorded; a mismatch, a missing file or a line that records no such hash leaves
+    the list empty and says whether it was verified. Nothing here can turn a cost into a non-cost:
+    a denied attempt obtained nothing, and the outcome rules above never read this field.
+    """
+    count = entry.get("denied_attempts")
+    record = {"count": count if isinstance(count, int) else None, "list": [], "verified": False}
+    recorded = entry.get("artifacts") if isinstance(entry.get("artifacts"), dict) else {}
+    key = ACCESS_NAME.as_posix()
+    if key not in recorded:
+        return record
+    try:
+        data = (Path(run_dir) / ACCESS_NAME).read_bytes()
+    except OSError:
+        return record
+    record["verified"] = hashlib.sha256(data).hexdigest() == str(recorded[key])
+    if not record["verified"]:
+        return record
+    try:
+        audit = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return record
+    items = audit.get("denied_attempts") if isinstance(audit, dict) else None
+    record["list"] = items if isinstance(items, list) else []
+    return record
+
+
+def denied_summary(rows: list[dict]) -> dict:
+    """T46: per arm and per task, the denied-attempt counts and lists; the total per arm."""
+    by_arm = {arm: {"count": 0, "list": []} for arm in ARMS}
+    by_task: dict[str, dict] = {}
+    total = 0
+    unverified = []
+    for row in rows:
+        count = row.get("denied_attempts")
+        count = count if isinstance(count, int) else 0
+        items = list(row.get("denied_attempt_list") or [])
+        arm, task = row.get("arm"), row.get("task_id")
+        total += count
+        if arm in by_arm:
+            by_arm[arm]["count"] += count
+            by_arm[arm]["list"].extend(items)
+        per_task = by_task.setdefault(task, {name: {"count": 0, "list": []} for name in ARMS})
+        if arm in per_task:
+            per_task[arm]["count"] += count
+            per_task[arm]["list"].extend(items)
+        if row.get("denied_attempts") is not None and not row.get("denied_attempts_verified"):
+            unverified.append(row.get("run_id"))
+    return {"total": total, "by_arm": by_arm, "by_task": by_task,
+            "unverified": sorted(item for item in unverified if item)}
+
+
 def overlap_pairs(registry: dict[str, dict]) -> list[list[str]]:
     """Registered runs whose execution intervals overlapped (T34 item 6).
 
@@ -287,6 +348,11 @@ def aggregate(runs_root: Path) -> dict:
                                       "verdict": item.get("verdict"),
                                       "reason": item.get("reason")}
                                      for item in attempts.get(run_id, [])]})
+            # T46: reported per arm and per task, and never read by the decision rules below.
+            denied = denied_attempts(entry, runs_root / run_id)
+            row.update({"denied_attempts": denied["count"],
+                        "denied_attempt_list": denied["list"],
+                        "denied_attempts_verified": denied["verified"]})
             if usable(entry):
                 run_dir = runs_root / run_id
                 trust, problems = evidence_trust(entry, run_dir)
@@ -357,6 +423,7 @@ def aggregate(runs_root: Path) -> dict:
               "audit_missing": audit_missing, "unexpected": unexpected,
               "untrusted": untrusted,
               "overlap_pairs": overlap_pairs(registry),
+              "denied_attempts": denied_summary(rows),
               "s1": s1_design_condition(), "pending_rules": list(PENDING_RULES),
               "result_scope": "runs_root_mechanical"}
     result.update(decide(pairs))

@@ -51,6 +51,15 @@ every launch are written under `<runs_root>/.driver/<run_id>/` — outside the s
 set — and every verdict input (before-work rule, tool-call count, access audit, telemetry) reads
 only that copy; the run dir gets a copy for humans afterwards.
 
+A DENIED ATTEMPT IS EVIDENCE, A BREACH IS NOT (T46, user decision A, protocol-v2 §4/§6). The audit
+classes every out-of-run hit from THIS launch's archived rendered profile and the frozen egress
+allowlist, never from the worker's text: a `DENIED_BY_POLICY` hit could not have succeeded, so it
+is counted per run (`denied_attempts` in `run.json` and in the registry line) and reported per arm
+by `aggregate_runs.py` instead of invalidating the run; a `POSSIBLE_SUCCESS` hit keeps
+INVALID:OUT_OF_RUN_ACCESS exactly as before. Independently, an access that DID succeed — a read
+result carrying content for a path the profile denies, an `egress.jsonl` ALLOW for a host off the
+allowlist, or a confinement self-test that failed — is registered INVALID:SANDBOX_BREACH.
+
 NETWORK EGRESS IS CLOSED TO THE PROVIDER (F26 / T36b). The file rules do not touch the network, and
 pilot #5 fetched github.com from inside the sandbox while the public governance history holds every
 candidate fix. Every confined launch therefore has a driver-owned, CONNECT-only HTTPS proxy
@@ -763,7 +772,7 @@ def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: st
              run_dir: Path, audit_verdict: str | None = None, session: str | None = None,
              wall_clock: float | None = None, started_at: str | None = None,
              registered_by: str | None = None, attempt: int | None = None,
-             attempts: int | None = None) -> dict:
+             attempts: int | None = None, denied_attempts: int | None = None) -> dict:
     """Append the one registry line of a run. Appending is the only way a run is registered."""
     line = {"run_id": plan_run["run_id"], "task_id": plan_run["task_id"],
             "arm": plan_run["arm"], "verdict": verdict, "audit_verdict": audit_verdict,
@@ -777,6 +786,10 @@ def register(runs_root: Path, plan_run: dict, *, verdict: str | None, reason: st
         line["attempt"] = attempt
     if attempts is not None:
         line["attempts"] = attempts
+    # T46: the count of out-of-run attempts the sandbox and the egress allowlist denied. It is a
+    # reported quantity, never part of the verdict; the list stays in the run's access-audit.json.
+    if denied_attempts is not None:
+        line["denied_attempts"] = int(denied_attempts)
     append_jsonl(registry_path(runs_root), line)
     return line
 
@@ -1669,30 +1682,44 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         "record": record}
             save(record)
 
-            # F9 / T22: the stream that already exists is evidence. Any access outside the run makes
-            # the run INVALID:OUT_OF_RUN_ACCESS; it is registered like every other terminal state and a
-            # second start is refused, so a hit can never be re-run away.
+            # F9 / T22: the stream that already exists is evidence. An access outside the run that
+            # could have succeeded makes the run INVALID:OUT_OF_RUN_ACCESS; T46: an attempt the
+            # launch's own rendered profile and the egress allowlist provably deny obtained nothing,
+            # so it is recorded as `denied_attempts` and reported per arm instead of invalidating
+            # the run, while an access that DID succeed is INVALID:SANDBOX_BREACH. Every state is
+            # registered like any other and a second start is refused, so nothing can be re-run away.
             entry = start_step(record, "access_audit")
-            access = access_audit.audit(driver_events, run_dir,
-                                        home=prepared["env"].get("HOME"),
-                                        python=sys.executable)
             # F26 / T36b: the DENY lines of this launch's egress log are evidence, never a verdict:
             # a denied CONNECT obtained nothing, exactly like a sandbox-denied read.
             egress_log = stream / egress_v2.LOG_NAME
+            sandbox_record = record.get("sandbox") or {}
+            access = access_audit.audit(driver_events, run_dir,
+                                        home=prepared["env"].get("HOME"),
+                                        python=sys.executable,
+                                        profile=(sandbox_record.get("profile") or {}).get("path"),
+                                        egress_log=egress_log,
+                                        confinement=sandbox_record.get("confinement"))
             access["egress_log"] = str(egress_log)
             access["egress_denied"] = egress_v2.denied(egress_log)
             record["egress_log"] = str(egress_log)
+            record["denied_attempts"] = int(access.get("denied_attempts_count", 0))
             (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
                                                encoding="utf-8")
+            breach_reasons = access_audit.breach_reasons(access.get("breach", []))
             access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
                               for hit in access["hits"]]
             finish_step(entry, "PASS" if access["verdict"] == "PASS" else "INVALID",
                         tool_calls=access["tool_calls"], hits=len(access["hits"]),
+                        denied_attempts=record["denied_attempts"],
+                        breach=breach_reasons,
                         unresolved_constructs=access.get("unresolved_constructs", []),
                         sandbox_denied=access.get("sandbox_denied", []),
                         egress_denied=len(access["egress_denied"]),
-                        reasons=access_reasons)
+                        reasons=[*breach_reasons, *access_reasons])
             save(record)
+            if breach_reasons:
+                return worker_terminal(run_dir, record, root, settle, breach_reasons,
+                                       evidence=evidence, stream=stream)
             if reasons:
                 return worker_terminal(run_dir, record, root, settle, reasons,
                                        evidence=evidence, stream=stream)
@@ -1866,7 +1893,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         reason=";".join(record["reasons"]), run_dir=run_dir,
                         audit_verdict=record["audit_verdict"], session=record["session_id"],
                         wall_clock=record["wall_clock_seconds"],
-                        started_at=record["started_at"], attempt=attempt, attempts=attempt)
+                        started_at=record["started_at"], attempt=attempt, attempts=attempt,
+                        denied_attempts=record.get("denied_attempts"))
         append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
                      attempt_line(plan_run,
                                   {"attempt": attempt, "kind": "TERMINAL",

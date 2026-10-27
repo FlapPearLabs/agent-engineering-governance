@@ -3735,3 +3735,133 @@ FreezeManifest.test_one_byte_mutation_of_every_frozen_file_is_rejected     （�
   没有顺手改。
 - **两份 fixture 各约 0.7 MB**：与既有五份真实流 fixture 同一做法（整条派生、只换前缀 token），
   代价是仓库体积；它们尚未进 manifest，re-pin 时才成为冻结成员。
+
+
+## T45–T46（implementer: opencode deepseek-v4.1-flash）— 被拒绝的越界尝试是证据（用户决定 A），re-pin
+
+T45 的代码与 fixture 已在前面一节落地，当时按 CODEX_FIXES_16 明确"不 re-pin"；本票（T46）实现用户
+2026-10-27 的决定 A，并把 T45 + T46 一起重新生成 pin。写入范围仍是 `freeze-v2/**` 与
+`experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`；NEVER TOUCH 列表一个字节未动。
+
+### 1. 实现（`access_audit.py` / `run_h2r2.py` / `aggregate_runs.py`，既有拒绝一条未减）
+
+```text
+access_audit.py   每个越界命中新增 class。判定只看该次 launch 已归档的渲染 profile 与冻结的
+                  EGRESS_ALLOW，绝不看 worker 文本：
+                    profile_rules()       读 profile 的 deny/allow 规则；deny 的读表与写表分开
+                                          （`(deny file-write* (subpath "/"))` 是写白名单，不是
+                                          读拒绝，混在一起会把 /etc/hosts 误判为被拒绝）。
+                    path_class()          仅当路径落在 profile 的拒绝根之下、且不被该访问类型的
+                                          allow 规则重新放行时才 DENIED_BY_POLICY；祖先 `literal`
+                                          只放行该节点本身（目录列举），不放行其下任何路径。
+                    network_class()       URL/scp 形式的 host 全部不在 EGRESS_ALLOW 时 DENIED。
+                    event_breach()        read/grep/glob 的 tool result 为被拒绝路径返回了内容。
+                    egress_breach()       该 launch egress.jsonl 的 ALLOW 行 host 不在白名单。
+                    confinement_breach()  自检非 PASS（防御性，driver 通常已 BLOCKED）。
+                  hits 只保留 POSSIBLE_SUCCESS；DENIED 进 denied_attempts（含 count）。
+                  没有可读 profile / 没有 deny 块 => 一律 POSSIBLE_SUCCESS（fail closed，
+                  宁可判 INVALID 也不凭不可读的 profile 放行）。
+run_h2r2.py       access audit 传入本 launch 的 profile 路径、egress log 与自检记录；
+                  record["denied_attempts"] 计数进 run.json，register() 写进 registry 行
+                  （`denied_attempts`）；SANDBOX_BREACH 先于其它原因登记 INVALID。
+aggregate_runs.py denied_attempts()：计数取 registry 行，清单只在 access-audit.json 的 sha256
+                  与 registry 记录一致时才读（与 F40 同一纪律）；denied_summary() 输出
+                  total / by_arm / by_task / unverified，只是报告量，不参与任何结果规则。
+```
+
+协议与说明：protocol-v2 新增 §4.1（决定引文、日期、理由、两类、BREACH 规则），§6 增量段落（同一
+引文 + 无效判定），README §4 记录决定、两类、breach 规则与 re-pin（并撤掉 T45 那句"尚未 re-pin、
+两条 FreezeManifest 预期红"）。
+
+### 2. 证据：两份真实流 + 两份真实 profile → PASS，各一条 denied attempt
+
+fixture 由只读的真实 launch 目录派生（事件流与 `worker.sb`），占位符替换与既有真实流 fixture 相同
+（`<DENY_ROOT>`/`<SHARED_ROOT>`/`<RUNS_ROOT>`/`<BATCH_ROOT>`/`<PY_ENV>`/`<PY_VERSION>`，profile 的
+两个 loopback 端口换成 `<PROXY_PORT>`/`<SERVE_PORT>`——具体端口属于 machine fingerprint，公共发布门
+会拒绝）。仓库里没有本机绝对路径，也没有操作员登录名。
+
+```text
+fixtures/pilot-bf2ca30-f01-c-worker.sb / ...-f03-c-worker.sb   两次 launch 的渲染 profile（新增）
+fixtures/pilot-bf2ca30-f01-c-events.jsonl                     194 events / 63 tool calls（T45 已加）
+fixtures/pilot-bf2ca30-f03-c-events.jsonl                     180 events / 73 tool calls（T45 已加）
+```
+
+用各自 launch 的 profile 分类后（测试里就是这两条）：
+
+```text
+f01-c  PASS   hits=[]  denied=1  event 51  shell  PATH_OUTSIDE_RUN
+       操作员 home 下 `<PY_UNPINNED>`（不在允许的解释器 prefix 内）——被 profile 拒绝
+f03-c  PASS   hits=[]  denied=1  event 72  edit   PATH_OUTSIDE_RUN
+       共享 runs root 下拼错的 run 目录（祖先 `literal` 只放行 runs root 本身）——被 profile 拒绝
+```
+
+新增 19 条测试（`AccessAuditDeniedAttempts` 13 / `DeniedAttemptsInRun` 2 /
+`DeniedAttemptsAggregate` 2 / `T46DecisionText` 2），覆盖：两条真实流各一条 DENIED 且 PASS、
+`cat /etc/hosts` => INVALID(POSSIBLE_SUCCESS)、另一 run 的文件 => 证据、祖先节点本身 => INVALID
+（反例：literal 只放行节点）、GitHub URL => 证据 / allowlist 主机 => INVALID、egress ALLOW 非
+白名单 host => INVALID:SANDBOX_BREACH、返回内容的读取 => BREACH、自检失败 => BREACH、无 profile
+=> 一律 INVALID、模板 deny 根与 `sandbox_v2.DENY_ROOTS` 一致、早期五份真实流仍 PASS、driver 端
+run.json/registry 计数、aggregate 的按臂/按任务清单与篡改后只掉清单。
+
+既有断言只改了两处，且都是本票语义改变的直接后果，没有删掉任何拒绝：
+`RunDriver.test_out_of_run_access_...` 的命中字典多一个 `"class": "POSSIBLE_SUCCESS"`（并把
+"没有可读 deny 块 => 仍然 INVALID" 断言出来）；`AccessAuditFalsePositives.test_a_clone_source_...
+` 把 GitHub URL 一例改为 denied attempt，其余五例（本地源、scp 形式、`/tmp` 源、bare remote）
+仍是 INVALID。
+
+### 3. re-pin（全部由仓库程序生成，没有任何手写 hash）
+
+```text
+$PY $H/freeze-v2/build_run_plan.py --materials a223e6d --out $H/freeze-v2/run-plan-v2.json
+  -> RUN_PLAN_V2 runs=20 control_first=5 variant_first=5 fresh_episode=20   （只有 materials_commit 变）
+$PY $H/freeze-v2/delivery_anchors.py . $H/admission/freeze-v2-input/shortlist.json \
+        --materials a223e6d --out $H/freeze-v2/delivery-anchors.json
+  -> DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0, "WRAPPER": 10}
+     与上一版逐字段比较：除 materials_commit 外完全字节相同（wrapper_program_sha256 未变，
+     10 任务 PRE/POST 集合与 ran 数未变）
+$PY $H/freeze-v2/build_manifest.py build --freeze-parent a223e6d --out $H/freeze-v2/freeze-manifest.json
+  -> FREEZE_MANIFEST files=60 delivery_payload_equivalent_to_T2=YES
+$PY $H/freeze-v2/build_manifest.py check
+  -> {"verdict": "PASS", "mismatches": []}
+测试里的 60 条 EXPECTED_V2_HASHES 与 MANIFEST_SHA256（93f0c15f…cafb5）由 manifest 文件直接生成，
+不是手抄。manifest 成员从 56 增到 60：加入本票的四份 fixture（两份事件流 + 两份渲染 profile）。
+```
+
+### 4. §0 GATES（前台逐条运行，PYTHONPATH 未设，TMPDIR 已解析为物理路径，退出码不经管道）
+
+```text
+$PY -m ruff check .                                          -> All checks passed!            (exit 0)
+$PY scripts/validate_governance.py                            -> 35/35 checks passed           (exit 0)
+$PY scripts/validate_public_release.py                        -> VIOLATIONS=0                  (exit 0)
+TMPDIR=$(cd "$TMPDIR" && pwd -P) $PY -m unittest discover -s scripts/tests
+                                                              -> Ran 602 tests in 28.798s / OK (exit 0)
+TMPDIR=$(cd "$TMPDIR" && pwd -P) $PY -m unittest discover -s experiments/v1.2/tests
+                                                              -> Ran 518 tests in 1268.187s / OK (exit 0)
+git diff --stat c40266f -- <every NEVER TOUCH path>           -> (空)
+git diff --check                                              -> (空)
+```
+
+实验模块 499 → 518（+19，全部来自本票）；既有测试一条未删。未解析 TMPDIR 时
+`WorkerCodeConfinement` / `EgressAllowlist` 那两条 T41/T43 已登记的拼写差异仍会出现，本票未改它们。
+
+上面两条 unittest 数字取自代码、测试、fixture 与 pin 都已定稿、本文件尚未写入的那次全量运行；写成本节
+之后只改了本文件（`grep -rn CODEX_REPORT experiments/v1.2/tests scripts` 无输出，没有任何测试读它），
+随后在最终树上把所有门重跑一遍并以 `&&` 链到提交（见提交说明里的 gate 行）：ruff、governance、
+public release、scripts/tests、experiments/v1.2/tests、`build_manifest.py check` 与 `git diff --check`
+全绿；两次全量运行的用例数相同（602 / 518），耗时不同属正常。
+
+### 5. 未做 / 未证明 / 风险（不隐瞒）
+
+- **没有 live run**：证据是两次真实 launch 的只读事件流与被这两次 launch 实际使用的渲染 profile，
+  加 19 条单测；"被拒绝的越界尝试在下一次 counted run 里确实记为 denied attempt" 仍需真实 end-to-end
+  确认（本票按要求不执行任何 H2-R2 run、不调模型）。
+- **分类只和归档 profile 一样可靠**：profile 缺失或不可读时一律 POSSIBLE_SUCCESS（fail closed），
+  所以 Wrapper/Stub 场景下不会出现"凭不可读 profile 放行"。反过来，若将来渲染规则比模板更宽，分类
+  会随之变化——这正是"按该次 launch 的 profile 判定"的含义。
+- **写入类命中会被判 DENIED**：真实 profile 的 `(deny file-write* (subpath "/"))` 意味着 launch 目录
+  与 fresh home 之外任何写入都必然失败，因此 `write`/`edit`/`patch` 的越界命中都会被归为证据。这是
+  模板事实，不是本票放宽；读类命中不受影响（`/etc/hosts` 仍 INVALID）。
+- **网络类只按 host 判**：`git push origin`（bare remote）与 scp 形式无法得知 host，仍按
+  POSSIBLE_SUCCESS 判 INVALID（保守方向）；只有能解析出 host 且全部不在 allowlist 时才记为证据。
+- **两臂不对称仍是人工判断**：aggregate 只报告计数与清单，是否成为 finding 由 closure report 决定。
+- fixture 体积再增约 8 KB（两份 profile 各约 4 KB），两份事件流约 1.4 MB 是 T45 已有的。

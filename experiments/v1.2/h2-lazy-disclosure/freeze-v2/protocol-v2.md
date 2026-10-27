@@ -81,6 +81,40 @@ worker 结束后、机械验收之前，access audit 从 `events.jsonl` 复算�
 除外；试图触达其他仓库的 shell `git` 调用与白名单外的工具同样计为命中。任一命中使该 run
 为 INVALID:OUT_OF_RUN_ACCESS，按第 6 节登记且不再重跑，audit verdict 逐条保留命中原文。
 
+### 4.1 越界命中的分类：被拒绝的是证据，成功的是 INVALID（T46，用户决定 A）
+
+**决定引文（用户，2026-10-27，任一计数 run 之前）**：“采用 A：被沙箱拒绝的越界尝试记为证据并按
+臂报告，只有越界访问实际成功才判 INVALID；在第一次正式运行前写进协议。”
+
+理由：规则制定时（F9）静态审计是唯一屏障；自 F16/F26/F31 起，OS sandbox 与 egress allowlist 才是
+执行屏障（独立评审者自己的攻击已被其拦下）。被拒绝的尝试什么也没有拿到，因此不可能污染结果；把它
+判无效只会丢掉有效配对——重放 4-run pilot batch 时，4 个 run 里有 2 个只因路径笔误（操作员 home 下
+一个不在允许 prefix 内的解释器路径；共享 runs root 下一个拼错的 run 目录）而被判无效。被拒绝的尝试
+仍按臂可见，两臂之间若不对称，作为 finding 写入 closure report。
+
+每个命中都按**该次 launch 已归档的渲染 profile** 与冻结 egress allowlist 分类，绝不依据 worker 的
+文本：
+
+```text
+DENIED_BY_POLICY  访问无法成功：路径解析到 profile 拒绝的根（/Users、/private/tmp、/var/folders、
+                  /private/var/folders 及其别名），且不落在该访问类型被 profile 重新放行的路径下
+                  （launch 目录、fresh home、解释器 prefix；祖先的 `literal` 只放行该节点本身的
+                  目录列举，不放行其下的任何路径）；或目标是 host 不在 EGRESS_ALLOW 的网络位置。
+                  仅作证据：按 run 记为 denied_attempts（含计数），run.json 与 registry 行都带该
+                  计数，access-audit.json 保留清单；aggregate_runs.py 按臂、按任务报告清单与计数
+                  及每臂合计——这是报告量，不是判定规则。
+POSSIBLE_SUCCESS  其他一切越界命中：不在系统白名单中的可读系统文件（例如 /etc/hosts）、没有可读
+                  归档 profile 时的任何命中、无法解析的 ~/$HOME、模板外的工具、畸形行……访问
+                  **可能**成功，因此该 run 仍按原规则登记 INVALID:OUT_OF_RUN_ACCESS。
+BREACH            与静态命中无关的**实际成功**：read/grep/glob 的 tool result 为被拒绝根下、
+                  profile 未重新放行的路径返回了内容；该 launch 的 egress.jsonl 出现 host 不在
+                  EGRESS_ALLOW 的 ALLOW 行；或 confinement 自检失败却未被前置检查拦下
+                  => 登记 INVALID:SANDBOX_BREACH。
+```
+
+分类只可能把“可能成功”的命中留在原判，绝不会把 POSSIBLE_SUCCESS 洗成证据；`DENY` 行与
+`sandbox_denied`（F16/F26）依旧只是证据，语义不变。
+
 shell 工具在本 runtime 中名为 `shell`（`bash` 一并接受），命令按 shell 标点切分为 token 后
 再解析路径；`git` 的判定对象是它在同一命令中的**有效仓库**——先应用同一命令内的 `cd`，再应用
 该 git 调用自己的 `-C` / `--git-dir` / `--work-tree`——只有解析到 run 目录与 OS temp 根之外时
@@ -312,9 +346,25 @@ base→worker 差异（含 worker 违约提交时的完整改动）、报告与�
 沿用 protocol.md §8：保留 RUN_ID、ARM、TASK_ID、原因、发现时间和 artifact 位置。
 wrong worktree/base、carrier/hash 不符、交付/证据污染、路径/路由条件不满足、遥测或报告
 缺失、环境/worker 中断、harness defect、model tier 或 task text 不符都必须登记。越出 run 目录的
-访问（OUT_OF_RUN_ACCESS，第 4 节）是独立登记原因：命中即无效，不因机械验收通过而软化。
+访问（OUT_OF_RUN_ACCESS，第 4 节）是独立登记原因：T46 起按 §4.1 分类，`POSSIBLE_SUCCESS` 命中
+即无效，`DENIED_BY_POLICY` 命中只作按臂报告的 `denied_attempts` 证据；该分类不因机械验收通过
+或失败而改变，也不软化任何可能成功的命中。
 不覆写原 run，不复用 episode，不默默重跑直到结果好看。任何重试须有新的登记身份与原因；
 不能把新增重试混入冻结二十条的确认性统计。blocked 与 invalid 分开，均不能冒充 PASS。
+
+T46（用户决定 A，2026-10-27，任一计数 run 之前；规则与理由同 §4.1）：越界访问分两类，只有
+**实际成功**的越界访问使 run 无效。决定引文：“采用 A：被沙箱拒绝的越界尝试记为证据并按臂报告，
+只有越界访问实际成功才判 INVALID；在第一次正式运行前写进协议。” 理由：F9 时静态审计是唯一屏障，
+自 F16/F26/F31 起 OS sandbox 与 egress allowlist 才是执行屏障；被拒绝的尝试什么也没拿到，因此
+只会白白丢掉有效配对（4-run pilot batch 里 2/4 个 run 死于路径笔误）。被该次 launch 的归档渲染
+profile 与冻结 egress allowlist 证明无法成功的命中（`DENIED_BY_POLICY`）不判 INVALID：按 run 记
+`denied_attempts`，计数进 `run.json` 与 `registry-v2.jsonl`，清单留在 `access-audit.json`，
+`aggregate_runs.py` 按臂与按任务报告清单、计数与每臂合计（报告量，不是判定规则），两臂的不对称
+由 closure report 讨论。其余命中（`POSSIBLE_SUCCESS`，含任何无法据归档 profile 决定的命中）仍是
+INVALID:OUT_OF_RUN_ACCESS。越界访问**实际成功**才是 INVALID:SANDBOX_BREACH：read/grep/glob 的
+tool result 为被拒绝根下、profile 未重新放行的路径返回了内容；该 launch 的 `egress.jsonl` 出现
+host 不在 `EGRESS_ALLOW` 的 ALLOW 行；confinement 自检失败而未被前置检查拦下。被拒绝的尝试什么
+也没有拿到，因此不进结果、也不改变任何结果规则；它仍按 §5 登记为终局，run 不会被重跑。
 
 driver 副本缺失（EVIDENCE_MISSING）是 INVALID 的独立原因，且永不重试；sandbox 不可用
 （SANDBOX_UNAVAILABLE）、渲染 profile 未通过 confinement 自检（SANDBOX_NOT_CONFINING）与

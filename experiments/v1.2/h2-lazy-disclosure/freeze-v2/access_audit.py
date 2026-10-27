@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Out-of-run access audit of one run's event stream (F9 / T22).
+"""Out-of-run access audit of one run's event stream (F9 / T22), classified per hit (T46).
 
 The worker contract confines every tool call to the wrapper, but nothing read the evidence that
 already exists: `events.jsonl` records the input of every tool call — read/glob/grep/edit/write
 paths and shell commands. This module replays that stream and reports, verbatim, every access that
 resolves outside the run directory, plus every shell `git` invocation that tries to reach another
-repository and every tool outside the frozen allow-list. A hit makes the run
-INVALID:OUT_OF_RUN_ACCESS; it is registered and never re-run (protocol-v2 §6).
+repository and every tool outside the frozen allow-list. Every hit is CLASSIFIED (T46, user decision
+A): a hit that the launch's own rendered sandbox and the frozen egress allowlist provably refuse is
+`DENIED_BY_POLICY` — recorded as `denied_attempts` and reported per arm, not a verdict — while a hit
+that could have succeeded keeps making the run INVALID:OUT_OF_RUN_ACCESS; the run is registered and
+never re-run (protocol-v2 §6). An access that DID succeed is a breach (INVALID:SANDBOX_BREACH).
 
 What is flagged:
 
@@ -80,6 +83,31 @@ roots and `/dev/null`. Everything else is out of run. The git location flags are
 the run directory and, for the F13 reason above, the temp roots: a temp directory is a legitimate
 scratch target and a legitimate place to run git in; every other repository is foreign.
 
+T46 — WHETHER THE ATTEMPT COULD HAVE SUCCEEDED. The static audit was the only barrier when the
+OUT_OF_RUN_ACCESS rule was made (F9). Since F16/F26/F31 the OS sandbox and the egress allowlist
+enforce confinement, and the independent reviewer's own attacks were denied by them. A denied
+attempt obtains nothing, so it cannot contaminate a result; invalidating it only removes valid
+pairs — the 4-run pilot batch lost two of four runs to path typos, one of them an interpreter path
+under the operator home that is not the allowed prefix, the other a misspelled run dir under the
+shared runs root. The class of a hit is therefore decided from the launch's ARCHIVED rendered
+profile and the frozen egress allowlist, NEVER from the worker's text:
+
+  * `DENIED_BY_POLICY` — the access cannot succeed: the path resolves under a root the profile
+    denies (`/Users`, `/private/tmp`, `/var/folders`, `/private/var/folders` and their aliases) and
+    under no path that profile re-allows for that access type (launch dir, fresh home, interpreter
+    prefix; an ancestor `literal` re-allows only that exact node — a directory listing — never a
+    path below it), or the target is a network location whose host the allowlist does not carry.
+    These are EVIDENCE: `denied_attempts`, with their count, per run.
+  * `POSSIBLE_SUCCESS` — every other out-of-run hit, including every hit this audit cannot decide
+    (no archived profile, an unresolvable `~`/`$HOME`, a tool outside the allow-list, a malformed
+    line) and a readable system file such as `/etc/hosts` that is not on the system allow-list:
+    the access could have succeeded, so the run keeps INVALID:OUT_OF_RUN_ACCESS exactly as before.
+
+Independently of any static hit, an EMPIRICAL BREACH makes the run INVALID:SANDBOX_BREACH: a
+read/grep/glob tool result that returned content for a path under a denied root the profile does
+not re-allow, an `ALLOW` line in the launch's `egress.jsonl` for a host off the allowlist, or a
+confinement self-test that failed and was not caught before the launch (`breach`).
+
 Scope of the verdict: OBSERVABLE tool calls only. Hidden runtime context, and any access a tool
 performs internally without reporting it, is not observable from the event stream.
 """
@@ -93,6 +121,8 @@ import shlex
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
+
+from egress_v2 import EGRESS_ALLOW
 
 RUN_ROOT = "<RUN_ROOT>"
 TOOL_ALLOW = frozenset({"read", "write", "edit", "multiedit", "patch", "bash", "shell", "glob",
@@ -148,6 +178,25 @@ ABS_PATH_RE = re.compile(r"/[^\s'\"`:,;()\[\]{}<>]+")
 HEREDOC_OPERATOR_RE = re.compile(
     r"(?P<operator><<(?P<dash>-)?[ \t]*)"
     r"(?:'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"|(?P<word>[^\s;&|<>()]+))")
+
+# T46: the two classes of one hit, the profile rules they are decided from, and the breach kinds.
+DENIED_BY_POLICY = "DENIED_BY_POLICY"
+POSSIBLE_SUCCESS = "POSSIBLE_SUCCESS"
+HIT_CLASSES = (DENIED_BY_POLICY, POSSIBLE_SUCCESS)
+# The tools whose RESULT carries content, and the tools whose input is a write (never read-only).
+READ_TOOLS = frozenset({"read", "grep", "glob", "list"})
+WRITE_TOOLS = frozenset({"write", "edit", "multiedit", "patch"})
+READ_OPS = frozenset({"file-read-data", "file-read*"})
+WRITE_OPS = frozenset({"file-write*", "file-write-data", "file-write-create"})
+ALLOW_RULE_RE = re.compile(r"^\(allow\s+(?P<ops>[a-z0-9*-]+(?:\s+[a-z0-9*-]+)*)")
+DENY_RULE_RE = re.compile(r"^\(deny\s+(?P<ops>[a-z0-9*-]+(?:\s+[a-z0-9*-]+)*)")
+RULE_CLAUSE_RE = re.compile(r"\((literal|subpath|regex)\s+(?:\"([^\"]*)\"|#\"([^\"]*)\"#)\)")
+URL_HOST_RE = re.compile(r"[a-z][a-z0-9+.-]*://([^/\s@:#]+)", re.IGNORECASE)
+HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z][A-Za-z0-9-]*$")
+BREACH_DENIED_CONTENT = "READ_CONTENT_UNDER_DENIED_ROOT"
+BREACH_EGRESS = "EGRESS_ALLOW_NOT_ALLOWLISTED"
+BREACH_CONFINEMENT = "CONFINEMENT_SELF_TEST_FAILED"
+BREACH_PREFIX = "SANDBOX_BREACH"
 
 
 def allowed_roots(python: str | None = None) -> tuple[str, ...]:
@@ -211,6 +260,213 @@ def path_reason(value: str, run_dir: Path, home: str | None,
     if any(inside(resolved, root) for root in allow):
         return None
     return "PATH_OUTSIDE_RUN"
+
+
+def path_hit(value: str, run_dir: Path, home: str | None, allow: tuple[str, ...],
+             rules: dict | None = None, *, write: bool = False,
+             base: str | None = None) -> dict | None:
+    """One path-shaped value as a hit (already classified, T46), or None when it is allowed.
+
+    The class is decided from the RESOLVED path and the archived profile of the same launch, so a
+    relative token is judged in the directory the command actually stood in, never in the run
+    directory by assumption.
+    """
+    reason = path_reason(value, run_dir, home, allow, base=base)
+    if reason is None:
+        return None
+    resolved = resolve(value, run_dir, home, base=base)
+    return {"reason": reason, "value": value, "class": path_class(resolved, rules, write=write)}
+
+
+def profile_statements(text: str) -> list[str]:
+    """The top-level `( ... )` statements of a rendered profile, each joined onto one line.
+
+    A rendered deny block is written over several lines (`(deny file-read-data file-write*` then
+    one `(subpath "…")` per line and a closing `)`), and a rule is only readable once its clauses
+    are back on the same line; a comment line outside a statement is skipped.
+    """
+    statements: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not current and not line.startswith("("):
+            continue                                    # a comment, a blank line
+        current.append(line)
+        depth += line.count("(") - line.count(")")
+        if depth <= 0:
+            statements.append(" ".join(part for part in current if part))
+            current = []
+            depth = 0
+    if current:
+        statements.append(" ".join(current))
+    return statements
+
+
+def profile_rules(profile) -> dict | None:
+    """The deny roots and the allow rules of one ARCHIVED rendered profile, or None.
+
+    None — no profile, an unreadable one, or one with no deny block — means NOTHING can be called
+    `DENIED_BY_POLICY`: the audit refuses to excuse an access on a profile it cannot read, so such
+    a hit stays `POSSIBLE_SUCCESS` and keeps the run INVALID.
+    """
+    if profile is None:
+        return None
+    try:
+        text = Path(profile).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    deny_read: set[str] = set()
+    deny_write: set[str] = set()
+    allow: list[dict] = []
+    for statement in profile_statements(text):
+        clauses = [(kind, quoted or regex)
+                   for kind, quoted, regex in RULE_CLAUSE_RE.findall(statement)]
+        match = DENY_RULE_RE.match(statement)
+        if match is not None:
+            ops = set(match.group("ops").split())
+            values = {value for kind, value in clauses if kind == "subpath" and value}
+            # `(deny file-write* (subpath "/"))` is the WRITE whitelist, not a read denial: the
+            # two surfaces are kept apart, or every readable system file would look denied.
+            if ops & READ_OPS:
+                deny_read |= values
+            if ops & WRITE_OPS:
+                deny_write |= values
+            continue
+        match = ALLOW_RULE_RE.match(statement)
+        if match is None or not clauses:
+            continue
+        ops = set(match.group("ops").split())
+        allow.append({"read": bool(ops & READ_OPS), "write": bool(ops & WRITE_OPS),
+                      "clauses": clauses})
+    if not (deny_read or deny_write):
+        return None
+    return {"deny_read": sorted(deny_read), "deny_write": sorted(deny_write), "allow": allow}
+
+
+def path_class(resolved: str | None, rules: dict | None, *, write: bool = False) -> str:
+    """The class of one resolved path: DENIED only when the archived profile provably refuses it."""
+    if not resolved or rules is None:
+        return POSSIBLE_SUCCESS
+    for rule in rules["allow"]:
+        if (write and not rule["write"]) or (not write and not rule["read"]):
+            continue
+        for kind, value in rule["clauses"]:
+            if kind == "subpath" and value and inside(resolved, value):
+                return POSSIBLE_SUCCESS
+            # An ancestor `literal` re-allows the node itself (a directory listing), never a path
+            # below it: the contents of an ancestor stay unreadable (README §3 discloses the names).
+            if kind == "literal" and value and os.path.realpath(value) == resolved:
+                return POSSIBLE_SUCCESS
+    roots = rules["deny_write"] if write else rules["deny_read"]
+    if any(inside(resolved, root) for root in roots):
+        return DENIED_BY_POLICY
+    return POSSIBLE_SUCCESS
+
+
+def network_hosts(value: str) -> list[str]:
+    """The host names a command names: URL authorities and scp `host:path` forms."""
+    text = str(value or "")
+    hosts = {host for host in URL_HOST_RE.findall(text) if host}
+    for token in shell_tokens(text):
+        token = token.strip("'\"")
+        if not token or token in OPERATORS or "://" in token or not GIT_SCP_RE.match(token):
+            continue
+        host = token.split(":", 1)[0].rsplit("@", 1)[-1]
+        if HOSTNAME_RE.match(host):
+            hosts.add(host)
+    return sorted(hosts)
+
+
+def network_class(command: str) -> str:
+    """DENIED when every host the command names is off the frozen egress allowlist (T46)."""
+    hosts = network_hosts(command)
+    if hosts and not any(host in EGRESS_ALLOW for host in hosts):
+        return DENIED_BY_POLICY
+    return POSSIBLE_SUCCESS
+
+
+def event_breach(event, run_dir: Path, home: str | None, rules: dict | None) -> list[dict]:
+    """T46: a read/grep/glob result that RETURNED content for a path the profile denies.
+
+    The attempt is read from the recorded input and the outcome from the recorded result: a call
+    whose status is not `completed`, or whose output is empty, obtained nothing and is no breach.
+    """
+    if not isinstance(event, dict) or event.get("type") != "tool_use":
+        return []
+    part = event.get("part") if isinstance(event.get("part"), dict) else {}
+    tool = part.get("tool")
+    if tool not in READ_TOOLS:
+        return []
+    state = part.get("state") if isinstance(part.get("state"), dict) else {}
+    if state.get("status") not in (None, "completed"):
+        return []
+    output = state.get("output")
+    if not isinstance(output, str) or not output.strip():
+        return []
+    inputs = state.get("input") if isinstance(state.get("input"), dict) else {}
+    values = [inputs.get(key) for key in PATH_KEYS]
+    if tool in SEARCH_TOOLS:
+        values.extend(value for value in (inputs.get(key) for key in SEARCH_PATH_KEYS)
+                      if isinstance(value, str) and path_shaped_search(value))
+    breaches: list[dict] = []
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        resolved = resolve(value, run_dir, home)
+        if path_class(resolved, rules) != DENIED_BY_POLICY:
+            continue
+        breaches.append({"kind": BREACH_DENIED_CONTENT, "tool": tool, "path": value,
+                         "value": output.strip()[:200]})
+    return breaches
+
+
+def egress_breach(log_path) -> list[dict]:
+    """T46: an ALLOW line for a host the frozen egress allowlist does not carry.
+
+    A DENY line is the proxy refusing (evidence, F26); an ALLOW line for any other host would mean
+    the allowlist did not hold — that is a breach, not a hit.
+    """
+    if log_path is None:
+        return []
+    path = Path(log_path)
+    if not path.is_file():
+        return []
+    breaches: list[dict] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict) or entry.get("verdict") != "ALLOW":
+            continue
+        host = entry.get("host")
+        if isinstance(host, str) and host and host not in EGRESS_ALLOW:
+            breaches.append({"kind": BREACH_EGRESS, "host": host, "port": entry.get("port"),
+                             "at": entry.get("at")})
+    return breaches
+
+
+def confinement_breach(confinement) -> list[dict]:
+    """T46: a confinement self-test that is not PASS (defensive: the driver blocks on it first)."""
+    if not isinstance(confinement, dict):
+        return []
+    verdict = confinement.get("verdict")
+    if verdict is None or verdict == "PASS":
+        return []
+    reasons = [str(item) for item in confinement.get("reasons", [])]
+    return [{"kind": BREACH_CONFINEMENT, "verdict": verdict, "reasons": reasons}]
+
+
+def breach_reasons(breaches) -> list[str]:
+    """The registration reasons of one breach: `SANDBOX_BREACH:<kind>:<detail>` (T46)."""
+    reasons = []
+    for item in breaches or ():
+        detail = item.get("path") or item.get("host") or item.get("verdict") or ""
+        reasons.append(f"{BREACH_PREFIX}:{item.get('kind')}:{detail}")
+    return reasons
 
 
 def token_values(token: str) -> list[str]:
@@ -449,8 +705,13 @@ def local_source(value: str, cwd: str, run_dir: Path, home: str | None,
 
 
 def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
-                      home: str | None, temps: tuple[str, ...]) -> list[dict]:
-    """One git invocation: remote escapes, and a foreign effective repository (F13 / F27a)."""
+                      home: str | None, temps: tuple[str, ...],
+                      rules: dict | None = None) -> list[dict]:
+    """One git invocation: remote escapes, and a foreign effective repository (F13 / F27a).
+
+    T46: a remote escape is judged by the hosts it names (the frozen egress allowlist is what can
+    stop it), a foreign effective repository by the same profile rules as any other path.
+    """
     hits: list[dict] = []
     repo = cwd
     unresolved: str | None = None
@@ -483,13 +744,16 @@ def git_argument_hits(args: list[str], command: str, cwd: str, run_dir: Path,
             remote_hit = True
     if remote_hit:
         hits.append({"tool": "shell", "reason": "GIT_REMOTE_REPOSITORY",
-                     "value": command, "path": subcommand or "git"})
+                     "value": command, "path": subcommand or "git",
+                     "class": network_class(command)})
     if unresolved is not None:
         hits.append({"tool": "shell", "reason": "GIT_FOREIGN_REPOSITORY",
-                     "value": command, "path": unresolved})
+                     "value": command, "path": unresolved,
+                     "class": POSSIBLE_SUCCESS})
     elif not inside(repo, str(run_dir)) and not any(inside(repo, root) for root in temps):
         hits.append({"tool": "shell", "reason": "GIT_FOREIGN_REPOSITORY",
-                     "value": command, "path": repo})
+                     "value": command, "path": repo,
+                     "class": path_class(repo, rules)})
     return hits
 
 
@@ -506,7 +770,7 @@ def cd_argument(tokens: list[str], index: int) -> tuple[str | None, int]:
 
 
 def git_hits(tokens: list[str], run_dir: Path, home: str | None,
-             cwd: str | None = None) -> list[dict]:
+             cwd: str | None = None, rules: dict | None = None) -> list[dict]:
     """Shell `git` invocations that reach another repository.
 
     The working directory follows a `cd` in the same command list; an argument list ends at the
@@ -514,6 +778,7 @@ def git_hits(tokens: list[str], run_dir: Path, home: str | None,
     judgeable, and what keeps another program's `-C` out of git's argument list (F12 / F13).
     F42 / T40: the `cd` operand is consumed, so it can never be mistaken for a `git` invocation.
     F43: `cwd` is the tool call's `workdir` when it has one, the run directory otherwise.
+    T46: `rules` is the archived profile of the same launch, used to classify each hit.
     """
     hits: list[dict] = []
     command = " ".join(tokens)
@@ -541,12 +806,12 @@ def git_hits(tokens: list[str], run_dir: Path, home: str | None,
             if argument in OPERATORS:
                 break
             args.append(argument)
-        hits.extend(git_argument_hits(args, command, cwd, run_dir, home, temps))
+        hits.extend(git_argument_hits(args, command, cwd, run_dir, home, temps, rules))
     return hits
 
 
 def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, ...],
-               cwd: str | None = None) -> list[dict]:
+               cwd: str | None = None, rules: dict | None = None) -> list[dict]:
     """Every path-shaped token of one shell command, plus the git rules above.
 
     F27b: resolution follows the working directory the same command established with `cd`, so an
@@ -560,6 +825,8 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
     shell words; the operator line itself is judged in full.
     F47 / T45: the script/program/pattern operand of sed/awk/grep is text the program interprets,
     not a place, so it is the one kind of operand that is not judged as a path.
+    T46: a shell token is classified as a READ, the weaker of the two accesses: a path the profile
+    re-allows for reading but not for writing therefore stays `POSSIBLE_SUCCESS`.
     """
     command_line, _ = split_heredocs(command)
     tokens = shell_tokens(command_line)
@@ -570,10 +837,11 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
 
     def judge(values: list[str], base: str) -> None:
         for value in values:
-            reason = path_reason(value, run_dir, home, allow, base=base)
-            if reason:
-                hits.append({"tool": "shell", "reason": reason, "value": command.strip(),
-                             "path": value})
+            hit = path_hit(value, run_dir, home, allow, rules, base=base)
+            if hit:
+                hits.append({"tool": "shell", "reason": hit["reason"],
+                             "value": command.strip(), "path": value,
+                             "class": hit["class"]})
 
     cwd = cwd or str(run_dir)
     index = 0
@@ -595,12 +863,12 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
         resolved = resolve(argument, run_dir, home, base=cwd)
         if resolved:
             cwd = resolved
-    hits.extend(git_hits(tokens, run_dir, home, cwd))
+    hits.extend(git_hits(tokens, run_dir, home, cwd, rules))
     return hits
 
 
 def shell_workdir(inputs: dict, run_dir: Path, home: str | None,
-                  allow: tuple[str, ...]) -> tuple[str, list[dict]]:
+                  allow: tuple[str, ...], rules: dict | None = None) -> tuple[str, list[dict]]:
     """F43: the directory one shell command starts in, and a hit when that place is out of run.
 
     The `workdir` is a path like any other (a relative value resolves against the run directory,
@@ -613,9 +881,9 @@ def shell_workdir(inputs: dict, run_dir: Path, home: str | None,
         value = inputs.get(key)
         if not isinstance(value, str) or not value.strip():
             continue
-        reason = path_reason(value, run_dir, home, allow)
-        if reason:
-            hits.append({"reason": reason, "value": value})
+        hit = path_hit(value, run_dir, home, allow, rules)
+        if hit:
+            hits.append(hit)
         resolved = resolve(value, run_dir, home)
         if resolved:
             base = resolved
@@ -623,7 +891,7 @@ def shell_workdir(inputs: dict, run_dir: Path, home: str | None,
 
 
 def search_input_hits(inputs: dict, run_dir: Path, home: str | None,
-                      allow: tuple[str, ...]) -> list[dict]:
+                      allow: tuple[str, ...], rules: dict | None = None) -> list[dict]:
     """F43: a glob/grep `pattern`/`include` that is a place, judged against the tool's `path`.
 
     A pattern is a name (`*.py`) until it is absolute or carries a `..` segment; then it names a
@@ -641,9 +909,9 @@ def search_input_hits(inputs: dict, run_dir: Path, home: str | None,
         value = inputs.get(key)
         if not isinstance(value, str) or not path_shaped_search(value):
             continue
-        reason = path_reason(value, run_dir, home, allow, base=base)
-        if reason:
-            hits.append({"reason": reason, "value": value})
+        hit = path_hit(value, run_dir, home, allow, rules, base=base)
+        if hit:
+            hits.append(hit)
     return hits
 
 
@@ -759,47 +1027,57 @@ def patch_paths(text) -> list[str]:
 
 
 def event_hits(event, index: int, run_dir: Path, home: str | None,
-               allow: tuple[str, ...]) -> list[dict]:
-    """The hits of one parsed event; a non-`tool_use` event carries no access."""
+               allow: tuple[str, ...], rules: dict | None = None) -> list[dict]:
+    """The hits of one parsed event; a non-`tool_use` event carries no access.
+
+    Every hit carries its `class` (T46): a `DENIED_BY_POLICY` hit obtained nothing and is reported
+    as evidence, a `POSSIBLE_SUCCESS` hit keeps the run INVALID.
+    """
     if not isinstance(event, dict):
-        return [{"event": index, "reason": "MALFORMED_EVENT", "value": str(event)[:200]}]
+        return [{"event": index, "reason": "MALFORMED_EVENT", "value": str(event)[:200],
+                 "class": POSSIBLE_SUCCESS}]
     if event.get("type") != "tool_use":
         return []
     part = event.get("part")
     if not isinstance(part, dict):
-        return [{"event": index, "reason": "MALFORMED_EVENT", "value": ""}]
+        return [{"event": index, "reason": "MALFORMED_EVENT", "value": "",
+                 "class": POSSIBLE_SUCCESS}]
     tool = part.get("tool")
     state = part.get("state") if isinstance(part.get("state"), dict) else {}
     inputs = state.get("input") if isinstance(state.get("input"), dict) else {}
     if not isinstance(tool, str) or not tool:
-        return [{"event": index, "reason": "TOOL_UNIDENTIFIED", "value": ""}]
+        return [{"event": index, "reason": "TOOL_UNIDENTIFIED", "value": "",
+                 "class": POSSIBLE_SUCCESS}]
     hits: list[dict] = []
     if tool not in TOOL_ALLOW:
-        hits.append({"event": index, "tool": tool, "reason": "TOOL_NOT_ALLOWED", "value": tool})
+        hits.append({"event": index, "tool": tool, "reason": "TOOL_NOT_ALLOWED", "value": tool,
+                     "class": POSSIBLE_SUCCESS})
     if tool in PATH_TOOLS:
+        write = tool in WRITE_TOOLS
         for key in PATH_KEYS:
             value = inputs.get(key)
             if not isinstance(value, str):
                 continue
-            reason = path_reason(value, run_dir, home, allow)
-            if reason:
-                hits.append({"event": index, "tool": tool, "reason": reason, "value": value})
+            hit = path_hit(value, run_dir, home, allow, rules, write=write)
+            if hit:
+                hits.append({"event": index, "tool": tool, **hit})
     if tool in SHELL_TOOLS:
-        base, workdir_hits = shell_workdir(inputs, run_dir, home, allow)
+        base, workdir_hits = shell_workdir(inputs, run_dir, home, allow, rules)
         hits.extend({**hit, "event": index, "tool": tool} for hit in workdir_hits)
         for key in COMMAND_KEYS:
             command = inputs.get(key)
             if isinstance(command, str):
                 hits.extend({**hit, "event": index, "tool": tool}
-                            for hit in shell_hits(command, run_dir, home, allow, cwd=base))
+                            for hit in shell_hits(command, run_dir, home, allow, cwd=base,
+                                                  rules=rules))
     if tool in SEARCH_TOOLS:
         hits.extend({**hit, "event": index, "tool": tool}
-                    for hit in search_input_hits(inputs, run_dir, home, allow))
+                    for hit in search_input_hits(inputs, run_dir, home, allow, rules))
     if tool == "patch":
         for value in patch_paths(inputs.get("patchText")):
-            reason = path_reason(value, run_dir, home, allow)
-            if reason:
-                hits.append({"event": index, "tool": tool, "reason": reason, "value": value})
+            hit = path_hit(value, run_dir, home, allow, rules, write=True)
+            if hit:
+                hits.append({"event": index, "tool": tool, **hit})
     return hits
 
 
@@ -825,10 +1103,17 @@ def event_evidence(event, run_dir: Path) -> dict:
 
 
 def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
-          python: str | None = None) -> dict:
-    """Audit one run's event stream; every hit is kept verbatim."""
+          python: str | None = None, profile=None, egress_log=None,
+          confinement=None) -> dict:
+    """Audit one run's event stream; every hit is kept verbatim and classified (T46).
+
+    `profile` is the ARCHIVED rendered profile of the same launch, `egress_log` that launch's
+    `egress.jsonl`, `confinement` its self-test record: the first decides the class of every path
+    hit, all three feed the breach rule. A hit is never softened by anything the worker says.
+    """
     run_dir = Path(run_dir).resolve()
     allow = allowed_roots(python)
+    rules = profile_rules(profile)
     result = {"schema_version": 1, "program": "freeze-v2/access_audit.py",
               "run_dir": str(run_dir), "allow_list": list(allow),
               "observation_scope": ("Every tool_use input recorded in the run's event stream. "
@@ -837,14 +1122,29 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
               "sandbox_scope": ("The OS sandbox is the enforcing barrier (F16); a denied dynamic "
                                 "attempt obtained nothing and is recorded as sandbox_denied, not "
                                 "as a hit."),
-              "hits": [], "unresolved_constructs": [], "sandbox_denied": [],
+              "classification_scope": ("Every hit is DENIED_BY_POLICY only when the archived "
+                                       "rendered profile of this launch proves the access cannot "
+                                       "succeed; otherwise it is POSSIBLE_SUCCESS."),
+              "profile": str(profile) if profile is not None else None,
+              "deny_roots": ({"read": rules["deny_read"], "write": rules["deny_write"]}
+                             if rules else {"read": [], "write": []}),
+              "hits": [], "denied_attempts": [], "denied_attempts_count": 0, "breach": [],
+              "unresolved_constructs": [], "sandbox_denied": [],
               "events": 0, "tool_calls": 0, "verdict": "PASS"}
     path = Path(events_path)
     if not path.is_file():
-        result["hits"] = [{"reason": "MISSING_EVENT_STREAM", "value": str(path)}]
+        result["hits"] = [{"reason": "MISSING_EVENT_STREAM", "value": str(path),
+                           "class": POSSIBLE_SUCCESS}]
         result["verdict"] = "INVALID"
         return result
     seen: set[str] = set()
+
+    def keep(bucket: str, candidate: dict) -> None:
+        key = json.dumps(candidate, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            result[bucket].append(candidate)
+
     # F46 / T45: one JSON line ends at "\n" and nowhere else, so a line that carries U+2028,
     # U+2029, U+0085, \v, \f or \x1c-\x1e inside a string is read as ONE event.
     for index, line in enumerate(path.read_text(encoding="utf-8", errors="replace")
@@ -854,31 +1154,27 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
         try:
             event = json.loads(line)
         except ValueError:
-            hit = {"event": index, "reason": "MALFORMED_EVENT_LINE", "value": line[:200]}
-        else:
-            result["events"] += 1
-            if isinstance(event, dict) and event.get("type") == "tool_use":
-                result["tool_calls"] += 1
-            found = event_hits(event, index, run_dir, home, allow)
-            hit = None
-            for candidate in found:
-                key = json.dumps(candidate, sort_keys=True)
-                if key not in seen:
-                    seen.add(key)
-                    result["hits"].append(candidate)
-            evidence = event_evidence(event, run_dir)
-            for field in ("unresolved_constructs", "sandbox_denied"):
-                for candidate in evidence[field]:
-                    key = json.dumps(candidate, sort_keys=True)
-                    if key not in seen:
-                        seen.add(key)
-                        result[field].append(candidate)
+            keep("hits", {"event": index, "reason": "MALFORMED_EVENT_LINE", "value": line[:200],
+                          "class": POSSIBLE_SUCCESS})
             continue
-        key = json.dumps(hit, sort_keys=True)
-        if key not in seen:
-            seen.add(key)
-            result["hits"].append(hit)
-    if result["hits"]:
+        result["events"] += 1
+        if isinstance(event, dict) and event.get("type") == "tool_use":
+            result["tool_calls"] += 1
+        for candidate in event_hits(event, index, run_dir, home, allow, rules):
+            # T46: a denied attempt is evidence with its count; a possible success keeps the run
+            # INVALID:OUT_OF_RUN_ACCESS, exactly as before.
+            keep("denied_attempts" if candidate.get("class") == DENIED_BY_POLICY else "hits",
+                 candidate)
+        evidence = event_evidence(event, run_dir)
+        for field in ("unresolved_constructs", "sandbox_denied"):
+            for candidate in evidence[field]:
+                keep(field, candidate)
+        for candidate in event_breach(event, run_dir, home, rules):
+            keep("breach", candidate)
+    for candidate in (*egress_breach(egress_log), *confinement_breach(confinement)):
+        keep("breach", candidate)
+    result["denied_attempts_count"] = len(result["denied_attempts"])
+    if result["hits"] or result["breach"]:
         result["verdict"] = "INVALID"
     return result
 
@@ -890,12 +1186,19 @@ def main() -> int:
     parser.add_argument("--home", default=None,
                         help="the profile HOME the worker ran with; ~ and $HOME resolve to it")
     parser.add_argument("--python", default=None, help="the pinned interpreter to allow-list")
+    parser.add_argument("--profile", default=None,
+                        help="the ARCHIVED rendered sandbox profile of the same launch")
+    parser.add_argument("--egress-log", default=None,
+                        help="the launch's egress.jsonl, read for an ALLOW the allowlist forbids")
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
-    result = audit(args.events, args.run_dir, home=args.home, python=args.python)
+    result = audit(args.events, args.run_dir, home=args.home, python=args.python,
+                   profile=args.profile, egress_log=args.egress_log)
     target = args.out or args.run_dir / "access-audit.json"
     target.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"verdict": result["verdict"], "hits": len(result["hits"]),
+                      "denied_attempts": result["denied_attempts_count"],
+                      "breach": len(result["breach"]),
                       "tool_calls": result["tool_calls"]}, sort_keys=True))
     return 0 if result["verdict"] == "PASS" else 1
 

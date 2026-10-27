@@ -267,29 +267,29 @@ DISCLOSED CONFOUND  the task repository's own (base-era) AGENTS.md is attached t
 
 ## 4. What is frozen
 
-[freeze-manifest.json](freeze-manifest.json) pins 56 files: the registry, run plan, brief,
+[freeze-manifest.json](freeze-manifest.json) pins 60 files: the registry, run plan, brief,
 protocol, runtime/measurement/generator modules, the run driver and the per-run auditor
 (`run_h2r2.py`, `run_audit_v2.py`), the runs-root aggregate (`aggregate_runs.py`), the OS
 confinement module and its frozen profile template
 (`sandbox_v2.py`, `worker-sandbox.sb.template`), the CONNECT-only egress allowlist proxy
 (`egress_v2.py`, F26), the per-run collector and acceptance
 (`collect_v2.py`, `run_acceptance_v2.py`) with the scope rules (`scope_v2.py`), the out-of-run
-access audit and its eight event fixtures (`access_audit.py`: two hand-built shape fixtures plus
-the six sanitised REAL streams the earlier pilots, the tool-name probe and pilots #8, #9 and #10
-recorded, whose absolute path prefixes are placeholders re-expanded by the tests), the frozen
+access audit and its twelve fixtures (`access_audit.py`: two hand-built shape fixtures, the eight
+sanitised REAL streams the earlier pilots, the tool-name probe and pilots #8, #9, #10 and the
+pilot batch recorded, and the two rendered sandbox profiles of that batch's two typos (T46) — every
+absolute path prefix in them is a placeholder re-expanded by the tests), the frozen
 worker-profile config (`worker-profile/opencode.json`, §3 PROFILE), the sanitised canary and
 preflight fixtures, route measurements, admission inputs, routes, carrier bytes, report template,
 rubric and validator. The same hashes are independent literals in
 `experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py`; the manifest itself has a separate literal
-hash there. Tests reject a one-byte mutation of each of these 57 files on a temporary copy.
+hash there. Tests reject a one-byte mutation of each of these 61 files on a temporary copy.
 README, the implementation plan, review log and CODEX_REPORT are operator documents outside
 this byte freeze. The §3 confound must remain byte-equal to protocol-v2.md.
 
-The content-freeze commit at this round is the T44 re-pin commit; its parent — the merge commit
-that joins the F44 eligibility rule (T42, `run_h2r2.py`) with the F45 heredoc fix (T43,
-`access_audit.py`) — is `b74d25c1909883f0db87f3bb18dc310e24a70a1e`, and that commit is what the
-run plan binds and what [freeze-manifest.json](freeze-manifest.json) records as its freeze parent
-(materials = parent of the re-pin commit, proven byte-equal at HEAD). The delivered payload —
+The content-freeze commit at this round is the T46 re-pin commit; its parent — the T45 fix commit
+`7b891c4` plus the T46 fix plan — is `a223e6d13e9230c3a40e427228b84f331f8c99b0`, and that commit is
+what the run plan binds and what [freeze-manifest.json](freeze-manifest.json) records as its freeze
+parent (materials = parent of the re-pin commit, proven byte-equal at HEAD). The delivered payload —
 carrier bytes, `RULES.md`, the WARM bundle, routes and the shortlist — is byte-identical to the T8
 materials `042f2244e453c79daa0ed50d72759a4583bcc43d`; what moved forward across rounds are
 `wrapper_delivery.py` (T13's run-root refusal, then T21's standalone history-free task
@@ -350,19 +350,25 @@ F45 work (T43/T44: a heredoc body is stdin data for the command, not shell synta
 `<<WORD`/`<<-WORD`/`<<'WORD'`/`<<"WORD"` bodies before tokenising while the operator line itself
 (command words, arguments, redirect targets) is judged exactly as before, and a body fed to an
 interpreter is recorded as `HEREDOC_PROGRAM` evidence, never a verdict; its sanitised stream is the
-sixth real event fixture). The T2 delivery anchors were re-measured instead of being carried over;
-the last measurement is [delivery-anchors.json](delivery-anchors.json), taken at `b74d25c` with the
+sixth real event fixture), and the T45/T46 work (the JSONL readers split on `"\n"` only, the
+`sed`/`awk`/`grep` script operand is no longer judged as a path, and every out-of-run hit is now
+classified from the launch's own archived profile — a `DENIED_BY_POLICY` attempt is evidence with a
+per-arm count, a `POSSIBLE_SUCCESS` hit stays `INVALID:OUT_OF_RUN_ACCESS`, and an access that
+actually succeeded is `INVALID:SANDBOX_BREACH`; protocol-v2 §4.1 carries the rule and the two
+paragraphs below carry the decision and the re-pin). The T2 delivery anchors were re-measured instead
+of being carried over;
+the last measurement is [delivery-anchors.json](delivery-anchors.json), taken at `a223e6d` with the
 frozen program. Every
 PRE/POST cell, `ran` count and verdict is byte-identical to the T21 measurement at `20719b56`
 (each re-measurement at T28, T29, T30 and T32 moved only `wrapper_program_sha256`, and the T33,
-T37, T39, T40, T41, T42 and T44 re-measurements moved only `materials_commit`; T39 additionally records the
+T37, T39, T40, T41, T42, T44 and T46 re-measurements moved only `materials_commit`; T39 additionally records the
 descriptive fields `confined`/`gate`/`style` that the T38a `run_gate` now writes — `false`, `null`
 and `RESOLVED` for every measurement cell, i.e. the anchors are still measured unconfined at the
 bare base, not through a gate), which was
 itself identical to the T17 measurement at `a5a0354` (same 10/10 WRAPPER neutrality, same per-task
 PRE sets). T23, T25 and T27 did not re-measure it, because neither the delivered payload nor the
 measuring program nor the shortlist moved at those commits; T28, T29, T30, T32, T33, T37, T39,
-T40, T41, T42 and T44 did, because
+T40, T41, T42, T44 and T46 did, because
 either the measuring program or the materials commit moved. The earlier measurement commits
 `1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a` (T2), `fb9ce4f80286c8c365d66bd8c9ed7df985f7b7a9`
 (T14) and `a5a03543d2ccbe4cfa727ffa0be0bf513a871a39` (T17) are kept in the record because the
@@ -382,19 +388,45 @@ path is held to the validator's `shadow_paths` rule plus the startup-hook refusa
 The re-pin definition (materials = parent of the re-pin commit, proven byte-equal at HEAD) and this
 scope decision are recorded for independent acceptance in CODEX_REPORT.md.
 
-T45 (F46/F47) is implemented and deliberately NOT re-pinned yet — a protocol decision is pending.
-The JSONL readers of `access_audit.py` (driver/audit events, egress log), `run_h2r2.py` (registry,
-attempts, driver events, scheduler child log), `egress_v2.py`, `aggregate_runs.py` and
-`isolation_canary.py` now split a stream on `"\n"` only, so a JSON line that carries U+2028, U+2029,
-U+0085, `\v`, `\f` or `\x1c`–`\x1e` inside a string is one event instead of five. The audit no longer
-judges the script/program/pattern operand of `sed`, `awk`/`gawk` and `grep`/`egrep`/`fgrep`/`rg` as
-a path (each `-e`/`--expression`/`--regexp` value included), while `-f`/`--file`, the input files
-after the script and every other operand stay judged exactly as before. Two sanitised real streams
-join the fixtures — `fixtures/pilot-bf2ca30-f01-c-events.jsonl` (the split-line stream) and
-`fixtures/pilot-bf2ca30-f03-c-events.jsonl` (the `sed`-script stream) — and, together with the five
-changed program hashes, they join [freeze-manifest.json](freeze-manifest.json) and the test literals
-at the next re-pin; until then both still describe the T44 bytes and the two `FreezeManifest` tests
-are expected red for exactly those five files.
+T45 (F46/F47) is the first half of this re-pin. The JSONL readers of `access_audit.py` (driver/audit
+events, egress log), `run_h2r2.py` (registry, attempts, driver events, scheduler child log),
+`egress_v2.py`, `aggregate_runs.py` and `isolation_canary.py` now split a stream on `"\n"` only, so a
+JSON line that carries U+2028, U+2029, U+0085, `\v`, `\f` or `\x1c`–`\x1e` inside a string is one
+event instead of five. The audit no longer judges the script/program/pattern operand of `sed`,
+`awk`/`gawk` and `grep`/`egrep`/`fgrep`/`rg` as a path (each `-e`/`--expression`/`--regexp` value
+included), while `-f`/`--file`, the input files after the script and every other operand stay judged
+exactly as before. Two sanitised real streams join the fixtures — `fixtures/pilot-bf2ca30-f01-c-events.jsonl`
+(the split-line stream) and `fixtures/pilot-bf2ca30-f03-c-events.jsonl` (the `sed`-script stream).
+
+T46 (user decision A, 2026-10-27) is the second half, and it was decided **before the first counted
+run**: a **denied** out-of-run attempt is evidence, only a **successful** one is INVALID. Every
+access-audit hit now carries a `class`, decided from the launch's own ARCHIVED rendered profile and
+the frozen egress allowlist — never from the worker's text. `DENIED_BY_POLICY`: the path resolves
+under a root the profile denies (`/Users`, `/private/tmp`, `/var/folders`, `/private/var/folders`
+and their aliases) and under no path that profile re-allows for that access type (launch dir, fresh
+home, interpreter prefix; an ancestor `literal` re-allows only that node's own listing, never a path
+below it), or the target is a network host the allowlist does not carry. `POSSIBLE_SUCCESS`:
+everything else — a readable system file such as `/etc/hosts`, and any hit the audit cannot decide
+(no readable archived profile, an unresolvable `~`/`$HOME`, a tool outside the allow-list, a
+malformed line); such a hit keeps `INVALID:OUT_OF_RUN_ACCESS` exactly as before. A denied attempt is
+counted per run (`denied_attempts` in `run.json` and in the registry line, the list in
+`access-audit.json`), reported per arm and per task by `aggregate_runs.py` (a reported quantity,
+never a decision rule) and discussed in the closure report — an asymmetry between the arms is a
+finding. Independently of any static hit, an access that DID succeed is `INVALID:SANDBOX_BREACH`: a
+read/grep/glob result carrying content for a denied path, an `egress.jsonl` ALLOW for a host off the
+allowlist, or a confinement self-test that failed and was not caught before the launch. Decision,
+recorded verbatim (2026-10-27, before any counted run): "采用 A：被沙箱拒绝的越界尝试记为证据并按臂报告，只有越界访问实际成功才判 INVALID；在第一次正式运行前写进协议。"
+Why: when the rule was made (F9) the static audit was the only barrier; since F16/F26/F31 the OS
+sandbox and the egress allowlist enforce confinement, verified with the independent reviewer's own
+attacks. A denied attempt obtains nothing, so it cannot contaminate a result, and invalidating it
+only removes valid pairs: replaying the 4-run pilot batch lost two of four runs to path typos — an
+interpreter path under the operator home that is not the allowed prefix, and a misspelled run dir
+under the shared runs root. Both now audit PASS as exactly one denied attempt each, using the two
+sanitised streams above plus the two rendered profiles of those very launches
+(`fixtures/pilot-bf2ca30-f01-c-worker.sb`, `fixtures/pilot-bf2ca30-f03-c-worker.sb`); the tests that
+pinned INVALID for those two streams now assert that classification, and protocol-v2 §4.1 and §6
+carry the same text. This re-pin is what turns [freeze-manifest.json](freeze-manifest.json) and the
+test literals from the T44 bytes to the current ones.
 
 ## 5. Before the first run
 
@@ -435,7 +467,8 @@ run because each one silently changes what a gate measures:
    A third program closes the loop over a runs root: `$PY $H/freeze-v2/aggregate_runs.py
    <SHARED_RUN_ROOT>` prints the per-task per-arm valid pairs, each run's FINAL_CORRECTNESS and
    invalid completion, the INVALID, BLOCKED, MISSING and untrusted-evidence runs with their
-   reasons, and the protocol-v2 §7 result token with the exact rule that decided it;
+   reasons, the denied out-of-run attempts per arm and per task with their counts and lists (T46),
+   and the protocol-v2 §7 result token with the exact rule that decided it;
    `status` reports the same `usable_pairs` plus the `blocked`/`invalid` counts, so
    "registered=20" cannot be mistaken for a result.
    **What decides (T38b, F34/F39/F40).** FINAL_CORRECTNESS is the stricter of the mechanical
