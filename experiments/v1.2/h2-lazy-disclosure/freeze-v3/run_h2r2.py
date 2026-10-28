@@ -157,6 +157,7 @@ import socket
 import stat
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime, timezone
@@ -170,6 +171,7 @@ import isolation_canary
 import run_acceptance_v2
 import run_audit_v2
 import sandbox_v2
+import violations_v3
 import wrapper_delivery
 from wrapper_delivery import H2_REL, ROOT, sha256
 
@@ -545,6 +547,55 @@ def worker_env(env_file: Path) -> dict[str, str]:
     return env
 
 
+def violations_path(driver_dir, attempt: int, label: str) -> Path:
+    """`.driver/<run_id>/attempt-<n>/violations-<launch>.jsonl` (T51.4 / T51e)."""
+    return Path(driver_dir) / f"attempt-{int(attempt)}" / f"violations-{label}.jsonl"
+
+
+def pid_set(*sources) -> set[int]:
+    """Every pid the driver observed for ONE launch (T51e).
+
+    Sources are a launch result / prepared state (`observed_pids`), a sweep record
+    (`group_members`, `lingering_processes`, `killed`, `survivors`) or a plain iterable of pids
+    (`sandbox_v2.process_group_members`, `sandbox_v2.processes_under`).
+    """
+    found: set[int] = set()
+    for source in sources:
+        if source is None:
+            continue
+        if isinstance(source, dict):
+            entries = [source.get("observed_pids", []), source.get("group_members", [])]
+            entries.extend(source.get(key, []) for key in
+                           ("lingering_processes", "killed", "survivors"))
+        else:
+            entries = [source]
+        for entry in entries:
+            for item in entry or []:
+                pid = item.get("pid") if isinstance(item, dict) else item
+                try:
+                    if pid:
+                        found.add(int(pid))
+                except (TypeError, ValueError):
+                    continue
+    return found
+
+
+def violation_record(start, end, pids, path):
+    """Collect ONE launch's unified-log denials into `path`; never changes the run's verdict.
+
+    Returns `{"path", "count", "sha256"}` — the sha256 of the file as written, so the evidence is
+    pinned even when the count is 0. A failure is recorded as `{"error", "reason"}` and the run
+    continues: the violation log is supporting evidence, not a gate (T51.4).
+    """
+    path = Path(path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        count = violations_v3.collect_violations(start, end, pids, path)
+        return {"path": str(path), "count": count, "sha256": sha256(path.read_bytes())}
+    except Exception as exc:                      # noqa: BLE001 - evidence must never block a run
+        return {"error": type(exc).__name__, "reason": str(exc)[:200]}
+
+
 def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
            stdout_path: Path, stderr_path: Path) -> dict:
     """One command in its own process group, stdin closed, killed as a group at the limit.
@@ -558,6 +609,16 @@ def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
           open(os.devnull, "rb") as null):
         process = subprocess.Popen(argv, cwd=str(cwd), env=dict(env), stdin=null,
                                    stdout=out, stderr=err, start_new_session=True)
+        observed = {process.pid}
+        stop_poll = threading.Event()
+
+        def poll_group():
+            while not stop_poll.is_set():
+                observed.update(sandbox_v2.process_group_members(process.pid))
+                stop_poll.wait(0.5)
+
+        observer = threading.Thread(target=poll_group, daemon=True)
+        observer.start()
         timed_out = False
         try:
             code = process.wait(timeout=limit_seconds)
@@ -568,8 +629,11 @@ def launch(argv: list[str], cwd: Path, env: dict[str, str], limit_seconds: int,
             except (ProcessLookupError, PermissionError):
                 process.kill()
             code = process.wait()
+        finally:
+            stop_poll.set()
+            observer.join()
     return {"returncode": code, "timed_out": timed_out, "command": argv,
-            "pid": process.pid, "process_group": process.pid}
+            "pid": process.pid, "process_group": process.pid, "observed_pids": sorted(observed)}
 
 
 def server_url(port: int) -> str:
@@ -963,6 +1027,9 @@ def reachability_probe(runs_root: Path, run_id: str, purpose: str, attempt: int,
               "started_at": started_at, "finished_at": now(), "seconds": seconds,
               "returncode": result.get("returncode"), "timed_out": result.get("timed_out"),
               "blocked": blocked,
+              # T51e: a probe is a confined launch too; its denial evidence (or the reason it
+              # could not be collected) is referenced here so the file is not orphaned.
+              "violations": result.get("violations"),
               "events": len(events), "malformed": malformed,
               "token_seen": REACHABILITY_TOKEN in text,
               "verdict": "FAIL" if reasons else "PASS", "reasons": reasons,
@@ -1317,11 +1384,13 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                         "attempts": attempts,
                         "reason": (f"SANDBOX_NOT_CONFINING:"
                                    f"{','.join(test.get('reasons', []))}")}
+            prepared.setdefault("violation_start", now())
             handle = launch_server([*server_command, str(port)], launch_dir,
                                    server_env(prepared["env"], proxy,
                                               prepared["server_password"]),
                                    prepared["stream"] / SERVER_STDOUT_NAME,
                                    prepared["stream"] / SERVER_STDERR_NAME)
+            prepared.setdefault("observed_pids", set()).add(handle["pid"])
             if server_ready(port, handle):
                 prepared["server"] = handle
                 prepared["server_start"] = {"port": port, "pid": handle.get("pid"),
@@ -1371,23 +1440,31 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             pass
         return record
 
-    def confined(prepared: dict, argv, directory: Path, limit_value: int) -> dict:
+    def confined(prepared: dict, argv, directory: Path, limit_value: int, *,
+                 collect: bool = True) -> dict:
         """One confined launch: the client names this launch's loopback server; server killed after.
 
         F26 / T36b: both processes see the allowlist proxy, the loopback bypass and the same random
         per-launch OPENCODE_SERVER_PASSWORD (environment only, never argv or a record). The serve
         process is killed with its own process group as soon as the client returns.
+
+        T51e: `collect` gathers this launch's unified-log denials into the driver's attempt
+        directory. The worker passes `collect=False` because its collection happens after the
+        post-launch sweep, whose record is part of the pid set.
         """
         stream = Path(prepared["stream"])
         url = server_url(prepared["serve_port"])
         resolved = resolve_server_argv(argv, url)
         env = server_env(prepared["env"], prepared["egress"], prepared["server_password"])
+        started = prepared.get("violation_start") or now()
         try:
             result = launch(sandbox.confine(prepared["profile"]["path"], resolved), directory,
                             env, limit_value, stream / EVENTS_NAME, stream / STDERR_NAME)
         finally:
             server = prepared.get("server")
             if server is not None:
+                prepared.setdefault("observed_pids", set()).update(
+                    sandbox_v2.process_group_members(server["pid"]))
                 prepared["server_stop"] = stop_server(server)
                 prepared["server"] = None
             # The proxy serves exactly this launch; stop it here even if the client raised, so no
@@ -1399,6 +1476,16 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         result["stream"] = str(stream)
         result["server"] = {"port": prepared.get("serve_port"), "url": url,
                             "stop": prepared.get("server_stop")}
+        observed = pid_set(result, prepared,
+                           sandbox_v2.process_group_members(result.get("process_group")))
+        if collect:
+            # One lsof pass after the launch catches a child that left the process group; the pgid
+            # poll in `launch` covers the ones that did not survive it. Both are lower bounds.
+            observed |= {entry["pid"] for entry in sandbox_v2.processes_under(directory)}
+            result["violations"] = violation_record(
+                started, now(), observed,
+                violations_path(driver_dir, attempt, stream.name))
+        result["observed_pids"] = sorted(observed)
         return result
 
     def default_probe(purpose: str, number: int) -> dict:
@@ -1645,7 +1732,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # F23 / T32: from here on an unexpected exception belongs to a run that reached work,
             # so the guard registers it INVALID instead of dropping it as an unstarted invocation.
             state["worker_launched"] = True
-            result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit)
+            result = confined(prepared, [*command, plan_run["model"], LAUNCH_PROMPT], run_dir, limit,
+                              collect=False)
             # F33 / T38a: the launch is over (normal exit, error or timeout). Nothing that is still
             # alive may touch the evidence again: the sweep kills the launch's process group and
             # every process whose cwd or open files are under the run dir, and records each pid and
@@ -1653,6 +1741,13 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # collection, the oracle hashes, the gate runs and the audit bundle read only that.
             launch_sweep = sandbox_v2.sweep(run_dir, pgid=result.get("process_group"),
                                             log_path=stream / sandbox_v2.SWEEP_NAME)
+            # T51e: the launch's denial evidence is collected AFTER the sweep, so the sweep's pids
+            # (group members, lingering, killed, survivors) join the served and launched pids.
+            record["observed_pids"] = sorted(pid_set(result, prepared, launch_sweep))
+            record["violations"] = violation_record(
+                prepared.get("violation_start") or record.get("started_at"), now(),
+                record["observed_pids"],
+                violations_path(driver_dir, attempt, "worker"))
             record["sweep"] = launch_sweep
             snapshot_record = sandbox_v2.snapshot(run_dir, stream / sandbox_v2.SNAPSHOT_NAME)
             record["snapshot"] = {key: snapshot_record[key] for key in
@@ -1714,12 +1809,19 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # a denied CONNECT obtained nothing, exactly like a sandbox-denied read.
             egress_log = stream / egress_v2.LOG_NAME
             sandbox_record = record.get("sandbox") or {}
+            # T51e: the launch record the access audit already receives carries this launch's
+            # violation evidence when it exists. Only the path is handed over — the audit decides
+            # what it means (T52 §2), and a collection failure is passed through as an error.
+            confinement_record = dict(sandbox_record.get("confinement") or {})
+            if record.get("violations"):
+                confinement_record["violations"] = record["violations"]
+                sandbox_record["confinement"] = confinement_record
             access = access_audit.audit(driver_events, run_dir,
                                         home=prepared["env"].get("HOME"),
                                         python=sys.executable,
                                         profile=(sandbox_record.get("profile") or {}).get("path"),
                                         egress_log=egress_log,
-                                        confinement=sandbox_record.get("confinement"))
+                                        confinement=confinement_record)
             access["egress_log"] = str(egress_log)
             access["egress_denied"] = egress_v2.denied(egress_log)
             record["egress_log"] = str(egress_log)
@@ -1844,7 +1946,10 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                          "home": str(audit_prepared["home"]),
                          "auth": audit_prepared["auth"], "logout": audit_logout,
                          "egress_log": str(audit_egress),
-                         "egress_denied": egress_v2.denied(audit_egress)})
+                         "egress_denied": egress_v2.denied(audit_egress),
+                         # T51e: the auditor is a confined launch too, so its own denial
+                         # evidence (or the reason it could not be collected) is recorded here.
+                         "violations": (audit.get("launch") or {}).get("violations")})
                     audit_events, _ = read_events(audit_stream / EVENTS_NAME)
                     blocked = before_work_failure(audit.get("launch") or {}, audit_events)
                     if audit["verdict"] != "BLOCKED" or not blocked:

@@ -220,6 +220,20 @@ def network_rules(proxy_port: int | None, serve_port: int | None) -> list[str]:
     ]
 
 
+def cell_parent(launch: Path) -> Path | None:
+    """The private cell parent of a cell-layout run dir; None for every other launch (T51e).
+
+    `<runs_root>/.cells/<run_id>/<run_id>` sits in its own cell, which holds only that run. A
+    legacy flat-layout `<runs_root>/<run_id>` and a directory inside a run (the auditor's `audit`,
+    a gate root) are not cells, so neither may read or list its parent.
+    """
+    launch = Path(launch)
+    parent = launch.parent
+    if parent.name == launch.name and parent.parent.name == ".cells":
+        return parent
+    return None
+
+
 def allow_rules(launch: Path, home: Path, python: str | None = None, *,
                 proxy_port: int | None = None, serve_port: int | None = None) -> list[str]:
     """The rendered allow block: ancestors as literals, then the launch, the home and the python."""
@@ -239,8 +253,13 @@ def allow_rules(launch: Path, home: Path, python: str | None = None, *,
     rules.append("(allow file-write* " + " ".join(DEVICE_WRITE_RULES) + ")")
     rules.extend(f'(allow file-read-data (subpath "{value}"))'
                  for value in interpreter_roots(python))
-    rules.extend(f'(allow file-read-data (subpath "{value}"))'
-                 for value in spellings(Path(launch).parent))
+    # T51e: T51d granted a read of `launch.parent` as a SUBPATH for every launch, which made the
+    # whole runs root readable from a flat-layout worker and the worker's run dir readable from the
+    # auditor. The parent is now only ever a LITERAL, and only for a cell run dir, whose parent
+    # holds that one run and nothing else (T51.2): `cd ..` from the run dir stays inside the cell.
+    cell = cell_parent(launch)
+    if cell is not None:
+        rules.extend(f'(allow file-read-data (literal "{value}"))' for value in spellings(cell))
     roots = set(SYSTEM_READ_ROOTS)
     git_path = Path(os.path.realpath(TOOLS["git"])) if TOOLS.get("git") else None
     if git_path and len(git_path.parents) > 4 and git_path.parents[3].name == "Cellar":
@@ -561,6 +580,22 @@ def processes_under(directory: Path) -> list[dict]:
     return [found[key] for key in sorted(found)]
 
 
+def process_group_members(pgid: int) -> set[int]:
+    """Every pid the driver can SEE in one process group, right now (T51e).
+
+    One `ps` snapshot, so it costs nothing to poll during a launch. A child that starts and exits
+    between two snapshots is invisible here: the set is a LOWER BOUND, and the violation evidence
+    built from it says so instead of claiming a complete process tree.
+    """
+    try:
+        result = subprocess.run(["/bin/ps", "-axo", "pid=,pgid="], capture_output=True,
+                                text=True, timeout=PROCESS_QUERY_TIMEOUT, check=True)
+        return {int(parts[0]) for line in result.stdout.splitlines()
+                if len(parts := line.split()) == 2 and parts[1] == str(pgid)}
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return set()
+
+
 def _protected_pids() -> set[int]:
     """The driver and its ancestors: a sweep never kills the process that runs the sweep."""
     protected = {os.getpid(), os.getppid(), 0, 1}
@@ -595,6 +630,7 @@ def sweep(launch_dir: Path, *, pgid: int | None = None, log_path: Path | None = 
                     "lsof": LSOF_BINARY, "group_kill": None,
                     "lingering_processes": [], "killed": [], "survivors": [],
                     "protected": sorted(_protected_pids())}
+    record["group_members"] = sorted(process_group_members(pgid)) if pgid else []
     if pgid:
         killed: dict = {"signal": "SIGKILL", "sent": False}
         try:
