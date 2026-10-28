@@ -399,3 +399,27 @@ this commit):
 T53 `H2_CANARY_TOOLS` line still awaits the operator's pilot. The re-measured anchors reproduce
 T50's neutral verdict (WRAPPER 10/10); the `CODEBUDDY`/`AGENTS` slots remain blocked by design.
 No file outside `freeze-v3/` (plus the two v3 test modules) was modified.
+
+### T55c
+
+- F3: `violations_v3.py` was executed by the driver but absent from `FROZEN_FILES`.
+  Added it and a recursive AST import-closure test for the four runtime entry points, plus a
+  synthetic transitive-helper check. The closure test failed at 86930fd with that file missing.
+  Literal dynamic imports are covered; computed import names and imports outside freeze-v3 are
+  not inferred by this test. The manifest JSON was intentionally not re-pinned.
+- F5: confined acceptance gates bypassed the existing launch collector. Each gate now starts a
+  process group, observes its PIDs and time window, and records the collected JSONL path, count
+  and hash, or an error, in its gate record. The probe-derived test ran a real confined gate;
+  at 86930fd it failed because the record had no violations. It also checks collector failure
+  does not change a successful gate. PID polling is a lower bound and may miss short-lived or
+  detached children. Timeout still raises as before; collection is attempted during cleanup,
+  but a raised timeout does not return an acceptance gate record.
+- F6: the Gate documentation incorrectly claimed no endpoint was allowed. Corrected it to the
+  inherited loopback outbound/bind rule without changing the rule. The documentation regression
+  failed at 86930fd. No live external network experiment was performed.
+
+T55c checks (local, `PYTHONPATH` unset and `TMPDIR` resolved to `/tmp`'s physical path):
+`ruff check .` passed; public-release scan `VIOLATIONS=0`; freeze-v2 manifest check `PASS`
+with no mismatches; gateevidence unittest 4 tests OK; existing violations unittest 14 tests OK;
+`git diff --check` passed. The 11-minute suite, live model runs, independent review, and v3
+manifest re-pin were not performed.

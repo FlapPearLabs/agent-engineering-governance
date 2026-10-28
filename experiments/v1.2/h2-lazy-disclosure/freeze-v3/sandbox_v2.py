@@ -770,13 +770,14 @@ def unreadable_entries(snapshot_record: dict) -> list[str]:
 
 
 class Gate:
-    """One acceptance gate: a fresh copy of the evidence tree, confined with no network (F32).
+    """One acceptance gate: a fresh copy of the evidence tree with loopback-only network (F32).
 
     Acceptance used to run the oracle and the whole `scripts/tests` suite — worker-written code —
     in the driver's own process. A `Gate` gives each execution its own copy below the driver's
     attempt directory, its own home inside that copy, and the two temp-root spellings as a real
     directory (`resolved`) and a symlink to it (`link`), so RESOLVED and SYMLINKED still differ
-    while both live inside the sandbox. The rendered profile re-allows no network endpoint at all.
+    while both live inside the sandbox. The inherited v2 gate profile permits outbound and
+    bind on any localhost port; it does not allow other network endpoints.
     """
 
     def __init__(self, root: Path, python: str | None = None):

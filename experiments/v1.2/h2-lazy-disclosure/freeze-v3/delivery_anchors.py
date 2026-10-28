@@ -29,13 +29,17 @@ Usage:  delivery_anchors.py <repo_root> <shortlist.json> --materials <commit> --
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -44,6 +48,8 @@ sys.path.insert(0, str(H2 / "harness"))
 sys.path.insert(0, str(HERE))
 
 import check_task_class as ctc  # noqa: E402
+import sandbox_v2  # noqa: E402
+import violations_v3  # noqa: E402
 import wrapper_delivery as wrapper  # noqa: E402
 
 NOT_PASSING_RE = re.compile(r"^(?:FAIL|ERROR): \S+ \(([^)]+)\)", re.M)
@@ -90,20 +96,55 @@ def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED", *, gate=Non
     SYMLINKED temp-root spelling) and read the per-test statuses back out of -v output.
 
     F32 / T38a: a caller that passes a `sandbox_v2.Gate` executes worktree code that a WORKER wrote,
-    so the command runs inside that gate's rendered `sandbox-exec` profile with no network at all,
+    so the command runs inside that gate's rendered loopback-only `sandbox-exec` profile,
     in the gate's own copy and with its temp roots inside the copy. There is no unconfined fallback
     on that path: the caller either holds a gate or does not execute worker code.
     """
     cmd = [sys.executable, "-s", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"]
     if pattern:
         cmd += ["-p", pattern]
+    evidence = None
     if gate is None:
         with ctc.acceptance_env(style) as env:
             r = subprocess.run(cmd, cwd=str(wt), env=env, capture_output=True, text=True,
                                timeout=TIMEOUT)
     else:
-        r = subprocess.run(gate.argv(cmd), cwd=str(wt), env=gate.env(style),
-                           capture_output=True, text=True, timeout=TIMEOUT)
+        start = datetime.datetime.now(datetime.timezone.utc)
+        process = subprocess.Popen(gate.argv(cmd), cwd=str(wt), env=gate.env(style),
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                   start_new_session=True)
+        observed = {process.pid}
+        stop = threading.Event()
+
+        def observe():
+            while not stop.is_set():
+                observed.update(sandbox_v2.process_group_members(process.pid))
+                stop.wait(0.5)
+
+        observer = threading.Thread(target=observe, daemon=True)
+        observer.start()
+        try:
+            try:
+                stdout, stderr = process.communicate(timeout=TIMEOUT)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate()
+                raise
+        finally:
+            stop.set()
+            observer.join()
+            end = datetime.datetime.now(datetime.timezone.utc)
+            path = gate.root / "violations.jsonl"
+            try:
+                count = violations_v3.collect_violations(start, end, observed, path)
+                evidence = {"path": str(path), "count": count,
+                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            except Exception as exc:  # noqa: BLE001 - evidence cannot change the gate result
+                evidence = {"error": type(exc).__name__}
+        r = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
     out = r.stdout + r.stderr
     ran = RAN_RE.findall(out)
     skipped = set(SKIPPED_RE.findall(out))
@@ -113,7 +154,8 @@ def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED", *, gate=Non
             "expected_failures": sorted(expected), "unexpected_successes": sorted(unexpected),
             "not_passing": sorted(set(NOT_PASSING_RE.findall(out)) | skipped | expected | unexpected),
             "confined": gate is not None, "style": style,
-            "gate": str(gate.root) if gate is not None else None}
+            "gate": str(gate.root) if gate is not None else None,
+            **({"violations": evidence} if gate is not None else {})}
 
 
 def reset(wt: Path, rev: str = "HEAD") -> None:
