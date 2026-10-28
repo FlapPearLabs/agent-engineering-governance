@@ -10,8 +10,8 @@
 ;; system, and the render block below re-allows exactly the launch directory, the fresh home and
 ;; the kernel devices. A deny-list over `(allow default)` left every system directory writable —
 ;; including the ones on the operator's PATH — so a launch could drop a binary that the driver
-;; would run unsandboxed afterwards. Reads stay a deny-list over the shared roots, because a
-;; launch must read the interpreter, the system libraries and its own tree.
+;; would run unsandboxed afterwards. Reads are a whitelist: the renderer re-allows the launch, cell, home,
+;; interpreter, opencode and measured system paths.
 ;;
 ;; `render()` substitutes the single placeholder line below with the launch's rules:
 ;;   * the launch directory (run dir for the worker, audit dir for the auditor, one fresh copy for
@@ -22,8 +22,7 @@
 ;;   * the interpreter and its prefixes readable;
 ;;   * `/dev/null`, `/dev/tty`, `/dev/fd` and a `/dev/ttysN` terminal writable — the character
 ;;     devices a shell and a test runner need, never a file under a system directory;
-;;   * nothing else. Any other path under /Users, /private/tmp or /private/var/folders without an
-;;     explicit rule above fails with EPERM, and any other write anywhere fails too.
+;;   * the cell and measured system paths read-only; other reads and writes are denied.
 ;;
 ;; SIGNALS (F35). `(deny signal)` confines kill(2) to the launch's own sandbox, so a worker cannot
 ;; signal the driver, the scheduler or another run; killing its own children still works.
@@ -33,11 +32,7 @@
 ;; loopback `opencode serve` port. No `remote unix-socket` rule exists, so unix-socket egress is
 ;; closed by omission, and `com.apple.dnssd.service` is denied, so a name cannot be resolved.
 (allow default)
-(deny file-read-data file-write*
-      (subpath "/Users")
-      (subpath "/private/tmp")
-      (subpath "/var/folders")
-      (subpath "/private/var/folders"))
+(deny file-read-data (subpath "/"))
 (deny file-write* (subpath "/"))
 (deny network-outbound)
 (deny network-bind)

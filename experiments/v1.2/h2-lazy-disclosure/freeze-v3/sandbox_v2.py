@@ -185,18 +185,21 @@ def spellings(path) -> list[str]:
     return sorted(values)
 
 
+# Candidate system roots, measured with sandbox-exec and unified sandbox logs on
+# macOS Darwin 25 / opencode 2.0.25 (2026-10-28); see CODEX_REPORT for limits.
+SYSTEM_READ_ROOTS = ("/bin", "/usr/bin", "/usr/lib", "/usr/libexec", "/usr/share",
+                     "/System", "/Library/Apple", "/Library/Preferences/Logging",
+                     "/private/etc", "/private/var/db/timezone", "/dev")
+BREW_READ_RELATIVE = ("etc", "Cellar/git", "Cellar/pcre2", "Cellar/libiconv", "Cellar/gettext")
+
+
 def interpreter_roots(python: str | None = None) -> list[str]:
-    """The interpreter and its prefixes: the one read-only region a launch may always read."""
-    executable = Path(python or sys.executable)
-    roots: set[str] = set()
-    for candidate in (executable, Path(os.path.realpath(str(executable)))):
-        roots.add(str(candidate))
-        roots.add(str(candidate.parent))
-        roots.add(str(candidate.parent.parent))
-    for prefix in (sys.prefix, sys.base_prefix):
-        roots.add(str(Path(prefix)))
-        roots.add(os.path.realpath(str(prefix)))
-    return sorted(roots)
+    """Resolve the selected interpreter's own base prefix and standard library."""
+    executable = os.path.realpath(python or sys.executable)
+    result = subprocess.run([executable, "-c", "import sys,sysconfig; print(sys.base_prefix); print(sysconfig.get_path('stdlib'))"],
+                            capture_output=True, text=True, check=True)
+    return sorted({os.path.realpath(p) for p in result.stdout.splitlines() if p} |
+                  set(spellings(Path(python or sys.executable).parent.parent)))
 
 
 def network_rules(proxy_port: int | None, serve_port: int | None) -> list[str]:
@@ -220,13 +223,13 @@ def network_rules(proxy_port: int | None, serve_port: int | None) -> list[str]:
 def allow_rules(launch: Path, home: Path, python: str | None = None, *,
                 proxy_port: int | None = None, serve_port: int | None = None) -> list[str]:
     """The rendered allow block: ancestors as literals, then the launch, the home and the python."""
-    literals: set[str] = set()
+    literals: set[str] = {"/"}
     for path in (Path(launch), Path(home)):
         for parent in (path, *path.parents):
             if str(parent) == "/":
                 continue
             literals.update(spellings(parent))
-    rules = [f'(allow file-read-data (literal "{value}"))' for value in sorted(literals)]
+    rules = [f'(allow file-read-data file-read-metadata (literal "{value}"))' for value in sorted(literals)]
     writable: set[str] = set()
     for path in (Path(launch), Path(home)):
         writable.update(spellings(path))
@@ -236,6 +239,15 @@ def allow_rules(launch: Path, home: Path, python: str | None = None, *,
     rules.append("(allow file-write* " + " ".join(DEVICE_WRITE_RULES) + ")")
     rules.extend(f'(allow file-read-data (subpath "{value}"))'
                  for value in interpreter_roots(python))
+    rules.extend(f'(allow file-read-data (subpath "{value}"))'
+                 for value in spellings(Path(launch).parent))
+    roots = set(SYSTEM_READ_ROOTS)
+    git_path = Path(os.path.realpath(TOOLS["git"])) if TOOLS.get("git") else None
+    if git_path and len(git_path.parents) > 4 and git_path.parents[3].name == "Cellar":
+        roots.update(str(git_path.parents[4] / rel) for rel in BREW_READ_RELATIVE)
+    if TOOLS.get("opencode"):
+        roots.update(spellings(Path(os.path.realpath(TOOLS["opencode"])).parent.parent))
+    rules.extend(f'(allow file-read-data (subpath "{value}"))' for value in sorted(roots))
     rules.extend(network_rules(proxy_port, serve_port))
     return rules
 
