@@ -97,7 +97,8 @@ STATUS = **CLOSED**
 RESULT = INSUFFICIENT_EVIDENCE
 FREEZE_SHA = 4aa2e7b
 CLOSURE_REPORT = experiments/v1.2/h2-lazy-disclosure/freeze-v2-closure-report.md
-MERGE_SHA = merge SHA recorded post-merge
+MERGE_SHA = 78696d74f68991c2646195d4ef7bf0ac85513781（PR #56，2026-10-28T07:31:17Z）
+POST_MERGE_CI = governance-ci success @ 78696d74f68991c2646195d4ef7bf0ac85513781
 ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
                     6 个不同 base（H2 base = n02 base）上 S3 载体行 11/11 VALID，
                     N8 冻结面 22/22 ✅
