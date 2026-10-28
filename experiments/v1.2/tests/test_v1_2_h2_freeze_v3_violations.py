@@ -372,13 +372,11 @@ class AuditInputWiring(unittest.TestCase):
                 # the audit received the driver's own snapshot and this launch's log, by value
                 self.assertEqual(snapshot, Path(seen["kwargs"]["snapshot"]))
                 self.assertEqual(violations_path, seen["kwargs"]["violations"])
-                # and they changed the class: the profile proves nothing, the log confirms a denial
+                # A path-only record lacks operation and time evidence and cannot confirm denial.
                 audit = json.loads((run_dir / "access-audit.json").read_text())
-                self.assertEqual("PASS", audit["verdict"], audit["hits"])
-                self.assertEqual([], audit["hits"])
-                self.assertEqual([("DENIED_BY_POLICY", "VIOLATION_LOG")],
-                                 [(hit["class"], hit["policy"])
-                                  for hit in audit["denied_attempts"]])
+                self.assertEqual("INVALID", audit["verdict"])
+                self.assertEqual(["POSSIBLE_SUCCESS"], [hit["class"] for hit in audit["hits"]])
+                self.assertEqual([], audit["denied_attempts"])
                 self.assertEqual(str(snapshot), audit["snapshot"])
                 self.assertEqual(1, audit["sandbox_violations_count"])
             finally:

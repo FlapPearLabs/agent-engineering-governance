@@ -120,16 +120,14 @@ T52 — THE ALLOW-LIST AND THE EMPIRICAL CONFIRMATION.
     `<base_prefix>/lib/pythonX.Y/unittest/loader.py` was reported INVALID:OUT_OF_RUN_ACCESS for
     reading the very interpreter it was launched with (live H2-R2 h2r2-f03-c).
   * POSSIBLE_SUCCESS is kept for an access that could still have succeeded. A READ of a path that
-    does not exist — checked against the run's post-launch SNAPSHOT first and the filesystem
-    second — obtained nothing, so it is DENIED_BY_POLICY evidence even under a root the profile
-    does not re-allow (live H2-R2 h2r2-f03-v was invalidated by `verify --pack /nope`). A token
-    carrying glob syntax is a pattern, not a place, and is never existence-checked: the pattern
+    does not exist — checked against the run's post-launch SNAPSHOT and the filesystem — is
+    provisional denial evidence; a recorded successful content result overrides that inference.
+    A token carrying glob syntax is a pattern, not a place, and is never existence-checked: the pattern
     string need not exist for the glob to match files that do. A WRITE outside the launch's write
     whitelist is the same: the profile's `(deny file-write* (subpath "/"))` proves it cannot be
     created. When the driver collected the launch's sandbox violation log (T51.4,
-    `violations.jsonl`), a record naming the same path or host is the EMPIRICAL confirmation of
-    that class; its absence is never proof of success, so it can only move a hit from
-    POSSIBLE_SUCCESS to DENIED_BY_POLICY, never the other way.
+    `violations.jsonl`), a same-kind path denial within the supplied launch window can confirm
+    that class; absent or uncorrelated evidence cannot change it.
   * A URL's host is the authority AFTER any `user:pass@` credential prefix: `https://u:p@host/x`
     names `host`, not `u` (review finding 3).
   * A read of a path that exists keeps POSSIBLE_SUCCESS: `/etc/hosts` is readable and is not on
@@ -141,6 +139,7 @@ performs internally without reporting it, is not observable from the event strea
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -378,8 +377,8 @@ def path_hit(value: str, run_dir: Path, home: str | None, allow: tuple[str, ...]
 
     The class is decided from the RESOLVED path and the archived profile of the same launch, so a
     relative token is judged in the directory the command actually stood in, never in the run
-    directory by assumption. T52: a READ of a path that does not exist cannot have succeeded, so
-    it is DENIED_BY_POLICY evidence whatever the profile says; a WRITE can create its target and
+    directory by assumption. An absent READ target is provisional denial evidence; a recorded
+    successful content result overrides it in audit(). A WRITE can create its target and
     stays POSSIBLE_SUCCESS unless the write whitelist refuses it (which `path_class` decides). A
     value carrying glob syntax is a PATTERN and is never existence-checked: the pattern string is
     not a place, and what it matches may well exist.
@@ -660,20 +659,46 @@ def violation_places(records) -> tuple[frozenset[str], frozenset[str]]:
     return frozenset(paths), frozenset(hosts)
 
 
-def violation_confirms(candidate: dict, places: tuple[frozenset[str], frozenset[str]]) -> bool:
-    """True when a violation record names the same path or host as this hit (T52).
+def violation_confirms(candidate: dict, records: list[dict], launch_window=None, pid=None) -> bool:
+    """Confirm only a same-kind path denial with a timestamp inside the launch window.
 
-    The comparison is on the RESOLVED path, so a relative token the audit judged against the
-    directory the worker stood in matches the absolute path the sandbox reported.
+    Missing or malformed bounds or timestamps cannot establish launch attribution. The caller
+    retains the original records, including PID and timestamp, for inspection.
     """
-    paths, hosts = places
-    for value in (candidate.get("resolved"), candidate.get("path")):
-        if isinstance(value, str) and value and os.path.isabs(value):
-            if os.path.realpath(value) in paths:
-                return True
-    if hosts:
-        named = {host.lower() for host in network_hosts(str(candidate.get("value", "")))}
-        return bool(named & hosts)
+    try:
+        start, end = (datetime.datetime.fromisoformat(str(value)) for value in launch_window)
+        if start.tzinfo is None or end.tzinfo is None or start > end:
+            return False
+    except (TypeError, ValueError):
+        return False
+    tool = candidate.get("tool")
+    if tool in WRITE_TOOLS:
+        operation_prefix = "file-write-"
+    elif tool in PATH_TOOLS or tool in SHELL_TOOLS:
+        # Shell paths are statically classified as reads; a write denial cannot confirm them.
+        operation_prefix = "file-read-"
+    else:
+        return False
+    path = candidate.get("resolved")
+    if not isinstance(path, str) or not os.path.isabs(path):
+        return False
+    for record in records:
+        if record.get("denied") is False or str(record.get("verdict", "")).upper() == "ALLOW":
+            continue
+        if not str(record.get("operation", "")).startswith(operation_prefix):
+            continue
+        if pid is not None and record.get("pid") is not None and str(record["pid"]) != str(pid):
+            continue
+        try:
+            timestamp = datetime.datetime.fromisoformat(str(record.get("ts")))
+            if timestamp.tzinfo is None or not start <= timestamp <= end:
+                continue
+        except (TypeError, ValueError):
+            continue
+        if any(isinstance(record.get(key), str) and os.path.isabs(record[key])
+               and os.path.realpath(record[key]) == os.path.realpath(path)
+               for key in VIOLATION_PATH_KEYS):
+            return True
     return False
 
 
@@ -1052,8 +1077,7 @@ def shell_hits(command: str, run_dir: Path, home: str | None, allow: tuple[str, 
     not a place, so it is the one kind of operand that is not judged as a path.
     T46: a shell token is classified as a READ, the weaker of the two accesses: a path the profile
     re-allows for reading but not for writing therefore stays `POSSIBLE_SUCCESS`.
-    T52: `snapshot` is the run's post-launch copy, so a READ of a path that does not exist is
-    evidence rather than a hit even when the worker deleted it after the fact.
+    T52: `snapshot` is the run's post-launch copy; recorded content overrides an absent path.
     """
     command_line, _ = split_heredocs(command)
     tokens = shell_tokens(command_line)
@@ -1264,7 +1288,7 @@ def event_hits(event, index: int, run_dir: Path, home: str | None,
 
     Every hit carries its `class` (T46): a `DENIED_BY_POLICY` hit obtained nothing and is reported
     as evidence, a `POSSIBLE_SUCCESS` hit keeps the run INVALID. T52: a read whose target does not
-    exist (checked against `snapshot` and the filesystem) is evidence, not a hit.
+    exist (checked against `snapshot` and the filesystem) is evidence absent a successful result.
     """
     if not isinstance(event, dict):
         return [{"event": index, "reason": "MALFORMED_EVENT", "value": str(event)[:200],
@@ -1339,22 +1363,21 @@ def event_evidence(event, run_dir: Path) -> dict:
 
 def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
           python: str | None = None, profile=None, egress_log=None,
-          confinement=None, snapshot=None, violations=None) -> dict:
+          confinement=None, snapshot=None, violations=None, launch_window=None) -> dict:
     """Audit one run's event stream; every hit is kept verbatim and classified (T46).
 
     `profile` is the ARCHIVED rendered profile of the same launch, `egress_log` that launch's
     `egress.jsonl`, `confinement` its self-test record: the first decides the class of every path
     hit, all three feed the breach rule. A hit is never softened by anything the worker says.
     T52: `snapshot` is the run's post-launch snapshot (a path that it does not hold and that the
-    filesystem does not hold either did not exist), and `violations` the launch's T51.4
-    `violations.jsonl` (or its parsed records): a violation naming the same path or host is the
-    empirical confirmation of a denial. Neither can make a denied access look successful.
+    filesystem does not hold either is provisionally absent), and `violations` the launch's T51.4
+    `violations.jsonl` (or its parsed records): a same-kind path denial within the supplied
+    launch window can confirm a denial. Recorded content overrides post-launch absence.
     """
     run_dir = Path(run_dir).resolve()
     allow = allowed_roots(python)
     rules = profile_rules(profile)
     violation_records = read_violations(violations)
-    places = violation_places(violation_records)
     result = {"schema_version": 1, "program": "freeze-v3/access_audit.py",
               "run_dir": str(run_dir), "allow_list": list(allow),
               "observation_scope": ("Every tool_use input recorded in the run's event stream. "
@@ -1411,9 +1434,20 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
         for candidate in event_hits(event, index, run_dir, home, allow, rules, snapshot):
             # T46: a denied attempt is evidence with its count; a possible success keeps the run
             # INVALID:OUT_OF_RUN_ACCESS, exactly as before. T52: a violation record naming the
-            # same place is the empirical confirmation of the denial — and nothing else.
-            if (candidate.get("class") == POSSIBLE_SUCCESS and places
-                    and violation_confirms(candidate, places)):
+            # same operation and place within the launch window can confirm the denial.
+            part = event.get("part") if isinstance(event, dict) else None
+            state = part.get("state") if isinstance(part, dict) else None
+            state = state if isinstance(state, dict) else {}
+            output = state.get("output")
+            returned_content = (candidate.get("tool") in CONTENT_TOOLS | SHELL_TOOLS
+                                and state.get("status") == "completed"
+                                and isinstance(output, str) and bool(output.strip()))
+            if candidate.get("policy") == PATH_NOT_FOUND and returned_content:
+                candidate["class"] = POSSIBLE_SUCCESS
+                candidate.pop("policy")
+            if (candidate.get("class") == POSSIBLE_SUCCESS and not returned_content
+                    and violation_confirms(candidate, violation_records, launch_window,
+                                           event.get("pid") if isinstance(event, dict) else None)):
                 candidate["class"] = DENIED_BY_POLICY
                 candidate["policy"] = VIOLATION_CONFIRMED
             keep("denied_attempts" if candidate.get("class") == DENIED_BY_POLICY else "hits",
