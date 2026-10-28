@@ -454,3 +454,49 @@ T55c checks (local, `PYTHONPATH` unset and `TMPDIR` resolved to `/tmp`'s physica
 with no mismatches; gateevidence unittest 4 tests OK; existing violations unittest 14 tests OK;
 `git diff --check` passed. The 11-minute suite, live model runs, independent review, and v3
 manifest re-pin were not performed.
+
+### T55d — integration and re-pin
+
+- F1: the worker uses the same trusted start and post-sweep end for both the unified-log
+  collection and `access_audit.audit(..., launch_window=...)`. Both bounds are timezone-aware
+  UTC ISO timestamps with subsecond precision; the audit accepts local-time log timestamps
+  with numeric offsets. A stubbed driver test checks that a matching `file-read-data` denial
+  inside the window gives `PASS` and `DENIED_BY_POLICY`/`VIOLATION_LOG`, whereas a record
+  outside the window leaves `POSSIBLE_SUCCESS` and `INVALID`.
+- F1/F4: updated the old violation-confirmation fixture to provide operation, time and window,
+  and registered the legacy run in the cell-resolution fixture. F3: refreshed the independent
+  literals for all 64 manifest members, including `violations_v3.py`.
+- F2: a missing receipt was incorrectly reclassified as unreadable when no-follow reading was
+  introduced. Restore `MISSING_RECEIPT` for `FileNotFoundError` while retaining no-follow
+  behavior and the link-specific evidence checks. The original CLI assertion now passes.
+- F5: the gate test now patches the collector actually referenced by its gate, preserving the
+  same assertions when other test modules reload the collector module.
+- Re-pin at materials/freeze parent `10cbf3c`: `delivery_anchors.py` returned neutral slots
+  `CODEBUDDY=0, AGENTS=0, WRAPPER=10`; `build_run_plan.py` returned `runs=20 control_first=5
+  variant_first=5 fresh_episode=20`; `build_manifest.py build` returned `files=64
+  delivery_payload_equivalent_to_T2=YES`.
+
+Gate evidence (the specified Python, `PYTHONPATH` unset and physical system `TMPDIR`):
+
+- `python -m ruff check .`: `All checks passed!`.
+- `python scripts/validate_governance.py`: `35/35 checks passed`.
+- `python scripts/validate_public_release.py`: `MODE=PUBLIC`, `VIOLATIONS=0`.
+- v2 and v3 `build_manifest.py check`: each `{"verdict": "PASS", "mismatches": []}`.
+- `git diff --exit-code 4aa2e7b -- experiments/v1.2/h2-lazy-disclosure/freeze-v2`: exit 0;
+  `git diff --check`: exit 0.
+- A guarded foreground discovery of all eight v3 modules completed: `Ran 282 tests in
+  781.234s`, `FAILED (failures=1, skipped=5)`. The sole failure was the F5 test's stale mock
+  target after module reload. The 229-test main module had no failures; three of its tests
+  were skipped. After correcting that mock target, a combined rerun of the other seven modules
+  returned `Ran 53 tests in 20.015s`, `OK (skipped=2)`; the gate and driver wiring tests also
+  passed together (`Ran 6 tests`, `OK`). The full 282-test discovery was not rerun after the
+  test-only correction, so its final aggregate status remains unverified.
+- The five skipped checks are the unavailable/forbidden archive replay, three prohibited driver
+  subcommand CLI checks (including help-only calls), and the platform test containing real
+  `opencode --version`. They are not passes. The test runner blocked those calls and archive
+  access; it allowed local stubs. An initial full attempt also failed because its write guard
+  mistook directory-relative no-follow opens for outside writes; that guard was corrected before
+  the 282-test run above.
+
+No live model, real opencode or real run was launched. Independent review and real CI for this
+new candidate were not performed; the prior review applies to an earlier SHA.

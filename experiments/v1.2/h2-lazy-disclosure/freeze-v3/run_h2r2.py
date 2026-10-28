@@ -1483,7 +1483,7 @@ def launch_tools(*, runs_root: Path, run_id: str, plan_run: dict, driver_dir: Pa
                         "attempts": attempts,
                         "reason": (f"SANDBOX_NOT_CONFINING:"
                                    f"{','.join(test.get('reasons', []))}")}
-            prepared.setdefault("violation_start", now())
+            prepared.setdefault("violation_start", datetime.now(timezone.utc).isoformat())
             handle = launch_server([*server_command, str(port)], launch_dir,
                                    server_env(prepared["env"], proxy,
                                               prepared["server_password"]),
@@ -1892,8 +1892,9 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # T51e: the launch's denial evidence is collected AFTER the sweep, so the sweep's pids
             # (group members, lingering, killed, survivors) join the served and launched pids.
             record["observed_pids"] = sorted(pid_set(result, prepared, launch_sweep))
+            launch_window = (prepared["violation_start"], datetime.now(timezone.utc).isoformat())
             record["violations"] = violation_record(
-                prepared.get("violation_start") or record.get("started_at"), now(),
+                *launch_window,
                 record["observed_pids"],
                 violations_path(driver_dir, attempt, "worker"))
             record["sweep"] = launch_sweep
@@ -1968,7 +1969,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # through the parameters it actually consumes. `snapshot` is the post-sweep copy (a
             # path the tree no longer holds and the snapshot does not hold either did not exist
             # for the launch), and `violations` is this launch's collected unified-log file: a
-            # violation naming the same place turns a POSSIBLE_SUCCESS hit into DENIED_BY_POLICY.
+            # a matching operation and path within the trusted window can confirm a denial.
             # The confinement copy keeps carrying the record too; neither input can soften a hit.
             access = access_audit.audit(driver_events, run_dir,
                                         home=prepared["env"].get("HOME"),
@@ -1977,7 +1978,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                                         egress_log=egress_log,
                                         confinement=confinement_record,
                                         snapshot=evidence,
-                                        violations=(record.get("violations") or {}).get("path"))
+                                        violations=(record.get("violations") or {}).get("path"),
+                                        launch_window=launch_window)
             access["egress_log"] = str(egress_log)
             access["egress_denied"] = egress_v2.denied(egress_log)
             record["egress_log"] = str(egress_log)

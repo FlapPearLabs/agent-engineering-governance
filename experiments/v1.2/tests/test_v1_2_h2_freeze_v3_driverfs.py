@@ -139,6 +139,8 @@ class SnapshotAndCellTests(unittest.TestCase):
             self.assertEqual([p.name for p in run.parent.iterdir()], ["run1"])
             legacy = root / "old"
             legacy.mkdir()
+            # F4: legacy resolution is available only for registered runs.
+            (root / "registry-v3.jsonl").write_text(json.dumps({"run_id": "old"}) + "\n")
             self.assertEqual(wrapper.run_dir_for(root, "old"), legacy)
             self.assertEqual(wrapper.runs_root_of(legacy), root)
             rules = sandbox.allow_rules(run, run / "home")

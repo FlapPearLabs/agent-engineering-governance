@@ -168,6 +168,8 @@ def verify_delivery(root: Path, run_dir: Path) -> tuple[dict, dict[str, str], li
         return {"type": "symlink", "sha256": sha256(os.fsencode(os.readlink(receipt_path)))}, {}, ["EVIDENCE_UNREADABLE:receipt.json"]
     try:
         receipt = json.loads(wrapper_delivery.safe_read(receipt_path))
+    except FileNotFoundError:
+        return {}, {}, ["MISSING_RECEIPT"]
     except (OSError, ValueError):
         return {}, {}, ["UNREADABLE_RECEIPT"]
     if not isinstance(receipt, dict) or not {"task_id", "arm", "delivered_head",

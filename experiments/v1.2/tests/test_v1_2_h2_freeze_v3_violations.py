@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -382,6 +383,49 @@ class AuditInputWiring(unittest.TestCase):
             finally:
                 if run_dir.exists():
                     driver.wrapper_delivery.cleanup(ROOT, run_dir)
+
+    def test_launch_window_confirms_only_matching_in_window_denials(self):
+        outside = ROOT / "README.md"
+        self.assertTrue(outside.is_file())
+        for inside in (True, False):
+            with self.subTest(inside=inside), tempfile.TemporaryDirectory() as tmp:
+                seen = {}
+                original = driver.access_audit.audit
+
+                def collect(start, end, pids, output):
+                    seen["window"] = (start, end)
+                    beginning, finish = datetime.fromisoformat(start), datetime.fromisoformat(end)
+                    moment = beginning + (finish - beginning) / 2 if inside else beginning - timedelta(seconds=1)
+                    record = {"path": str(outside), "operation": "file-read-data",
+                              "ts": moment.astimezone().strftime("%Y-%m-%d %H:%M:%S.%f%z")}
+                    Path(output).write_text(json.dumps(record) + "\n", encoding="utf-8")
+                    return 1
+
+                def spy(*args, **kwargs):
+                    seen["audit_window"] = kwargs.get("launch_window")
+                    return original(*args, **kwargs)
+
+                with mock.patch.object(driver.access_audit, "audit", side_effect=spy), \
+                        mock.patch.object(driver.violations_v3, "collect_violations", side_effect=collect):
+                    result = self.execute(tmp, outside)
+                self.assertEqual("EXECUTED", result["outcome"], result)
+                self.assertEqual(seen["window"], seen["audit_window"])
+                run_dir = driver.wrapper_delivery.run_dir_for(Path(tmp) / "runs", "h2r3-f01-c")
+                try:
+                    audit = json.loads((run_dir / "access-audit.json").read_text())
+                    self.assertEqual("PASS" if inside else "INVALID", audit["verdict"])
+                    if inside:
+                        self.assertEqual([], audit["hits"])
+                        self.assertEqual(["DENIED_BY_POLICY"],
+                                         [item["class"] for item in audit["denied_attempts"]])
+                        self.assertEqual(["VIOLATION_LOG"],
+                                         [item["policy"] for item in audit["denied_attempts"]])
+                    else:
+                        self.assertEqual(["POSSIBLE_SUCCESS"], [item["class"] for item in audit["hits"]])
+                        self.assertEqual([], audit["denied_attempts"])
+                finally:
+                    if run_dir.exists():
+                        driver.wrapper_delivery.cleanup(ROOT, run_dir)
 
 
 if __name__ == "__main__":

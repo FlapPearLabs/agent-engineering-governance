@@ -69,7 +69,9 @@ class GateEvidenceTests(unittest.TestCase):
                 Path(path).write_text('denial\n')
                 return 1
 
-            with patch('violations_v3.collect_violations', side_effect=collect):
+            # F5: patch the collector instance used by the gate even after module reloads.
+            with patch.object(run_acceptance_v2.delivery_anchors.violations_v3,
+                              'collect_violations', side_effect=collect):
                 result, info = run_acceptance_v2.gate_run(base / 'attempt', base / 'source', 'test_probe.py', 'RESOLVED', number=1)
             self.assertEqual((result['rc'], result['ran']), (0, 1))
             evidence = info['violations']
@@ -78,7 +80,8 @@ class GateEvidenceTests(unittest.TestCase):
             self.assertEqual(evidence['sha256'], hashlib.sha256(b'denial\n').hexdigest())
             self.assertTrue(calls[0][0] <= calls[0][1])
             self.assertTrue(calls[0][2])
-            with patch('violations_v3.collect_violations', side_effect=OSError('log failed')):
+            with patch.object(run_acceptance_v2.delivery_anchors.violations_v3,
+                              'collect_violations', side_effect=OSError('log failed')):
                 other, info2 = run_acceptance_v2.gate_run(base / 'attempt', base / 'source', 'test_probe.py', 'RESOLVED', number=2)
             self.assertEqual((other['rc'], other['ran']), (0, 1))
             self.assertEqual(info2['violations']['error'], 'OSError')
