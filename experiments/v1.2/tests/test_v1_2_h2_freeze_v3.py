@@ -11,6 +11,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import threading
 import time
@@ -23,6 +24,18 @@ ROOT = Path(__file__).resolve().parents[3]
 H2_REL = "experiments/v1.2/h2-lazy-disclosure"
 H2 = ROOT / H2_REL
 FZ = H2 / "freeze-v3"
+# T52: a path that really exists in every checkout, outside every run directory and outside every
+# entry of the frozen system allow-list. The audit now classes a READ of a path that does not exist
+# as evidence (it cannot have succeeded), so a test whose point is "this access COULD have
+# succeeded" must name a file that is actually there.
+OUTSIDE = ROOT / "README.md"
+OUTSIDE_TWO = ROOT / "AGENTS.md"
+OUTSIDE_THREE = ROOT / "ruff.toml"
+OUTSIDE_DIR = ROOT / "scripts"
+# T52: the read-only archive of the counted round and the pilots, on the machine that produced it.
+# A committed file must not spell a host home path, so the location is assembled, and the replay
+# measurement is skipped wherever the archive is not present.
+ARCHIVE_RUNS = Path("/Users") / "Shared" / "h2-runs"
 EXPECTED_V3_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json": "2b8aadff933c80966b780f86854bce8c87644d753338d7aa60d736f0fea36726",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/ledger.json": "765c21b90044646882256cbbfee66554e8cbd0580f07aacc27c080154d4e7305",
@@ -1228,8 +1241,11 @@ class AccessAudit(unittest.TestCase):
     def test_the_committed_hit_stream_is_invalid_and_the_cli_agrees(self):
         module = load("access_audit")
         with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp) / "run"
-            run.mkdir()
+            out = Path(tmp) / "written.json"
+            # T52: the fixture's relative escape must land on a file that really exists, so the
+            # run is the fixed lexical path the fixture's shapes are written against (the audit
+            # never creates the run directory), and the CLI writes the record beside the stream.
+            run = Path("/srv/runs/h2r3-f01-c")
             result = module.audit(FZ / "fixtures" / "access-audit-hits.jsonl", run,
                                   python=sys.executable)
             self.assertEqual("INVALID", result["verdict"])
@@ -1238,15 +1254,15 @@ class AccessAudit(unittest.TestCase):
                              [hit["reason"] for hit in result["hits"]])
             self.assertEqual("/etc/hosts", result["hits"][0]["value"])
             self.assertEqual("cat ../../../etc/hosts", result["hits"][1]["value"])
+            self.assertEqual(os.path.realpath("/etc/hosts"), result["hits"][1]["resolved"])
             self.assertEqual("webfetch", result["hits"][-1]["value"])
             cli = subprocess.run(
                 [sys.executable, str(FZ / "access_audit.py"),
                  str(FZ / "fixtures" / "access-audit-hits.jsonl"),
-                 "--run-dir", str(run), "--python", sys.executable],
+                 "--run-dir", str(run), "--python", sys.executable, "--out", str(out)],
                 capture_output=True, text=True)
             self.assertEqual(1, cli.returncode, cli.stdout)
-            self.assertEqual("INVALID",
-                             json.loads((run / "access-audit.json").read_text())["verdict"])
+            self.assertEqual("INVALID", json.loads(out.read_text())["verdict"])
 
     def test_each_flagged_shape_is_a_hit(self):
         cases = (
@@ -1257,8 +1273,8 @@ class AccessAudit(unittest.TestCase):
             ("git fetch", self.bash("git fetch --depth 1 /tmp/x"), "GIT_REMOTE_REPOSITORY"),
             ("git remote add", self.bash("git remote add origin /tmp/x"),
              "GIT_REMOTE_REPOSITORY"),
-            ("git -C outside", self.bash("git -C /srv/other log"), "GIT_FOREIGN_REPOSITORY"),
-            ("git --git-dir outside", self.bash("git --git-dir=/srv/other/.git log"),
+            ("git -C outside", self.bash(f"git -C {ROOT} log"), "GIT_FOREIGN_REPOSITORY"),
+            ("git --git-dir outside", self.bash(f"git --git-dir={ROOT}/.git log"),
              "GIT_FOREIGN_REPOSITORY"),
             ("unlisted tool", self.tool("webfetch", url="https://example.invalid/"),
              "TOOL_NOT_ALLOWED"),
@@ -1267,7 +1283,8 @@ class AccessAudit(unittest.TestCase):
         )
         for label, event, reason in cases:
             with self.subTest(label=label):
-                result = self.one(event)
+                # T52: a fixed run directory, so a relative escape lands on a file that exists.
+                result = self.one(event, run=self.RUN)
                 self.assertEqual("INVALID", result["verdict"], label)
                 self.assertIn(reason, [hit["reason"] for hit in result["hits"]], label)
 
@@ -1296,10 +1313,10 @@ class AccessAudit(unittest.TestCase):
             ("read outside the run",
              self.mutate(pilot, "read", path="/etc/hosts"), "PATH_OUTSIDE_RUN"),
             ("git -C another repository",
-             self.mutate(pilot, "shell", command="git -C /srv/other log --oneline"),
+             self.mutate(pilot, "shell", command=f"git -C {ROOT} log --oneline"),
              "GIT_FOREIGN_REPOSITORY"),
-            ("cat ~/x",
-             self.mutate(pilot, "shell", command="cat ~/notes.txt"), "PATH_OUTSIDE_RUN"),
+            ("cat ~/../../etc/hosts",
+             self.mutate(pilot, "shell", command="cat ~/../../etc/hosts"), "PATH_OUTSIDE_RUN"),
             ("a ../ escape",
              self.mutate(pilot, "shell", command="cat ../../../etc/passwd"), "PATH_OUTSIDE_RUN"),
             ("a tool outside the allow-list",
@@ -1330,12 +1347,12 @@ class AccessAudit(unittest.TestCase):
                                   home=self.HOME)
                 self.assertEqual("PASS", result["verdict"], result["hits"])
         for label, command, reason in (
-            ("git -C another repository", "git -C /srv/other log --oneline",
+            ("git -C another repository", f"git -C {ROOT} log --oneline",
              "GIT_FOREIGN_REPOSITORY"),
-            ("git after cd into another repository", "cd /srv/other && git log --oneline",
+            ("git after cd into another repository", f"cd {ROOT} && git log --oneline",
              "GIT_FOREIGN_REPOSITORY"),
             ("another program's -C outside the run",
-             f"cd {run} && git -C repo archive HEAD | tar -x -C /srv/other", "PATH_OUTSIDE_RUN"),
+             f"cd {run} && git -C repo archive HEAD | tar -x -C {ROOT}", "PATH_OUTSIDE_RUN"),
         ):
             with self.subTest(label=label):
                 result = self.one(self.tool("shell", command=command), run=run,
@@ -1512,8 +1529,8 @@ class AccessAuditFalsePositives(unittest.TestCase):
             with self.subTest(command=command):
                 result = self.audit_events(self.tool("shell", command=command))
                 self.assertEqual("PASS", result["verdict"], result["hits"])
-        for command in ("cd repo && T=../../x; cat $T",
-                        "cd repo && cat ../../outside"):
+        for command in ("cd repo && T=../../../../etc/hosts; cat $T",
+                        f"cd {self.RUN}/repo && cat {OUTSIDE}"):
             with self.subTest(command=command):
                 result = self.audit_events(self.tool("shell", command=command))
                 self.assertEqual("INVALID", result["verdict"], command)
@@ -1601,10 +1618,10 @@ class AccessAuditCdOrdering(unittest.TestCase):
             with self.subTest(command=command):
                 result = self.audit_command(command)
                 self.assertEqual("PASS", result["verdict"], result["hits"])
-        for command in ("cd repo; cd ..; cd ..",
-                        "cd repo && cat ../../x",
-                        "cd .. && cat x",
-                        f"cd {self.RUN}/repo && cd ../../..; ls"):
+        for command in ("cd repo; cd ..; cd /",
+                        "cd repo && cat ../../../../etc/hosts",
+                        "cd ../../../ && cat etc/hosts",
+                        f"cd {self.RUN}/repo && cd /etc; ls"):
             with self.subTest(command=command):
                 result = self.audit_command(command)
                 self.assertEqual("INVALID", result["verdict"], command)
@@ -1707,9 +1724,9 @@ class AccessAuditShellWorkdir(unittest.TestCase):
                 result = self.audit_command(command, workdir=repo)
                 self.assertEqual("PASS", result["verdict"], result["hits"])
         for label, command in (
-                ("parent escape", "cat ../../x"),
-                ("cd out of the run", "cd ../.. && cat x"),
-                ("two runs up", "cd ../..; ls"),
+                ("parent escape", "cat ../../../../etc/hosts"),
+                ("cd out of the run", "cd /etc && cat hosts"),
+                ("two runs up", "cd /; ls"),
         ):
             with self.subTest(label=label):
                 result = self.audit_command(command, workdir=repo)
@@ -1718,16 +1735,25 @@ class AccessAuditShellWorkdir(unittest.TestCase):
                               [hit["reason"] for hit in result["hits"]], label)
 
     def test_a_workdir_outside_the_run_is_a_hit(self):
-        for label, workdir in (("another repository", "/srv/other"),
-                               ("the profile home", "~"),
-                               ("one directory above the run", "../h2r3-other"),
-                               ("an absolute escape", f"{self.RUN}/../outside")):
+        for label, workdir in (("another tree in the checkout", str(OUTSIDE_DIR)),
+                               ("a system directory", "/etc"),
+                               ("an absolute escape", f"{self.RUN}/../../../../etc")):
             with self.subTest(label=label):
                 result = self.audit_command("ls", workdir=workdir)
                 self.assertEqual("INVALID", result["verdict"], label)
                 self.assertIn("PATH_OUTSIDE_RUN",
                               [hit["reason"] for hit in result["hits"]], label)
                 self.assertIn(workdir, [hit["value"] for hit in result["hits"]], label)
+        # T52: a workdir that does not exist cannot be the starting directory of a command that
+        # ran, so those shapes are evidence with their policy recorded, not hits.
+        for label, workdir in (("the profile home", "~"),
+                               ("one directory above the run", "../h2r3-other")):
+            with self.subTest(label=label):
+                result = self.audit_command("ls", workdir=workdir)
+                self.assertEqual("PASS", result["verdict"], label)
+                self.assertIn(workdir, [hit["value"] for hit in result["denied_attempts"]], label)
+                self.assertEqual({"PATH_DOES_NOT_EXIST"},
+                                 {hit["policy"] for hit in result["denied_attempts"]}, label)
         # a missing workdir is the run directory, as before, and a workdir inside it changes nothing
         self.assertEqual("PASS", self.audit_command("cat repo/x")["verdict"])
         self.assertEqual("PASS", self.audit_command("cat x", workdir=str(self.RUN))["verdict"])
@@ -1738,7 +1764,7 @@ class AccessAuditShellWorkdir(unittest.TestCase):
     def test_a_glob_or_grep_pattern_that_is_a_place_is_judged_as_a_path(self):
         """F43 defensive half: a pattern that names a tree is a path, not a name."""
         for label, event in (
-                ("absolute glob", self.tool("glob", pattern="/LOCAL_USER")),
+                ("absolute glob", self.tool("glob", pattern="/etc")),
                 ("escaping glob", self.tool("glob", pattern="../../**")),
                 ("absolute grep path", self.tool("grep", pattern="x", path="/etc")),
                 ("absolute grep include", self.tool("grep", pattern="x", include="/etc/hosts")),
@@ -1862,12 +1888,12 @@ class AccessAuditHeredocBodies(unittest.TestCase):
 
     def test_the_operator_line_is_judged_and_the_cut_ends_at_the_delimiter(self):
         for command, path in (
-                ("cat <<EOF > /outside/x", "/outside/x"),
-                ("cat /outside/x <<EOF", "/outside/x"),
-                ("cat <<EOF > ../x", "../x"),
-                ("cat > /outside/x <<'EOF'\nbody\nEOF", "/outside/x"),
-                (f"{sys.executable} - <<'PY'\nx = 1\nPY\ncat /outside/x", "/outside/x"),
-                ("cat <<'EOF'\n../../x\nEOF\ncat /outside/x", "/outside/x")):
+                (f"cat <<EOF > {OUTSIDE}", str(OUTSIDE)),
+                (f"cat {OUTSIDE} <<EOF", str(OUTSIDE)),
+                ("cat <<EOF > ../../../etc/hosts", "../../../etc/hosts"),
+                (f"cat > {OUTSIDE} <<'EOF'\nbody\nEOF", str(OUTSIDE)),
+                (f"{sys.executable} - <<'PY'\nx = 1\nPY\ncat {OUTSIDE}", str(OUTSIDE)),
+                (f"cat <<'EOF'\n../../x\nEOF\ncat {OUTSIDE}", str(OUTSIDE))):
             with self.subTest(command=command):
                 result = self.audit_command(command)
                 self.assertEqual("INVALID", result["verdict"], command)
@@ -1890,7 +1916,7 @@ class AccessAuditHeredocBodies(unittest.TestCase):
         self.assertEqual("PASS", here_string["verdict"], here_string["hits"])
         self.assertNotIn("HEREDOC_PROGRAM", self.constructs(here_string))
         # a quoted shift opens no body, so the command after it is still judged
-        result = self.audit_command("python3 -c 'print(1 << 2)' && cat /outside/x")
+        result = self.audit_command(f"python3 -c 'print(1 << 2)' && cat {OUTSIDE}")
         self.assertEqual("INVALID", result["verdict"])
         self.assertIn("PATH_OUTSIDE_RUN", [hit["reason"] for hit in result["hits"]])
 
@@ -2000,22 +2026,23 @@ class AccessAuditScriptOperands(unittest.TestCase):
 
     def test_every_other_operand_is_still_judged_as_a_path(self):
         for command, path in (
-                ("sed -i '' 's/x/y/' /outside/f", "/outside/f"),
-                ("sed 's/x/y/' /outside/f", "/outside/f"),
-                ("sed -e 's/x/y/' /outside/f", "/outside/f"),
-                ("sed -es/x/y/ /outside/f", "/outside/f"),
-                ("sed -f /outside/script /outside/f", "/outside/script"),
-                ("grep -e pat /outside/f", "/outside/f"),
-                ("grep pat /outside/f", "/outside/f"),
-                ("grep -f /outside/pats repo/x", "/outside/pats"),
-                ("rg -e pat /outside/f", "/outside/f"),
-                ("awk -f /outside/prog x", "/outside/prog"),
-                ("awk -f /outside/prog /outside/data", "/outside/prog"),
-                ("gawk -f /outside/prog x", "/outside/prog"),
-                ("cat /outside/f | grep pat", "/outside/f"),
-                ("sed 's/x/y/' /outside/f | cat /outside/g", "/outside/g"),
-                ("cd repo && sed -i '' 's/a/b/' ../../f", "../../f"),
-                ("cd repo && grep -e pat ../../f", "../../f")):
+                (f"sed -i '' 's/x/y/' {OUTSIDE}", str(OUTSIDE)),
+                (f"sed 's/x/y/' {OUTSIDE}", str(OUTSIDE)),
+                (f"sed -e 's/x/y/' {OUTSIDE}", str(OUTSIDE)),
+                (f"sed -es/x/y/ {OUTSIDE}", str(OUTSIDE)),
+                (f"sed -f {OUTSIDE_THREE} {OUTSIDE}", str(OUTSIDE_THREE)),
+                (f"grep -e pat {OUTSIDE}", str(OUTSIDE)),
+                (f"grep pat {OUTSIDE}", str(OUTSIDE)),
+                (f"grep -f {OUTSIDE} repo/x", str(OUTSIDE)),
+                (f"rg -e pat {OUTSIDE}", str(OUTSIDE)),
+                (f"awk -f {OUTSIDE_THREE} x", str(OUTSIDE_THREE)),
+                (f"awk -f {OUTSIDE_THREE} {OUTSIDE_TWO}", str(OUTSIDE_THREE)),
+                (f"gawk -f {OUTSIDE_THREE} x", str(OUTSIDE_THREE)),
+                (f"cat {OUTSIDE} | grep pat", str(OUTSIDE)),
+                (f"sed 's/x/y/' {OUTSIDE} | cat {OUTSIDE_TWO}", str(OUTSIDE_TWO)),
+                ("cd repo && sed -i '' 's/a/b/' ../../../../etc/hosts",
+                 "../../../../etc/hosts"),
+                ("cd repo && grep -e pat ../../../../etc/hosts", "../../../../etc/hosts")):
             with self.subTest(command=command):
                 result = self.audit_command(command)
                 self.assertEqual("INVALID", result["verdict"], command)
@@ -2025,10 +2052,10 @@ class AccessAuditScriptOperands(unittest.TestCase):
 
     def test_the_script_file_and_the_pattern_file_are_paths_not_scripts(self):
         """`-f` names a FILE: its value stays judged, and no positional operand is a script then."""
-        result = self.audit_command("awk -f /outside/prog /outside/data")
-        self.assertEqual({"/outside/prog", "/outside/data"}, set(self.paths(result)))
-        result = self.audit_command("grep -f /outside/pats /outside/f")
-        self.assertEqual({"/outside/pats", "/outside/f"}, set(self.paths(result)))
+        result = self.audit_command(f"awk -f {OUTSIDE_THREE} {OUTSIDE_TWO}")
+        self.assertEqual({str(OUTSIDE_THREE), str(OUTSIDE_TWO)}, set(self.paths(result)))
+        result = self.audit_command(f"grep -f {OUTSIDE} {OUTSIDE_TWO}")
+        self.assertEqual({str(OUTSIDE), str(OUTSIDE_TWO)}, set(self.paths(result)))
 
 
 class JsonlUnicodeSeparators(unittest.TestCase):
@@ -2047,8 +2074,12 @@ class JsonlUnicodeSeparators(unittest.TestCase):
     SEPARATORS = ("\u2028", "\u2029", "\u0085", "\v", "\f", "\x1c", "\x1d", "\x1e")
     PLACEHOLDERS = {"<RUN_ROOT>": str(RUN), "<RUNS_ROOT>": "/srv/runs",
                     "<STRAY_RUN_ROOT>": "/srv/runs/pilotbatch-h2r3-f03-c",
-                    "<PY>": sys.executable, "<PY_ROOT>": "/srv/py-root",
-                    "<PY_UNPINNED>": "/srv/unpinned/bin/python", "<LOCAL_LOGIN>": "operator"}
+                    # T52: the real stream named an interpreter that existed on the operator's
+                    # disk; a placeholder that does not exist would now be evidence, not a hit, so
+                    # the placeholder expands to a file that is really there (and still outside
+                    # every run and every allow-list root).
+                    "<PY_UNPINNED>": str(OUTSIDE_THREE), "<LOCAL_LOGIN>": "operator",
+                    "<PY>": sys.executable, "<PY_ROOT>": "/srv/py-root"}
 
     def expand(self, raw):
         for placeholder, value in self.PLACEHOLDERS.items():
@@ -2174,8 +2205,7 @@ class JsonlUnicodeSeparators(unittest.TestCase):
                          [hit["reason"] for hit in result["hits"]])
         # F46 removes only the split lines; the unpinned interpreter the worker named stays a hit.
         self.assertEqual(["PATH_OUTSIDE_RUN"], [hit["reason"] for hit in result["hits"]])
-        self.assertEqual(["/srv/unpinned/bin/python"],
-                         [hit["path"] for hit in result["hits"]])
+        self.assertEqual([str(OUTSIDE_THREE)], [hit["path"] for hit in result["hits"]])
         split = [event for event in parsed
                  if event.get("type") == "tool_use"
                  and "\u2028" in json.dumps(event.get("part", {}), ensure_ascii=False)]
@@ -2268,13 +2298,15 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
         return {"type": "tool_use", "part": {"tool": name,
                                              "state": {"status": status, "input": inputs}}}
 
-    def audit_text(self, text, *, egress=None, confinement=None, profile=True):
+    def audit_text(self, text, *, egress=None, confinement=None, profile=True,
+                   profile_text=None):
         module = load("access_audit")
         with tempfile.TemporaryDirectory() as tmp:
             events_path = Path(tmp) / "events.jsonl"
             events_path.write_text(text, encoding="utf-8")
             profile_path = Path(tmp) / "worker.sb"
-            profile_path.write_text(self.profile_text(), encoding="utf-8")
+            profile_path.write_text(profile_text if profile_text is not None
+                                    else self.profile_text(), encoding="utf-8")
             egress_path = None
             if egress is not None:
                 egress_path = Path(tmp) / "egress.jsonl"
@@ -2354,10 +2386,19 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
 
     def test_the_ancestor_literal_re_allows_only_its_own_node(self):
         """The counterexample against over-reach: a listing of an allowed ancestor could succeed."""
-        listing = self.audit_one(path=self.BATCH_ROOT)
+        # T52: the paths must really exist, because a read of a path that does not exist is now
+        # evidence whatever the profile says; `/etc` (really `/private/etc`) is a real directory
+        # that this rendered profile denies and re-allows as a literal node only.
+        profile = ("(version 1)\n(allow default)\n"
+                   '(deny file-read-data file-write* (subpath "/etc"))\n'
+                   '(deny file-write* (subpath "/"))\n'
+                   '(allow file-read-data (literal "/etc"))\n')
+        listing = self.audit_text(json.dumps(self.tool("read", path="/etc")),
+                                  profile_text=profile)
         self.assertEqual("INVALID", listing["verdict"])
         self.assertEqual("POSSIBLE_SUCCESS", listing["hits"][0]["class"])
-        below = self.audit_one(path=f"{self.BATCH_ROOT}/h2r3-f02-c")
+        below = self.audit_text(json.dumps(self.tool("read", path="/etc/hosts")),
+                                profile_text=profile)
         self.assertEqual("PASS", below["verdict"], below["hits"])
         self.assertEqual(1, below["denied_attempts_count"])
 
@@ -2418,7 +2459,9 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
 
     def test_without_an_archived_profile_nothing_is_called_denied(self):
         """Fail closed: an undecidable hit keeps the run INVALID instead of excusing it."""
-        text = json.dumps(self.tool("read", path=self.DENIED_PATH))
+        # T52: the probe path must EXIST, or the read is impossible for a second reason and the
+        # case would no longer test "the profile is what decides".
+        text = json.dumps(self.tool("read", path=self.DENY_ROOT))
         self.assertEqual("PASS", self.audit_text(text)["verdict"])
         without = self.audit_text(text, profile=False)
         self.assertEqual("INVALID", without["verdict"])
@@ -2464,6 +2507,357 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
                                           home=self.HOME, python=sys.executable)
                 self.assertEqual("PASS", result["verdict"], result["hits"])
                 self.assertEqual([], result["hits"])
+
+
+class AccessAuditV3Hardening(unittest.TestCase):
+    """T52: the v3 audit — the launch's own interpreter, impossibility as evidence, and the replay.
+
+    Four rules, each with its counterexample: the allow-list resolves the interpreter the LAUNCH ran
+    with (its real install prefix and stdlib, not the auditor's `sys.prefix`); a hit is
+    POSSIBLE_SUCCESS only when the access could have succeeded (a read of a path that does not exist
+    and a write outside the write whitelist are evidence, and a T51.4 violation record confirms a
+    denial it never invents); a URL's host is read after its `user:pass@` credentials; and only a
+    `read` result can be a breach. The replay of the archived round is measured, not re-scored.
+    """
+
+    RUN = Path("/srv/runs/h2r3-f01-c")
+    HOME = "/srv/profile-home"
+    DENY_ROOT = "/private/var/folders"
+    # A path no run and no allow-list root contains, and that nothing creates: the evidence shape.
+    ABSENT = "/srv/h2-t52-absent/pack.json"
+
+    def events(self, *items):
+        return "\n".join(json.dumps(item) for item in items)
+
+    def tool(self, name, *, status="completed", **inputs):
+        return {"type": "tool_use",
+                "part": {"tool": name, "state": {"status": status, "input": inputs}}}
+
+    def profile_text(self):
+        """A rendered profile: deny roots, the write whitelist, and this launch's own trees."""
+        launch = self.RUN
+        home = self.HOME
+        return ("(version 1)\n(allow default)\n"
+                f'(deny file-read-data file-write* (subpath "{self.DENY_ROOT}"))\n'
+                '(deny file-write* (subpath "/"))\n'
+                f'(allow file-read-data file-write* (subpath "{launch}"))\n'
+                f'(allow file-read-data file-write* (subpath "{home}"))\n')
+
+    def audit_events(self, *items, profile=True, snapshot=None, violations=None):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            path.write_text(self.events(*items), encoding="utf-8")
+            profile_path = None
+            if profile:
+                profile_path = Path(tmp) / "worker.sb"
+                profile_path.write_text(self.profile_text(), encoding="utf-8")
+            return module.audit(path, self.RUN, home=self.HOME, python=sys.executable,
+                                profile=profile_path, snapshot=snapshot, violations=violations)
+
+    # --- T52.1: the interpreter the launch ran with -------------------------------------------
+
+    def test_the_allow_list_carries_the_interpreters_real_prefix_and_stdlib(self):
+        module = load("access_audit")
+        allow = module.allowed_roots(sys.executable)
+        stdlib = sysconfig.get_path("stdlib")
+        self.assertIsInstance(stdlib, str)
+        self.assertIn(str(Path(sys.base_prefix).resolve()), allow)
+        self.assertIn(str(Path(stdlib).resolve()), allow)
+        self.assertLessEqual({str(Path(sys.base_prefix)), stdlib},
+                             set(module.interpreter_prefixes(sys.executable)))
+        loader = Path(stdlib) / "unittest" / "loader.py"
+        self.assertTrue(loader.is_file(), loader)
+        self.assertIsNone(module.path_reason(str(loader), self.RUN, self.HOME, allow))
+
+    def test_a_read_of_the_launchs_own_stdlib_is_not_out_of_run(self):
+        """The live H2-R2 h2r2-f03-c shape: reading the interpreter's stdlib is inside."""
+        loader = Path(sysconfig.get_path("stdlib")) / "unittest" / "loader.py"
+        result = self.audit_events(self.tool("shell", command=f"sed -n 270,330p {loader}"))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual(0, result["denied_attempts_count"])
+
+    def test_a_foreign_interpreter_is_asked_never_assumed(self):
+        """Resolution follows the PINNED interpreter: an unaskable one invents no prefix."""
+        module = load("access_audit")
+        report = module.interpreter_report(Path(sys.executable))
+        self.assertEqual(str(sys.base_prefix), report["base_prefix"])
+        self.assertEqual(sysconfig.get_path("stdlib"), report["stdlib"])
+        self.assertIsNone(module.interpreter_report(Path("/nonexistent/python3")))
+        self.assertEqual(set(), module.interpreter_prefixes("/nonexistent/python3"))
+        allow = module.allowed_roots("/nonexistent/python3")
+        self.assertIn(str(Path(sys.prefix).resolve()), allow)          # the auditor's own venv
+        self.assertTrue(set(module.interpreter_prefixes(sys.executable)) & {
+            str(Path(sys.base_prefix)), sysconfig.get_path("stdlib")})
+
+    # --- T52.2: impossibility is evidence ------------------------------------------------------
+
+    def test_a_read_of_a_path_that_does_not_exist_is_evidence_not_a_hit(self):
+        """The live H2-R2 h2r2-f03-v shape: `verify --pack /nope` obtained nothing."""
+        result = self.audit_events(
+            self.tool("shell", command=f"verify --pack {self.ABSENT}"),
+            self.tool("read", path=self.ABSENT))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        self.assertEqual({"PATH_OUTSIDE_RUN"},
+                         {hit["reason"] for hit in result["denied_attempts"]})
+        self.assertEqual({"PATH_DOES_NOT_EXIST"},
+                         {hit["policy"] for hit in result["denied_attempts"]})
+        # the control: the same access to a path that really exists stays a hit
+        control = self.audit_events(self.tool("read", path="/etc/hosts"))
+        self.assertEqual("INVALID", control["verdict"])
+        self.assertEqual(["POSSIBLE_SUCCESS"], [hit["class"] for hit in control["hits"]])
+
+    def test_the_run_snapshot_is_the_authority_for_a_deleted_file(self):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / "run"
+            (run / "repo").mkdir(parents=True)
+            snapshot = Path(tmp) / "snapshot"
+            (snapshot / "repo").mkdir(parents=True)
+            (snapshot / "repo" / "x.py").write_text("x", encoding="utf-8")
+            self.assertFalse(module.path_exists(str(run / "repo" / "x.py"), run))
+            self.assertTrue(module.path_exists(str(run / "repo" / "x.py"), run, snapshot))
+            self.assertFalse(module.path_exists(str(Path(tmp) / "outside"), run, snapshot))
+            self.assertTrue(module.path_exists(sys.executable, run, snapshot))
+
+    def test_a_glob_pattern_is_a_pattern_not_a_place(self):
+        """A pattern string need not exist for the glob to match files that do."""
+        result = self.audit_events(self.tool("glob", pattern="/usr/**/*.py"),
+                                   self.tool("grep", pattern="x", include="../../../**"))
+        self.assertEqual("INVALID", result["verdict"], result["hits"])
+        self.assertEqual({"POSSIBLE_SUCCESS"}, {hit["class"] for hit in result["hits"]})
+
+    def test_a_write_outside_the_write_whitelist_is_evidence(self):
+        target = f"{self.DENY_ROOT}/h2-write-probe.txt"
+        for tool, inputs in (("write", {"path": target, "content": "x"}),
+                             ("patch", {"patchText": "--- a/x\n+++ b/../../../etc/hosts\n"})):
+            with self.subTest(tool=tool):
+                result = self.audit_events(self.tool(tool, **inputs))
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+                self.assertEqual([], result["hits"])
+                self.assertEqual(["DENIED_BY_POLICY"],
+                                 [hit["class"] for hit in result["denied_attempts"]])
+        inside = self.audit_events(self.tool("write", path="repo/new.py", content="x"))
+        self.assertEqual("PASS", inside["verdict"])
+        self.assertEqual([], inside["hits"])
+        self.assertEqual([], inside["denied_attempts"])
+
+    def test_a_foreign_repository_that_does_not_exist_is_evidence(self):
+        absent = "/srv/h2-t52-absent/repo"
+        result = self.audit_events(self.tool("shell", command=f"git -C {absent} log"))
+        self.assertEqual("PASS", result["verdict"], result["hits"])
+        self.assertEqual([], result["hits"])
+        reasons = [hit["reason"] for hit in result["denied_attempts"]]
+        self.assertIn("GIT_FOREIGN_REPOSITORY", reasons)
+        self.assertEqual({"PATH_DOES_NOT_EXIST"},
+                         {hit["policy"] for hit in result["denied_attempts"]})
+        existing = self.audit_events(self.tool("shell", command=f"git -C {ROOT} log"))
+        self.assertEqual("INVALID", existing["verdict"])
+        self.assertIn("GIT_FOREIGN_REPOSITORY",
+                      [hit["reason"] for hit in existing["hits"]])
+        self.assertIn("POSSIBLE_SUCCESS", [hit["class"] for hit in existing["hits"]])
+
+    def test_a_violation_record_confirms_a_denial_and_never_creates_one(self):
+        module = load("access_audit")
+        record = {"path": "/etc/hosts", "operation": "file-read-data", "denied": True}
+        self.assertEqual([], module.read_violations(None))
+        self.assertEqual([], module.read_violations("/nonexistent/violations.jsonl"))
+        self.assertEqual(frozenset(),
+                         module.violation_places([{"host": "x", "verdict": "ALLOW"}])[1])
+        unconfirmed = self.audit_events(self.tool("read", path="/etc/hosts"))
+        self.assertEqual("INVALID", unconfirmed["verdict"])
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "violations.jsonl"
+            log.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            confirmed = self.audit_events(self.tool("read", path="/etc/hosts"), violations=log)
+            parsed = self.audit_events(self.tool("read", path="/etc/hosts"), violations=[record])
+        for result in (confirmed, parsed):
+            self.assertEqual("PASS", result["verdict"], result["hits"])
+            self.assertEqual([], result["hits"])
+            self.assertEqual(["VIOLATION_LOG"],
+                             [hit["policy"] for hit in result["denied_attempts"]])
+            self.assertEqual(1, result["sandbox_violations_count"])
+        # a record for another path confirms nothing, and a record alone changes no verdict
+        other = self.audit_events(self.tool("read", path="/etc/hosts"),
+                                  violations=[{"path": self.ABSENT}])
+        self.assertEqual("INVALID", other["verdict"])
+        clean = self.audit_events(self.tool("read", path="repo/x.py"), violations=[record])
+        self.assertEqual("PASS", clean["verdict"])
+        self.assertEqual(0, clean["denied_attempts_count"])
+        self.assertEqual(1, clean["sandbox_violations_count"])
+
+    # --- T52.3: the URL authority -----------------------------------------------------------------
+
+    def test_a_credential_prefixed_url_names_the_host_after_it(self):
+        module = load("access_audit")
+        for command, host in (("git clone https://user:pass@github.com/x/y", "github.com"),
+                              ("git clone https://token@github.com/x/y", "github.com"),
+                              ("git clone https://u:p@opencode.ai/x/y", "opencode.ai")):
+            with self.subTest(command=command):
+                self.assertEqual([host], module.network_hosts(command))
+        self.assertNotIn("user", module.network_hosts("git clone https://user:pass@github.com/x"))
+        self.assertEqual("DENIED_BY_POLICY",
+                         module.network_class("git clone https://u:p@github.com/x"))
+        # the counterexample the old parser failed: an ALLOWLISTED host behind credentials could
+        # have succeeded, so it must stay a hit instead of being excused as host `u`.
+        allowed = self.audit_events(self.tool(
+            "shell", command="git clone https://u:p@opencode.ai/x/y repo-copy"))
+        self.assertEqual("INVALID", allowed["verdict"], allowed["hits"])
+        self.assertEqual(["POSSIBLE_SUCCESS"], [hit["class"] for hit in allowed["hits"]])
+        denied = self.audit_events(self.tool(
+            "shell", command="git clone https://u:p@github.com/x/y repo-copy"))
+        self.assertEqual("PASS", denied["verdict"], denied["hits"])
+        self.assertEqual(["DENIED_BY_POLICY"],
+                         [hit["class"] for hit in denied["denied_attempts"]])
+
+    # --- T52.4: a breach is file CONTENT -----------------------------------------------------------
+
+    def test_only_a_read_result_can_be_a_breach(self):
+        denied = f"{self.DENY_ROOT}/h2-breach/probe.txt"
+        for tool in ("glob", "grep", "list"):
+            with self.subTest(tool=tool):
+                result = self.audit_events({
+                    "type": "tool_use",
+                    "part": {"tool": tool,
+                             "state": {"status": "completed", "input": {"path": denied},
+                                       "output": "a listing that merely names it"}}})
+                self.assertEqual([], result["breach"], tool)
+                self.assertEqual("PASS", result["verdict"], result["hits"])
+                self.assertEqual(["DENIED_BY_POLICY"],
+                                 [hit["class"] for hit in result["denied_attempts"]])
+        message = {"type": "text", "part": {"type": "text",
+                                            "text": f"the sandbox denied {denied}"}}
+        result = self.audit_events(message)
+        self.assertEqual("PASS", result["verdict"])
+        self.assertEqual([], result["breach"])
+        self.assertEqual([], result["hits"])
+        content = self.audit_events({
+            "type": "tool_use",
+            "part": {"tool": "read",
+                     "state": {"status": "completed", "input": {"path": denied},
+                               "output": "the bytes of a denied file"}}})
+        self.assertEqual("INVALID", content["verdict"])
+        self.assertEqual(["READ_CONTENT_UNDER_DENIED_ROOT"],
+                         [item["kind"] for item in content["breach"]])
+        # a grep whose PATTERN names a denied place is a denied attempt, still not a breach
+        searched = self.audit_events(self.tool("grep", pattern=denied, path="repo"))
+        self.assertEqual([], searched["breach"])
+        self.assertEqual(["DENIED_BY_POLICY"],
+                         [hit["class"] for hit in searched["denied_attempts"]])
+
+    # --- T52.5: the replay of the archived round ---------------------------------------------------
+
+    def synthetic_runs(self, root):
+        """A runs root with two attempts, a retry, an unrecorded run and a run with no stream."""
+        batch = Path(root) / "r2-synthetic"
+        run = batch / "h2r2-f01-c"
+        driver = batch / ".driver" / "h2r2-f01-c"
+        (driver / "attempt-1").mkdir(parents=True)
+        (driver / "attempt-2").mkdir(parents=True)
+        run.mkdir(parents=True)
+        (run / "access-audit.json").write_text(json.dumps({"verdict": "PASS"}), encoding="utf-8")
+        (driver / "attempt-1" / "events.jsonl").write_text(
+            self.events(self.tool("read", path=str(OUTSIDE))) + "\n", encoding="utf-8")
+        (driver / "attempt-2" / "events.jsonl").write_text(
+            self.events(self.tool("read", path="repo/x.py")) + "\n", encoding="utf-8")
+        sandbox = load("sandbox_v2")
+        home = driver / "home-2"
+        home.mkdir()
+        sandbox.profile(driver / "attempt-2", run, home, sys.executable,
+                        proxy_port=1234, serve_port=1235)
+        other = batch / "h2r2-f02-v"
+        (batch / ".driver" / "h2r2-f02-v" / "attempt-1").mkdir(parents=True)
+        other.mkdir()
+        (batch / ".driver" / "h2r2-f02-v" / "attempt-1" / "events.jsonl").write_text(
+            self.events(self.tool("read", path="/etc/hosts")) + "\n", encoding="utf-8")
+        empty = batch / "h2r2-f03-v"
+        (batch / ".driver" / "h2r2-f03-v").mkdir(parents=True)
+        empty.mkdir()
+        return batch
+
+    def test_the_replay_reports_every_attempt_and_the_run_verdict_from_the_last(self):
+        module = load("access_audit")
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self.synthetic_runs(tmp)
+            summary = module.replay(batch.parent)
+        self.assertEqual(1, summary["schema_version"])
+        self.assertEqual("freeze-v3/access_audit.py", summary["program"])
+        self.assertEqual({"r2-synthetic"}, {record["root"] for record in summary["runs"]})
+        records = {record["run"]: record for record in summary["runs"]}
+        self.assertEqual({"h2r2-f01-c", "h2r2-f02-v", "h2r2-f03-v"}, set(records))
+        retried = records["h2r2-f01-c"]
+        self.assertEqual(("VALID", 2), (retried["v3"], retried["attempts"]))
+        self.assertEqual("VALID", retried["v2"])
+        self.assertEqual(["INVALID"],
+                         [attempt["v3"] for attempt in retried["earlier"]])
+        self.assertEqual(["PATH_OUTSIDE_RUN:1"], [attempt["reason"]
+                                                  for attempt in retried["earlier"]])
+        self.assertEqual("INVALID", records["h2r2-f02-v"]["v3"])
+        self.assertEqual("UNRECORDED", records["h2r2-f02-v"]["v2"])
+        self.assertEqual("NO_STREAM", records["h2r2-f03-v"]["v3"])
+        # nothing host-specific, so the summary can be committed
+        for record in summary["runs"]:
+            for value in text_fields(record):
+                self.assertNotIn("/", value, record)
+
+    def test_the_committed_replay_summary_is_sanitised_and_complete(self):
+        summary = json.loads((FZ / "fixtures" / "access-audit-replay-v3.json").read_text())
+        self.assertEqual(1, summary["schema_version"])
+        self.assertIn("read, never recomputed", summary["v2_source"])
+        self.assertEqual({"VALID", "INVALID", "NO_STREAM"},
+                         {record["v3"] for record in summary["runs"]})
+        self.assertEqual({"VALID", "INVALID", "UNRECORDED"},
+                         {record["v2"] for record in summary["runs"]})
+        counted = [record for record in summary["runs"] if record["root"] == "r2-4aa2e7b"]
+        self.assertEqual(20, len(counted))
+        self.assertEqual(20, len({record["run"] for record in counted}))
+        pilots = {record["root"] for record in summary["runs"] if record["root"] != "r2-4aa2e7b"}
+        self.assertTrue(pilots)
+        self.assertTrue(all(root.startswith("pilot") for root in pilots), sorted(pilots))
+        for record in summary["runs"]:
+            with self.subTest(run=f"{record['root']}/{record['run']}"):
+                keys = {"root", "run", "v2", "v3", "reason", "attempts", "denied_attempts",
+                        "breach"}
+                self.assertLessEqual(keys, set(record))
+                self.assertLessEqual(set(record), keys | {"earlier"})
+                if record["v3"] == "VALID":
+                    self.assertEqual("no out-of-run access", record["reason"])
+                elif record["v3"] == "INVALID":
+                    self.assertRegex(record["reason"], r"^[A-Z_]+:\d+(, [A-Z_]+:\d+)*$")
+                else:
+                    self.assertEqual("NO_STREAM", record["v3"])
+                    self.assertEqual(0, record["attempts"])
+        raw = (FZ / "fixtures" / "access-audit-replay-v3.json").read_text(encoding="utf-8")
+        for forbidden in ("/Users", "/home/", "/private/", "/tmp/", "/opt/homebrew"):
+            self.assertNotIn(forbidden, raw, forbidden)
+        self.assertNotIn(pwd.getpwuid(os.getuid()).pw_name, raw)
+
+    def test_the_counted_round_replays_to_the_recorded_measurement(self):
+        """T52.5: the measurement, not a re-scoring — v2's own audit record is the baseline."""
+        summary = json.loads((FZ / "fixtures" / "access-audit-replay-v3.json").read_text())
+        counted = {record["run"]: record for record in summary["runs"]
+                   if record["root"] == "r2-4aa2e7b"}
+        # The five runs the round's access audit called INVALID, and what v3 makes of them:
+        # h2r2-f03-c reads the launch's own stdlib; h2r2-f03-v names a path that never existed;
+        # the other three are left to T51.2 (the shared `cd ..`) and T53 (the `execute` tool).
+        self.assertEqual({
+            "h2r2-f03-c": ("INVALID", "VALID", "no out-of-run access"),
+            "h2r2-f03-v": ("INVALID", "VALID", "no out-of-run access"),
+            "h2r2-f04-v": ("INVALID", "INVALID", "TOOL_NOT_ALLOWED:1"),
+            "h2r2-f05-c": ("INVALID", "INVALID", "TOOL_NOT_ALLOWED:1"),
+            "h2r2-f09-c": ("INVALID", "INVALID", "PATH_OUTSIDE_RUN:1"),
+        }, {run: (record["v2"], record["v3"], record["reason"])
+            for run, record in counted.items() if record["v2"] == "INVALID"})
+        self.assertEqual(17, sum(1 for record in counted.values() if record["v3"] == "VALID"))
+        self.assertEqual(0, sum(1 for record in counted.values() if record["v3"] == "NO_STREAM"))
+
+    @unittest.skipUnless(ARCHIVE_RUNS.is_dir(), "the read-only H2 archive is not on this machine")
+    def test_the_committed_summary_is_exactly_what_the_archive_replays_to(self):
+        module = load("access_audit")
+        fixture = json.loads((FZ / "fixtures" / "access-audit-replay-v3.json").read_text())
+        self.assertEqual(fixture, module.replay(ARCHIVE_RUNS))
 
 
 class RegistryV2(unittest.TestCase):
@@ -4241,8 +4635,10 @@ class RunDriver(unittest.TestCase):
                 self.assertEqual(1, audit["tool_calls"])
                 # T46: with no readable deny block in the archived profile the audit cannot call
                 # this attempt denied, so it stays a hit and the run stays invalid (fail closed).
+                # T52 adds the resolved spelling beside the verbatim value.
                 self.assertEqual([{"event": 1, "tool": "read", "reason": "PATH_OUTSIDE_RUN",
                                    "value": "/etc/hosts",
+                                   "resolved": os.path.realpath("/etc/hosts"),
                                    "class": "POSSIBLE_SUCCESS"}], audit["hits"])
                 self.assertEqual(0, audit["denied_attempts_count"])
                 self.assertEqual([], audit["breach"])
