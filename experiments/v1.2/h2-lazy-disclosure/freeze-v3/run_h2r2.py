@@ -6,6 +6,8 @@ Subcommands, each taking `--runs-root R`:
     next             the next run id in plan order (or COMPLETE)
     run <run_id>     the five mechanical steps, the access audit, the independent audit and the
                      registry line
+    audit <run_id>   one fresh audit of a registered run whose audit the harness blocked (T51c):
+                     never re-runs the worker, appends an AUDIT_RESOLVED line
     status           the state of every planned run, plus the next run id
 
 WHY THIS FILE EXISTS. Delivery (`wrapper_delivery`), briefing (`render_brief`), collection
@@ -37,6 +39,13 @@ only fire before the worker acts:
     has made any tool call nothing is retried. Every attempt is a line in
     `<runs_root>/attempts-v3.jsonl` with its attempt number; the run registry keeps exactly one
     terminal line per run id and names the attempt that produced it.
+
+A BLOCKED AUDIT HAS AN ENTRY (T51c). A run registered BLOCKED with every reason starting
+`AUDIT_BLOCKED` — the worker finished and only the auditor failed — may be audited again with
+`audit <run_id>`: one fresh attempt over the run's existing frozen materials, the same model, the
+same rules, at most three times per run, each appending an `AUDIT_RESOLVED` line that the aggregate
+applies over the original registration. The worker is never re-run and no registered line is
+edited.
 
 CONFINEMENT IS THE BARRIER (F16 / F17 / F19 / F21, T29). The access audit still replays every
 static access it can see, but no static analysis is complete (`$(...)`, a base64 pipeline, `xargs`
@@ -237,6 +246,12 @@ REACHABILITY_PROMPT = "Reply with exactly: H2_REACHABLE"
 REACHABILITY_TOKEN = "H2_REACHABLE"
 REACHABILITY_LIMIT_SECONDS = 120
 MAX_ATTEMPTS = 3
+# T51c: an audit that was blocked by the harness (never by the worker) may be re-run over the
+# run's existing frozen materials, at most three times per run, each as an appended resolution.
+MAX_AUDIT_RETRIES = 3
+AUDIT_RETRY_PREFIX = "audit-retry-"
+AUDIT_RETRY_BUNDLE = "audit"
+AUDIT_RETRY_STREAM = "stream"
 # F23 / T32: the traceback file an unexpected driver exception leaves under `.driver/<run_id>/`.
 HARNESS_DEFECT_NAME = "harness-defect"
 
@@ -320,12 +335,12 @@ def read_text_locked(path: Path) -> str:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
-def read_registry(runs_root: Path) -> dict[str, dict]:
-    """The append-only registry, keyed by run id. A duplicate id is fatal, never last-wins."""
+def registry_rows(runs_root: Path) -> list[dict]:
+    """Every line of the append-only registry, in file order, under a shared lock."""
     path = registry_path(runs_root)
-    entries: dict[str, dict] = {}
     if not path.is_file():
-        return entries
+        return []
+    rows = []
     # F46 / T45: JSON Lines are separated by "\n" only, never by a Unicode line boundary.
     for number, line in enumerate(read_text_locked(path).split("\n"), 1):
         if not line.strip():
@@ -337,10 +352,17 @@ def read_registry(runs_root: Path) -> dict[str, dict]:
         run_id = entry.get("run_id") if isinstance(entry, dict) else None
         if not isinstance(run_id, str) or not run_id:
             raise ValueError(f"REGISTRY_MALFORMED_LINE:{number}")
-        if run_id in entries:
-            raise ValueError(f"REGISTRY_DUPLICATE_RUN_ID:{run_id}")
-        entries[run_id] = entry
-    return entries
+        rows.append(entry)
+    return rows
+
+
+def read_registry(runs_root: Path) -> dict[str, dict]:
+    """The append-only registry by run id: one line per run plus its audit resolutions (T51c).
+
+    A duplicate run id is still fatal, never last-wins; the ONLY repeat allowed is an
+    `AUDIT_RESOLVED` line for an already registered run, which the reader applies over that run.
+    """
+    return aggregate_runs.registry_entries(registry_rows(runs_root))
 
 
 def lock_path(runs_root: Path, run_id: str) -> Path:
@@ -1108,6 +1130,85 @@ def abandon_run_dir(run_dir: Path) -> None:
         run_dir.rmdir()
 
 
+def audit_attempt(run_dir: Path, plan_run: dict, task: dict, *, attempt: int, auditor, command,
+                  limit_seconds: int, prober, fresh_state, confine_state, release, confined,
+                  audit_dir: Path, stream_dir: Path, home_name: str, contract_path: Path,
+                  report_path: Path, archive_probe_fn, archive_tree_fn,
+                  bundle_dir: Path | None = None) -> dict:
+    """One audit attempt: reachability, fresh state, confinement, the auditor, its evidence.
+
+    T51c: this is the body of the in-run audit loop, factored so the retry entry runs the SAME
+    attempt. The caller supplies the machinery (`prober`, `fresh_state`, `confine_state`, `release`,
+    `confined` — the ones `launch_tools` builds) and owns the evidence: `archive_probe_fn` and
+    `archive_tree_fn` decide where a blocked attempt is archived, so a retry can keep everything
+    under its own driver directory and never write the run directory.
+
+    Returns `{"done", "attempt", "probe", "audit", "audit_sandbox", "blocked"}`: `done` when the
+    auditor ran to a judgement, `blocked` with the archived attempt record otherwise.
+    """
+    probe_record = prober("auditor", attempt)
+
+    def blocked(stage: str, reasons: list[str], **extra) -> dict:
+        archived = archive_probe_fn({"schema_version": 1, "step": stage, "attempt": attempt,
+                                     "verdict": "BLOCKED", "reasons": reasons,
+                                     "probe": probe_record, **extra})
+        return {"done": False, "attempt": attempt, "probe": probe_record, "audit": None,
+                "audit_sandbox": None,
+                "blocked": {"attempt": attempt, "verdict": "BLOCKED", "reasons": reasons,
+                            **extra, **archived}}
+
+    # The same reachability rule, with its own counter, immediately before the auditor.
+    if probe_record.get("blocked"):
+        return blocked("audit_reachability", [str(probe_record["blocked"])])
+    if probe_record.get("verdict") != "PASS":
+        return blocked("audit_reachability", [f"PROVIDER_UNREACHABLE:{item}"
+                                              for item in probe_record.get("reasons", [])])
+    audit_dir = Path(audit_dir)
+    prepared = fresh_state(audit_dir, home_name, Path(stream_dir))
+    if not prepared["ok"]:
+        return blocked("audit_fresh_state", [prepared["reason"]])
+    confinement = confine_state(audit_dir, prepared)
+    if not confinement["ok"]:
+        release(prepared, audit_dir)
+        return blocked("audit_confinement", [confinement["reason"]],
+                       profile_sha256=confinement["profile"]["sha256"])
+    prepared["profile"] = confinement["profile"]
+    stream = Path(prepared["stream"])
+    extra = {} if bundle_dir is None else {"bundle_dir": Path(bundle_dir)}
+    try:
+        try:
+            audit = auditor(
+                run_dir, plan_run, task,
+                launch=lambda argv, cwd, audit_env, audit_limit_value, out, err: confined(
+                    prepared, argv, cwd, audit_limit_value),
+                command=command, env=prepared["env"], limit_seconds=limit_seconds,
+                events_path=stream / EVENTS_NAME, stderr_path=stream / STDERR_NAME,
+                contract_path=contract_path, report_path=report_path, **extra)
+        except (ValueError, OSError) as exc:
+            audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"], "leakage": []}
+    finally:
+        audit_logout = release(prepared, audit_dir)
+    audit_egress = stream / egress_v2.LOG_NAME
+    sandbox_record = {"attempt": attempt,
+                      "profile_sha256": confinement["profile"]["sha256"],
+                      "confinement": confinement["confinement"]["verdict"],
+                      "home": str(prepared["home"]), "auth": prepared["auth"],
+                      "logout": audit_logout, "egress_log": str(audit_egress),
+                      "egress_denied": egress_v2.denied(audit_egress)}
+    audit_events, _ = read_events(stream / EVENTS_NAME)
+    before = before_work_failure(audit.get("launch") or {}, audit_events)
+    if audit["verdict"] != "BLOCKED" or not before:
+        return {"done": True, "attempt": attempt, "probe": probe_record, "audit": audit,
+                "audit_sandbox": sandbox_record, "blocked": None}
+    archived = archive_tree_fn(f"PROVIDER_FAILED_BEFORE_WORK:{before}")
+    return {"done": False, "attempt": attempt, "probe": probe_record, "audit": None,
+            "audit_sandbox": sandbox_record,
+            "blocked": {"attempt": attempt, "verdict": "BLOCKED",
+                        "reasons": [f"PROVIDER_FAILED_BEFORE_WORK:{before}"],
+                        "archive": archived["archive"],
+                        "manifest_sha256": archived["manifest_sha256"]}}
+
+
 def execute(run_id: str, runs_root: Path, *, root: Path = ROOT, worker_command=None,
             server_command=None, preflight=None, auditor=None, limit_seconds: int | None = None,
             audit_limit_seconds: int | None = None, profile_env: Path | None = None,
@@ -1219,37 +1320,16 @@ def harness_defect(runs_root: Path, exc: Exception, state: dict) -> dict:
                                "worker_launched": True}}
 
 
-def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: list[dict],
-          entries: dict, worker_command, server_command, preflight, auditor,
-          limit_seconds: int | None, audit_limit_seconds: int | None, profile_env: Path | None,
-          probe, sandbox, auth, state: dict) -> dict:
-    """The run itself; `execute` wraps it with the F23 / T32 harness-defect guard."""
-    reason = refusal(runs_root, plan_run, planned, entries)
-    if reason is not None:
-        if reason == "RUN_ALREADY_STARTED":
-            register_interrupted(runs_root, plan_run)
-        return {"outcome": "REFUSED", "run_id": run_id, "reason": reason}
+def launch_tools(*, runs_root: Path, run_id: str, plan_run: dict, driver_dir: Path,
+                 sandbox, auth, master_env, server_command, command) -> dict:
+    """The per-launch machinery: fresh state, confinement, release and the reachability probe.
 
-    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
-    run_dir.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    driver_dir = wrapper_delivery.driver_root(run_dir)
-    env_file = profile_env_file(plan_run, profile_env)
-    command = tuple(worker_command or WORKER_COMMAND)
-    server_command = tuple(server_command or SERVER_COMMAND)
-    limit = WALL_CLOCK_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
-    audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
-    sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
-    auth = auth if auth is not None else sandbox_v2.Auth()
-    state.update({"env": None, "master_env": None, "run_dir": run_dir, "driver_dir": driver_dir})
-
-    if not sandbox.available():
-        # F16 / T29: without the platform sandbox the audit would be the only barrier, which the
-        # review showed is not enough. Nothing is launched, no attempt is consumed, nothing is
-        # registered, and the same run id may be invoked again where a sandbox exists.
-        return {"outcome": "BLOCKED", "run_id": run_id, "registered": False,
-                "reason": "SANDBOX_UNAVAILABLE", "verdict": "BLOCKED", "audit_verdict": None,
-                "final_verdict": "BLOCKED", "reasons": ["SANDBOX_UNAVAILABLE"],
-                "session_id": None, "wall_clock_seconds": 0.0}
+    T51c: extracted VERBATIM from `drive` so the audit retry entry runs the same confinement and
+    the same probe outside a run, instead of a second copy that could drift. `driver_dir` holds the
+    fresh homes, rendered profiles, streams and probe directories of the launches this set serves;
+    `master_env` is a getter because a run sets its master profile just before its first fresh
+    state. Nothing here is called at import time and nothing launches until a caller asks.
+    """
 
     def fresh_state(launch_dir: Path, home_name: str, stream_dir: Path) -> dict:
         """A brand-new home plus the credential moved in; the launch's own stream directory.
@@ -1261,8 +1341,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         archived_stream = archive_stream(stream_dir)
         stream_dir.mkdir(parents=True)
         home = sandbox_v2.fresh_home(driver_dir, home_name, launch_dir)
-        env = sandbox_v2.home_env(state["master_env"] or {}, home, launch_dir)
-        auth_record = auth.import_(state["master_env"] or {}, env, launch_dir)
+        env = sandbox_v2.home_env(master_env() or {}, home, launch_dir)
+        auth_record = auth.import_(master_env() or {}, env, launch_dir)
         (stream_dir / "auth.json").write_text(
             json.dumps(sandbox_v2.summary(auth_record), indent=2, sort_keys=True) + "\n",
             encoding="utf-8")
@@ -1439,7 +1519,53 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
         record["egress_denied"] = egress_v2.denied(record["egress_log"])
         return record
 
+    return {"fresh_state": fresh_state, "confine_state": confine_state,
+            "release": release, "confined": confined, "prober": default_probe}
+
+
+def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: list[dict],
+          entries: dict, worker_command, server_command, preflight, auditor,
+          limit_seconds: int | None, audit_limit_seconds: int | None, profile_env: Path | None,
+          probe, sandbox, auth, state: dict) -> dict:
+    """The run itself; `execute` wraps it with the F23 / T32 harness-defect guard."""
+    reason = refusal(runs_root, plan_run, planned, entries)
+    if reason is not None:
+        if reason == "RUN_ALREADY_STARTED":
+            register_interrupted(runs_root, plan_run)
+        return {"outcome": "REFUSED", "run_id": run_id, "reason": reason}
+
+    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
+    run_dir.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    driver_dir = wrapper_delivery.driver_root(run_dir)
+    env_file = profile_env_file(plan_run, profile_env)
+    command = tuple(worker_command or WORKER_COMMAND)
+    server_command = tuple(server_command or SERVER_COMMAND)
+    limit = WALL_CLOCK_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
+    audit_limit = AUDIT_LIMIT_SECONDS if audit_limit_seconds is None else int(audit_limit_seconds)
+    sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
+    auth = auth if auth is not None else sandbox_v2.Auth()
+    state.update({"env": None, "master_env": None, "run_dir": run_dir, "driver_dir": driver_dir})
+
+    if not sandbox.available():
+        # F16 / T29: without the platform sandbox the audit would be the only barrier, which the
+        # review showed is not enough. Nothing is launched, no attempt is consumed, nothing is
+        # registered, and the same run id may be invoked again where a sandbox exists.
+        return {"outcome": "BLOCKED", "run_id": run_id, "registered": False,
+                "reason": "SANDBOX_UNAVAILABLE", "verdict": "BLOCKED", "audit_verdict": None,
+                "final_verdict": "BLOCKED", "reasons": ["SANDBOX_UNAVAILABLE"],
+                "session_id": None, "wall_clock_seconds": 0.0}
+
+    tools = launch_tools(runs_root=runs_root, run_id=run_id, plan_run=plan_run,
+                         driver_dir=driver_dir, sandbox=sandbox, auth=auth,
+                         master_env=lambda: state["master_env"] or {},
+                         server_command=server_command, command=command)
+    fresh_state = tools["fresh_state"]
+    confine_state = tools["confine_state"]
+    release = tools["release"]
+    confined = tools["confined"]
+    default_probe = tools["prober"]
     prober = probe or default_probe
+
     lock = acquire_lock(runs_root, run_id)
     started = time.monotonic()
     attempt = next_attempt_number(runs_root, run_id)
@@ -1768,97 +1894,29 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
                 audit_number = 0
                 while audit_number < MAX_ATTEMPTS:
                     audit_number += 1
-                    # The same reachability rule, with its own counter, immediately before the auditor.
-                    probe_record = prober("auditor", audit_number)
-                    record["reachability"].append(probe_record)
-                    if probe_record.get("blocked"):
-                        reasons = [str(probe_record["blocked"])]
-                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
-                            "schema_version": 1, "step": "audit_reachability",
-                            "attempt": audit_number, "verdict": "BLOCKED",
-                            "reasons": reasons, "probe": probe_record})
-                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": reasons, **archived})
-                        continue
-                    if probe_record.get("verdict") != "PASS":
-                        reasons = [f"PROVIDER_UNREACHABLE:{item}"
-                                   for item in probe_record.get("reasons", [])]
-                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
-                            "schema_version": 1, "step": "audit_reachability",
-                            "attempt": audit_number, "verdict": "BLOCKED",
-                            "reasons": reasons, "probe": probe_record})
-                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": reasons, **archived})
-                        continue
-                    audit_dir = run_dir / run_audit_v2.AUDIT_DIR
-                    audit_prepared = fresh_state(
-                        audit_dir, f"{AUDIT_HOME_PREFIX}-{audit_number}",
-                        driver_dir / f"{AUDIT_STREAM_PREFIX}-{audit_number}")
-                    if not audit_prepared["ok"]:
-                        reasons = [audit_prepared["reason"]]
-                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
-                            "schema_version": 1, "step": "audit_fresh_state",
-                            "attempt": audit_number, "verdict": "BLOCKED",
-                            "reasons": reasons, "probe": probe_record})
-                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": reasons, **archived})
-                        continue
-                    audit_confinement = confine_state(audit_dir, audit_prepared)
-                    if not audit_confinement["ok"]:
-                        release(audit_prepared, audit_dir)
-                        reasons = [audit_confinement["reason"]]
-                        profile = audit_confinement["profile"]
-                        archived = archive_probe(run_dir, f"audit-{audit_number}", {
-                            "schema_version": 1, "step": "audit_confinement",
-                            "attempt": audit_number, "verdict": "BLOCKED",
-                            "reasons": reasons, "probe": probe_record,
-                            "profile_sha256": profile["sha256"]})
-                        audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                               "reasons": reasons,
-                                               "profile_sha256": profile["sha256"], **archived})
-                        continue
-                    audit_prepared["profile"] = audit_confinement["profile"]
-                    audit_stream = Path(audit_prepared["stream"])
-                    try:
-                        try:
-                            audit = chosen(
-                                run_dir, plan_run, task_of(root, plan_run["task_id"]),
-                                launch=lambda argv, cwd, audit_env, audit_limit_value, out, err: confined(
-                                    audit_prepared, argv, cwd, audit_limit_value),
-                                command=command, env=audit_prepared["env"],
-                                limit_seconds=audit_limit,
-                                events_path=audit_stream / EVENTS_NAME,
-                                stderr_path=audit_stream / STDERR_NAME,
-                                contract_path=driver_dir / DRIVER_CONTRACT_NAME,
-                                report_path=evidence / REPORT_NAME)
-                        except (ValueError, OSError) as exc:
-                            audit = {"verdict": "BLOCKED", "reasons": [f"AUDIT_FAILED:{exc}"],
-                                     "leakage": []}
-                    finally:
-                        audit_logout = release(audit_prepared, audit_dir)
-                    audit_egress = audit_stream / egress_v2.LOG_NAME
-                    record.setdefault("audit_sandbox", []).append(
-                        {"attempt": audit_number,
-                         "profile_sha256": audit_confinement["profile"]["sha256"],
-                         "confinement": audit_confinement["confinement"]["verdict"],
-                         "home": str(audit_prepared["home"]),
-                         "auth": audit_prepared["auth"], "logout": audit_logout,
-                         "egress_log": str(audit_egress),
-                         "egress_denied": egress_v2.denied(audit_egress)})
-                    audit_events, _ = read_events(audit_stream / EVENTS_NAME)
-                    blocked = before_work_failure(audit.get("launch") or {}, audit_events)
-                    if audit["verdict"] != "BLOCKED" or not blocked:
+                    outcome = audit_attempt(
+                        run_dir, plan_run, task_of(root, plan_run["task_id"]),
+                        attempt=audit_number, auditor=chosen, command=command,
+                        limit_seconds=audit_limit, prober=prober, fresh_state=fresh_state,
+                        confine_state=confine_state, release=release, confined=confined,
+                        audit_dir=run_dir / run_audit_v2.AUDIT_DIR,
+                        stream_dir=driver_dir / f"{AUDIT_STREAM_PREFIX}-{audit_number}",
+                        home_name=f"{AUDIT_HOME_PREFIX}-{audit_number}",
+                        contract_path=driver_dir / DRIVER_CONTRACT_NAME,
+                        report_path=evidence / REPORT_NAME,
+                        archive_probe_fn=lambda item, n=audit_number: archive_probe(
+                            run_dir, f"audit-{n}", item),
+                        archive_tree_fn=lambda reason, n=audit_number: archive_tree(
+                            run_dir / run_audit_v2.AUDIT_DIR, run_dir, f"audit-{n}",
+                            plan_run=plan_run, attempt=n,
+                            kind="PROVIDER_FAILED_BEFORE_WORK", reason=reason))
+                    record["reachability"].append(outcome["probe"])
+                    if outcome["audit_sandbox"] is not None:
+                        record.setdefault("audit_sandbox", []).append(outcome["audit_sandbox"])
+                    if outcome["done"]:
+                        audit = outcome["audit"]
                         break
-                    archived = archive_tree(run_dir / run_audit_v2.AUDIT_DIR, run_dir,
-                                            f"audit-{audit_number}", plan_run=plan_run,
-                                            attempt=audit_number,
-                                            kind="PROVIDER_FAILED_BEFORE_WORK",
-                                            reason=f"PROVIDER_FAILED_BEFORE_WORK:{blocked}")
-                    audit_attempts.append({"attempt": audit_number, "verdict": "BLOCKED",
-                                           "reasons": [f"PROVIDER_FAILED_BEFORE_WORK:{blocked}"],
-                                           "archive": archived["archive"],
-                                           "manifest_sha256": archived["manifest_sha256"]})
-                    audit = None
+                    audit_attempts.append(outcome["blocked"])
                 if audit is None:
                     audit = {"verdict": "BLOCKED",
                              "reasons": (audit_attempts[-1]["reasons"] if audit_attempts
@@ -2047,6 +2105,8 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
             state = "REGISTERED"
             row = {"verdict": entry.get("verdict"), "audit_verdict": entry.get("audit_verdict"),
                    "final_verdict": entry.get("final_verdict"), "reason": entry.get("reason"),
+                   "audit_retry": entry.get("audit_retry"),
+                   "resolved_at": entry.get("resolved_at"),
                    "wall_clock_seconds": entry.get("wall_clock_seconds")}
         elif run_id in live:
             # T34: a run another process is executing right now is not "started and stuck".
@@ -2079,6 +2139,138 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
             "max_parallel": MAX_PARALLEL, "in_progress": sorted(live),
             "next": next((row["run_id"] for row in rows if row["state"] != "REGISTERED"), None),
             "runs": rows}
+
+
+def frozen_snapshot(driver_dir: Path, run_dir: Path) -> Path | None:
+    """The newest driver-held snapshot of this run, or None (T51c).
+
+    An audit retry reads the SAME frozen materials the registration read. Once the worker is gone
+    the run directory is no evidence for a verdict again: the driver's snapshot, taken below
+    `.driver/<run_id>/` after the sweep, is what the retry's bundle is built from.
+    """
+    driver_dir, run_dir = Path(driver_dir), Path(run_dir)
+    found: list[tuple[int, Path]] = []
+    for path in driver_dir.glob(f"{STREAM_PREFIX}-*/{sandbox_v2.SNAPSHOT_NAME}"):
+        number = path.parent.name[len(STREAM_PREFIX) + 1:]
+        if path.is_dir() and number.isdigit():
+            found.append((int(number), path))
+    for _, path in sorted(found, reverse=True):
+        try:
+            data = json.loads((path.parent / sandbox_v2.SNAPSHOT_MANIFEST_NAME)
+                              .read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get("source") == str(run_dir):
+            return path
+    return None
+
+
+def audit_retry(run_id: str, runs_root: Path, *, root: Path = ROOT, auditor=None, probe=None,
+                sandbox=None, auth=None, command=None, server_command=None,
+                profile_env: Path | None = None, limit_seconds: int | None = None) -> dict:
+    """T51c: one fresh audit attempt over a run whose audit the harness (not the worker) blocked.
+
+    Refused with a ValueError and nothing appended when the run is not registered, its latest
+    state is not BLOCKED, any of its reasons is not `AUDIT_BLOCKED`, its three retries are used up,
+    its frozen materials are gone, or another process holds its lock. Nothing about the run is
+    re-executed and nothing in it is rewritten: the worker is never launched, the run directory is
+    only read, and the attempt lives under `.driver/<run_id>/audit-retry-<n>/`. The result is ONE
+    appended `AUDIT_RESOLVED` line — even when it is blocked again — and the registry's earlier
+    lines keep their bytes.
+    """
+    root = Path(root).resolve()
+    runs_root = check_runs_root(runs_root)
+    planned = plan_runs(root)
+    plan_run = next((run for run in planned if run["run_id"] == run_id), None)
+    if plan_run is None:
+        raise ValueError("UNKNOWN_RUN")
+    frozen_model(planned)                # T35: the retry keeps the run's frozen model
+    rows = registry_rows(runs_root)
+    entry = aggregate_runs.registry_entries(rows).get(run_id)
+    if entry is None:
+        raise ValueError(f"AUDIT_RETRY_NOT_REGISTERED:{run_id}")
+    if entry.get("final_verdict") != "BLOCKED":
+        raise ValueError(f"AUDIT_RETRY_NOT_BLOCKED:{entry.get('final_verdict')}")
+    reasons = [item for item in str(entry.get("reason") or "").split(";") if item]
+    if not reasons or not all(item.startswith("AUDIT_BLOCKED") for item in reasons):
+        raise ValueError(f"AUDIT_RETRY_NOT_AUDIT_BLOCKED:{entry.get('reason')}")
+    mechanical = entry.get("verdict")
+    if mechanical not in ("ACCEPT", "REJECT"):
+        raise ValueError(f"AUDIT_RETRY_MECHANICAL_UNUSABLE:{mechanical}")
+    resolutions = [row for row in rows
+                   if row.get("run_id") == run_id and row.get("kind") == "AUDIT_RESOLVED"]
+    if len(resolutions) >= MAX_AUDIT_RETRIES:
+        raise ValueError(f"AUDIT_RETRY_EXHAUSTED:{len(resolutions)}")
+    number = max([int(row.get("audit_retry") or 0) for row in resolutions] + [0]) + 1
+    if number > MAX_AUDIT_RETRIES:
+        raise ValueError(f"AUDIT_RETRY_EXHAUSTED:{number - 1}")
+    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
+    driver_dir = wrapper_delivery.driver_root(run_dir)
+    snapshot = frozen_snapshot(driver_dir, run_dir)
+    if snapshot is None:
+        raise ValueError(f"AUDIT_RETRY_SNAPSHOT_MISSING:{run_id}")
+    contract_path = driver_dir / DRIVER_CONTRACT_NAME
+    for path in (contract_path, snapshot / REPORT_NAME, run_dir / COLLECTED_NAME,
+                 run_dir / VERDICT_NAME):
+        if not path.is_file():
+            raise ValueError(f"AUDIT_RETRY_MATERIALS_MISSING:{path.name}")
+    sandbox = sandbox if sandbox is not None else sandbox_v2.Sandbox()
+    auth = auth if auth is not None else sandbox_v2.Auth()
+    if not sandbox.available():
+        raise ValueError("SANDBOX_UNAVAILABLE")
+    master_env = worker_env(profile_env_file(plan_run, profile_env))
+    if live_lock(runs_root, run_id) is not None:
+        raise ValueError(f"AUDIT_RETRY_RUN_LOCKED:{run_id}")
+    retry_dir = driver_dir / f"{AUDIT_RETRY_PREFIX}{number}"
+    if retry_dir.exists():               # a crashed invocation left its evidence: keep both
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        retry_dir = retry_dir.with_name(f"{retry_dir.name}-{stamp}")
+    retry_dir.mkdir(parents=True)
+    command = tuple(command or WORKER_COMMAND)
+    server_command = tuple(server_command or SERVER_COMMAND)
+    limit = AUDIT_LIMIT_SECONDS if limit_seconds is None else int(limit_seconds)
+    tools = launch_tools(runs_root=runs_root, run_id=run_id, plan_run=plan_run,
+                         driver_dir=retry_dir, sandbox=sandbox, auth=auth,
+                         master_env=lambda: master_env, server_command=server_command,
+                         command=command)
+    lock = acquire_lock(runs_root, run_id)
+    try:
+        outcome = audit_attempt(
+            run_dir, plan_run, task_of(root, plan_run["task_id"]), attempt=number,
+            auditor=auditor or run_audit_v2.audit, command=command, limit_seconds=limit,
+            prober=probe or tools["prober"], fresh_state=tools["fresh_state"],
+            confine_state=tools["confine_state"], release=tools["release"],
+            confined=tools["confined"], audit_dir=retry_dir / AUDIT_RETRY_BUNDLE,
+            stream_dir=retry_dir / AUDIT_RETRY_STREAM, home_name=AUDIT_HOME_PREFIX,
+            contract_path=contract_path, report_path=snapshot / REPORT_NAME,
+            bundle_dir=retry_dir / AUDIT_RETRY_BUNDLE,
+            archive_probe_fn=lambda item: archive_probe(retry_dir, "probe", item),
+            archive_tree_fn=lambda reason: archive_tree(
+                retry_dir / AUDIT_RETRY_BUNDLE, retry_dir, AUDIT_RETRY_BUNDLE,
+                plan_run=plan_run, attempt=number, kind="PROVIDER_FAILED_BEFORE_WORK",
+                reason=reason))
+    except BaseException:
+        Path(lock).unlink(missing_ok=True)
+        raise
+    if outcome["done"]:
+        audit = outcome["audit"]
+    else:
+        audit = {"verdict": "BLOCKED", "reasons": list(outcome["blocked"]["reasons"]),
+                 "leakage": []}
+    final = strictest(entry.get("verdict"), audit.get("verdict"))
+    line = {"kind": "AUDIT_RESOLVED", "run_id": run_id, "task_id": plan_run["task_id"],
+            "arm": plan_run["arm"], "audit_retry": number, "verdict": final,
+            "mechanical_verdict": entry.get("verdict"),
+            "audit_verdict": audit.get("verdict"), "audit": audit,
+            "snapshot": str(snapshot), "retry_dir": str(retry_dir),
+            "probe": outcome["probe"], "audit_sandbox": outcome["audit_sandbox"],
+            "resolved_at": now()}
+    append_jsonl(registry_path(runs_root), line)
+    annotate_lock(lock, final)
+    return {"outcome": "RESOLVED", "run_id": run_id, "audit_retry": number,
+            "verdict": final, "audit_verdict": audit.get("verdict"),
+            "reasons": list(audit.get("reasons", [])), "retry_dir": str(retry_dir),
+            "registry": str(registry_path(runs_root))}
 
 
 def child_log_path(runs_root: Path, run_id: str) -> Path:
@@ -2287,6 +2479,10 @@ def main() -> int:
     run.add_argument("--runs-root", required=True, type=Path)
     show = commands.add_parser("status", help="print the state of every planned run")
     show.add_argument("--runs-root", required=True, type=Path)
+    retry = commands.add_parser(
+        "audit", help="one fresh audit of a registered run whose audit was blocked (T51c)")
+    retry.add_argument("run_id")
+    retry.add_argument("--runs-root", required=True, type=Path)
     plan = commands.add_parser("run-plan",
                                help=f"start eligible runs, at most {MAX_PARALLEL} at a time")
     plan.add_argument("--runs-root", required=True, type=Path)
@@ -2303,6 +2499,10 @@ def main() -> int:
             result = schedule(args.runs_root)
             print(json.dumps(result, indent=2, sort_keys=True))
             return 0 if result["status"] == "COMPLETE" else 1
+        if args.command == "audit":
+            result = audit_retry(args.run_id, args.runs_root)
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result.get("verdict") == "ACCEPT" else 1
         result = execute(args.run_id, args.runs_root)
         print(json.dumps(result, sort_keys=True))
         return 0 if result.get("final_verdict") == "ACCEPT" else 1

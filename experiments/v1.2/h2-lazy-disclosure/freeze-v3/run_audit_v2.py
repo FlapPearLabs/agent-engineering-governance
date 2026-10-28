@@ -126,20 +126,23 @@ def scan(files: dict[str, str]) -> list[dict]:
 
 def prepare_bundle(run_dir: Path, plan_run: dict, task: dict, *,
                    contract_path: Path | None = None,
-                   report_path: Path | None = None) -> dict:
+                   report_path: Path | None = None,
+                   bundle_dir: Path | None = None) -> dict:
     """Copy the blind bundle into `<run_dir>/audit/` and record what went in and what leaked.
 
     T38a (F38 / F33): `contract_path` is the DRIVER's copy of the rendered contract and
     `report_path` is the worker's report inside the driver's snapshot. The driver passes both;
     without them the run directory is used, which is the CLI form only.
+    T51c: `bundle_dir` puts the bundle somewhere else — the audit retry keeps it under its own
+    driver directory — while every input is still read from the run's existing frozen materials.
     """
     run_dir = Path(run_dir).resolve()
     if plan_run["task_id"] != task["task_id"]:
         raise ValueError("TASK_ID_MISMATCH")
-    audit_dir = run_dir / AUDIT_DIR
+    audit_dir = Path(bundle_dir) if bundle_dir is not None else run_dir / AUDIT_DIR
     # F19 / T29: the driver creates the auditor's launch directory before the fresh home (its
     # TMPDIR lives inside it); the bundle still goes in before the auditor is launched.
-    audit_dir.mkdir(exist_ok=True)
+    audit_dir.mkdir(parents=True, exist_ok=True)
     contract = Path(contract_path or run_dir / CONTRACT_NAME).read_text(encoding="utf-8")
     collected = json.loads((run_dir / COLLECTED_NAME).read_text(encoding="utf-8"))
     verdict = json.loads((run_dir / VERDICT_NAME).read_text(encoding="utf-8"))
@@ -237,16 +240,17 @@ def evaluate(audit_dir: Path, bundle: dict) -> dict:
 def audit(run_dir: Path, plan_run: dict, task: dict, *, launch, command, env,
           limit_seconds: int, events_path: Path | None = None,
           stderr_path: Path | None = None, contract_path: Path | None = None,
-          report_path: Path | None = None) -> dict:
+          report_path: Path | None = None, bundle_dir: Path | None = None) -> dict:
     """Build the blind bundle, run one fresh session in it, and validate what it wrote.
 
     F17 / T29: `events_path`/`stderr_path` let the driver keep the authoritative copy of the
     stream outside the audit directory (and outside the sandbox's writable set); the bundle's own
     directory only receives what the auditor writes there. T38a: `contract_path` and
-    `report_path` are the driver's contract copy and the snapshot's report.
+    `report_path` are the driver's contract copy and the snapshot's report. T51c: `bundle_dir`
+    moves the bundle out of the run directory for an audit retry; the inputs do not change.
     """
     bundle = prepare_bundle(run_dir, plan_run, task, contract_path=contract_path,
-                            report_path=report_path)
+                            report_path=report_path, bundle_dir=bundle_dir)
     audit_dir = Path(bundle["audit_dir"])
     result = launch([*command, plan_run["model"], AUDIT_PROMPT], audit_dir, env, limit_seconds,
                     Path(events_path) if events_path else audit_dir / EVENTS_NAME,

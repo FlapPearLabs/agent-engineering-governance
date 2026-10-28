@@ -118,13 +118,46 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def read_registry(runs_root: Path) -> dict[str, dict]:
+def registry_entries(rows: list[dict]) -> dict[str, dict]:
+    """The registry by run id: one terminal line per run, plus its audit resolutions (T51c).
+
+    T51c: a run whose audit was blocked by the harness may be resolved later by an appended
+    `{"kind": "AUDIT_RESOLVED", ...}` line. That line is applied OVER the run's own line and never
+    replaces it: the mechanical verdict stays the one the run registered, the audit and the final
+    verdict become the resolution's, and the reason keeps the run's own mechanical reasons while
+    the audit-blocked reasons are replaced by the new attempt's. Any other repeat of a run id is
+    still fatal, and a resolution for a run that never registered is a broken registry.
+    """
     entries: dict[str, dict] = {}
-    for row in read_jsonl(Path(runs_root) / REGISTRY_NAME):
-        if row["run_id"] in entries:
-            raise ValueError(f"REGISTRY_DUPLICATE_RUN_ID:{row['run_id']}")
-        entries[row["run_id"]] = row
+    for row in rows:
+        run_id = row["run_id"]
+        if row.get("kind") == "AUDIT_RESOLVED":
+            original = entries.get(run_id)
+            if original is None:
+                raise ValueError(f"REGISTRY_RESOLUTION_WITHOUT_RUN:{run_id}")
+            audit, retry, verdict = row.get("audit"), row.get("audit_retry"), row.get("verdict")
+            if (not isinstance(audit, dict) or not isinstance(audit.get("verdict"), str)
+                    or not isinstance(retry, int) or isinstance(retry, bool)
+                    or not isinstance(verdict, str)):
+                raise ValueError(f"REGISTRY_INVALID_RESOLUTION:{run_id}")
+            reasons = [reason for reason in str(original.get("reason") or "").split(";")
+                       if reason and not reason.startswith("AUDIT_BLOCKED")]
+            blocked = audit.get("reasons")
+            if verdict == "BLOCKED" and isinstance(blocked, list):
+                reasons.extend(f"AUDIT_BLOCKED:{item}" for item in blocked)
+            entries[run_id] = {**original, "final_verdict": verdict,
+                               "audit_verdict": audit["verdict"], "audit": audit,
+                               "audit_retry": retry, "resolved_at": row.get("resolved_at"),
+                               "reason": ";".join(reasons) or None}
+            continue
+        if run_id in entries:
+            raise ValueError(f"REGISTRY_DUPLICATE_RUN_ID:{run_id}")
+        entries[run_id] = row
     return entries
+
+
+def read_registry(runs_root: Path) -> dict[str, dict]:
+    return registry_entries(read_jsonl(Path(runs_root) / REGISTRY_NAME))
 
 
 def planned_runs() -> list[dict]:
@@ -136,6 +169,17 @@ def usable(entry: dict | None) -> bool:
     return bool(entry) and entry.get("final_verdict") in USABLE
 
 
+def audit_record(data) -> dict | None:
+    """An auditor verdict that can support a judgement, or None when it cannot."""
+    if (not isinstance(data, dict) or data.get("correctness") not in CORRECTNESS_ORDER
+            or not isinstance(data.get("invalid_completion"), bool)
+            or not isinstance(data.get("findings"), list)):
+        return None
+    if any(not isinstance(finding, dict) for finding in data["findings"]):
+        return None
+    return data
+
+
 def read_audited(run_dir: Path) -> dict | None:
     """The auditor's own verdict file, verbatim; None when it cannot support a verdict."""
     path = Path(run_dir) / AUDIT_NAME
@@ -145,13 +189,18 @@ def read_audited(run_dir: Path) -> dict | None:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if (not isinstance(data, dict) or data.get("correctness") not in CORRECTNESS_ORDER
-            or not isinstance(data.get("invalid_completion"), bool)
-            or not isinstance(data.get("findings"), list)):
-        return None
-    if any(not isinstance(finding, dict) for finding in data["findings"]):
-        return None
-    return data
+    return audit_record(data)
+
+
+def audited_for(entry: dict, run_dir: Path) -> dict | None:
+    """The audit that decides this run: its latest resolution, else the auditor's own file.
+
+    T51c: an `AUDIT_RESOLVED` line carries the audit of the retry that produced it, and that
+    retry's evidence lives under the driver directory, not in the run directory.
+    """
+    if "audit_retry" in entry:
+        return audit_record(entry.get("audit"))
+    return read_audited(run_dir)
 
 
 def evidence_trust(entry: dict, run_dir: Path) -> tuple[str, list[dict]]:
@@ -346,6 +395,7 @@ def aggregate(runs_root: Path) -> dict:
                         "audit_verdict": entry.get("audit_verdict"),
                         "final_verdict": entry.get("final_verdict"),
                         "reason": entry.get("reason"),
+                        "audit_retry": entry.get("audit_retry"),
                         "attempts": [{"attempt": item.get("attempt"), "kind": item.get("kind"),
                                       "verdict": item.get("verdict"),
                                       "reason": item.get("reason")}
@@ -366,7 +416,7 @@ def aggregate(runs_root: Path) -> dict:
                     untrusted.append({"run_id": run_id, "task_id": plan_run["task_id"],
                                       "arm": plan_run["arm"], "problems": problems})
                 else:
-                    audited = read_audited(run_dir)
+                    audited = audited_for(entry, run_dir)
                     correctness = None if audited is None else final_correctness(entry, audited)
                     if audited is None:
                         audit_missing.append(run_id)

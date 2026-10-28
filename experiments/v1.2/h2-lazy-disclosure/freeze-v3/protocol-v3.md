@@ -442,6 +442,35 @@ MODEL RULE    二十个 run 的每次 worker 与 auditor 启动只用 run-plan-v
 该模型规则同样在任何计数 run 之前固定，且对结果盲：它只决定"用哪个模型"，不改变任何结果判定，
 也不允许在结果不理想时更换模型。
 
+#### 6.1.1 Audit retry（T51c，预注册规则）
+
+f08-c 暴露的空白（[closure report](../freeze-v2-closure-report.md)）：机械验收 ACCEPT、worker 已结束，
+只剩审计因 provider 噪声被 block；按旧规则该 run 是终局 BLOCKED，唯一的补救是重跑 worker，而那是
+第 6 节禁止的。因此在任何 v3 计数 run 之前预注册"只重做审计"的入口
+（`run_h2r2.py audit --runs-root R <run_id>`）。
+
+```text
+TRIGGER   仅当该 run 在 registry-v3.jsonl 的最新状态是 BLOCKED，且 reason 以 ";" 分隔后每一项都以
+          AUDIT_BLOCKED 开头；其他 BLOCKED（例如 attempt 耗尽）一律拒绝，不消耗重试预算。
+BUDGET    每个 run 至多 3 次重试；第 4 次请求被拒绝。一次调用 = 一次审计尝试（不套用 §6.1 的三次
+          before-work attempt 预算）；重试自己也被 block 时照扣预算。
+MODEL     只用 run-plan-v3.json 该行的同一冻结模型；MODEL_NOT_FROZEN 规则不变，不换模型重摇。
+MATERIALS 只读该 run 已冻结的材料：driver 副本 CONTRACT.md、snapshot 的 report.md、run 目录的
+          collected.json 与 verdict.json。不启动 worker、不写 run 目录、不改任何既有 artifact 哈希。
+          本次审计的 bundle、home、渲染 profile、流与 egress 日志写在
+          `<runs_root>/.driver/<run_id>/audit-retry-<n>/`。
+RULES     同一盲 bundle、同一审计 prompt、同一可达性检查、同一隔离与 egress 规则、同一审计员命令。
+EVIDENCE  registry 追加一行 {"kind": "AUDIT_RESOLVED", "run_id", "audit_retry": n, "verdict",
+          "audit": {...}, "resolved_at"}；既有行一个字节都不改。verdict 是"机械裁定与本轮审计取更严"的
+          结果，与注册用的算法相同。重试仍被 block 时同样追加一行 verdict=BLOCKED 并写明原因。
+RESULT    汇总与 status 取最新的 AUDIT_RESOLVED 覆盖原登记：机械裁定仍是原登记的，audit 与 final
+          verdict 取该次重试的；配对资格与结果规则不变。
+```
+
+原因与边界：该入口只修 harness 自己的失败（审计没跑成），从不重摇 worker 的结果，因此对结果盲；
+它不能把 INVALID 变成 PASS，也不能重跑已到达工作的 run。f08-c 的三次审计尝试分别是 reachability
+FAIL、provider-before-work、reachability FAIL，都发生在审计员给出任何判断之前。
+
 ## 7. 预注册结果规则及相对 rubric §9 的偏离
 
 仅使用 DISCLOSURE_SAFE / DISCLOSURE_HAS_COST / INSUFFICIENT_EVIDENCE。
