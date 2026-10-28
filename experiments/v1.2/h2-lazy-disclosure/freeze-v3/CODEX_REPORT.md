@@ -399,3 +399,9 @@ this commit):
 T53 `H2_CANARY_TOOLS` line still awaits the operator's pilot. The re-measured anchors reproduce
 T50's neutral verdict (WRAPPER 10/10); the `CODEBUDDY`/`AGENTS` slots remain blocked by design.
 No file outside `freeze-v3/` (plus the two v3 test modules) was modified.
+
+### T55b
+
+- F2: Copy-back followed worker-created destination links, and collection and blind-bundle reads followed snapshot links. The driver now replaces destination leaves with exclusive no-follow creation, and evidence readers use no-follow regular-file reads; artifact links are recorded with a hash of the link text and `EVIDENCE_UNREADABLE:<name>`, resulting in the existing `INVALID` collection verdict. Snapshot and artifact-hash roots reject symlinks. Audit input links are refused. The new linksafe tests derive from the review probes and exercise the driver, collector, bundle, receipt, events and root links.
+- F4: The shared path resolver previously let an empty legacy directory choose the location of a new launch. New launches now select `.cells/<id>/<id>` directly; legacy resolution requires a registered run. The new driver regression creates an empty legacy directory and verifies the cell path.
+- RED: On base `86930fd`, the linksafe collector, root and driver-link tests failed, and the separately run legacy-start regression failed. GREEN: the linksafe module passed after the fixes. The full long-running module, live runs, re-pinning and independent review were not performed in this task.

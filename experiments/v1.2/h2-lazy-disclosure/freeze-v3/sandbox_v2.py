@@ -727,6 +727,8 @@ def snapshot(run_dir: Path, target: Path) -> dict:
     read ONLY this copy, so nothing that happens in the run dir afterwards can change a verdict.
     """
     run_dir, target = Path(run_dir), Path(target)
+    if not stat.S_ISDIR(run_dir.lstat().st_mode):
+        raise ValueError("SNAPSHOT_ROOT_NOT_DIRECTORY")
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)

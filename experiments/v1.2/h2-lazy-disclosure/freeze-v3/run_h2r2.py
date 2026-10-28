@@ -765,9 +765,11 @@ def read_events(path: Path) -> tuple[list, int]:
     """
     events: list = []
     malformed = 0
-    if not Path(path).is_file():
+    try:
+        data = wrapper_delivery.safe_read(path).decode("utf-8", errors="replace")
+    except OSError:
         return events, malformed
-    for line in Path(path).read_text(encoding="utf-8", errors="replace").split("\n"):
+    for line in data.split("\n"):
         if not line.strip():
             continue
         try:
@@ -816,6 +818,8 @@ def artifact_hashes(run_dir: Path) -> dict:
     """
     hashes: dict = {}
     run_dir = Path(run_dir)
+    if not stat.S_ISDIR(run_dir.lstat().st_mode):
+        raise ValueError("ARTIFACT_ROOT_NOT_DIRECTORY")
 
     def record(path: Path) -> None:
         rel = path.relative_to(run_dir).as_posix()
@@ -1170,7 +1174,7 @@ def archive_tree(tree: Path, run_dir: Path, name: str, *, plan_run: dict, attemp
                 "finished_at": finished_at, "artifact_excluded": list(ARTIFACT_EXCLUDED),
                 "artifacts": artifacts}
     data = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    (target / ATTEMPT_NAME).write_bytes(data)
+    wrapper_delivery.safe_write(target / ATTEMPT_NAME, data)
     return {"archive": target.relative_to(Path(run_dir)).as_posix(), "artifacts": artifacts,
             "manifest_sha256": sha256(data)}
 
@@ -1185,7 +1189,7 @@ def archive_probe(run_dir: Path, name: str, record: dict) -> dict:
     target = Path(run_dir) / ATTEMPTS_DIR / name
     target.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    (target / PROBE_NAME).write_bytes(data)
+    wrapper_delivery.safe_write(target / PROBE_NAME, data)
     return {"archive": target.relative_to(Path(run_dir)).as_posix(),
             "probe_sha256": sha256(data)}
 
@@ -1376,7 +1380,7 @@ def harness_defect(runs_root: Path, exc: Exception, state: dict) -> dict:
                    "wall_clock_seconds": record.get("wall_clock_seconds"),
                    "harness_defect": {"exception": kind, "evidence": str(evidence),
                                       "worker_launched": True}})
-    (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    wrapper_delivery.safe_write(run_dir / RECORD_NAME, (json.dumps(record, indent=2) + "\n").encode())
     line = register(runs_root, plan_run, verdict="INVALID", reason=reason, run_dir=run_dir,
                     attempt=state.get("attempt"), attempts=state.get("attempt"))
     append_jsonl(Path(runs_root) / ATTEMPT_REGISTRY_NAME,
@@ -1636,7 +1640,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             register_interrupted(runs_root, plan_run)
         return {"outcome": "REFUSED", "run_id": run_id, "reason": reason}
 
-    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
+    run_dir = Path(runs_root) / ".cells" / run_id / run_id
     run_dir.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     driver_dir = wrapper_delivery.driver_root(run_dir)
     env_file = profile_env_file(plan_run, profile_env)
@@ -1678,8 +1682,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
     state.update({"lock": lock, "attempt": attempt, "pending": None})
 
     def save(record: dict) -> None:
-        (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n",
-                                           encoding="utf-8")
+        wrapper_delivery.safe_write(run_dir / RECORD_NAME, (json.dumps(record, indent=2) + "\n").encode())
 
     def infra_blocked(record: dict, reasons: list[str]) -> dict:
         """A pre-launch infrastructure state: recorded, no attempt consumed, invokable again."""
@@ -1820,7 +1823,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             # F38 / T38a: the contract is DRIVER evidence. The rendered bytes are copied out of the
             # worker's cwd, hashed, and become the only contract the audit bundle is built from; a
             # run-dir copy that differs from it is a tamper, not a source.
-            contract_bytes = (run_dir / CONTRACT_NAME).read_bytes()
+            contract_bytes = wrapper_delivery.safe_read(run_dir / CONTRACT_NAME)
             driver_contract = driver_dir / DRIVER_CONTRACT_NAME
             driver_contract.write_bytes(contract_bytes)
             record["contract"] = {"driver_path": str(driver_contract),
@@ -1921,7 +1924,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             for name in (EVENTS_NAME, STDERR_NAME):
                 source = stream / name
                 if source.is_file():
-                    shutil.copyfile(source, run_dir / name)
+                    wrapper_delivery.safe_write(run_dir / name, wrapper_delivery.safe_read(source))
             events, malformed = read_events(driver_events)
             record["session_id"] = session_id(events)
             reasons = worker_reasons(result, events, malformed)
@@ -1979,8 +1982,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             access["egress_denied"] = egress_v2.denied(egress_log)
             record["egress_log"] = str(egress_log)
             record["denied_attempts"] = int(access.get("denied_attempts_count", 0))
-            (run_dir / ACCESS_NAME).write_text(json.dumps(access, indent=2, sort_keys=True) + "\n",
-                                               encoding="utf-8")
+            wrapper_delivery.safe_write(run_dir / ACCESS_NAME, (json.dumps(access, indent=2, sort_keys=True) + "\n").encode())
             breach_reasons = access_audit.breach_reasons(access.get("breach", []))
             access_reasons = [f"OUT_OF_RUN_ACCESS:{hit.get('reason')}:{hit.get('value')}"
                               for hit in access["hits"]]
@@ -2005,12 +2007,10 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
 
             entry = start_step(record, "acceptance")
             collected = collect_v2.collect(root, evidence, identity_dir=run_dir)
-            (run_dir / COLLECTED_NAME).write_text(
-                json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            wrapper_delivery.safe_write(run_dir / COLLECTED_NAME, (json.dumps(collected, indent=2, sort_keys=True) + "\n").encode())
             verdict = run_acceptance_v2.accept(root, run_dir, snapshot=evidence,
                                               gate_root=stream)
-            (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
-                                                encoding="utf-8")
+            wrapper_delivery.safe_write(run_dir / VERDICT_NAME, (json.dumps(verdict, indent=2, sort_keys=True) + "\n").encode())
             finish_step(entry, verdict["verdict"], reasons=verdict["reasons"],
                         collected=collected["status"], diff_sha256=collected["diff_sha256"])
             save(record)
@@ -2136,7 +2136,7 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
     record["attempts"] = pending["attempt"]
     record["concurrent_with"] = overlap_ids(runs_root, run_id, record.get("started_at"),
                                             record.get("finished_at") or now(), planned)
-    (run_dir / RECORD_NAME).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    wrapper_delivery.safe_write(run_dir / RECORD_NAME, (json.dumps(record, indent=2) + "\n").encode())
     line = register(runs_root, plan_run, verdict="BLOCKED", reason=pending["reason"],
                     run_dir=run_dir, audit_verdict=record.get("audit_verdict"),
                     session=record.get("session_id"),
@@ -2161,9 +2161,10 @@ def contract_tampered(evidence: Path, driver_contract: Path) -> bool:
     recorded as `CONTRACT_TAMPERED` and makes the run INVALID.
     """
     copy = Path(evidence) / CONTRACT_NAME
-    if not copy.is_file() or not Path(driver_contract).is_file():
+    try:
+        return wrapper_delivery.safe_read(copy) != wrapper_delivery.safe_read(driver_contract)
+    except OSError:
         return True
-    return copy.read_bytes() != Path(driver_contract).read_bytes()
 
 
 def worker_terminal(run_dir: Path, record: dict, root: Path, settle, reasons, *,
@@ -2177,11 +2178,9 @@ def worker_terminal(run_dir: Path, record: dict, root: Path, settle, reasons, *,
     evidence = Path(evidence) if evidence is not None else Path(run_dir)
     entry = start_step(record, "acceptance")
     collected = collect_v2.collect(root, evidence, identity_dir=run_dir)
-    (run_dir / COLLECTED_NAME).write_text(
-        json.dumps(collected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    wrapper_delivery.safe_write(run_dir / COLLECTED_NAME, (json.dumps(collected, indent=2, sort_keys=True) + "\n").encode())
     verdict = run_acceptance_v2.accept(root, run_dir, snapshot=evidence, gate_root=stream)
-    (run_dir / VERDICT_NAME).write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n",
-                                        encoding="utf-8")
+    wrapper_delivery.safe_write(run_dir / VERDICT_NAME, (json.dumps(verdict, indent=2, sort_keys=True) + "\n").encode())
     finish_step(entry, verdict["verdict"], collected=collected["status"],
                 diff_sha256=collected["diff_sha256"], terminal="INVALID")
     audit = {"verdict": "SKIPPED", "reasons": ["RUN_INVALID"], "leakage": []}

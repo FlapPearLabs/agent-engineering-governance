@@ -8,6 +8,7 @@ import json
 import os
 import pwd
 import shutil
+import stat
 import subprocess
 import uuid
 from pathlib import Path, PurePosixPath
@@ -135,12 +136,62 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def safe_read(path: Path) -> bytes:
+    """Read a regular file without following links in any path component."""
+    path = Path(os.path.abspath(path))
+    fd = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for component in path.parts[1:-1]:
+            next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        info = os.stat(path.name, dir_fd=fd, follow_symlinks=False)
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError("not a regular file")
+        leaf = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+        with os.fdopen(leaf, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if not stat.S_ISREG(opened.st_mode) or (info.st_dev, info.st_ino) != (opened.st_dev, opened.st_ino):
+                raise OSError("file changed during open")
+            return stream.read()
+    finally:
+        os.close(fd)
+
+
+def safe_write(path: Path, data: bytes) -> None:
+    """Replace a leaf without following any destination component."""
+    path = Path(os.path.abspath(path))
+    fd = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for component in path.parts[1:-1]:
+            next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        try:
+            os.unlink(path.name, dir_fd=fd)
+        except FileNotFoundError:
+            pass
+        leaf = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                       0o600, dir_fd=fd)
+        with os.fdopen(leaf, "wb") as stream:
+            stream.write(data)
+    finally:
+        os.close(fd)
+
+
 def run_dir_for(runs_root: Path, run_id: str) -> Path:
     """Resolve existing legacy runs, otherwise use an isolated cell."""
     root = Path(runs_root)
     cell = root / ".cells" / run_id / run_id
     legacy = root / run_id
-    return legacy if legacy.exists() and not cell.exists() else cell
+    if cell.exists() or not legacy.exists():
+        return cell
+    try:
+        lines = safe_read(root / "registry-v3.jsonl").splitlines()
+        registered = any(json.loads(line).get("run_id") == run_id for line in lines if line.strip())
+    except (OSError, ValueError, AttributeError):
+        registered = False
+    return legacy if registered else cell
 
 
 def runs_root_of(run_dir: Path) -> Path:

@@ -79,7 +79,7 @@ def worktree_state(repo: Path) -> dict[str, dict]:
             elif stat.S_ISREG(info.st_mode):
                 state[rel] = {"type": "file",
                               "mode": "100755" if info.st_mode & 0o111 else "100644",
-                              "sha256": sha256(path.read_bytes())}
+                              "sha256": sha256(wrapper_delivery.safe_read(path))}
             else:
                 state[rel] = {"type": "other", "mode": "000000", "sha256": None}
     return state
@@ -113,7 +113,7 @@ def side_bytes(root: Path, path: str, entry: dict | None) -> bytes | None:
         return os.fsencode(os.readlink(full))
     if entry.get("type") == "other":
         return b""
-    return full.read_bytes()
+    return wrapper_delivery.safe_read(full)
 
 
 def text_lines(data: bytes) -> list[str] | None:
@@ -162,38 +162,49 @@ def render_diff(snapshot: Path, repo: Path, manifest: dict, state: dict[str, dic
 
 
 def verify_delivery(root: Path, run_dir: Path) -> tuple[dict, dict[str, str], list[str]]:
-    """Re-verify the delivered bytes; returns (receipt, delivered hashes, reasons)."""
-    reasons: list[str] = []
+    """Re-verify delivered files without following links."""
     receipt_path = run_dir / "receipt.json"
-    if not receipt_path.is_file():
-        return {}, {}, ["MISSING_RECEIPT"]
+    if receipt_path.is_symlink():
+        return {"type": "symlink", "sha256": sha256(os.fsencode(os.readlink(receipt_path)))}, {}, ["EVIDENCE_UNREADABLE:receipt.json"]
     try:
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt = json.loads(wrapper_delivery.safe_read(receipt_path))
     except (OSError, ValueError):
         return {}, {}, ["UNREADABLE_RECEIPT"]
     if not isinstance(receipt, dict) or not {"task_id", "arm", "delivered_head",
                                              "materials_commit", "carrier_sha256", "rules_sha256",
                                              "warm_bundle_sha256", "program_sha256"} <= set(receipt):
         return {}, {}, ["INCOMPLETE_RECEIPT"]
-    hashes: dict[str, str] = {}
-    for name in DELIVERED_FILES:
-        path = run_dir / name
-        if not path.is_file():
-            reasons.append(f"MISSING_DELIVERED_FILE:{name}")
-            continue
-        hashes[name] = sha256(path.read_bytes())
-        if hashes[name] != receipt.get(RECEIPT_HASH_KEYS[name]):
-            reasons.append(f"DELIVERED_HASH_MISMATCH:{name}")
+    reasons, hashes = [], {}
     warm_root = run_dir / DELIVERED_DIR
-    warm_files = ([path for path in sorted(warm_root.rglob("*")) if path.is_file()]
-                  if warm_root.is_dir() else [])
-    if not warm_files:
+    paths = list(DELIVERED_FILES)
+    if warm_root.is_symlink() or not warm_root.is_dir():
         reasons.append(f"MISSING_DELIVERED_DIR:{DELIVERED_DIR}")
-    warm_lines = []
-    for path in warm_files:
-        rel = path.relative_to(warm_root).as_posix()
-        hashes[f"{DELIVERED_DIR}/{rel}"] = sha256(path.read_bytes())
-        warm_lines.append(f"{rel} {hashes[f'{DELIVERED_DIR}/{rel}']}")
+    else:
+        for directory, dirs, files in os.walk(warm_root, followlinks=False):
+            for name in list(dirs):
+                path = Path(directory) / name
+                if path.is_symlink():
+                    paths.append(path.relative_to(run_dir).as_posix())
+                    dirs.remove(name)
+            paths.extend((Path(directory) / name).relative_to(run_dir).as_posix() for name in files)
+        if len(paths) == len(DELIVERED_FILES):
+            reasons.append(f"MISSING_DELIVERED_DIR:{DELIVERED_DIR}")
+    for rel in sorted(paths):
+        path = run_dir / rel
+        try:
+            info = path.lstat()
+            if stat.S_ISLNK(info.st_mode):
+                hashes[rel] = sha256(os.fsencode(os.readlink(path)))
+                reasons.append(f"EVIDENCE_UNREADABLE:{rel}")
+            else:
+                hashes[rel] = sha256(wrapper_delivery.safe_read(path))
+        except OSError:
+            reasons.append(f"MISSING_DELIVERED_FILE:{rel}")
+            continue
+        if rel in RECEIPT_HASH_KEYS and hashes[rel] != receipt.get(RECEIPT_HASH_KEYS[rel]):
+            reasons.append(f"DELIVERED_HASH_MISMATCH:{rel}")
+    warm_lines = [f"{rel[len(DELIVERED_DIR) + 1:]} {hashes[rel]}" for rel in sorted(hashes)
+                  if rel.startswith(DELIVERED_DIR + "/")]
     if warm_lines and sha256("\n".join(warm_lines).encode()) != receipt.get("warm_bundle_sha256"):
         reasons.append("WARM_BUNDLE_HASH_MISMATCH")
     program = Path(__file__).resolve().parent / "wrapper_delivery.py"
@@ -205,11 +216,11 @@ def verify_delivery(root: Path, run_dir: Path) -> tuple[dict, dict[str, str], li
         expected = {}
         reasons.append("DELIVERY_RECOMPOSITION_UNAVAILABLE")
     for rel, data in expected.items():
-        path = run_dir / rel
-        if not path.is_file():
+        try:
+            if wrapper_delivery.safe_read(run_dir / rel) != data:
+                reasons.append(f"DELIVERED_BYTES_NOT_FROM_MATERIALS:{rel}")
+        except OSError:
             reasons.append(f"MISSING_DELIVERED_FILE:{rel}")
-        elif path.read_bytes() != data:
-            reasons.append(f"DELIVERED_BYTES_NOT_FROM_MATERIALS:{rel}")
     for rel in hashes:
         if rel not in expected:
             reasons.append(f"UNDELIVERED_EXTRA_FILE:{rel}")
@@ -218,9 +229,14 @@ def verify_delivery(root: Path, run_dir: Path) -> tuple[dict, dict[str, str], li
 
 def artifact(run_dir: Path, name: str, missing: str, empty: str) -> tuple[dict, list[str]]:
     path = run_dir / name
-    if not path.is_file():
+    try:
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode):
+            data = os.fsencode(os.readlink(path))
+            return {"present": True, "type": "symlink", "sha256": sha256(data)}, [f"EVIDENCE_UNREADABLE:{name}"]
+        data = wrapper_delivery.safe_read(path)
+    except OSError:
         return {"present": False}, [missing]
-    data = path.read_bytes()
     record = {"present": True, "bytes": len(data), "lines": data.count(b"\n"),
               "sha256": sha256(data)}
     if not data.strip():
@@ -267,7 +283,7 @@ def collect(root: Path = ROOT, run_dir: Path | None = None, *,
     (`.driver/<run_id>/base-manifest.json`), which lives outside the evidence tree; it defaults to
     `run_dir` for the CLI form.
     """
-    root, run_dir = Path(root).resolve(), Path(run_dir).resolve()
+    root, run_dir = Path(root).resolve(), Path(run_dir).absolute()
     identity_dir = Path(identity_dir).resolve() if identity_dir is not None else run_dir
     registry_data = registry(root)
     receipt, delivered, reasons = verify_delivery(root, run_dir)
