@@ -5,6 +5,7 @@
   "plugin": [],
   "mcp": {},
   "permission": {
+    "execute": "deny",
     "question": "deny"
   }
 }
