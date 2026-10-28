@@ -163,6 +163,7 @@ def gate_run(gate_root: Path | None, source: Path, pattern: str | None, style: s
     result = delivery_anchors.run_gate(gate.repo, pattern, style, gate=gate)
     return result, {"number": number, "path": info["gate"], "style": style,
                     "launch": str(gate.repo), "network": info["network"],
+                    "violations": result["violations"],
                     "profile_sha256": info["profile"]["sha256"],
                     "self_test": (info["self_test"] or {}).get("verdict"),
                     "self_test_reasons": (info["self_test"] or {}).get("reasons", [])}

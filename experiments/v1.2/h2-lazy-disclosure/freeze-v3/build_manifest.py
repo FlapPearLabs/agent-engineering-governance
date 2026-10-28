@@ -14,7 +14,7 @@ FROZEN_FILES = tuple(sorted(
         "access_audit.py", "egress_v2.py",
         "build_registry.py", "task-registry-v3.json", "build_run_plan.py", "run-plan-v3.json",
         "worker-brief-v3.md", "render_brief.py", "protocol-v3.md", "aggregate_set.py",
-        "run_h2r2.py", "run_audit_v2.py", "sandbox_v2.py", "aggregate_runs.py",
+        "run_h2r2.py", "run_audit_v2.py", "sandbox_v2.py", "aggregate_runs.py", "violations_v3.py",
         "build_manifest.py", "delivery-anchors.json", "route_preconditions.py",
         "route-preconditions.json", "scope_v2.py", "collect_v2.py", "run_acceptance_v2.py",
         "worker-sandbox.sb.template",
