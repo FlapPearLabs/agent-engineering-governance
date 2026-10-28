@@ -153,6 +153,24 @@ class ResultsTest(unittest.TestCase):
         self.assertEqual(costs, [])
         self.assertIn("完整配对中未观察到 S2/S3/S4 代价", report)
 
+    def test_mechanical_column_comes_from_the_record(self):
+        row = {"run_id": "h2r2-f99-c", "task_id": "f99", "arm": "control",
+               "verdict": "INVALID", "mechanical_verdict": None, "final_verdict": "INVALID",
+               "attempts": [{"attempt": 1, "kind": "TERMINAL"}]}
+        data = {"rows": [row], "pairs": [], "usable_pairs": 0, "planned_pairs": 1,
+                "decided_by": "COVERAGE:INVALID:h2r2-f99-c", "result": "INSUFFICIENT_EVIDENCE",
+                "denied_attempts": {"by_arm": {"control": {"count": 0}, "variant": {"count": 0}}}}
+        records = {"h2r2-f99-c": {"mechanical": {"verdict": "ACCEPT", "reasons": []},
+                                  "reason_codes": ["OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN"],
+                                  "access_audit": {"hits": [{"path": ".."}]}}}
+        report = renderer.render(data, records)
+        columns = [cell.strip() for cell in next(
+            line for line in report.splitlines() if line.startswith("| h2r2-f99-c |")
+        ).strip("|").split("|")]
+        self.assertEqual(columns[4], "ACCEPT")   # Mechanical: the exported per-run verdict
+        self.assertEqual(columns[6], "INVALID")  # Final verdict is unchanged
+        self.assertIn("机械验收均为 ACCEPT", report)
+
     def test_null_difference_statement_follows_data(self):
         def pair(task, correctness, invalid, control_shape, variant_shape=None):
             return {"task_id": task, "valid": True,

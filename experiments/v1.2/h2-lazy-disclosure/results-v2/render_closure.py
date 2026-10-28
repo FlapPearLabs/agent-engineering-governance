@@ -89,6 +89,13 @@ def attempts_summary(attempts):
     return f"{len(attempts)} ({span} BLOCKED before work: provider.no-route)"
 
 
+def mechanical_verdict(row, records):
+    """The exported per-run mechanical verdict; the aggregate's own verdict is never used."""
+    record = records.get(row.get("run_id")) or {}
+    verdict = (record.get("mechanical") or {}).get("verdict")
+    return verdict if verdict is not None else row.get("mechanical_verdict")
+
+
 def reason_summary(record):
     codes = Counter(record.get("reason_codes", []))
     parts = [f"{code} x{count}" if count > 1 else code for code, count in codes.items()]
@@ -116,8 +123,12 @@ def render(data, records=None):
     blocked = [r for r in rows if r.get("final_verdict") == "BLOCKED"]
     for label, group in (("INVALID", invalid), ("BLOCKED", blocked)):
         if group:
-            lines.append(f"- {label}：" + "; ".join(
-                f"{r['run_id']} ({reason_summary(records.get(r['run_id'], {}))})" for r in group) + "。")
+            line = f"- {label}：" + "; ".join(
+                f"{r['run_id']} ({reason_summary(records.get(r['run_id'], {}))})" for r in group) + "。"
+            accepted = [r for r in group if mechanical_verdict(r, records) == "ACCEPT"]
+            if label == "INVALID" and len(accepted) == len(group):
+                line += f"这 {len(group)} 个 run 的机械验收均为 ACCEPT，都是被 access audit 判为 INVALID 的。"
+            lines.append(line)
     lines += ["", "| 配对 | control FINAL_CORRECTNESS | control findings (severity, category) | variant FINAL_CORRECTNESS | variant findings (severity, category) |",
               "|---|---|---|---|---|"]
     for task, arms in by_task.items():
@@ -142,7 +153,7 @@ def render(data, records=None):
               "|---|---|---|---|---|---|---|---|---|"]
     for row in rows:
         values = [row.get("run_id"), row.get("task_id"), row.get("arm"), attempts_summary(row.get("attempts", [])),
-                  row.get("mechanical_verdict", row.get("verdict")), row.get("audited_correctness"),
+                  mechanical_verdict(row, records), row.get("audited_correctness"),
                   row.get("final_verdict"), row.get("denied_attempts"), reason_summary(records.get(row.get("run_id"), {}))]
         lines.append("| " + " | ".join(map(cell, values)) + " |")
     lines += ["", "## 聚合结果", "", f"- 有效配对：{data['usable_pairs']}/{data['planned_pairs']}；" + (", ".join(valid) if valid else "无"),
