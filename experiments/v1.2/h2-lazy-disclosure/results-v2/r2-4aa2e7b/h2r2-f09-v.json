@@ -400,6 +400,7 @@
   "task_id": "f09",
   "verdict": "ACCEPT",
   "wall_clock_seconds": 342.574,
+  "reason_codes": [],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "ACCEPT",

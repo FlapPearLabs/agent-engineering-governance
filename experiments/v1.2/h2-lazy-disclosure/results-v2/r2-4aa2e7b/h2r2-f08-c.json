@@ -670,6 +670,11 @@
   "task_id": "f08",
   "verdict": "ACCEPT",
   "wall_clock_seconds": 373.956,
+  "reason_codes": [
+    "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1",
+    "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route",
+    "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER"
+  ],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "ACCEPT",

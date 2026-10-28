@@ -634,6 +634,7 @@
   "task_id": "f10",
   "verdict": "ACCEPT",
   "wall_clock_seconds": 818.933,
+  "reason_codes": [],
   "artifact_verification": [
     {
       "path": ".tmp/tmpeq6xjztl/fifo.json",

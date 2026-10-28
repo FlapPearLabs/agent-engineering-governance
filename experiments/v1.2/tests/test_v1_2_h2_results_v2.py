@@ -75,6 +75,7 @@ class ResultsTest(unittest.TestCase):
                            "registered_sha256": hashlib.sha256(b"").hexdigest(),
                            "verification": "NOT_REVERIFIED_SPECIAL_FILE"},
                           saved["artifact_verification"])
+            self.assertEqual(saved["reason_codes"], [])
             self.assertEqual(saved["mechanical"]["reasons"][0], untouched)
             self.assertEqual(saved["auditor"]["findings"][0]["id"], "F1")
             manifest = json.loads((out / "raw-manifest.json").read_text())
@@ -92,6 +93,23 @@ class ResultsTest(unittest.TestCase):
             (run / "audit/audit.json").write_text("tampered")
             with self.assertRaisesRegex(ValueError, "SHA256_MISMATCH"):
                 exporter.export(root, Path(temp) / "bad")
+
+    def test_report_omits_commands_and_entities(self):
+        command = "worker-secret-command && echo dangerous"
+        data = {"rows": [{"run_id": "run", "task_id": "f01", "arm": "control",
+                          "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:" + command,
+                          "attempts": [{"attempt": 1, "kind": "TERMINAL", "reason": command}]}],
+                "pairs": [], "usable_pairs": 0, "planned_pairs": 1,
+                "decided_by": "COVERAGE", "result": "INSUFFICIENT_EVIDENCE",
+                "denied_attempts": {"by_arm": {"control": {"count": 0}, "variant": {"count": 0}}}}
+        records = {"run": {"reason_codes": ["OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN"],
+                           "access_audit": {"hits": [{"path": "/nope", "value": command}]}}}
+        report = renderer.render(data, records)
+        self.assertNotIn(command, report)
+        self.assertNotIn("&#", report)
+        self.assertIn("OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN; /nope", report)
+        self.assertEqual(exporter.reason_codes("WORKER_SCOPE_DENIED:a;WORKER_SCOPE_DENIED:b"),
+                         ["WORKER_SCOPE_DENIED", "WORKER_SCOPE_DENIED"])
 
     def test_all_tokens_and_numbers(self):
         data = {"rows": [], "pairs": [{"task_id": "f01", "valid": True}],

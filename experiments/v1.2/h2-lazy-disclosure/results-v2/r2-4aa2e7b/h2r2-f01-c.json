@@ -113,6 +113,7 @@
   "task_id": "f01",
   "verdict": "ACCEPT",
   "wall_clock_seconds": 817.863,
+  "reason_codes": [],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "ACCEPT",

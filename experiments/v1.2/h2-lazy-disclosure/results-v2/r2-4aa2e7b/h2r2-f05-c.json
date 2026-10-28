@@ -43,6 +43,9 @@
   "task_id": "f05",
   "verdict": "INVALID",
   "wall_clock_seconds": 388.631,
+  "reason_codes": [
+    "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED"
+  ],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "ACCEPT",

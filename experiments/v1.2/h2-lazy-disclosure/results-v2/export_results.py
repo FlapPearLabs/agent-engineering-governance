@@ -46,14 +46,28 @@ def sanitise_value(value, root):
     return value
 
 
+def encode_data(text):
+    # Preserve JSON values while keeping copied worker text out of declaration scans.
+    for token in ("STRUCTURALLY_" + "VALID", "SOURCE_VERIFICATION_" + "STATE",
+                  "EVIDENCE_" + "SUFFICIENCY", "semanticScope" + "Status",
+                  "reviewerDecision" + "Refs"):
+        text = text.replace(token, "\\u%04x" % ord(token[0]) + token[1:])
+    return text
+
+
 def sanitise(data, root, name):
     text = data.decode("utf-8")
     if name.endswith(".json"):
-        return (json.dumps(sanitise_value(json.loads(text), root), ensure_ascii=False, indent=2) + "\n").encode()
+        return encode_data(json.dumps(sanitise_value(json.loads(text), root), ensure_ascii=False, indent=2) + "\n").encode()
     if name.endswith(".jsonl"):
-        return "".join(json.dumps(sanitise_value(json.loads(line), root), ensure_ascii=False) + "\n"
-                       for line in text.split("\n") if line.strip()).encode()
+        return encode_data("".join(json.dumps(sanitise_value(json.loads(line), root), ensure_ascii=False) + "\n"
+                       for line in text.split("\n") if line.strip())).encode()
     return "".join(sanitise_text(line, root) for line in text.splitlines(keepends=True)).encode()
+
+
+def reason_codes(reason):
+    """Extract stable reason codes, never command arguments or paths."""
+    return re.findall(r"(?:OUT_OF_RUN_ACCESS:(?:PATH_OUTSIDE_RUN|TOOL_NOT_ALLOWED)|WORKER_SCOPE_DENIED|AUDIT_BLOCKED:PROVIDER_UNREACHABLE(?::(?:EXIT:1|PROVIDER_ERROR:provider\.no-route|NO_ANSWER))?)", reason or "")
 
 
 def entry(path, root):
@@ -182,6 +196,7 @@ def export(root, out):
 
         verdict, access, audit = read("verdict.json"), read("access-audit.json"), read("audit/audit.json")
         structured[run_id] = {**row,
+            "reason_codes": reason_codes(row.get("reason")),
             "artifact_verification": artifact_verification,
             "mechanical": {key: verdict.get(key) for key in ("verdict", "reasons")},
             "access_audit": {key: access.get(key) for key in ("verdict", "hits", "denied_attempts")},

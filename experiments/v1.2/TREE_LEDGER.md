@@ -24,6 +24,7 @@ N0  V1.2 ROOT
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 │
 ├── N2  H2 — Lazy Skill / Progressive Disclosure                  [CLOSED]
+│       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]

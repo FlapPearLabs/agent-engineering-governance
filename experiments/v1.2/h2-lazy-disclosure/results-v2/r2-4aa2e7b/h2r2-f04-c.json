@@ -78,6 +78,15 @@
   "task_id": "f04",
   "verdict": "REJECT",
   "wall_clock_seconds": 619.807,
+  "reason_codes": [
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED",
+    "WORKER_SCOPE_DENIED"
+  ],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "REJECT",

@@ -803,6 +803,9 @@
   "task_id": "f09",
   "verdict": "INVALID",
   "wall_clock_seconds": 460.695,
+  "reason_codes": [
+    "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN"
+  ],
   "artifact_verification": [],
   "mechanical": {
     "verdict": "ACCEPT",
