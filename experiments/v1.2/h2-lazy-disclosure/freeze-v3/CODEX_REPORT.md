@@ -399,3 +399,30 @@ this commit):
 T53 `H2_CANARY_TOOLS` line still awaits the operator's pilot. The re-measured anchors reproduce
 T50's neutral verdict (WRAPPER 10/10); the `CODEBUDDY`/`AGENTS` slots remain blocked by design.
 No file outside `freeze-v3/` (plus the two v3 test modules) was modified.
+
+### T55a
+
+- F1 (P0): violation matching previously discarded operation and time, allowing a same-path
+  write denial to hide a successful read. Matching now requires the same resolved path,
+  `file-read-*` for read-classified accesses or `file-write-*` for write-classified accesses,
+  a parseable timestamp inside the supplied launch window, and matching PID when both event
+  and record carry one. Raw records, including PID and timestamp, remain in the audit output.
+  Successful content results are not overridden by a log denial. Shell path tokens retain the
+  existing conservative read classification; a write denial cannot confirm them.
+- Deleted-before-end: filesystem absence is only provisional. A completed read or shell result
+  containing output restores `POSSIBLE_SUCCESS` instead of treating end-of-launch absence as
+  proof that no read occurred. An absent path with an error result remains denial evidence.
+- Regression: `test_v1_2_h2_freeze_v3_auditfix.py` adapts the review probes with local synthetic
+  files and records. On baseline `86930fd`, the successful read with write denial and the
+  read-then-delete tests both failed (`PASS` instead of `INVALID`); both pass after the fix.
+  Additional tests cover matching reads and writes, wrong operation, PID mismatch, missing or
+  out-of-window timestamps, successful content and absent targets. The existing wiring test now
+  checks that a path-only record is insufficient, while still checking the log is delivered.
+- Limitations: the current driver does not supply `launch_window`, so its violation records do
+  not confirm a denial in this integration; static classification remains in force. Supplying
+  trusted bounds from the driver is outside T55a's owned files. The old large test module was not
+  run; its pre-T55a test expecting a path-only or untimed record to confirm a denial needs to be
+  reconciled by the integration owner. The v3 manifest was not re-pinned. No archive replay was
+  attempted: the full source replay requires the forbidden H2-R2 archive. The committed T52
+  fixture is unchanged; H2-R2/pilot streams carry no violation logs. This is not a claim that
+  all source events were recomputed or that deleted-read outcomes cannot differ on replay.
