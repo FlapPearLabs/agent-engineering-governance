@@ -1,0 +1,97 @@
+{
+  "arm": "control",
+  "artifacts": {
+    ".h2-telemetry.log": "f78ef779f2068e0cc19ac060b47439b525d89502e1784349494f4381a5b3445f",
+    ".tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    ".tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    ".tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "AGENTS.md": "de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1",
+    "CONTRACT.md": "ab134d51e73fafc7c74542f73e455dc22bfe3d823af6d12cf1f17b4f9b2bbc3d",
+    "H2_RULES.md": "d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d",
+    "H2_WARM/references/codegraph-grounding.md": "1ae0cc25dc55d6470e1a35b08b4b14717dea160bac99018f49b2c14fb5d671a8",
+    "H2_WARM/references/engineering-memory.md": "40ad9e91cdb6f5b2209299f37c95fbee618dfc24ca4bd5592f302f8bffda0439",
+    "H2_WARM/references/execution-stage.md": "556fda85752d204ca392dffe17173cbe6a2620899f5ac62760377c4bf00b270b",
+    "H2_WARM/references/git-ci-integration.md": "cc236df6648cd174076d6ae99f44c3912877a5f1e9a4485d1bbb4623848e4308",
+    "H2_WARM/references/project-continuity-contract.md": "9087b7750fa6444280bfd020e618406ddd7084d2d85d504babeea42bedf83729",
+    "H2_WARM/references/project-state-persistence.md": "1b5a31323cd5a34094b57bceeb754c25f38405366ae129726664623e89eeda7e",
+    "H2_WARM/references/review-and-repair-saturation.md": "6b0167094c6cbafa925fe6bd948d4f955c9cacf0e09cb0debf87207c06cc144a",
+    "H2_WARM/references/skills-and-model-routing.md": "37e018c098857809bc75317de871f1d63747b50578bc565e56690507a39034ed",
+    "H2_WARM/references/static-analysis-and-code-intelligence.md": "51c1f3c9e8a40d1d5f5b4a89856796ac0c065d20e31c3ffe4e9e6977813013dd",
+    "H2_WARM/references/ticket-lane.md": "289398c12de357893bb16b5e6d8d1f381f23eb73287f1d8ad0a70226f6106749",
+    "H2_WARM/skills/README.md": "02258abf9d03ecd54be433b8e7ae32b7715180f3c33ff411f2a7eda94c695575",
+    "access-audit.json": "9ceb67bcd9801b9c8be548c84af28b9bd862f35f6777e64bba8c5097962c20f7",
+    "attempts/audit-1/.tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    "attempts/audit-1/.tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    "attempts/audit-1/.tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "attempts/audit-1/CONTRACT.md": "c2082028e39ca30f815f7652fff8adf43374302c35ece1dc5c5d17803bef728c",
+    "attempts/audit-1/attempt.json": "9234fd810353d4f6d6dfc8f17de25acdd4cd22a338dda4ebeadfe196a30ee675",
+    "attempts/audit-1/audit-request.json": "5a2ee7c8edf64ae1e800b51780b824ba780122f8be7c25d766c82dc9ce7c05cd",
+    "attempts/audit-1/diff.patch": "34a5b5d0db61991f24f8a0bbdcf88ec7bdd33437f6401d76b48518204d02422e",
+    "attempts/audit-1/report.md": "97bc6ddd41596080032ca79d0cd821a80087e8b8fe0e11ac5b5955da57f14e0f",
+    "attempts/audit-1/verdict.json": "4a5e5c0ffd3b9e3ee71bfbf01e0cac39d255fca400aa95ed0016cbe5b4c9a609",
+    "audit/.tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    "audit/.tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    "audit/.tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "audit/CONTRACT.md": "c2082028e39ca30f815f7652fff8adf43374302c35ece1dc5c5d17803bef728c",
+    "audit/audit-request.json": "5a2ee7c8edf64ae1e800b51780b824ba780122f8be7c25d766c82dc9ce7c05cd",
+    "audit/audit.json": "6a63df581b5df0a3a9c66d3b9a49e7f7e22e5695f69fb8edc038c05a41859c14",
+    "audit/diff.patch": "34a5b5d0db61991f24f8a0bbdcf88ec7bdd33437f6401d76b48518204d02422e",
+    "audit/report.md": "97bc6ddd41596080032ca79d0cd821a80087e8b8fe0e11ac5b5955da57f14e0f",
+    "audit/verdict.json": "4a5e5c0ffd3b9e3ee71bfbf01e0cac39d255fca400aa95ed0016cbe5b4c9a609",
+    "collected.json": "c732d6d182d50ccf3927802ec135158b43999a825d4ac7ffad27277bcaef71d7",
+    "events.jsonl": "47eacb6d67b17c5410116c9b1f5cff097ee33d2b1bf2bb496ee2a703ed1da56d",
+    "preflight.json": "0b573f84db6d76e957f49873988f129088030d1d8ceb8ffa16984b6e45d1cda0",
+    "receipt.json": "6e1e3c880e269ca283f2d44cc1ebfb1e318b44f1b1e6410489e3bde357a1dca6",
+    "report.md": "97bc6ddd41596080032ca79d0cd821a80087e8b8fe0e11ac5b5955da57f14e0f",
+    "run.json": "a96c9ab90c167854d1e8f59b6da4abb6cc44766d5b1701021bdff13407690c91",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verdict.json": "985c1fa5a62e31a83e366a6ef372c04f816d73317b74484d7ce4e834605c78fe",
+    "worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2"
+  },
+  "attempt": 1,
+  "attempts": 1,
+  "audit_verdict": "PARTIAL",
+  "denied_attempts": 0,
+  "final_verdict": "REJECT",
+  "finished_at": "2026-10-28T03:07:26+00:00",
+  "reason": null,
+  "run_id": "h2r2-f07-c",
+  "session_id": "ses_e7f922715ffehd6gknC8PmaJ8M",
+  "started_at": "2026-10-28T02:53:47+00:00",
+  "task_id": "f07",
+  "verdict": "ACCEPT",
+  "wall_clock_seconds": 819.019,
+  "artifact_verification": [],
+  "mechanical": {
+    "verdict": "ACCEPT",
+    "reasons": []
+  },
+  "access_audit": {
+    "verdict": "PASS",
+    "hits": [],
+    "denied_attempts": []
+  },
+  "auditor": {
+    "correctness": "PARTIAL",
+    "findings": [
+      {
+        "id": "F1",
+        "severity": "P2",
+        "category": "HV1",
+        "location": "diff.patch:57-64 (helper), diff.patch:92-106 (claim predicate); new declaration at diff.patch:9"
+      },
+      {
+        "id": "F2",
+        "severity": "P2",
+        "category": "HV4",
+        "location": "report.md:178-180 (also report.md:108 and report.md:112)"
+      },
+      {
+        "id": "F3",
+        "severity": "P3",
+        "category": "HV4",
+        "location": "report.md:209"
+      }
+    ]
+  }
+}

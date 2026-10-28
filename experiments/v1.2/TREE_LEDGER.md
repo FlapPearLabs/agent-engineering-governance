@@ -23,7 +23,7 @@ N0  V1.2 ROOT
 ├── N1  H1 — Bounded Bootstrap / HOT Context                      [CLOSED]
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 │
-├── N2  H2 — Lazy Skill / Progressive Disclosure                  [ACTIVE]
+├── N2  H2 — Lazy Skill / Progressive Disclosure                  [CLOSED]
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
@@ -92,7 +92,11 @@ NOTE = H1 **没有**产出 promotion 建议，只产出了量化事实与三条 
 
 #### N2 — H2 Lazy Skill / Progressive Disclosure
 ```text
-STATUS = **ACTIVE**（freeze 阶段已产出；runs 待 freeze 进 main 后执行）
+STATUS = **CLOSED**
+RESULT = INSUFFICIENT_EVIDENCE
+FREEZE_SHA = 4aa2e7b
+CLOSURE_REPORT = experiments/v1.2/h2-lazy-disclosure/freeze-v2-closure-report.md
+MERGE_SHA = merge SHA recorded post-merge
 ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
                     6 个不同 base（H2 base = n02 base）上 S3 载体行 11/11 VALID，
                     N8 冻结面 22/22 ✅

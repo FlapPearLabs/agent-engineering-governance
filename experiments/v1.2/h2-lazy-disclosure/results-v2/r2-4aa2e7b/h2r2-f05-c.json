@@ -1,0 +1,77 @@
+{
+  "arm": "control",
+  "artifacts": {
+    ".h2-telemetry.log": "1cb19fd92f1366fbc1d277c902bc32fd9bc1b3d292f33682d2c3fe778e634968",
+    ".tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    ".tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    ".tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "AGENTS.md": "de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1",
+    "CONTRACT.md": "1407e39c3fb203b2225cf0d497d9aa312104e401fdf473645a7173983234f453",
+    "H2_RULES.md": "d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d",
+    "H2_WARM/references/codegraph-grounding.md": "1ae0cc25dc55d6470e1a35b08b4b14717dea160bac99018f49b2c14fb5d671a8",
+    "H2_WARM/references/engineering-memory.md": "40ad9e91cdb6f5b2209299f37c95fbee618dfc24ca4bd5592f302f8bffda0439",
+    "H2_WARM/references/execution-stage.md": "556fda85752d204ca392dffe17173cbe6a2620899f5ac62760377c4bf00b270b",
+    "H2_WARM/references/git-ci-integration.md": "cc236df6648cd174076d6ae99f44c3912877a5f1e9a4485d1bbb4623848e4308",
+    "H2_WARM/references/project-continuity-contract.md": "9087b7750fa6444280bfd020e618406ddd7084d2d85d504babeea42bedf83729",
+    "H2_WARM/references/project-state-persistence.md": "1b5a31323cd5a34094b57bceeb754c25f38405366ae129726664623e89eeda7e",
+    "H2_WARM/references/review-and-repair-saturation.md": "6b0167094c6cbafa925fe6bd948d4f955c9cacf0e09cb0debf87207c06cc144a",
+    "H2_WARM/references/skills-and-model-routing.md": "37e018c098857809bc75317de871f1d63747b50578bc565e56690507a39034ed",
+    "H2_WARM/references/static-analysis-and-code-intelligence.md": "51c1f3c9e8a40d1d5f5b4a89856796ac0c065d20e31c3ffe4e9e6977813013dd",
+    "H2_WARM/references/ticket-lane.md": "289398c12de357893bb16b5e6d8d1f381f23eb73287f1d8ad0a70226f6106749",
+    "H2_WARM/skills/README.md": "02258abf9d03ecd54be433b8e7ae32b7715180f3c33ff411f2a7eda94c695575",
+    "access-audit.json": "c6ed177786b452e0600ae5a73785ec73bb6472c529b119ff6d30d799ebc824e0",
+    "collected.json": "a8a2014efb0fe761f9b6b200e170e1d2cc56f814c155c3aca8d440e5fcfc1ab7",
+    "events.jsonl": "c83317753e5765ac40b286accba89fb497429ac10040206c97d81e6e2428685b",
+    "preflight.json": "9d3e4b71feaed1db2464d11f5950cf63235db24f933b215312dd57e3d4d91a50",
+    "receipt.json": "ddc5fdc418fd8f0b5d185509977c8e4117bbb2a57eff9d241ebfda0e5b5bef9a",
+    "report.md": "84e6deac7f9ab79353e4bb4f72059ec9589cc8749a0ca824d19b956027146401",
+    "run.json": "c6152de548c7555f0f9ff42bff0580ac8178d01b52ebd358025f62090e4e3e00",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verdict.json": "98ee6816e6b398e34e1372910675593ce64b76451d83a89b1a9108ad09fcbf11",
+    "worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2"
+  },
+  "attempt": 1,
+  "attempts": 1,
+  "audit_verdict": "SKIPPED",
+  "denied_attempts": 1,
+  "final_verdict": "INVALID",
+  "finished_at": "2026-10-28T03:00:15+00:00",
+  "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+  "run_id": "h2r2-f05-c",
+  "session_id": "ses_e7f922176ffe1s1wauePjmUHl6",
+  "started_at": "2026-10-28T02:53:47+00:00",
+  "task_id": "f05",
+  "verdict": "INVALID",
+  "wall_clock_seconds": 388.631,
+  "artifact_verification": [],
+  "mechanical": {
+    "verdict": "ACCEPT",
+    "reasons": []
+  },
+  "access_audit": {
+    "verdict": "INVALID",
+    "hits": [
+      {
+        "class": "POSSIBLE_SUCCESS",
+        "event": 6,
+        "reason": "TOOL_NOT_ALLOWED",
+        "tool": "execute",
+        "value": "execute"
+      }
+    ],
+    "denied_attempts": [
+      {
+        "class": "DENIED_BY_POLICY",
+        "event": 100,
+        "path": "../../.tmp/git-ci-integration.fixed.md",
+        "reason": "PATH_OUTSIDE_RUN",
+        "tool": "shell",
+        "value": "cp references/git-ci-integration.md ../../.tmp/git-ci-integration.fixed.md && git checkout -- references/git-ci-integration.md && git status --porcelain && <HOME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest adapters.zcode.tests.test_project_continuity.R61FinalConvergenceTests.test_r61_f1_trusted_receipt_bootstrap_end_to_end 2>&1 | tail -8"
+      }
+    ]
+  },
+  "auditor": {
+    "correctness": null,
+    "findings": []
+  }
+}

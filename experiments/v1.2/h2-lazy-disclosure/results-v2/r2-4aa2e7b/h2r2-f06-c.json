@@ -1,0 +1,82 @@
+{
+  "arm": "control",
+  "artifacts": {
+    ".h2-telemetry.log": "49d0f2385633ed65eb4e75a84fc06d14dd44efc1fbff7eb8b647a8c55943888f",
+    ".tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    ".tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    ".tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "AGENTS.md": "de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1",
+    "CONTRACT.md": "de8d86926cc66a330b440d26a4c80cd8ee5347618fb1fe8488ff0c8533e1557f",
+    "H2_RULES.md": "d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d",
+    "H2_WARM/references/codegraph-grounding.md": "1ae0cc25dc55d6470e1a35b08b4b14717dea160bac99018f49b2c14fb5d671a8",
+    "H2_WARM/references/engineering-memory.md": "40ad9e91cdb6f5b2209299f37c95fbee618dfc24ca4bd5592f302f8bffda0439",
+    "H2_WARM/references/execution-stage.md": "556fda85752d204ca392dffe17173cbe6a2620899f5ac62760377c4bf00b270b",
+    "H2_WARM/references/git-ci-integration.md": "cc236df6648cd174076d6ae99f44c3912877a5f1e9a4485d1bbb4623848e4308",
+    "H2_WARM/references/project-continuity-contract.md": "9087b7750fa6444280bfd020e618406ddd7084d2d85d504babeea42bedf83729",
+    "H2_WARM/references/project-state-persistence.md": "1b5a31323cd5a34094b57bceeb754c25f38405366ae129726664623e89eeda7e",
+    "H2_WARM/references/review-and-repair-saturation.md": "6b0167094c6cbafa925fe6bd948d4f955c9cacf0e09cb0debf87207c06cc144a",
+    "H2_WARM/references/skills-and-model-routing.md": "37e018c098857809bc75317de871f1d63747b50578bc565e56690507a39034ed",
+    "H2_WARM/references/static-analysis-and-code-intelligence.md": "51c1f3c9e8a40d1d5f5b4a89856796ac0c065d20e31c3ffe4e9e6977813013dd",
+    "H2_WARM/references/ticket-lane.md": "289398c12de357893bb16b5e6d8d1f381f23eb73287f1d8ad0a70226f6106749",
+    "H2_WARM/skills/README.md": "02258abf9d03ecd54be433b8e7ae32b7715180f3c33ff411f2a7eda94c695575",
+    "access-audit.json": "374e530e54234d4b6ae3ba57fdd8c8da36056c382c927632eed89e257fd519ea",
+    "audit/.tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    "audit/.tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    "audit/.tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "audit/CONTRACT.md": "a5328191279d936bc877fbe6b59e6412fe852b71d52ba3b204da9ad0690eb8b6",
+    "audit/audit-request.json": "2c33a886a6d4fb82b4838ec7cbefa76a0ffc3fa1ccd134cb57084e6466e9e513",
+    "audit/audit.json": "768cf7c07caa38adee93342be4904ad436382276fee4e5eab038fe66a64e42ba",
+    "audit/diff.patch": "ccb1244e68b4e75d85e50f2721b242ae68de289a6b456c5dca1d26f805744fd9",
+    "audit/report.md": "4d669c675c6b0eeb4711770673696bd3e2b61f1af1adb33c716c6e472983cd6c",
+    "audit/verdict.json": "b995b8684d3121740b8389d070138b28b2ec248dedc25663e00b31b47ed79b67",
+    "collected.json": "b27f964f0091908460640fbca89276b8642f29b791170e209b69397485af6a70",
+    "events.jsonl": "8db4d02e9b0970836d6666cb84d58c75af6d22826d239077a428d3e50bc3a6a2",
+    "preflight.json": "877b0cdc7776bfb1e63f8c8bca5e565dd456b32118b03462bcfce4bb1801a109",
+    "receipt.json": "79736797370e93dfdd53e360e391aebd3df37602915fd4b56c8203335560faa7",
+    "report.md": "4d669c675c6b0eeb4711770673696bd3e2b61f1af1adb33c716c6e472983cd6c",
+    "run.json": "7540a5c276c721c062e677ee4976c6c965b87884d595cce29764998226f795b5",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verdict.json": "66de64b8147aab9a9e48b691ac40f439395d9b193cfd9eb87c0eeb855fc0cbc5",
+    "worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2"
+  },
+  "attempt": 1,
+  "attempts": 1,
+  "audit_verdict": "PASS",
+  "denied_attempts": 0,
+  "final_verdict": "ACCEPT",
+  "finished_at": "2026-10-28T03:02:41+00:00",
+  "reason": null,
+  "run_id": "h2r2-f06-c",
+  "session_id": "ses_e7f90bc01ffeEjKKoIiyXBJvCq",
+  "started_at": "2026-10-28T02:55:23+00:00",
+  "task_id": "f06",
+  "verdict": "ACCEPT",
+  "wall_clock_seconds": 438.367,
+  "artifact_verification": [],
+  "mechanical": {
+    "verdict": "ACCEPT",
+    "reasons": []
+  },
+  "access_audit": {
+    "verdict": "PASS",
+    "hits": [],
+    "denied_attempts": []
+  },
+  "auditor": {
+    "correctness": "PASS",
+    "findings": [
+      {
+        "id": "F1",
+        "severity": "P2",
+        "category": null,
+        "location": "report.md:46 (§D-1)"
+      },
+      {
+        "id": "F2",
+        "severity": "P2",
+        "category": null,
+        "location": "report.md:42-47 (§D-1) vs report.md:66-68 (§F)"
+      }
+    ]
+  }
+}

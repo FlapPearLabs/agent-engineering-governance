@@ -1,0 +1,2281 @@
+{
+  "audit_missing": [],
+  "blocked": [
+    {
+      "arm": "control",
+      "reason": "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER",
+      "run_id": "h2r2-f08-c",
+      "task_id": "f08"
+    }
+  ],
+  "decided_by": "COVERAGE:INVALID:h2r2-f03-c",
+  "denied_attempts": {
+    "by_arm": {
+      "control": {
+        "count": 10,
+        "list": [
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 100,
+            "path": "../../.tmp/git-ci-integration.fixed.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cp references/git-ci-integration.md ../../.tmp/git-ci-integration.fixed.md && git checkout -- references/git-ci-integration.md && git status --porcelain && <HOME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest adapters.zcode.tests.test_project_continuity.R61FinalConvergenceTests.test_r61_f1_trusted_receipt_bootstrap_end_to_end 2>&1 | tail -8"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "diff",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "-q",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "repo/references/ticket-lane.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/ticket-lane.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "repo/references/static-analysis-and-code-intelligence.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/static-analysis-and-code-intelligence.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "wc",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "-l",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/*.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          }
+        ]
+      },
+      "variant": {
+        "count": 0,
+        "list": []
+      }
+    },
+    "by_task": {
+      "f01": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f02": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f03": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f04": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f05": {
+        "control": {
+          "count": 1,
+          "list": [
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 100,
+              "path": "../../.tmp/git-ci-integration.fixed.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cp references/git-ci-integration.md ../../.tmp/git-ci-integration.fixed.md && git checkout -- references/git-ci-integration.md && git status --porcelain && <HOME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest adapters.zcode.tests.test_project_continuity.R61FinalConvergenceTests.test_r61_f1_trusted_receipt_bootstrap_end_to_end 2>&1 | tail -8"
+            }
+          ]
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f06": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f07": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f08": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f09": {
+        "control": {
+          "count": 9,
+          "list": [
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "diff",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "-q",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "repo/references/ticket-lane.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "H2_WARM/references/ticket-lane.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "repo/references/static-analysis-and-code-intelligence.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "H2_WARM/references/static-analysis-and-code-intelligence.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "wc",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "-l",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            },
+            {
+              "class": "DENIED_BY_POLICY",
+              "event": 87,
+              "path": "H2_WARM/references/*.md",
+              "reason": "PATH_OUTSIDE_RUN",
+              "tool": "shell",
+              "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+            }
+          ]
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      },
+      "f10": {
+        "control": {
+          "count": 0,
+          "list": []
+        },
+        "variant": {
+          "count": 0,
+          "list": []
+        }
+      }
+    },
+    "total": 10,
+    "unverified": []
+  },
+  "invalid": [
+    {
+      "arm": "control",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+      "run_id": "h2r2-f03-c",
+      "task_id": "f03"
+    },
+    {
+      "arm": "variant",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF",
+      "run_id": "h2r2-f03-v",
+      "task_id": "f03"
+    },
+    {
+      "arm": "variant",
+      "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+      "run_id": "h2r2-f04-v",
+      "task_id": "f04"
+    },
+    {
+      "arm": "control",
+      "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+      "run_id": "h2r2-f05-c",
+      "task_id": "f05"
+    },
+    {
+      "arm": "control",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md",
+      "run_id": "h2r2-f09-c",
+      "task_id": "f09"
+    }
+  ],
+  "missing": [],
+  "overlap_pairs": [
+    [
+      "h2r2-f01-c",
+      "h2r2-f02-c"
+    ],
+    [
+      "h2r2-f01-c",
+      "h2r2-f02-v"
+    ],
+    [
+      "h2r2-f01-c",
+      "h2r2-f03-c"
+    ],
+    [
+      "h2r2-f01-c",
+      "h2r2-f03-v"
+    ],
+    [
+      "h2r2-f01-c",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f01-c",
+      "h2r2-f04-v"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f02-c"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f03-v"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f05-c"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f06-v"
+    ],
+    [
+      "h2r2-f01-v",
+      "h2r2-f07-c"
+    ],
+    [
+      "h2r2-f02-c",
+      "h2r2-f03-c"
+    ],
+    [
+      "h2r2-f02-c",
+      "h2r2-f03-v"
+    ],
+    [
+      "h2r2-f02-c",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f02-v",
+      "h2r2-f03-c"
+    ],
+    [
+      "h2r2-f02-v",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f02-v",
+      "h2r2-f04-v"
+    ],
+    [
+      "h2r2-f03-c",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f03-c",
+      "h2r2-f04-v"
+    ],
+    [
+      "h2r2-f03-v",
+      "h2r2-f04-c"
+    ],
+    [
+      "h2r2-f03-v",
+      "h2r2-f06-v"
+    ],
+    [
+      "h2r2-f05-c",
+      "h2r2-f06-c"
+    ],
+    [
+      "h2r2-f05-c",
+      "h2r2-f06-v"
+    ],
+    [
+      "h2r2-f05-c",
+      "h2r2-f07-c"
+    ],
+    [
+      "h2r2-f05-c",
+      "h2r2-f08-v"
+    ],
+    [
+      "h2r2-f05-v",
+      "h2r2-f06-c"
+    ],
+    [
+      "h2r2-f05-v",
+      "h2r2-f07-c"
+    ],
+    [
+      "h2r2-f05-v",
+      "h2r2-f08-c"
+    ],
+    [
+      "h2r2-f05-v",
+      "h2r2-f08-v"
+    ],
+    [
+      "h2r2-f05-v",
+      "h2r2-f09-c"
+    ],
+    [
+      "h2r2-f06-c",
+      "h2r2-f07-c"
+    ],
+    [
+      "h2r2-f06-c",
+      "h2r2-f08-c"
+    ],
+    [
+      "h2r2-f06-c",
+      "h2r2-f08-v"
+    ],
+    [
+      "h2r2-f06-v",
+      "h2r2-f07-c"
+    ],
+    [
+      "h2r2-f07-c",
+      "h2r2-f08-c"
+    ],
+    [
+      "h2r2-f07-c",
+      "h2r2-f08-v"
+    ],
+    [
+      "h2r2-f07-c",
+      "h2r2-f09-c"
+    ],
+    [
+      "h2r2-f07-c",
+      "h2r2-f10-v"
+    ],
+    [
+      "h2r2-f07-v",
+      "h2r2-f08-c"
+    ],
+    [
+      "h2r2-f07-v",
+      "h2r2-f09-c"
+    ],
+    [
+      "h2r2-f07-v",
+      "h2r2-f09-v"
+    ],
+    [
+      "h2r2-f07-v",
+      "h2r2-f10-c"
+    ],
+    [
+      "h2r2-f07-v",
+      "h2r2-f10-v"
+    ],
+    [
+      "h2r2-f08-c",
+      "h2r2-f09-c"
+    ],
+    [
+      "h2r2-f08-c",
+      "h2r2-f10-v"
+    ],
+    [
+      "h2r2-f09-c",
+      "h2r2-f10-v"
+    ],
+    [
+      "h2r2-f09-v",
+      "h2r2-f10-c"
+    ],
+    [
+      "h2r2-f09-v",
+      "h2r2-f10-v"
+    ]
+  ],
+  "pairs": [
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV4"
+          ],
+          [
+            "P3",
+            "HV1"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f01-c",
+        "state": "REJECT",
+        "task_id": "f01",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f01",
+      "valid": true,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV1"
+          ],
+          [
+            "P3",
+            "HV1"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f01-v",
+        "state": "REJECT",
+        "task_id": "f01",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "PROVIDER_FAILED_BEFORE_WORK",
+            "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+            "verdict": "BLOCKED"
+          },
+          {
+            "attempt": 2,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PASS",
+        "audited_correctness": "PASS",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PASS",
+        "final_verdict": "ACCEPT",
+        "finding_shape": [
+          [
+            "P3",
+            "HV4"
+          ],
+          [
+            "P3",
+            "HV4"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f02-c",
+        "state": "ACCEPT",
+        "task_id": "f02",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f02",
+      "valid": true,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PASS",
+        "audited_correctness": "PASS",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PASS",
+        "final_verdict": "ACCEPT",
+        "finding_shape": [],
+        "findings": [],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f02-v",
+        "state": "ACCEPT",
+        "task_id": "f02",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+            "verdict": "INVALID"
+          }
+        ],
+        "audit_verdict": "SKIPPED",
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "final_verdict": "INVALID",
+        "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+        "run_id": "h2r2-f03-c",
+        "state": "INVALID",
+        "task_id": "f03",
+        "verdict": "INVALID"
+      },
+      "task_id": "f03",
+      "valid": false,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF",
+            "verdict": "INVALID"
+          }
+        ],
+        "audit_verdict": "SKIPPED",
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "final_verdict": "INVALID",
+        "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF",
+        "run_id": "h2r2-f03-v",
+        "state": "INVALID",
+        "task_id": "f03",
+        "verdict": "INVALID"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "PROVIDER_FAILED_BEFORE_WORK",
+            "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+            "verdict": "BLOCKED"
+          },
+          {
+            "attempt": 2,
+            "kind": "TERMINAL",
+            "reason": "WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t02_execution_stage_pre_ticket_record.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t03_git_ci_integration_closure_evidence.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t05_evidence_disposition.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t06_producer_trust_boundary.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_review_evidence_contract.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_seam_contract_partitions.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_ticket_gate_wiring.cpython-313.pyc",
+            "verdict": "REJECT"
+          }
+        ],
+        "audit_verdict": "FAIL",
+        "audited_correctness": "FAIL",
+        "audited_invalid_completion": true,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "FAIL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P1",
+            "HV4"
+          ],
+          [
+            "P1",
+            "HV5"
+          ],
+          [
+            "P3",
+            "HV4"
+          ]
+        ],
+        "findings": [
+          "A1",
+          "A2",
+          "A3"
+        ],
+        "invalid_completion": true,
+        "mechanical_correctness": "FAIL",
+        "mechanical_verdict": "REJECT",
+        "missed_guidance": [],
+        "reason": "WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t02_execution_stage_pre_ticket_record.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t03_git_ci_integration_closure_evidence.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t05_evidence_disposition.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t06_producer_trust_boundary.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_review_evidence_contract.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_seam_contract_partitions.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_ticket_gate_wiring.cpython-313.pyc",
+        "run_id": "h2r2-f04-c",
+        "state": "REJECT",
+        "task_id": "f04",
+        "verdict": "REJECT"
+      },
+      "task_id": "f04",
+      "valid": false,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+            "verdict": "INVALID"
+          }
+        ],
+        "audit_verdict": "SKIPPED",
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "final_verdict": "INVALID",
+        "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+        "run_id": "h2r2-f04-v",
+        "state": "INVALID",
+        "task_id": "f04",
+        "verdict": "INVALID"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+            "verdict": "INVALID"
+          }
+        ],
+        "audit_verdict": "SKIPPED",
+        "denied_attempt_list": [
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 100,
+            "path": "../../.tmp/git-ci-integration.fixed.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cp references/git-ci-integration.md ../../.tmp/git-ci-integration.fixed.md && git checkout -- references/git-ci-integration.md && git status --porcelain && <HOME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest adapters.zcode.tests.test_project_continuity.R61FinalConvergenceTests.test_r61_f1_trusted_receipt_bootstrap_end_to_end 2>&1 | tail -8"
+          }
+        ],
+        "denied_attempts": 1,
+        "denied_attempts_verified": true,
+        "final_verdict": "INVALID",
+        "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+        "run_id": "h2r2-f05-c",
+        "state": "INVALID",
+        "task_id": "f05",
+        "verdict": "INVALID"
+      },
+      "task_id": "f05",
+      "valid": false,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "None"
+          ]
+        ],
+        "findings": [
+          "F1"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f05-v",
+        "state": "REJECT",
+        "task_id": "f05",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PASS",
+        "audited_correctness": "PASS",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PASS",
+        "final_verdict": "ACCEPT",
+        "finding_shape": [
+          [
+            "P2",
+            "None"
+          ],
+          [
+            "P2",
+            "None"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f06-c",
+        "state": "ACCEPT",
+        "task_id": "f06",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f06",
+      "valid": true,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PASS",
+        "audited_correctness": "PASS",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PASS",
+        "final_verdict": "ACCEPT",
+        "finding_shape": [
+          [
+            "P3",
+            "None"
+          ]
+        ],
+        "findings": [
+          "F1"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f06-v",
+        "state": "ACCEPT",
+        "task_id": "f06",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV1"
+          ],
+          [
+            "P2",
+            "HV4"
+          ],
+          [
+            "P3",
+            "HV4"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2",
+          "F3"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f07-c",
+        "state": "REJECT",
+        "task_id": "f07",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f07",
+      "valid": true,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "None"
+          ],
+          [
+            "P3",
+            "HV7"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f07-v",
+        "state": "REJECT",
+        "task_id": "f07",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "BLOCKED",
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "final_verdict": "BLOCKED",
+        "reason": "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER",
+        "run_id": "h2r2-f08-c",
+        "state": "BLOCKED",
+        "task_id": "f08",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f08",
+      "valid": false,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "PROVIDER_FAILED_BEFORE_WORK",
+            "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+            "verdict": "BLOCKED"
+          },
+          {
+            "attempt": 2,
+            "kind": "PROVIDER_FAILED_BEFORE_WORK",
+            "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+            "verdict": "BLOCKED"
+          },
+          {
+            "attempt": 3,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": false,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P3",
+            "HV4"
+          ],
+          [
+            "P3",
+            "None"
+          ]
+        ],
+        "findings": [
+          "A1",
+          "A2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f08-v",
+        "state": "REJECT",
+        "task_id": "f08",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "PROVIDER_FAILED_BEFORE_WORK",
+            "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+            "verdict": "BLOCKED"
+          },
+          {
+            "attempt": 2,
+            "kind": "TERMINAL",
+            "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md",
+            "verdict": "INVALID"
+          }
+        ],
+        "audit_verdict": "SKIPPED",
+        "denied_attempt_list": [
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "diff",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "-q",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "repo/references/ticket-lane.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/ticket-lane.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "repo/references/static-analysis-and-code-intelligence.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/static-analysis-and-code-intelligence.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "wc",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "-l",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          },
+          {
+            "class": "DENIED_BY_POLICY",
+            "event": 87,
+            "path": "H2_WARM/references/*.md",
+            "reason": "PATH_OUTSIDE_RUN",
+            "tool": "shell",
+            "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+          }
+        ],
+        "denied_attempts": 9,
+        "denied_attempts_verified": true,
+        "final_verdict": "INVALID",
+        "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md",
+        "run_id": "h2r2-f09-c",
+        "state": "INVALID",
+        "task_id": "f09",
+        "verdict": "INVALID"
+      },
+      "task_id": "f09",
+      "valid": false,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV5"
+          ],
+          [
+            "P3",
+            "HV2"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f09-v",
+        "state": "REJECT",
+        "task_id": "f09",
+        "verdict": "ACCEPT"
+      }
+    },
+    {
+      "control": {
+        "arm": "control",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV4"
+          ],
+          [
+            "P3",
+            "HV1"
+          ],
+          [
+            "P3",
+            "HV6"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2",
+          "F3"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f10-c",
+        "state": "REJECT",
+        "task_id": "f10",
+        "verdict": "ACCEPT"
+      },
+      "task_id": "f10",
+      "valid": true,
+      "variant": {
+        "arm": "variant",
+        "attempts": [
+          {
+            "attempt": 1,
+            "kind": "TERMINAL",
+            "reason": "",
+            "verdict": "ACCEPT"
+          }
+        ],
+        "audit_verdict": "PARTIAL",
+        "audited_correctness": "PARTIAL",
+        "audited_invalid_completion": false,
+        "completion_claimed": true,
+        "denied_attempt_list": [],
+        "denied_attempts": 0,
+        "denied_attempts_verified": true,
+        "evidence": "TRUSTED",
+        "final_correctness": "PARTIAL",
+        "final_verdict": "REJECT",
+        "finding_shape": [
+          [
+            "P2",
+            "HV4"
+          ],
+          [
+            "P2",
+            "HV5"
+          ]
+        ],
+        "findings": [
+          "F1",
+          "F2"
+        ],
+        "invalid_completion": false,
+        "mechanical_correctness": "PASS",
+        "mechanical_verdict": "ACCEPT",
+        "missed_guidance": [],
+        "reason": null,
+        "run_id": "h2r2-f10-v",
+        "state": "REJECT",
+        "task_id": "f10",
+        "verdict": "ACCEPT"
+      }
+    }
+  ],
+  "pending_rules": [
+    "S2",
+    "S5"
+  ],
+  "planned_pairs": 10,
+  "program": "freeze-v2/aggregate_runs.py",
+  "result": "INSUFFICIENT_EVIDENCE",
+  "result_scope": "runs_root_mechanical",
+  "rows": [
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV4"
+        ],
+        [
+          "P3",
+          "HV1"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f01-c",
+      "state": "REJECT",
+      "task_id": "f01",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV1"
+        ],
+        [
+          "P3",
+          "HV1"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f01-v",
+      "state": "REJECT",
+      "task_id": "f01",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PASS",
+      "audited_correctness": "PASS",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PASS",
+      "final_verdict": "ACCEPT",
+      "finding_shape": [],
+      "findings": [],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f02-v",
+      "state": "ACCEPT",
+      "task_id": "f02",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "PROVIDER_FAILED_BEFORE_WORK",
+          "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+          "verdict": "BLOCKED"
+        },
+        {
+          "attempt": 2,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PASS",
+      "audited_correctness": "PASS",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PASS",
+      "final_verdict": "ACCEPT",
+      "finding_shape": [
+        [
+          "P3",
+          "HV4"
+        ],
+        [
+          "P3",
+          "HV4"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f02-c",
+      "state": "ACCEPT",
+      "task_id": "f02",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+          "verdict": "INVALID"
+        }
+      ],
+      "audit_verdict": "SKIPPED",
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "final_verdict": "INVALID",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+      "run_id": "h2r2-f03-c",
+      "state": "INVALID",
+      "task_id": "f03",
+      "verdict": "INVALID"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF",
+          "verdict": "INVALID"
+        }
+      ],
+      "audit_verdict": "SKIPPED",
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "final_verdict": "INVALID",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF",
+      "run_id": "h2r2-f03-v",
+      "state": "INVALID",
+      "task_id": "f03",
+      "verdict": "INVALID"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+          "verdict": "INVALID"
+        }
+      ],
+      "audit_verdict": "SKIPPED",
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "final_verdict": "INVALID",
+      "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+      "run_id": "h2r2-f04-v",
+      "state": "INVALID",
+      "task_id": "f04",
+      "verdict": "INVALID"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "PROVIDER_FAILED_BEFORE_WORK",
+          "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+          "verdict": "BLOCKED"
+        },
+        {
+          "attempt": 2,
+          "kind": "TERMINAL",
+          "reason": "WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t02_execution_stage_pre_ticket_record.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t03_git_ci_integration_closure_evidence.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t05_evidence_disposition.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t06_producer_trust_boundary.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_review_evidence_contract.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_seam_contract_partitions.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_ticket_gate_wiring.cpython-313.pyc",
+          "verdict": "REJECT"
+        }
+      ],
+      "audit_verdict": "FAIL",
+      "audited_correctness": "FAIL",
+      "audited_invalid_completion": true,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "FAIL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P1",
+          "HV4"
+        ],
+        [
+          "P1",
+          "HV5"
+        ],
+        [
+          "P3",
+          "HV4"
+        ]
+      ],
+      "findings": [
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "invalid_completion": true,
+      "mechanical_correctness": "FAIL",
+      "mechanical_verdict": "REJECT",
+      "missed_guidance": [],
+      "reason": "WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t02_execution_stage_pre_ticket_record.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t03_git_ci_integration_closure_evidence.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t05_evidence_disposition.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t06_producer_trust_boundary.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_review_evidence_contract.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_seam_contract_partitions.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_ticket_gate_wiring.cpython-313.pyc",
+      "run_id": "h2r2-f04-c",
+      "state": "REJECT",
+      "task_id": "f04",
+      "verdict": "REJECT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+          "verdict": "INVALID"
+        }
+      ],
+      "audit_verdict": "SKIPPED",
+      "denied_attempt_list": [
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 100,
+          "path": "../../.tmp/git-ci-integration.fixed.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cp references/git-ci-integration.md ../../.tmp/git-ci-integration.fixed.md && git checkout -- references/git-ci-integration.md && git status --porcelain && <HOME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest adapters.zcode.tests.test_project_continuity.R61FinalConvergenceTests.test_r61_f1_trusted_receipt_bootstrap_end_to_end 2>&1 | tail -8"
+        }
+      ],
+      "denied_attempts": 1,
+      "denied_attempts_verified": true,
+      "final_verdict": "INVALID",
+      "reason": "OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute",
+      "run_id": "h2r2-f05-c",
+      "state": "INVALID",
+      "task_id": "f05",
+      "verdict": "INVALID"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "None"
+        ]
+      ],
+      "findings": [
+        "F1"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f05-v",
+      "state": "REJECT",
+      "task_id": "f05",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PASS",
+      "audited_correctness": "PASS",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PASS",
+      "final_verdict": "ACCEPT",
+      "finding_shape": [
+        [
+          "P3",
+          "None"
+        ]
+      ],
+      "findings": [
+        "F1"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f06-v",
+      "state": "ACCEPT",
+      "task_id": "f06",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PASS",
+      "audited_correctness": "PASS",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PASS",
+      "final_verdict": "ACCEPT",
+      "finding_shape": [
+        [
+          "P2",
+          "None"
+        ],
+        [
+          "P2",
+          "None"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f06-c",
+      "state": "ACCEPT",
+      "task_id": "f06",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV1"
+        ],
+        [
+          "P2",
+          "HV4"
+        ],
+        [
+          "P3",
+          "HV4"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f07-c",
+      "state": "REJECT",
+      "task_id": "f07",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "None"
+        ],
+        [
+          "P3",
+          "HV7"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f07-v",
+      "state": "REJECT",
+      "task_id": "f07",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "PROVIDER_FAILED_BEFORE_WORK",
+          "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+          "verdict": "BLOCKED"
+        },
+        {
+          "attempt": 2,
+          "kind": "PROVIDER_FAILED_BEFORE_WORK",
+          "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+          "verdict": "BLOCKED"
+        },
+        {
+          "attempt": 3,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": false,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P3",
+          "HV4"
+        ],
+        [
+          "P3",
+          "None"
+        ]
+      ],
+      "findings": [
+        "A1",
+        "A2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f08-v",
+      "state": "REJECT",
+      "task_id": "f08",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "BLOCKED",
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "final_verdict": "BLOCKED",
+      "reason": "AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER",
+      "run_id": "h2r2-f08-c",
+      "state": "BLOCKED",
+      "task_id": "f08",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "PROVIDER_FAILED_BEFORE_WORK",
+          "reason": "PROVIDER_FAILED_BEFORE_WORK:PROVIDER_ERROR:provider.no-route",
+          "verdict": "BLOCKED"
+        },
+        {
+          "attempt": 2,
+          "kind": "TERMINAL",
+          "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md",
+          "verdict": "INVALID"
+        }
+      ],
+      "audit_verdict": "SKIPPED",
+      "denied_attempt_list": [
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "diff",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "-q",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "repo/references/ticket-lane.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "H2_WARM/references/ticket-lane.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "repo/references/static-analysis-and-code-intelligence.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "H2_WARM/references/static-analysis-and-code-intelligence.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "wc",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "-l",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        },
+        {
+          "class": "DENIED_BY_POLICY",
+          "event": 87,
+          "path": "H2_WARM/references/*.md",
+          "reason": "PATH_OUTSIDE_RUN",
+          "tool": "shell",
+          "value": "cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"
+        }
+      ],
+      "denied_attempts": 9,
+      "denied_attempts_verified": true,
+      "final_verdict": "INVALID",
+      "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md",
+      "run_id": "h2r2-f09-c",
+      "state": "INVALID",
+      "task_id": "f09",
+      "verdict": "INVALID"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV5"
+        ],
+        [
+          "P3",
+          "HV2"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f09-v",
+      "state": "REJECT",
+      "task_id": "f09",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "variant",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV4"
+        ],
+        [
+          "P2",
+          "HV5"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f10-v",
+      "state": "REJECT",
+      "task_id": "f10",
+      "verdict": "ACCEPT"
+    },
+    {
+      "arm": "control",
+      "attempts": [
+        {
+          "attempt": 1,
+          "kind": "TERMINAL",
+          "reason": "",
+          "verdict": "ACCEPT"
+        }
+      ],
+      "audit_verdict": "PARTIAL",
+      "audited_correctness": "PARTIAL",
+      "audited_invalid_completion": false,
+      "completion_claimed": true,
+      "denied_attempt_list": [],
+      "denied_attempts": 0,
+      "denied_attempts_verified": true,
+      "evidence": "TRUSTED",
+      "final_correctness": "PARTIAL",
+      "final_verdict": "REJECT",
+      "finding_shape": [
+        [
+          "P2",
+          "HV4"
+        ],
+        [
+          "P3",
+          "HV1"
+        ],
+        [
+          "P3",
+          "HV6"
+        ]
+      ],
+      "findings": [
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "invalid_completion": false,
+      "mechanical_correctness": "PASS",
+      "mechanical_verdict": "ACCEPT",
+      "missed_guidance": [],
+      "reason": null,
+      "run_id": "h2r2-f10-c",
+      "state": "REJECT",
+      "task_id": "f10",
+      "verdict": "ACCEPT"
+    }
+  ],
+  "runs_root": "<RUNS_ROOT>",
+  "s1": {
+    "control_carrier_js_chars": 14136,
+    "reduction_percent": 64.4,
+    "satisfied": true,
+    "variant_carrier_js_chars": 5032,
+    "variant_fully_delivered": true
+  },
+  "schema_version": 2,
+  "tasks": 10,
+  "unexpected": [],
+  "untrusted": [],
+  "usable_pairs": 5
+}
