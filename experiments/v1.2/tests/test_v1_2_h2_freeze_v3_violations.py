@@ -97,6 +97,22 @@ class ParentReadTests(unittest.TestCase):
             self.assertIn(b"run-a", listing.stdout)
 
 
+class WindowRoundingTests(unittest.TestCase):
+    def test_collector_rounds_outward_and_filters_pid(self):
+        from datetime import timezone
+        start = datetime(2026, 1, 1, 0, 0, 0, 100000, tzinfo=timezone.utc)
+        end = datetime(2026, 1, 1, 0, 0, 0, 900000, tzinfo=timezone.utc)
+        rows = [json.dumps({'eventMessage': f'Sandbox: p({pid}) deny file-read-data /stub'})
+                for pid in (123, 456)]
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+                violations.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '\n'.join(rows), '')) as call:
+            path = Path(tmp) / 'out'
+            self.assertEqual(violations.collect_violations(start, end, {123}, path), 1)
+            args = call.call_args.args[0]
+            self.assertEqual(args[args.index('--start') + 1], violations.stamp(start.replace(microsecond=0)))
+            self.assertEqual(args[args.index('--end') + 1], violations.stamp(end.replace(microsecond=0) + timedelta(seconds=1)))
+            self.assertEqual(json.loads(path.read_text())['pid'], 123)
+
 class ViolationRecordTests(unittest.TestCase):
     """T51e: per-launch evidence is recorded, hashed, and never blocks the run."""
 

@@ -30,6 +30,17 @@ def stamp(moment=None) -> str:
     return parsed.astimezone().strftime(LOG_FORMAT)
 
 
+def end_stamp(moment) -> str:
+    """Round a parseable end bound up, preserving the complete launch window."""
+    try:
+        parsed = moment if isinstance(moment, datetime.datetime) else datetime.datetime.fromisoformat(str(moment))
+    except ValueError:
+        return str(moment)
+    if parsed.microsecond:
+        parsed = parsed.replace(microsecond=0) + datetime.timedelta(seconds=1)
+    return stamp(parsed)
+
+
 def collect_violations(start_ts, end_ts, pids: set[int], out_path) -> int:
     """Write matching denial events as JSONL; malformed log entries are ignored.
 
@@ -38,7 +49,7 @@ def collect_violations(start_ts, end_ts, pids: set[int], out_path) -> int:
     so the caller records it as an error instead of an empty (falsely clean) log.
     """
     result = subprocess.run(["/usr/bin/log", "show", "--start", stamp(start_ts),
-                                 "--end", stamp(end_ts), "--style", "ndjson",
+                                 "--end", end_stamp(end_ts), "--style", "ndjson",
                                  "--predicate", PREDICATE], capture_output=True,
                             text=True, timeout=30, check=True)
     lines = result.stdout.splitlines()

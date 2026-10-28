@@ -818,7 +818,8 @@ def artifact_hashes(run_dir: Path) -> dict:
     """
     hashes: dict = {}
     run_dir = Path(run_dir)
-    if not stat.S_ISDIR(run_dir.lstat().st_mode):
+    if (os.path.abspath(run_dir) != os.path.realpath(run_dir)
+            or not stat.S_ISDIR(run_dir.lstat().st_mode)):
         raise ValueError("ARTIFACT_ROOT_NOT_DIRECTORY")
 
     def record(path: Path) -> None:

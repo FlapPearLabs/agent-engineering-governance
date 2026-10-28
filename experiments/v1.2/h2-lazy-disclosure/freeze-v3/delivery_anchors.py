@@ -131,7 +131,16 @@ def run_gate(wt: Path, pattern: str | None, style: str = "RESOLVED", *, gate=Non
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                process.communicate()
+                try:
+                    process.communicate(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    for pipe in (process.stdout, process.stderr):
+                        if pipe is not None:
+                            pipe.close()
+                    try:
+                        process.wait(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        pass
                 raise
         finally:
             stop.set()

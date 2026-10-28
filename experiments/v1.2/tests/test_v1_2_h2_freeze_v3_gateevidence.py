@@ -1,5 +1,8 @@
 import ast
 import hashlib
+import datetime
+import subprocess
+import time
 import sys
 import tempfile
 import unittest
@@ -40,6 +43,47 @@ def local_closure(directory, roots):
 
 
 class GateEvidenceTests(unittest.TestCase):
+    def test_detached_pipe_timeout_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            tests = base / 'source/scripts/tests'
+            tests.mkdir(parents=True)
+            (tests / 'test_detached.py').write_text('import unittest,subprocess,sys,time\nclass Probe(unittest.TestCase):\n def test_one(self):\n  subprocess.Popen([sys.executable,"-c","import time;time.sleep(4)"],start_new_session=True)\n  time.sleep(10)\n')
+            gate = sandbox_v2.Gate(base / 'gate')
+            gate.prepare(base / 'source')
+            anchors = run_acceptance_v2.delivery_anchors
+            started = time.monotonic()
+            with patch.object(anchors, 'TIMEOUT', 0.3), self.assertRaises(subprocess.TimeoutExpired):
+                anchors.run_gate(gate.repo, 'test_detached.py', gate=gate)
+            self.assertLess(time.monotonic() - started, 2.3)
+
+    def test_short_gate_captures_denial_in_final_fraction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            secret = base / 'secret'
+            secret.write_text('private')
+            tests = base / 'source/scripts/tests'
+            tests.mkdir(parents=True)
+            (tests / 'test_denial.py').write_text('import os,unittest\nfrom pathlib import Path\nclass Probe(unittest.TestCase):\n def test_one(self):\n  Path("pid.txt").write_text(str(os.getpid()))\n  with self.assertRaises(PermissionError): Path(' + repr(str(secret)) + ').read_bytes()\n')
+            gate = sandbox_v2.Gate(base / 'gate')
+            gate.prepare(base / 'source')
+            anchors = run_acceptance_v2.delivery_anchors
+            collect = anchors.violations_v3.collect_violations
+            captured = {}
+            def delayed(start, end, pids, path):
+                captured.update(start=start, end=end, pids=set(pids))
+                time.sleep(2)
+                return collect(start, end, pids, path)
+            while datetime.datetime.now().microsecond > 120000:
+                time.sleep(.01)
+            with patch.object(anchors.violations_v3, 'collect_violations', side_effect=delayed):
+                result = anchors.run_gate(gate.repo, 'test_denial.py', gate=gate)
+            pid = int((gate.repo / 'pid.txt').read_text())
+            self.assertIn(pid, captured['pids'])
+            records = [__import__('json').loads(line) for line in (gate.root / 'violations.jsonl').read_text().splitlines()]
+            self.assertGreaterEqual(result['violations']['count'], 1)
+            self.assertTrue(any(r['pid'] == pid and r['operation'] == 'file-read-data' and r['path'] == str(secret) for r in records))
+
     def test_runtime_closure_is_frozen(self):
         roots = ['run_h2r2', 'aggregate_runs', 'run_acceptance_v2', 'run_audit_v2']
         closure = local_closure(FZ, roots)

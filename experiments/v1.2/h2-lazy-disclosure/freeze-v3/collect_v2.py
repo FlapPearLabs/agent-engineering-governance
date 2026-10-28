@@ -59,6 +59,8 @@ def worktree_state(repo: Path) -> dict[str, dict]:
     and only exclusion: nothing else is filtered by an ignore file or an attribute.
     """
     repo = Path(repo)
+    if os.path.abspath(repo) != os.path.realpath(repo):
+        raise OSError("TASK_REPOSITORY_UNREADABLE")
     state: dict[str, dict] = {}
     for directory, dirnames, filenames in os.walk(repo, followlinks=False):
         current = Path(directory)
@@ -298,7 +300,7 @@ def collect(root: Path = ROOT, run_dir: Path | None = None, *,
     diff = b""
     if not repo.is_dir():
         reasons.append("MISSING_TASK_REPOSITORY")
-    elif repo.is_symlink():
+    elif os.path.abspath(repo) != os.path.realpath(repo):
         reasons.append("TASK_REPOSITORY_UNREADABLE")
     else:
         manifest = base_snapshot(identity_dir, reasons)

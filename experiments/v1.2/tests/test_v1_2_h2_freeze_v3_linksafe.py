@@ -68,6 +68,30 @@ class LinkSafety(unittest.TestCase):
             self.assertEqual(reasons, ['EVIDENCE_UNREADABLE:receipt.json'])
             self.assertEqual(driver.read_events(base / 'receipt.json'), ([], 0))
 
+    def test_ancestor_link_roots_are_not_followed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            outside = base / 'outside'
+            (outside / 'sub').mkdir(parents=True)
+            sentinel = outside / 'sub/sentinel'
+            sentinel.write_text('private')
+            (base / 'parent-link').symlink_to(outside)
+            root = base / 'parent-link/sub'
+            with self.assertRaisesRegex(ValueError, 'SNAPSHOT_ROOT_NOT_DIRECTORY'):
+                sandbox.snapshot(root, base / 'snapshot')
+            self.assertFalse((base / 'snapshot').exists())
+            with self.assertRaisesRegex(ValueError, 'ARTIFACT_ROOT_NOT_DIRECTORY'):
+                driver.artifact_hashes(root)
+            self.assertEqual(sentinel.read_text(), 'private')
+
+    def test_worktree_root_ancestor_link_is_refused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base / 'outside/sub').mkdir(parents=True)
+            (base / 'link').symlink_to(base / 'outside')
+            with self.assertRaises(OSError):
+                collect.worktree_state(base / 'link/sub')
+
     def test_roots_are_not_followed(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)

@@ -520,3 +520,28 @@ new candidate were not performed; the prior review applies to an earlier SHA.
   `Ran 2 tests`, `OK`. The first manifest-test attempt exposed the required run-plan hash
   update; it passed after that pin was corrected.
 - Independent review and real CI were not performed in this implementation session.
+
+### T56
+
+- Refuse snapshot, artifact hash and collector worktree roots when any path component resolves
+  through a symlink, retaining the existing refusal or unreadable semantics. The new tests use a
+  parent link into an outside directory; the snapshot target is not created and the sentinel is
+  unchanged. This is a path check, not a claim of race-free protection against concurrent swaps.
+- Round the unified-log start down and its end up to whole seconds for every collector call;
+  retain observed-PID filtering. The machine rejected a fractional-second `log show` argument
+  with exit 64. A real short gate denial and a synthetic foreign-PID control cover the window.
+- Bound the second gate `communicate` after a timeout, close inherited pipes on expiry and bound
+  the parent wait. The detached child probe verifies return within 2.3 seconds for a 0.3-second
+  timeout; the gate's separate log collection remains subject to its own timeout.
+- On baseline `1fe5d67`, the ancestor-link, outward-rounding, detached-pipe and short-gate
+  tests each failed; the empty collector-root ancestor-link test also failed. On the candidate
+  all pass. With the specified Python, unset `PYTHONPATH`, and physical system `TMPDIR`:
+  `ruff check .` passed; public-release validation reported `VIOLATIONS=0`; freeze-v2 manifest
+  check reported `PASS`; the four requested test modules returned `Ran 36 tests`, `OK`.
+- Re-pinned at `1fe5d67` after re-measuring delivery anchors and rebuilding the 20-run plan;
+  freeze-v3 manifest and independent literal hashes are checked separately. No live model,
+  real opencode, driver run/run-plan/audit, push, or independent review was performed.
+- Final re-pin output: `DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0,
+  "WRAPPER": 10}`; `RUN_PLAN_V3 runs=20 control_first=5 variant_first=5 fresh_episode=20`;
+  `FREEZE_MANIFEST files=64 delivery_payload_equivalent_to_T2=YES`. Freeze-v3 manifest check
+  returned `PASS` with no mismatches; `FreezeManifest` returned `Ran 2 tests`, `OK`.
