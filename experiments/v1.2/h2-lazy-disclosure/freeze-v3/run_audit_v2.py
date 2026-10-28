@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import wrapper_delivery
 from wrapper_delivery import sha256
 
 AUDIT_DIR = "audit"
@@ -136,27 +137,29 @@ def prepare_bundle(run_dir: Path, plan_run: dict, task: dict, *,
     T51c: `bundle_dir` puts the bundle somewhere else — the audit retry keeps it under its own
     driver directory — while every input is still read from the run's existing frozen materials.
     """
-    run_dir = Path(run_dir).resolve()
+    run_dir = Path(run_dir).absolute()
     if plan_run["task_id"] != task["task_id"]:
         raise ValueError("TASK_ID_MISMATCH")
     audit_dir = Path(bundle_dir) if bundle_dir is not None else run_dir / AUDIT_DIR
     # F19 / T29: the driver creates the auditor's launch directory before the fresh home (its
     # TMPDIR lives inside it); the bundle still goes in before the auditor is launched.
     audit_dir.mkdir(parents=True, exist_ok=True)
-    contract = Path(contract_path or run_dir / CONTRACT_NAME).read_text(encoding="utf-8")
-    collected = json.loads((run_dir / COLLECTED_NAME).read_text(encoding="utf-8"))
-    verdict = json.loads((run_dir / VERDICT_NAME).read_text(encoding="utf-8"))
+    contract = wrapper_delivery.safe_read(Path(contract_path or run_dir / CONTRACT_NAME)).decode("utf-8")
+    collected = json.loads(wrapper_delivery.safe_read(run_dir / COLLECTED_NAME).decode("utf-8"))
+    verdict = json.loads(wrapper_delivery.safe_read(run_dir / VERDICT_NAME).decode("utf-8"))
     report = Path(report_path or run_dir / REPORT_NAME)
-    if not report.is_file():
-        raise ValueError("REPORT_MISSING")
+    try:
+        report_data = wrapper_delivery.safe_read(report)
+    except OSError as exc:
+        raise ValueError("REPORT_MISSING") from exc
     files = {
         CONTRACT_NAME: blind_contract(contract),
         DIFF_NAME: str(collected.get("diff", "")),
         VERDICT_NAME: json.dumps(project_verdict(verdict), indent=2, sort_keys=True) + "\n",
-        REPORT_NAME: report.read_text(encoding="utf-8", errors="replace"),
+        REPORT_NAME: report_data.decode("utf-8", errors="replace"),
     }
     for name, text in files.items():
-        (audit_dir / name).write_text(text, encoding="utf-8")
+        wrapper_delivery.safe_write(audit_dir / name, text.encode("utf-8"))
     leakage = scan(files)
     request = {"schema_version": 1, "program": "freeze-v3/run_audit_v2.py",
                "run_id": plan_run["run_id"], "task_id": plan_run["task_id"],
@@ -172,8 +175,8 @@ def prepare_bundle(run_dir: Path, plan_run: dict, task: dict, *,
                "category": CATEGORIES,
                "leakage": leakage,
                "bundle": {name: sha256(text.encode()) for name, text in files.items()}}
-    (audit_dir / REQUEST_NAME).write_text(json.dumps(request, indent=2, sort_keys=True) + "\n",
-                                          encoding="utf-8")
+    wrapper_delivery.safe_write(audit_dir / REQUEST_NAME,
+                                (json.dumps(request, indent=2, sort_keys=True) + "\n").encode())
     return {"audit_dir": str(audit_dir), "leakage": leakage, "request": request}
 
 
@@ -218,11 +221,11 @@ def evaluate(audit_dir: Path, bundle: dict) -> dict:
               "invalid_completion": None, "leakage": list(bundle.get("leakage", [])),
               "reasons": []}
     path = Path(audit_dir) / RESULT_NAME
-    if not path.is_file():
+    try:
+        data = json.loads(wrapper_delivery.safe_read(path))
+    except FileNotFoundError:
         record["reasons"] = ["AUDIT_MISSING"]
         return record
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         record["reasons"] = ["AUDIT_UNREADABLE"]
         return record
