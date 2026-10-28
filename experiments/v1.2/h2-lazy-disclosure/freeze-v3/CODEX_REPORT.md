@@ -45,6 +45,75 @@ planting a symlink at the target; it does not exercise an actual case-insensitiv
 Checks: driverfs unittest module (6 tests); ruff for changed Python files; public-release
 validator `VIOLATIONS=0`; freeze-v2 manifest check `PASS`; `git diff --check`. The full freeze-v3
 suite and re-pinning are deferred to T54; no live worker or platform sandbox launch was run.
+### T51e — cell-only parent read, violation wiring (finished by opencode deepseek-v4.1-flash)
+
+This task was started by Codex, whose session ended (quota) with an UNCOMMITTED working-tree diff;
+opencode deepseek-v4.1-flash reviewed that diff, kept the parts that matched the task, corrected
+the rest and finished the remaining work. What the partial diff got right: it removed the T51d
+`(allow file-read-data (subpath <launch.parent>))` rule from `sandbox_v2.allow_rules` and added a
+`ps`-based group poll around the launched process. What was wrong or missing: no cell-only parent
+grant, no auditor collection (the guard `directory != run_dir` skipped nothing useful and the
+auditor's start timestamp was never recorded), a second `sweep()` call inside `confined` (a new
+kill path beside the auditor launch), the worker's evidence went to the stream directory instead of
+the attempt directory, `violations_v3` raised a bare `TypeError` on a failing `log show` with no
+reason recorded, `log show` got the driver's ISO/UTC timestamps in a spelling the T51d live test
+never proved, and the pid set was built inside the record helper instead of at the launch.
+
+Defect fix (1): the parent of a launch is no longer a `subpath` read grant for anyone. A cell run
+dir `<runs_root>/.cells/<run_id>/<run_id>` gets its cell parent as a `literal` only; a legacy
+flat-layout run dir and a directory inside a run (the auditor's `audit`) get no parent grant at
+all, so a flat worker can no longer read the whole runs root and the auditor can no longer read the
+worker's run dir as a tree. New helper `sandbox_v2.cell_parent()` implements the
+`wrapper_delivery.runs_root_of` cell test (`parent.name == launch.name and
+parent.parent.name == ".cells"`).
+
+Violation wiring (2): `run_h2r2.py` now collects `violations_v3.collect_violations` per confined
+launch of a run. The start stamp is taken in `confine_state` immediately before the launch's
+`opencode serve` starts and the end stamp is taken when the evidence is written — for the worker
+after the post-launch `sweep`, so the sweep's pids join the pid set. The pid set
+(`run_h2r2.pid_set`) is the launched pid, every pid the 0.5 s process-group poll saw, the serve
+pid and its group members at stop time, and — for non-worker launches — one `processes_under` lsof
+pass. Files land in `.driver/<run_id>/attempt-<n>/violations-<launch>.jsonl`
+(`violations_path`), and `{"path", "count", "sha256"}` is stored in `record["violations"]`, in
+`record["observed_pids"]`, in each auditor entry of `record["audit_sandbox"]`, and in the launch
+record the access audit already receives (`record["sandbox"]["confinement"]["violations"]`, handed
+over as `confinement=`; `access_audit.py` was not edited). A collector failure is recorded as
+`{"error", "reason"}` and the run continues. `violations_v3.stamp()` converts the driver's ISO/UTC
+stamps to the one local spelling the T51d live test proved (`%Y-%m-%d %H:%M:%S%z`) and passes an
+unparseable value through unchanged.
+
+Limits, stated as limits: the pid set is a LOWER BOUND — a child that starts and exits between two
+observations is not attributed, and the report says so instead of claiming a full process tree.
+`log show` returns the denials the unified log still holds for the window; it is evidence, never a
+verdict. Gate executions are still NOT collected: they are launched inside `run_acceptance_v2.py`
+(not in this task's write scope), so gate-run violations remain uncollected and T52 §2 consumes
+violations "when present" only. A real auditor launch was not run (it needs a model): the auditor
+shares the `confined` code path that the probes exercised, and its record key is populated from
+`audit["launch"]["violations"]`; with the suite's stub auditor it is `null`.
+
+Tests: new module `experiments/v1.2/tests/test_v1_2_h2_freeze_v3_violations.py`, 13 tests, all OK
+— rendered rules for a cell worker, a flat-layout worker and an auditor dir; a live
+`sandbox-exec` check that the auditor cannot read a file in the run dir outside its audit dir and
+that a cell worker can list its cell parent; `violations_path` per launch; path/count/sha
+recorded; an empty collection hashed (count 0) rather than treated as an error; collector
+exception and an unwritable path recorded and non-fatal; pid set = serve + launched + group +
+sweep pids; `pid_set` ignoring junk entries; a real `launch` returning the pid it observed; the
+timestamp spelling. One end-to-end check with the v3 suite's stubs (throwaway script, not committed)
+produced `record["violations"]` = `.driver/h2r3-f01-c/attempt-1/violations-worker.jsonl`, count 0,
+sha256 `e3b0c442…b855`, `observed_pids` = two pids (worker + serve), the same dict in
+`record["sandbox"]["confinement"]["violations"]`, and `violations-probe-worker-1.jsonl` /
+`violations-probe-auditor-1.jsonl` beside it.
+
+Checks: ruff on the four touched files passed; `scripts/validate_public_release.py` reported
+`VIOLATIONS=0`; `freeze-v2/build_manifest.py check` reported `PASS` with no mismatches; the new
+module ran 13 tests (OK). Two existing freeze-v3 tests in the suite
+(`test_the_frozen_env_is_exactly_what_the_worker_and_the_auditor_receive` and
+`test_the_default_probe_confines_launches_and_reaches_the_worker`) fail on an unchanged
+`run_dir = runs / "<id>"` expectation that the T51b cell layout replaced; that mismatch predates
+this task and its fix is not in this write scope. The full freeze-v3 suite and re-pinning are
+deferred to T54; no pinned literal was edited, no model ran, and `run_h2r2.py` was not run against
+a real runs root.
+
 ### T51d — sandbox reads and violation evidence
 
 Added a read allowlist, interpreter and opencode prefix resolution, and a standalone unified-log collector; the driver is not wired here. On 2026-10-28 (Darwin 25, opencode 2.0.25), the five requested commands exited successfully in the candidate sandbox with a launch-local TMPDIR. Iterative unified-log inspection identified the listed system paths and Homebrew git dependencies. The live test observed a denial for its child PID. The profile does not set a launch tag; filtering uses event-message PIDs.
@@ -119,3 +188,11 @@ Not done / limits:
   the three retries; the in-run loop's three before-work attempts are not replayed inside a retry.
 - No model, no worker and no platform sandbox launch was performed, and no real runs root was
   touched.
+
+### Merge T51c+T51e
+
+Merged T51e (violation wiring) into T51c's tree (`db64a46`): T51c's `audit_attempt()` call kept, T51e's evidence ported into it.
+`confined()` no longer closes over `drive()`'s `attempt`: `launch_tools` takes an `evidence_dir` getter and writes `violations_file(evidence_dir(), stream.name)`, so `drive()` files under `attempt-<n>/` and `audit_retry()` under `audit-retry-<n>/` — each launch's log sits in the directory of the attempt it belongs to.
+`audit_attempt()`'s `sandbox_record` carries `"violations": (audit.get("launch") or {}).get("violations")`; `violations_path()` keeps its shape (delegates to `violations_file()`), so the T51e path test and `IN_RUN_FIELDS` needed no change.
+Checks: ruff clean on `freeze-v3` + `tests`; `auditretry`/`violations`/`driverfs`/`sandboxread` ran 10/13/6/3 tests, all OK; a throwaway stub run (not committed) produced `attempt-1/violations-worker.jsonl`, `attempt-1/violations-audit-attempt-1.jsonl` and `audit-retry-1/violations-stream.jsonl` (count 0, sha256 `e3b0c442…b855`), with the retry's `audit_sandbox.violations` pointing at its file.
+No model ran, no real runs root was touched, nothing was re-pinned.
