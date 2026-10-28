@@ -12,7 +12,7 @@ def cell(value):
 def render(data, protocol=""):
     lines = ["# H2-R2 — CLOSURE REPORT", "", "## 问题与预注册设计", "",
              "精简渐进披露是否保留任务表现？十个冻结任务各以 control 和 variant 执行一次。",
-             "详见 [protocol-v2.md](../freeze-v2/protocol-v2.md)。", "",
+             "详见 [protocol-v2.md](freeze-v2/protocol-v2.md)。", "",
              "## 预注册偏离与决定", "",
              "- 十个 frozen-oracle repair 任务替换原任务集；覆盖要求十个有效配对。",
              "- 仓外 AGENTS 交付、wrapper-relative 遥测、冻结 runtime/profile/model；"

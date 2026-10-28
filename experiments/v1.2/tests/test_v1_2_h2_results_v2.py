@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,26 +28,67 @@ class ResultsTest(unittest.TestCase):
             root.mkdir()
             run = root / "h2r2-f01-c"
             (run / "audit").mkdir(parents=True)
+            (run / "repo").mkdir()
+            (run / "repo" / "source").write_text("first")
+            os.mkfifo(run / "repo" / "pipe")
+            (run / "repo" / "dangling").symlink_to("missing")
+            driver = root / ".driver" / run.name
+            (driver / "home-worker").mkdir(parents=True)
+            (driver / "home-worker" / "file").write_text("home")
+            (driver / "events.jsonl").write_text('{}\n')
             example_home = "/" + "Users" + "/" + "example"
-            files = {"verdict.json": json.dumps({"path": example_home + "/private"}),
-                     "audit/audit.json": json.dumps({"correctness": "PASS",
-                                                     "invalid_completion": False, "findings": []}),
-                     "report.md": "TASK_COMPLETED = YES\n",
-                     "run.json": f'{{"root":"{root}"}}',
-                     "access-audit.json": '{"denied_attempts": []}'}
+            untouched = 'quote " slash \\ newline\n unicode\u2028\u2029 /nope /etc/hosts /dev/null'
+            files = {"verdict.json": json.dumps({"verdict": "ACCEPT", "reasons": [untouched]}),
+                     "audit/audit.json": json.dumps({"correctness": "PASS", "invalid_completion": False,
+                         "findings": [{"id": "F1", "severity": "P2", "category": "TEST",
+                                       "location": example_home + "/private", "evidence": "SECRET_PROSE"}]}),
+                     "report.md": "TASK_COMPLETED = YES\nSECRET_PROSE\n",
+                     "run.json": json.dumps({"root": str(root), "prose": "SECRET_PROSE"}),
+                     "access-audit.json": json.dumps({"verdict": "PASS", "hits": [],
+                                                       "denied_attempts": []})}
             for name, value in files.items():
                 (run / name).write_text(value)
             artifacts = {name: hashlib.sha256(value.encode()).hexdigest()
                          for name, value in files.items()}
+            os.mkfifo(run / "registered-pipe")
+            artifacts["registered-pipe"] = hashlib.sha256(b"").hexdigest()
             row = {"run_id": run.name, "task_id": "f01", "arm": "control",
                    "verdict": "ACCEPT", "final_verdict": "ACCEPT", "artifacts": artifacts}
             (root / "registry-v2.jsonl").write_text(json.dumps(row) + "\n")
+            for name in exporter.LEDGERS[1:]:
+                (root / name).write_text("")
+            (root / "trace.log").write_text("evidence")
             out = Path(temp) / "out"
             exporter.export(root, out)
-            self.assertNotIn(example_home, (out / run.name / "verdict.json").read_text())
-            self.assertNotIn(str(root), (out / "aggregate.json").read_text())
-            hashes = json.loads((out / "hashes.json").read_text())
-            self.assertEqual(hashes[f"{run.name}/run.json"]["original_sha256"], artifacts["run.json"])
+            for path in out.iterdir():
+                content = path.read_text()
+                self.assertNotIn("SECRET_PROSE", content)
+                self.assertNotIn(example_home, content)
+                if path.suffix == ".json":
+                    json.loads(content)
+                elif path.suffix == ".jsonl":
+                    for line in content.split("\n"):
+                        if line:
+                            json.loads(line)
+            saved = json.loads((out / f"{run.name}.json").read_text())
+            self.assertIn({"path": "registered-pipe", "type": "fifo",
+                           "registered_sha256": hashlib.sha256(b"").hexdigest(),
+                           "verification": "NOT_REVERIFIED_SPECIAL_FILE"},
+                          saved["artifact_verification"])
+            self.assertEqual(saved["mechanical"]["reasons"][0], untouched)
+            self.assertEqual(saved["auditor"]["findings"][0]["id"], "F1")
+            manifest = json.loads((out / "raw-manifest.json").read_text())
+            paths = {item["path"] for item in manifest["files"]}
+            self.assertTrue({"trace.log", f"{run.name}/audit/audit.json",
+                             f".driver/{run.name}/events.jsonl"} <= paths)
+            trees = {item["subtree"]: item for item in manifest["subtrees"]}
+            self.assertEqual(trees[f"{run.name}/repo"]["files"], 3)
+            old = trees[f"{run.name}/repo"]["sha256"]
+            (run / "repo" / "source").write_text("second")
+            exporter.export(root, Path(temp) / "out2")
+            changed = json.loads((Path(temp) / "out2" / "raw-manifest.json").read_text())
+            trees2 = {item["subtree"]: item for item in changed["subtrees"]}
+            self.assertNotEqual(old, trees2[f"{run.name}/repo"]["sha256"])
             (run / "audit/audit.json").write_text("tampered")
             with self.assertRaisesRegex(ValueError, "SHA256_MISMATCH"):
                 exporter.export(root, Path(temp) / "bad")
