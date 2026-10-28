@@ -15,8 +15,13 @@
 | f07 | PARTIAL | (P2, HV1), (P2, HV4), (P3, HV4) | PARTIAL | (P2, None), (P3, HV7) |
 | f10 | PARTIAL | (P2, HV4), (P3, HV1), (P3, HV6) | PARTIAL | (P2, HV4), (P2, HV5) |
 
-全部 5 个有效配对的 FINAL_CORRECTNESS 相同（3 PARTIAL/PARTIAL, 2 PASS/PASS）。
-完整配对中未观察到 S2/S3/S4 代价。预注册的 null-difference 规则要求正确性、无效完成状态及 finding 形状均相同；若配对均满足这一条件，即使覆盖完整也判为 INSUFFICIENT_EVIDENCE。
+有效配对的结构化比较（共 5 对）：
+- FINAL_CORRECTNESS 相同：5/5 对。
+- invalid-completion 状态相同：5/5 对。
+- finding (severity, category) 多重集相同：0/5 对（不同：f01, f02, f06, f07, f10）。
+- 因此预注册的 null-difference 条件只对 0/5 个有效配对成立（没有任何配对三项均相同），对全部有效配对并不成立，null 差异规则不适用。
+- 完整配对中未观察到 S2/S3/S4 代价。
+- 结果 `INSUFFICIENT_EVIDENCE` 的判定依据是 `COVERAGE:INVALID:h2r2-f03-c`，不是 null difference。
 
 ## 问题与预注册设计
 

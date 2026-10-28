@@ -7,8 +7,77 @@ import re
 from pathlib import Path
 
 
+CORRECTNESS_ORDER = {"PASS": 0, "PARTIAL": 1, "FAIL": 2, "BLOCKED": 3}
+
+
 def cell(value):
     return str(value if value is not None else "—").replace("|", "\\|").replace("\n", " ")
+
+
+def finding_shape(record):
+    """The pre-registered finding shape of one arm: a (severity, category) multiset."""
+    return tuple(sorted(tuple(item) for item in record.get("finding_shape", ())))
+
+
+def pair_costs(arms):
+    """The pre-registered S2/S3/S4 cost rules, evaluated on one complete pair."""
+    control, variant = arms["control"], arms["variant"]
+    costs = []
+    for row in (control, variant):
+        if row.get("missed_guidance"):
+            costs.append(f"S2:{row.get('run_id')}")
+    if int(bool(variant.get("invalid_completion"))) > int(bool(control.get("invalid_completion"))):
+        costs.append(f"S3:{variant.get('run_id')}")
+    if CORRECTNESS_ORDER[variant["final_correctness"]] > CORRECTNESS_ORDER[control["final_correctness"]]:
+        costs.append(f"S4:{variant.get('run_id')}")
+    return costs
+
+
+def null_difference_lines(complete, data):
+    """Count the pre-registered null-difference fields from the export and state the decision.
+
+    Every count is derived from the exported runs: nothing here is asserted about the result.
+    """
+    compared = []
+    for arms in complete:
+        control, variant = arms["control"], arms["variant"]
+        compared.append({"task": control["task_id"],
+                         "correctness": control["final_correctness"] == variant["final_correctness"],
+                         "invalid": bool(control.get("invalid_completion"))
+                         == bool(variant.get("invalid_completion")),
+                         "shape": finding_shape(control) == finding_shape(variant),
+                         "costs": pair_costs(arms)})
+    total = len(compared)
+
+    def same(field):
+        return sum(1 for item in compared if item[field])
+
+    null_pairs = [item["task"] for item in compared
+                  if item["correctness"] and item["invalid"] and item["shape"]]
+    shape_diff = [item["task"] for item in compared if not item["shape"]]
+    costs = [(item["task"], cost) for item in compared for cost in item["costs"]]
+    decided_by = str(data.get("decided_by", "—"))
+    lines = [f"有效配对的结构化比较（共 {total} 对）：",
+             f"- FINAL_CORRECTNESS 相同：{same('correctness')}/{total} 对。",
+             f"- invalid-completion 状态相同：{same('invalid')}/{total} 对。",
+             f"- finding (severity, category) 多重集相同：{same('shape')}/{total} 对"
+             + (f"（不同：{', '.join(shape_diff)}）。" if shape_diff else "。")]
+    if len(null_pairs) == total:
+        lines.append(f"- 因此预注册的 null-difference 条件对全部 {total} 个有效配对成立。")
+    else:
+        detail = (f"（三项均相同的配对：{', '.join(null_pairs)}）" if null_pairs
+                  else "（没有任何配对三项均相同）")
+        lines.append(f"- 因此预注册的 null-difference 条件只对 {len(null_pairs)}/{total} 个有效配对成立{detail}，"
+                     "对全部有效配对并不成立，null 差异规则不适用。")
+    if costs:
+        lines.append("- 完整配对中观察到 S2/S3/S4 代价：" + "; ".join(f"{task} {cost}" for task, cost in costs) + "。")
+    else:
+        lines.append("- 完整配对中未观察到 S2/S3/S4 代价。")
+    if decided_by.startswith("NULL_DIFFERENCE"):
+        lines.append(f"- 结果 `{data.get('result')}` 由 null difference 决定（decided_by：`{decided_by}`）。")
+    else:
+        lines.append(f"- 结果 `{data.get('result')}` 的判定依据是 `{decided_by}`，不是 null difference。")
+    return lines
 
 
 def attempts_summary(attempts):
@@ -59,11 +128,8 @@ def render(data, records=None):
         lines.append("| " + " | ".join(map(cell, [task, c.get("final_correctness"), shape(c), v.get("final_correctness"), shape(v)])) + " |")
     complete = [arms for arms in by_task.values() if set(arms) >= {"control", "variant"}]
     if complete:
-        pairs = Counter((a["control"].get("final_correctness"), a["variant"].get("final_correctness")) for a in complete)
-        counts = ", ".join(f"{n} {c}/{v}" for (c, v), n in sorted(pairs.items()))
-        if all(c == v for c, v in pairs):
-            lines.append(f"\n全部 {len(complete)} 个有效配对的 FINAL_CORRECTNESS 相同（{counts}）。")
-        lines.append("完整配对中未观察到 S2/S3/S4 代价。预注册的 null-difference 规则要求正确性、无效完成状态及 finding 形状均相同；若配对均满足这一条件，即使覆盖完整也判为 INSUFFICIENT_EVIDENCE。")
+        lines.append("")
+        lines += null_difference_lines(complete, data)
     lines += ["", "## 问题与预注册设计", "", "精简渐进披露是否保留任务表现？十个冻结任务各以 control 和 variant 执行一次。",
               "详见 [protocol-v2.md](freeze-v2/protocol-v2.md)。", "", "## 预注册偏离与决定", "",
               "- 十个 frozen-oracle repair 任务替换原任务集；覆盖要求十个有效配对。（来源：[协议 §7](freeze-v2/protocol-v2.md)）",

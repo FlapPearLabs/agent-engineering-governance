@@ -126,6 +126,68 @@ class ResultsTest(unittest.TestCase):
             self.assertIn("variant 被拒绝尝试总数：7", report)
             self.assertEqual("## 待人工判断" in report, token.startswith("SAFE_CANDIDATE"))
 
+    def test_summary_counts_match_export(self):
+        export = HERE / "results-v2" / "r2-4aa2e7b"
+        data = json.loads((export / "aggregate.json").read_text(encoding="utf-8"))
+        report = renderer.render(data, {})
+        complete = [pair for pair in data["pairs"] if pair["valid"]]
+        total = len(complete)
+        same_correctness = sum(pair["control"]["final_correctness"]
+                               == pair["variant"]["final_correctness"] for pair in complete)
+        same_invalid = sum(bool(pair["control"].get("invalid_completion"))
+                           == bool(pair["variant"].get("invalid_completion")) for pair in complete)
+        same_shape = sum(renderer.finding_shape(pair["control"])
+                         == renderer.finding_shape(pair["variant"]) for pair in complete)
+        self.assertGreater(total, 0)
+        self.assertIn(f"FINAL_CORRECTNESS 相同：{same_correctness}/{total} 对", report)
+        self.assertIn(f"invalid-completion 状态相同：{same_invalid}/{total} 对", report)
+        self.assertIn(f"finding (severity, category) 多重集相同：{same_shape}/{total} 对", report)
+        # This export's finding shapes differ in every valid pair: the null rule cannot be the
+        # reason, so the summary must say so and name the coverage decision instead.
+        self.assertLess(same_shape, total)
+        self.assertIn("null 差异规则不适用", report)
+        self.assertIn(f"的判定依据是 `{data['decided_by']}`，不是 null difference", report)
+        self.assertNotIn("若配对均满足这一条件", report)
+        costs = [cost for pair in complete
+                 for cost in renderer.pair_costs({"control": pair["control"], "variant": pair["variant"]})]
+        self.assertEqual(costs, [])
+        self.assertIn("完整配对中未观察到 S2/S3/S4 代价", report)
+
+    def test_null_difference_statement_follows_data(self):
+        def pair(task, correctness, invalid, control_shape, variant_shape=None):
+            return {"task_id": task, "valid": True,
+                    "control": {"run_id": f"{task}-c", "task_id": task, "arm": "control",
+                                "final_correctness": correctness, "invalid_completion": invalid,
+                                "finding_shape": control_shape, "missed_guidance": []},
+                    "variant": {"run_id": f"{task}-v", "task_id": task, "arm": "variant",
+                                "final_correctness": correctness, "invalid_completion": invalid,
+                                "finding_shape": variant_shape or control_shape,
+                                "missed_guidance": []}}
+        base = {"usable_pairs": 1, "planned_pairs": 1, "denied_attempts":
+                {"by_arm": {"control": {"count": 0}, "variant": {"count": 0}}}}
+        identical = pair("f01", "PASS", False, [["P2", "HV1"]])
+        data = dict(base, pairs=[identical], rows=[identical["control"], identical["variant"]],
+                    result="INSUFFICIENT_EVIDENCE", decided_by="NULL_DIFFERENCE")
+        report = renderer.render(data, {})
+        self.assertIn("FINAL_CORRECTNESS 相同：1/1 对", report)
+        self.assertIn("finding (severity, category) 多重集相同：1/1 对", report)
+        self.assertIn("null-difference 条件对全部 1 个有效配对成立", report)
+        self.assertIn("由 null difference 决定", report)
+        differing = pair("f01", "PASS", False, [["P2", "HV1"]], [["P3", "HV1"]])
+        data = dict(base, pairs=[differing], rows=[differing["control"], differing["variant"]],
+                    result="INSUFFICIENT_EVIDENCE", decided_by="COVERAGE:MISSING:f02/variant")
+        report = renderer.render(data, {})
+        self.assertIn("finding (severity, category) 多重集相同：0/1 对（不同：f01）", report)
+        self.assertIn("只对 0/1 个有效配对成立", report)
+        self.assertIn("不是 null difference", report)
+        cost = pair("f01", "PASS", False, [["P2", "HV1"]])
+        cost["variant"]["final_correctness"] = "FAIL"
+        data = dict(base, pairs=[cost], rows=[cost["control"], cost["variant"]],
+                    result="DISCLOSURE_HAS_COST", decided_by="S4_TREATMENT_ONLY_CORRECTNESS:f01")
+        report = renderer.render(data, {})
+        self.assertIn("FINAL_CORRECTNESS 相同：0/1 对", report)
+        self.assertIn("完整配对中观察到 S2/S3/S4 代价：f01 S4:f01-v", report)
+
 
 if __name__ == "__main__":
     unittest.main()
