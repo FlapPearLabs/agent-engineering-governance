@@ -15,3 +15,19 @@ assertion and isolating the v3 test module loader.
 `git diff --cached --check` reports an extra blank line at EOF in the two copied historical
 worker sandbox fixtures. Their bytes are retained as recorded; this whitespace check is not among
 the T50 gates, and the two fixtures are pinned by the v3 manifest.
+
+### T51a — partial implementation
+
+Registration artifact hashing records symbolic links by target-string hash and records special
+file types without opening them. Regular files are opened with `O_NOFOLLOW` and checked after
+opening. A focused test covers link hashing, non-descent and a FIFO timeout.
+
+Not completed: snapshot and other driver copies still need the requested no-follow treatment;
+`sandbox_v2.py` snapshot code is outside this task's allowed ancestor-only edits. The cell layout
+is not implemented: the existing `wrapper_delivery.py` driver-root calculation requires changes
+outside the allowed write scope. Consequently T51a is not complete and the new test does not
+claim the snapshot or cell-layout acceptance criteria.
+
+Checks: the new unittest module ran 1 test (OK); ruff on the changed Python files passed;
+`validate_public_release.py` reported `VIOLATIONS=0`; the freeze-v2 manifest check reported
+`PASS` with no mismatches. The full freeze-v3 suite was not run.

@@ -154,6 +154,7 @@ import secrets
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -720,31 +721,50 @@ def artifact_hashes(run_dir: Path) -> dict:
     """
     hashes: dict = {}
     run_dir = Path(run_dir)
+
+    def record(path: Path) -> None:
+        rel = path.relative_to(run_dir).as_posix()
+        try:
+            info = path.lstat()
+            if stat.S_ISLNK(info.st_mode):
+                hashes[rel] = sha256(os.fsencode(os.readlink(path)))
+            elif stat.S_ISREG(info.st_mode):
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(fd, "rb") as stream:
+                    opened = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+                            info.st_dev, info.st_ino):
+                        raise OSError("artifact changed during open")
+                    hashes[rel] = sha256(stream.read())
+            else:
+                kind = ("fifo" if stat.S_ISFIFO(info.st_mode) else
+                        "socket" if stat.S_ISSOCK(info.st_mode) else
+                        "character_device" if stat.S_ISCHR(info.st_mode) else
+                        "block_device" if stat.S_ISBLK(info.st_mode) else "other")
+                hashes[rel] = {"path": rel, "type": kind}
+        except OSError as exc:
+            hashes[rel] = {"path": rel, "unreadable": True, "error": type(exc).__name__}
+
     for directory, dirnames, filenames in os.walk(run_dir, onerror=lambda error: None,
                                                   followlinks=False):
         current = Path(directory)
         keep = []
         for name in sorted(dirnames):
             path = current / name
-            if path.is_symlink():
-                continue                                  # never followed, never hashed
             rel = path.relative_to(run_dir)
             if rel.parts and rel.parts[0] in ARTIFACT_EXCLUDED:
                 continue
-            keep.append(name)
+            if path.is_symlink():
+                record(path)
+            else:
+                keep.append(name)
         dirnames[:] = keep
         for name in sorted(filenames):
             path = current / name
-            if path.is_symlink():
-                continue
             rel = path.relative_to(run_dir)
             if rel.parts and rel.parts[0] in ARTIFACT_EXCLUDED:
                 continue
-            try:
-                hashes[rel.as_posix()] = sha256(path.read_bytes())
-            except OSError as exc:
-                hashes[rel.as_posix()] = {"path": rel.as_posix(), "unreadable": True,
-                                          "error": type(exc).__name__}
+            record(path)
     return hashes
 
 
