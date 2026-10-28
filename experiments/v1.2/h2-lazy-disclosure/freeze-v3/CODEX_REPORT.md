@@ -500,3 +500,23 @@ Gate evidence (the specified Python, `PYTHONPATH` unset and physical system `TMP
 
 No live model, real opencode or real run was launched. Independent review and real CI for this
 new candidate were not performed; the prior review applies to an earlier SHA.
+
+### T55e
+
+- An absent read target outside the launch, home and profile write allowances remains
+  `PATH_DOES_NOT_EXIST` evidence even when a shell command returned text. For a writable
+  target, completed content still restores `POSSIBLE_SUCCESS`; operation, launch-window and
+  PID matching are unchanged. Profile subpath, literal and regex write allowances are checked.
+- The new outside-root shell error-output test failed on the prior implementation (expected
+  `PASS`, observed `INVALID`). The read-then-delete regression uses a profile granting the
+  scratch root write access and remains `INVALID`.
+- With `PYTHONPATH` unset and physical system `TMPDIR`: ruff returned `All checks passed!`;
+  public release validation returned `VIOLATIONS=0`; freeze-v2 manifest check returned
+  `PASS`. Auditfix, violations and AccessAuditV3Hardening together returned `Ran 40 tests`,
+  `OK`, including the real archive replay. The committed replay fixture was unchanged.
+- Rebuilt the run plan and manifest at parent `1ee80a6`: 20 runs and 64 manifest files;
+  delivery payload equivalence was `YES`. Updated independent hashes for the auditor, run
+  plan and manifest. Freeze-v3 manifest check returned `PASS`; `FreezeManifest` returned
+  `Ran 2 tests`, `OK`. The first manifest-test attempt exposed the required run-plan hash
+  update; it passed after that pin was corrected.
+- Independent review and real CI were not performed in this implementation session.

@@ -1,6 +1,6 @@
 {
   "delivery_anchor_materials_commit": "10cbf3c21cf1c7f4d57f83377ae92e21a73bae4c",
-  "freeze_parent": "10cbf3c21cf1c7f4d57f83377ae92e21a73bae4c",
+  "freeze_parent": "1ee80a60c54aca284ee845ddbe1a3be9a85f6291",
   "hashes": {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/classification.json": "2b8aadff933c80966b780f86854bce8c87644d753338d7aa60d736f0fea36726",
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/ledger.json": "765c21b90044646882256cbbfee66554e8cbd0580f07aacc27c080154d4e7305",
@@ -12,7 +12,7 @@
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/access_audit.py": "87e0b18bdf12e9fcec353bcf3c1625d8b2908178584fdd86ef62fd5a860ffe3f",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/access_audit.py": "da2579649ff8e20d19225f4961793dadc195ca846441d60e6a07105b2f0f3191",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/aggregate_runs.py": "a0d36ed38d1a8cd78b53d01137d2369c33239f5929c358ea6cedad269b979dc0",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/aggregate_set.py": "03cc6f68d847ff50c743abd2c4b5029a65ab36a82da027e5700e6937e50763f9",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/build_manifest.py": "f36961e7983538a341cda13f5e52b49af14b0f9e57e9049cd4e3a57f2e1b2ac5",
@@ -47,7 +47,7 @@
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/render_brief.py": "b5f63b977ea57d0870edcd6d01516994576e75342c971ff64b1896c1bad9b2e9",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/route-preconditions.json": "96a10055d04c95249f1bac2e6d4cd9e19f728fc80b471f7fd7f376d17bb69f9b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/route_preconditions.py": "2bf5af5da7565cce372e0758f92ec992d9c397573e68243466b7a2b6c925cb1d",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run-plan-v3.json": "5c2e158763affc8ea4bf258e02cb11a38a1c57c8cee14f9481b109e941732e91",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run-plan-v3.json": "0a899934fd6a092f196a47b4398fa8a2971e16466d1c5888d9004ba7de8f9811",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_acceptance_v2.py": "e0219b31487b21aa42888413626f285c6df1527042ef8f3199d02c15129615cb",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_audit_v2.py": "1d64edd9c26bf0c9352bf0fc68290d3fc10a143dc2f1c88038141fa3ad5da368",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_h2r2.py": "8c0b9822ce0a01a59edecc9dc3cdf0abf15cfa3156ddf0dfa536acac7153257f",
@@ -67,6 +67,6 @@
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137"
   },
-  "materials_commit": "10cbf3c21cf1c7f4d57f83377ae92e21a73bae4c",
+  "materials_commit": "1ee80a60c54aca284ee845ddbe1a3be9a85f6291",
   "schema_version": 2
 }

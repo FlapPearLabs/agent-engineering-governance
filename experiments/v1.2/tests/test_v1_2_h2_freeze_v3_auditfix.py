@@ -45,10 +45,20 @@ class AuditFixTests(unittest.TestCase):
     def test_read_then_delete_is_invalid(self):
         output = self.target.read_text()
         self.target.unlink()
+        profile = self.base / "worker.sb"
+        profile.write_text(f'(deny file-write* (subpath "/"))\n'
+                           f'(allow file-write* (subpath "{self.base}"))\n')
         result = self.check("shell", {"command": f"cat {self.target}"},
-                            {"status": "completed", "output": output})
+                            {"status": "completed", "output": output}, profile=profile)
         self.assertEqual("INVALID", result["verdict"])
         self.assertEqual("POSSIBLE_SUCCESS", result["hits"][0]["class"])
+
+    def test_absent_outside_writable_roots_with_shell_error_output_is_denied(self):
+        self.target.unlink()
+        result = self.check("shell", {"command": f"program --pack {self.target}"},
+                            {"status": "completed", "output": f"missing: {self.target}"})
+        self.assertEqual("PASS", result["verdict"])
+        self.assertEqual("PATH_DOES_NOT_EXIST", result["denied_attempts"][0]["policy"])
 
     def test_matching_denied_read_in_window(self):
         record = self.denial("file-read-data")

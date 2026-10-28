@@ -121,7 +121,8 @@ T52 — THE ALLOW-LIST AND THE EMPIRICAL CONFIRMATION.
     reading the very interpreter it was launched with (live H2-R2 h2r2-f03-c).
   * POSSIBLE_SUCCESS is kept for an access that could still have succeeded. A READ of a path that
     does not exist — checked against the run's post-launch SNAPSHOT and the filesystem — is
-    provisional denial evidence; a recorded successful content result overrides that inference.
+    denial evidence; a recorded successful content result overrides that inference for paths
+    within the sandbox's writable set, where the target may have been deleted.
     A token carrying glob syntax is a pattern, not a place, and is never existence-checked: the pattern
     string need not exist for the glob to match files that do. A WRITE outside the launch's write
     whitelist is the same: the profile's `(deny file-write* (subpath "/"))` proves it cannot be
@@ -377,8 +378,8 @@ def path_hit(value: str, run_dir: Path, home: str | None, allow: tuple[str, ...]
 
     The class is decided from the RESOLVED path and the archived profile of the same launch, so a
     relative token is judged in the directory the command actually stood in, never in the run
-    directory by assumption. An absent READ target is provisional denial evidence; a recorded
-    successful content result overrides it in audit(). A WRITE can create its target and
+    directory by assumption. An absent READ target is provisional denial evidence; audit()
+    considers recorded content and the writable set. A WRITE can create its target and
     stays POSSIBLE_SUCCESS unless the write whitelist refuses it (which `path_class` decides). A
     value carrying glob syntax is a PATTERN and is never existence-checked: the pattern string is
     not a place, and what it matches may well exist.
@@ -491,6 +492,27 @@ def path_class(resolved: str | None, rules: dict | None, *, write: bool = False)
     if any(inside(resolved, root) for root in roots):
         return DENIED_BY_POLICY
     return POSSIBLE_SUCCESS
+
+
+def sandbox_writable(path: str, run_dir: Path, home: str | None, rules: dict | None) -> bool:
+    """Whether the launch or an archived write allow could have created the path."""
+    if inside(path, str(run_dir)) or (home and inside(path, home)):
+        return True
+    for rule in (rules or {}).get("allow", []):
+        if not rule["write"]:
+            continue
+        for kind, value in rule["clauses"]:
+            if kind == "subpath" and value and inside(path, value):
+                return True
+            if kind == "literal" and value and os.path.realpath(value) == path:
+                return True
+            if kind == "regex":
+                try:
+                    if re.search(value, path):
+                        return True
+                except re.error:
+                    return True  # An unrecognized write rule cannot prove immutability.
+    return False
 
 
 def url_host(authority: str) -> str:
@@ -1372,7 +1394,8 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
     T52: `snapshot` is the run's post-launch snapshot (a path that it does not hold and that the
     filesystem does not hold either is provisionally absent), and `violations` the launch's T51.4
     `violations.jsonl` (or its parsed records): a same-kind path denial within the supplied
-    launch window can confirm a denial. Recorded content overrides post-launch absence.
+    launch window can confirm a denial. Recorded content overrides post-launch absence only
+    where the sandbox could have created or deleted the target.
     """
     run_dir = Path(run_dir).resolve()
     allow = allowed_roots(python)
@@ -1442,7 +1465,9 @@ def audit(events_path: Path, run_dir: Path, *, home: str | None = None,
             returned_content = (candidate.get("tool") in CONTENT_TOOLS | SHELL_TOOLS
                                 and state.get("status") == "completed"
                                 and isinstance(output, str) and bool(output.strip()))
-            if candidate.get("policy") == PATH_NOT_FOUND and returned_content:
+            resolved = candidate.get("resolved") or candidate.get("path")
+            if (candidate.get("policy") == PATH_NOT_FOUND and returned_content
+                    and resolved and sandbox_writable(resolved, run_dir, home, rules)):
                 candidate["class"] = POSSIBLE_SUCCESS
                 candidate.pop("policy")
             if (candidate.get("class") == POSSIBLE_SUCCESS and not returned_content
