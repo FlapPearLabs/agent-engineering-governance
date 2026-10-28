@@ -1,0 +1,11 @@
+{
+ "base_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+ "candidate_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+ "probes": [
+  {
+   "path": "scripts/validate_governance.py",
+   "kind": "VALIDATOR",
+   "note": "VALIDATOR surface: exit code is the only report"
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+{"type":"step_start","timestamp":1792700000101,"sessionID":"ses_accesshits","part":{"type":"step-start"}}
+{"type":"tool_use","timestamp":1792700000102,"sessionID":"ses_accesshits","part":{"tool":"read","state":{"status":"completed","input":{"path":"/etc/hosts"}}}}
+{"type":"tool_use","timestamp":1792700000103,"sessionID":"ses_accesshits","part":{"tool":"bash","state":{"status":"completed","input":{"command":"cat ../../../etc/hosts"}}}}
+{"type":"tool_use","timestamp":1792700000104,"sessionID":"ses_accesshits","part":{"tool":"bash","state":{"status":"completed","input":{"command":"git clone /tmp/other repo-copy"}}}}
+{"type":"tool_use","timestamp":1792700000105,"sessionID":"ses_accesshits","part":{"tool":"webfetch","state":{"status":"completed","input":{"url":"https://example.invalid/"}}}}
+{"type":"step_finish","timestamp":1792700000106,"sessionID":"ses_accesshits","part":{"type":"step-finish","reason":"stop"}}

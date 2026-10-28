@@ -1,0 +1,68 @@
+[
+ {
+  "candidate_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+  "bites": [
+   {
+    "path": "scripts/validate_governance.py",
+    "rc": 1,
+    "failing": [
+     "markdown-links-resolve"
+    ]
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "rc": 1,
+    "failing": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   }
+  ]
+ },
+ {
+  "candidate_sha": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
+  "bites": [
+   {
+    "path": "scripts/validate_governance.py",
+    "rc": 1,
+    "failing": [
+     "markdown-links-resolve"
+    ]
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "rc": 1,
+    "failing": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   }
+  ]
+ },
+ {
+  "candidate_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+  "bites": [
+   {
+    "path": "scripts/validate_governance.py",
+    "rc": 1,
+    "failing": [
+     "markdown-links-resolve"
+    ]
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "rc": 1,
+    "failing": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   }
+  ]
+ }
+]

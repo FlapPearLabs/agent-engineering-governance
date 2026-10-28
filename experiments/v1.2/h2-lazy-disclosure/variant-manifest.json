@@ -4,7 +4,7 @@
   "note": "H2 freeze record (non-canonical). Freezes the experiment's variable: VARIANT/TASK_SET/SCORING/ROUTE_MANIFEST hashes, the carrier delivery + receipt rule, and the structured WHAT LEFT HOT / REMAINED HOT / MOVED TO WARM declaration. After the first valid run, none of the frozen files may change (VARIANT_CHANGED_AFTER_FREEZE must read NO; enforced by material tests + per-run receipts). This file deliberately does NOT contain its own commit SHA (self-referential values cannot converge); the freeze commit / merge SHA are recorded post-merge in results.md §8 and the TREE_LEDGER closure entry.",
   "freeze": {
     "VARIANT_HASH": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "TASK_SET_HASH": "ad614c8ef392ed62359aa0db94fd37aded70c0796d798048185aa7cf7904397c",
+    "TASK_SET_HASH": "daf61fc17cc3a6fb90bc34c725e7e5a5b867638226ce8d2b078794ef42989b0e",
     "SCORING_HASH": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
     "ROUTE_MANIFEST_HASH": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "PROTOCOL_HASH": "dc5c8ef34a864082be770d5c75cb33550c10a6cb5fe4236df7492ae4f9bd7c29",
@@ -21,7 +21,14 @@
     "common_to_both_arms": "CODEBUDDY.md in the SAME recognized guidance slot (control: current AGENTS.md verbatim full text + thin header/footer; variant: the frozen lean carrier); H2_RULES.md = placed current RULES.md; H2_WARM/ = placed current-era copies of the routed WARM owners (source list = routes-h2.json S3 destinations, single source).",
     "control_delivery": "carrier_kind=control_full_v1 (hash recorded at delivery; content = verbatim current AGENTS.md embedded, compose-time assertion).",
     "variant_delivery": "carrier_kind=variant_lean_v1; sha256 == VARIANT_HASH.",
-    "receipt_fields": ["carrier_kind", "carrier_hash", "h2_rules_sha256", "warm_bundle_sha256", "materials_commit", "model_tier"],
+    "receipt_fields": [
+      "carrier_kind",
+      "carrier_hash",
+      "h2_rules_sha256",
+      "warm_bundle_sha256",
+      "materials_commit",
+      "model_tier"
+    ],
     "receipt_rule": "For every VALID run: placed-file sha256 values (carrier / H2_RULES / H2_WARM bundle) must equal the receipt values. Checked at delivery (prepare_run.sh) and re-checked at collection (collect_run.sh -> carrier-recheck.txt; any FAIL or missing/empty telemetry => exit 3, run must be registered INVALID). The run tree's own AGENTS.md/RULES.md must be untouched (base-relative check at collection)."
   },
   "what_remained_hot_in_variant": [
@@ -42,16 +49,46 @@
     "the full lifecycle/risk tables as expanded text (only the skeleton + prohibitions remain)"
   ],
   "what_moved_to_warm": [
-    {"detail": "ticket lifecycle / DAG detail", "warm_owner": "references/ticket-lane.md"},
-    {"detail": "stage grouping / decomposition gate sequence", "warm_owner": "references/execution-stage.md"},
-    {"detail": "codegraph three modes / lifecycle detail", "warm_owner": "references/codegraph-grounding.md"},
-    {"detail": "state continuity contract detail", "warm_owner": "references/project-continuity-contract.md"},
-    {"detail": "state persistence / restore / flush detail", "warm_owner": "references/project-state-persistence.md"},
-    {"detail": "review / repair budget / saturation detail", "warm_owner": "references/review-and-repair-saturation.md"},
-    {"detail": "CI integration detail", "warm_owner": "references/git-ci-integration.md"},
-    {"detail": "static-gate framework / defect-to-gate detail", "warm_owner": "references/static-analysis-and-code-intelligence.md"},
-    {"detail": "memory / learning-loop detail", "warm_owner": "references/engineering-memory.md"},
-    {"detail": "skill routing detail", "warm_owner": "references/skills-and-model-routing.md"}
+    {
+      "detail": "ticket lifecycle / DAG detail",
+      "warm_owner": "references/ticket-lane.md"
+    },
+    {
+      "detail": "stage grouping / decomposition gate sequence",
+      "warm_owner": "references/execution-stage.md"
+    },
+    {
+      "detail": "codegraph three modes / lifecycle detail",
+      "warm_owner": "references/codegraph-grounding.md"
+    },
+    {
+      "detail": "state continuity contract detail",
+      "warm_owner": "references/project-continuity-contract.md"
+    },
+    {
+      "detail": "state persistence / restore / flush detail",
+      "warm_owner": "references/project-state-persistence.md"
+    },
+    {
+      "detail": "review / repair budget / saturation detail",
+      "warm_owner": "references/review-and-repair-saturation.md"
+    },
+    {
+      "detail": "CI integration detail",
+      "warm_owner": "references/git-ci-integration.md"
+    },
+    {
+      "detail": "static-gate framework / defect-to-gate detail",
+      "warm_owner": "references/static-analysis-and-code-intelligence.md"
+    },
+    {
+      "detail": "memory / learning-loop detail",
+      "warm_owner": "references/engineering-memory.md"
+    },
+    {
+      "detail": "skill routing detail",
+      "warm_owner": "references/skills-and-model-routing.md"
+    }
   ],
   "not_carried_by_variant_note": "AGENTS §6-§10 and the §0 framework BODY are delivered to CONTROL (full-text arm) but not carried by the variant carrier; their operative content lives at the WARM owners above + RULES.md. The attribution taxonomy for missed-guidance judgments is frozen in scoring-rubric.md §7 (categories i-v).",
   "hot_metrics": {

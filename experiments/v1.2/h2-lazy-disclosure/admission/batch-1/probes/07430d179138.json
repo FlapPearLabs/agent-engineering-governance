@@ -1,0 +1,31 @@
+{
+ "base_sha": "50a022f217022c254d00a465a907fa844e56a401",
+ "candidate_sha": "07430d179138595497ddd8c20a934a93b46620b9",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+   "kind": "TEST",
+   "provenance": "DELTA_ADDED",
+   "base": {
+    "rc": 1,
+    "ran": 30,
+    "verdict_line": "FAILED",
+    "failures": 32,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 30,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

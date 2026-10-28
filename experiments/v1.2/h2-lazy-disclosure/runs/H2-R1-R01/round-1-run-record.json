@@ -1,0 +1,45 @@
+{
+  "round_id": "H2-R1",
+  "run_id": "H2-R1-R01",
+  "round1_run_id_at_execution": "H2-R01",
+  "status": "INVALID",
+  "invalid_reason": "GLOBAL_HARNESS_CONTRACT_DEFECT",
+  "worker_correctness": "NOT_THE_CAUSE",
+  "arm": "control",
+  "task_id": "t01",
+  "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+  "materials_commit": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+  "worker_receipt": "S0:c08f6f8b3bbe57853a56adf3c2847e806bbb60a3 S1:read S2:LOW S3:none S4:full",
+  "offending_read_event": [
+    "READ  FULL  h2-materials/.../worker-report-template.md"
+  ],
+  "offending_event_machine_path_leaked": false,
+  "collection_verdict": "COLLECT_RUN INVALID (delivery/evidence recheck FAIL)",
+  "failing_check": "TELEMETRY_TARGETS",
+  "failing_detail": "TELEMETRY_TARGETS = FAIL READ target missing in worktree: h2-materials/.../worker-report-template.md",
+  "failing_detail_is_verbatim": true,
+  "failing_detail_note": "Quoted VERBATIM from runs/H2-R1-R01/carrier-recheck.txt. The worker abbreviated the path with '...', so the harness echoed the abbreviation; an earlier draft of this record expanded it into a full materials-tree path, which the harness never emitted. Raw evidence is not restated in a nicer form than it was recorded.",
+  "artifacts_preserved": [
+    "receipt.json",
+    "telemetry.log",
+    "report.md",
+    "collect-summary.txt",
+    "carrier-recheck.txt",
+    "diffstat.txt",
+    "status-after.txt"
+  ],
+  "note": "Paths are placeholder-redacted; no machine-local absolute path is disclosed. The worker abbreviated the path with '...', which is itself PART 8 defect (d).",
+  "round_invalid_primary_cause": "GLOBAL_HARNESS_CONTRACT_DEFECT",
+  "worker_had_independent_contract_violation": true,
+  "worker_contract_violation_detail": {
+    "what": "the frozen run contract permitted writes only inside the task worktree plus the report path; the preserved worker report records that the worker created and modified /tmp copies for two verification experiments",
+    "evidence": "runs/H2-R1-R01/report.md (worker report, 'verification experiment' sections)",
+    "effect_on_round": "NOT REQUIRED to establish the round invalidity: the harness defect is independently sufficient. The violation is recorded rather than erased, because 'the worker was fully contract-compliant' would be false.",
+    "not_swept_into": "It is NOT counted as the cause, and NOT used to excuse the harness defect."
+  },
+  "episode": {
+    "worker_episode": "workbuddy-agent-8c1a4d7e2f94b60",
+    "auditor_episode": null,
+    "note": "The Round-1 attempt was a real executed episode. An INVALID run is not a nonexistent run: its identity is preserved so the global reuse check can refuse it in Round 2. Recorded from the orchestration record of that session; the harness could not have captured it because no run.json was produced."
+  }
+}

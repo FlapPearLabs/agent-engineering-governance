@@ -1,0 +1,31 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = 292af454695465570e69558c4993aded3caf109d3182e29cfd6f73f206cde252
+# source: r03 negative controls
+
+### negative controls on r03-cand (HEAD=65113de)
+
+=== N1: worker 'forgets' the config — remove ruff.toml ===
+--- [N1-B] suite (discover scripts/tests)
+      rc=1  Ran 441 tests in 21.596s  FAILED (failures=3, errors=18) 
+--- [N1-E] ruff check .
+      rc=1  Found 14 errors.
+--- [N1-T17] the candidate's own semantics test, run in place
+      rc=1  Ran 18 tests in 1.084s  FAILED (errors=18) 
+
+=== N2: VACUOUS config attack — select = [] (green lint, no rules) ===
+--- [N2-E] ruff check .   (does the linter gate notice a do-nothing ruleset?)
+      rc=0  All checks passed!
+--- [N2-T17] the semantics test (should catch it)
+      rc=1  Ran 18 tests in 1.650s  FAILED (failures=1) 
+
+=== N3: real regression in production code (semantic defect) ===
+--- [N3-B] suite (discover scripts/tests) — must FAIL on a semantic defect
+      rc=0  Ran 441 tests in 21.546s OK 
+--- [N3-A] validate_governance.py — must FAIL too
+      rc=0   34/34 checks passed 
+
+=== restore check ===
+  dirty after restore: 0 entries (expect 0)
+### DONE controls-r03

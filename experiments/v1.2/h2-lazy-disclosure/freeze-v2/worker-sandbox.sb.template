@@ -1,0 +1,47 @@
+(version 1)
+;; Freeze v2 worker/auditor/gate sandbox template (F16 / F19 / F21 / F26 / F31 / F35 / F36,
+;; T29 / T38a).
+;;
+;; The sandbox is the ENFORCING barrier: the access audit still replays every static access it can
+;; see, but a shell command can hide a path behind command substitution, `-c` code, base64 or
+;; xargs, and no static analysis is complete.
+;;
+;; WRITES ARE A WHITELIST (F31). `(deny file-write* (subpath "/"))` denies every write in the
+;; system, and the render block below re-allows exactly the launch directory, the fresh home and
+;; the kernel devices. A deny-list over `(allow default)` left every system directory writable —
+;; including the ones on the operator's PATH — so a launch could drop a binary that the driver
+;; would run unsandboxed afterwards. Reads stay a deny-list over the shared roots, because a
+;; launch must read the interpreter, the system libraries and its own tree.
+;;
+;; `render()` substitutes the single placeholder line below with the launch's rules:
+;;   * the launch directory (run dir for the worker, audit dir for the auditor, one fresh copy for
+;;     each acceptance gate) and the fresh per-launch home read-write;
+;;   * every ancestor of the launch directory as a `literal` (opencode's config discovery calls
+;;     realPath on them; the contents of an ancestor are still not readable, only its own node, so
+;;     the directory NAMES of ancestors remain listable and are disclosed in README §3);
+;;   * the interpreter and its prefixes readable;
+;;   * `/dev/null`, `/dev/tty`, `/dev/fd` and a `/dev/ttysN` terminal writable — the character
+;;     devices a shell and a test runner need, never a file under a system directory;
+;;   * nothing else. Any other path under /Users, /private/tmp or /private/var/folders without an
+;;     explicit rule above fails with EPERM, and any other write anywhere fails too.
+;;
+;; SIGNALS (F35). `(deny signal)` confines kill(2) to the launch's own sandbox, so a worker cannot
+;; signal the driver, the scheduler or another run; killing its own children still works.
+;;
+;; NETWORK (F26 / F36). `(deny network-outbound)` and `(deny network-bind)` close the network; the
+;; render block re-allows exactly the driver's CONNECT-only allowlist proxy and this launch's own
+;; loopback `opencode serve` port. No `remote unix-socket` rule exists, so unix-socket egress is
+;; closed by omission, and `com.apple.dnssd.service` is denied, so a name cannot be resolved.
+(allow default)
+(deny file-read-data file-write*
+      (subpath "/Users")
+      (subpath "/private/tmp")
+      (subpath "/var/folders")
+      (subpath "/private/var/folders"))
+(deny file-write* (subpath "/"))
+(deny network-outbound)
+(deny network-bind)
+(deny signal)
+(allow signal (target same-sandbox))
+(deny mach-lookup (global-name "com.apple.dnssd.service"))
+{{ALLOW}}

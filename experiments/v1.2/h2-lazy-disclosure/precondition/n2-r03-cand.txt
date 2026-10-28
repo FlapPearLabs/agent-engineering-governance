@@ -1,0 +1,70 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = 16bdb2355b940b3bc536693355c83f0c19d1d3a1eb030724d4f4d2933c3e9fdd
+# source: r03 candidate measurement log
+# CE-28 TOKEN SUBSTITUTION: the protected declaration-point token that appears once below,
+# inside captured test stdout, is replaced by <REDACTED_CE28_TOKEN>. Reason: the canonical
+# suite scans every text file for that token and requires the Review Evidence interface to be
+# its single owner, so carrying it in captured output trips
+# test_04_single_declaration_point_repo_wide and the producer-trust-boundary declaration scan.
+# No measured number, failure identity or line count is affected.
+
+### TREE=r03-cand  HEAD=65113de69bda6802a476eefa033cf00439d49f04  files=86
+### wall start 2026-10-14T06:13:09Z
+=== A: python3 scripts/validate_governance.py ===
+--- [A] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python scripts/validate_governance.py
+--- [A] rc=0  elapsed=1s
+      PASS  runtime-version-and-counts-sync
+      PASS  project-state-persistence-integrated
+      PASS  memory-non-authoritative-and-anti-bureaucracy
+      PASS  project-continuity-contract-present
+      PASS  project-state-trio-coherent
+      PASS  zcode-adapter-reference-present
+      PASS  agents-continuity-wiring
+      PASS  ci-runs-continuity-matrix
+      PASS  ticket-gate-documentation-wiring-only
+      PASS  ci-executes-static-gate
+      PASS  static-gate-documentation-wiring-only
+      PASS  orchestrator-closure-doctrine-present
+      
+      34/34 checks passed
+
+=== B: python3 -m unittest discover -s scripts/tests ===
+--- [B] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest discover -s scripts/tests
+--- [B] rc=0  elapsed=13s
+        N9 unverified omitted | REJECT | True | False | False | ['REJECT']
+        P2 unverified explicit empty array | ACCEPT | False | True | True | []
+        N10 free-text reuse descriptor | REJECT | True | False | False | ['REJECT']
+        N11 invalid descriptor VERIFICATION_STATE | REJECT | True | False | False | ['REJECT']
+        N12 INSUFFICIENT on the source axis | REJECT | True | False | False | ['REJECT']
+        P3 VERIFIED + INSUFFICIENT | ACCEPT | False | True | True | []
+        P4 TEMPORARILY_UNAVAILABLE + INSUFFICIENT | ACCEPT | False | True | True | []
+        N13 seams N/A without reason and acceptance ref | REJECT | True | False | False | ['REJECT']
+        N14 declared <REDACTED_CE28_TOKEN> = NO | ACCEPT | False | False | False | ['REJECT']
+      ...............................................
+      ----------------------------------------------------------------------
+      Ran 441 tests in 12.807s
+      
+      OK
+
+=== C: python3 -m unittest scripts.tests.test_p1_t16_gate_cli_entrypoint ===
+--- [C] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m unittest scripts.tests.test_p1_t16_gate_cli_entrypoint
+--- [C] rc=0  elapsed=2s
+      ............
+      ----------------------------------------------------------------------
+      Ran 12 tests in 2.335s
+      
+      OK
+
+=== D: python3 -m compileall -q scripts adapters ===
+--- [D] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m compileall -q scripts adapters
+--- [D] rc=0  elapsed=0s
+
+=== E: python3 -m ruff check . ===
+--- [E] $ /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/python/envs/default/bin/python -m ruff check .
+--- [E] rc=0  elapsed=1s
+      All checks passed!
+
+### dirty after: 0 entries
+### DONE r03-cand

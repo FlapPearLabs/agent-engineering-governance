@@ -1,0 +1,1110 @@
+{
+ "schema": "ELIGIBILITY_SCHEMA_V2",
+ "schema_version": "2.8.12",
+ "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
+ "record_semantics": "one record per measured historical pair; class and lifecycle statuses follow the measured transition and are re-executed and bound by the validator. REQUEST_VALID is a request to Freeze v2, not an admission.",
+ "records": [
+  {
+   "candidate_id": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+   "corpus_case_id": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+   "candidate_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 2ed08f6f7ddf -> b88df0313b3b; externalized ['scripts/tests/test_review_evidence_contract.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_review_evidence_contract.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 6 surface(s), 6 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/b88df0313b3b.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/b88df0313b3b.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r35-governance-ext-evaluate-character-classes-with-ecma",
+   "corpus_case_id": "r35-governance-ext-evaluate-character-classes-with-ecma",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "ffb8db0dd2122a56004dea40f492fb87a0d0dbb9",
+   "candidate_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 1b48d2bb44e5 -> 0ec774f06882; externalized ['scripts/tests/test_review_evidence_contract.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_review_evidence_contract.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 6 surface(s), 6 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/0ec774f06882.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/0ec774f06882.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r36-governance-ext-evaluate-declared-patterns-with-ecma",
+   "corpus_case_id": "r36-governance-ext-evaluate-declared-patterns-with-ecma",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "4c104decd9fd969303c099f5c4bdc8a6eb331013",
+   "candidate_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair b88df0313b3b -> 1b48d2bb44e5; externalized ['scripts/tests/test_review_evidence_contract.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_review_evidence_contract.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 6 surface(s), 6 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/1b48d2bb44e5.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/1b48d2bb44e5.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "corpus_case_id": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "a97595229f11cd7262f6a49abb433de408e94ca4",
+   "candidate_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair e398dde43042 -> 89b97e3b65d3; externalized ['scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 7 surface(s), 7 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/89b97e3b65d3.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/89b97e3b65d3.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r38-governance-ext-remove-local-digest-fallback-use",
+   "corpus_case_id": "r38-governance-ext-remove-local-digest-fallback-use",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "990177774cc4b906ec95146422356c97928b05fc",
+   "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 1ca93655425e -> 33cfcc890e38; externalized ['scripts/tests/test_p1_t05_evidence_disposition.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t05_evidence_disposition.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 8 surface(s), 8 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/33cfcc890e38.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/33cfcc890e38.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r39-governance-ext-refuse-every-scheme-form-evidence",
+   "corpus_case_id": "r39-governance-ext-refuse-every-scheme-form-evidence",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+   "candidate_sha": "51e7604be3689f31142d17144893790000efac30",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 5c9f6a7fcfa6 -> 51e7604be368; externalized ['scripts/tests/test_p1_t06_producer_trust_boundary.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t06_producer_trust_boundary.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 10 surface(s), 10 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/51e7604be368.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/51e7604be368.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r40-governance-ext-make-the-p1-t11-pre",
+   "corpus_case_id": "r40-governance-ext-make-the-p1-t11-pre",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+   "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair dc7aef63001e -> 12c32f41898a; externalized ['scripts/tests/test_p1_t11_destructive_workspace_transaction.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t11_destructive_workspace_transaction.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 12 surface(s), 12 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/12c32f41898a.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/12c32f41898a.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r41-governance-ext-scope-the-not-auditable-rule",
+   "corpus_case_id": "r41-governance-ext-scope-the-not-auditable-rule",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+   "candidate_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 975c559fa9cf -> 0046c3648c4e; externalized ['scripts/tests/test_p1_t10_audit_visibility_recipe.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t10_audit_visibility_recipe.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 14 surface(s), 14 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/0046c3648c4e.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/0046c3648c4e.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r42-governance-ext-treat-a-partially-populated-reuse",
+   "corpus_case_id": "r42-governance-ext-treat-a-partially-populated-reuse",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+   "candidate_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 6856a322cdbc -> 1eaaea2c97bf; externalized ['scripts/tests/test_p1_t08_evidence_lifecycle.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t08_evidence_lifecycle.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 15 surface(s), 15 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/1eaaea2c97bf.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/1eaaea2c97bf.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r43-governance-ext-ground-the-reuse-blank-test",
+   "corpus_case_id": "r43-governance-ext-ground-the-reuse-blank-test",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "f1953504789df6a0733646a2a36f5c5461805184",
+   "candidate_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 1eaaea2c97bf -> b03d1811f63a; externalized ['scripts/tests/test_p1_t08_evidence_lifecycle.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t08_evidence_lifecycle.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 15 surface(s), 15 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/b03d1811f63a.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/b03d1811f63a.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r44-governance-ext-converge-the-p1-p2-findings",
+   "corpus_case_id": "r44-governance-ext-converge-the-p1-p2-findings",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+   "candidate_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair fc7ad45838a6 -> 579f6d5e7762; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/579f6d5e7762.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/579f6d5e7762.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r45-governance-ext-close-an-evidence-orphaning-bug",
+   "corpus_case_id": "r45-governance-ext-close-an-evidence-orphaning-bug",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "d453ec549bea6375564ac943ed35fc0b13e5e9cf",
+   "candidate_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 579f6d5e7762 -> 58870aaebfbd; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/58870aaebfbd.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/58870aaebfbd.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r46-governance-ext-close-the-guard-strength-gaps",
+   "corpus_case_id": "r46-governance-ext-close-the-guard-strength-gaps",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "2219e31686c92e58ea77def33ab98cad3d1e1608",
+   "candidate_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 58870aaebfbd -> 16e30499fcb0; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=CANDIDATE_REGRESSES_A_FROZEN_GUARD over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/16e30499fcb0.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/16e30499fcb0.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r47-governance-ext-the-agents-guard-was-pinning",
+   "corpus_case_id": "r47-governance-ext-the-agents-guard-was-pinning",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "6dffa981941668e70062beb2922e0d2f51d47c2b",
+   "candidate_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 16e30499fcb0 -> 2d4bb9dcbd3c; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/2d4bb9dcbd3c.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/2d4bb9dcbd3c.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r48-governance-ext-close-the-three-guard-holes",
+   "corpus_case_id": "r48-governance-ext-close-the-three-guard-holes",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
+   "candidate_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 3918a930b79a -> 493528317261; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/493528317261.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/493528317261.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r49-governance-ext-roll-p22-up-and-stop",
+   "corpus_case_id": "r49-governance-ext-roll-p22-up-and-stop",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "e1262d527d6b26acdc08a6a0b52cdb619575e11f",
+   "candidate_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 0fe2d765158f -> 97ec8027d474; externalized ['scripts/tests/test_p1_t18_defect_promotion_fast_full.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t18_defect_promotion_fast_full.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 22 surface(s), 22 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/97ec8027d474.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/97ec8027d474.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r50-governance-ext-bind-skill-evidence-reads-to",
+   "corpus_case_id": "r50-governance-ext-bind-skill-evidence-reads-to",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+   "candidate_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair abad56b51ef8 -> 5d61ad139ceb; externalized ['scripts/tests/test_skill_execution.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_skill_execution.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/5d61ad139ceb.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/5d61ad139ceb.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r51-governance-ext-preserve-the-consumer-specified-skill",
+   "corpus_case_id": "r51-governance-ext-preserve-the-consumer-specified-skill",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
+   "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+     "detail": "A: ENVIRONMENT_SENSITIVE_ACCEPTANCE (surfaces moving FAIL->PASS: none); B: ENVIRONMENT_SENSITIVE_ACCEPTANCE (biting: none; regressed guards: none; unmeasured guards: none)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair 5d61ad139ceb -> f2f95f1d67cd; externalized ['scripts/tests/test_skill_execution.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=ENVIRONMENT_SENSITIVE_ACCEPTANCE B=ENVIRONMENT_SENSITIVE_ACCEPTANCE over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/f2f95f1d67cd.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/f2f95f1d67cd.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r52-governance-ext-apply-skill-receipt-checks-at",
+   "corpus_case_id": "r52-governance-ext-apply-skill-receipt-checks-at",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "5abdc296c7beebf2416ce41d4d952ddaab756d75",
+   "candidate_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "ENVIRONMENT_SENSITIVE_ACCEPTANCE",
+     "detail": "A: ENVIRONMENT_SENSITIVE_ACCEPTANCE (surfaces moving FAIL->PASS: none); B: ENVIRONMENT_SENSITIVE_ACCEPTANCE (biting: none; regressed guards: none; unmeasured guards: none)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "identity_note": "EXTERNALIZED_ORACLE of the real pair f2f95f1d67cd -> 8c0075c5db0e; externalized ['scripts/tests/test_skill_execution.py'] (the historical delta DID rewrite them; this pair does not)",
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because it is a NEW identity (B', C): B' is the original base plus the candidate's version of the rewritten tests (admission/externalize.py), so the oracle is framework-frozen and the delta derives no trigger",
+     "measured": "discovery disposition EXTERNALIZED_ORACLE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/discovery-externalized.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=ENVIRONMENT_SENSITIVE_ACCEPTANCE B=ENVIRONMENT_SENSITIVE_ACCEPTANCE over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/measurements/8c0075c5db0e.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/probes/8c0075c5db0e.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "ENVIRONMENT_SENSITIVE_ACCEPTANCE"
+    ]
+   }
+  }
+ ]
+}

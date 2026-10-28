@@ -1,0 +1,246 @@
+{
+ "program": "admission/alignment.py",
+ "min_len": 6,
+ "summary": {
+  "NO_TICKET": 6,
+  "NOT_ALIGNED": 7,
+  "VISIBLE_FROZEN_ORACLE": 11
+ },
+ "rows": [
+  {
+   "CASE_ID": "r07-governance-external-findings-f1-f7",
+   "CANDIDATE_SHA": "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9",
+   "ORACLE": "scripts/validate_governance.py",
+   "REQUIRED_LITERALS": 24,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r09-governance-seam-contract-partitions",
+   "CANDIDATE_SHA": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "ORACLE": "scripts/tests/test_seam_contract_partitions.py",
+   "REQUIRED_LITERALS": 71,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r10-governance-p1-t02-pre-ticket-record",
+   "CANDIDATE_SHA": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "ORACLE": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+   "REQUIRED_LITERALS": 20,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r12-governance-p1-t03-closure-evidence",
+   "CANDIDATE_SHA": "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd",
+   "ORACLE": "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+   "REQUIRED_LITERALS": 21,
+   "TICKETS": [
+    "17"
+   ],
+   "MISSING": 7,
+   "MISSING_SAMPLE_SHA256_12": [
+    "0a2f1c336368 len=23",
+    "12bccaefc731 len=23",
+    "dbc6010c11a9 len=12",
+    "f35006febcc0 len=11",
+    "be80e020cd54 len=9"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r14-governance-p1-t07-evidence-consumption",
+   "CANDIDATE_SHA": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+   "ORACLE": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+   "REQUIRED_LITERALS": 26,
+   "TICKETS": [
+    "19"
+   ],
+   "MISSING": 20,
+   "MISSING_SAMPLE_SHA256_12": [
+    "84ce1635cbc2 len=20",
+    "69860f1060b0 len=26",
+    "9c4ff50d1653 len=7",
+    "13615808aad7 len=7",
+    "29288f79fe82 len=7"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r15-governance-p1-t11-destructive-transaction",
+   "CANDIDATE_SHA": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "ORACLE": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+   "REQUIRED_LITERALS": 79,
+   "TICKETS": [
+    "23"
+   ],
+   "MISSING": 38,
+   "MISSING_SAMPLE_SHA256_12": [
+    "c803e33852a1 len=23",
+    "9875125a3b5b len=20",
+    "e6a9c4bd1411 len=44",
+    "ab4bd757f42d len=51",
+    "a5ae7b33445c len=16"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r16-governance-p1-t10-audit-visibility",
+   "CANDIDATE_SHA": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "ORACLE": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+   "REQUIRED_LITERALS": 59,
+   "TICKETS": [
+    "22"
+   ],
+   "MISSING": 38,
+   "MISSING_SAMPLE_SHA256_12": [
+    "84ce1635cbc2 len=20",
+    "69860f1060b0 len=26",
+    "14bfd6281b89 len=7",
+    "b31a9574b167 len=7",
+    "3e5b24a3f985 len=7"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r18-governance-p1-t12-single-writer",
+   "CANDIDATE_SHA": "07430d179138595497ddd8c20a934a93b46620b9",
+   "ORACLE": "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+   "REQUIRED_LITERALS": 41,
+   "TICKETS": [
+    "20"
+   ],
+   "MISSING": 35,
+   "MISSING_SAMPLE_SHA256_12": [
+    "9331d30c4003 len=26",
+    "bfcbc124073d len=36",
+    "326530e42646 len=44",
+    "6aeab2f46aa6 len=30",
+    "fd181d39c259 len=11"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r19-governance-p1-t13-learning-closure",
+   "CANDIDATE_SHA": "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6",
+   "ORACLE": "scripts/tests/test_p1_t13_learning_closure.py",
+   "REQUIRED_LITERALS": 36,
+   "TICKETS": [
+    "13",
+    "25"
+   ],
+   "MISSING": 26,
+   "MISSING_SAMPLE_SHA256_12": [
+    "c7dd2ec2eed1 len=10",
+    "75c24b45e1b6 len=44",
+    "5c1fc5106dab len=21",
+    "6aaa3f63dccb len=36",
+    "c5cfbab8d7a6 len=50"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r20-governance-p1-t14-model-dispatch",
+   "CANDIDATE_SHA": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "ORACLE": "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+   "REQUIRED_LITERALS": 34,
+   "TICKETS": [
+    "14"
+   ],
+   "MISSING": 26,
+   "MISSING_SAMPLE_SHA256_12": [
+    "572a5954b7cc len=41",
+    "a5a876e1c933 len=42",
+    "07d2cfd7dda8 len=12",
+    "35433944e83d len=68",
+    "bcbc3df97411 len=24"
+   ],
+   "ALIGNMENT": "NOT_ALIGNED"
+  },
+  {
+   "CASE_ID": "r21-governance-p1-t18-defect-promotion",
+   "CANDIDATE_SHA": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "REQUIRED_LITERALS": 119,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r22-governance-v12-experiment-foundation",
+   "CANDIDATE_SHA": "0007bb3096791114d4616b599f44428e9bbfeb83",
+   "ORACLE": "scripts/tests/test_experiment_v12_foundation.py",
+   "REQUIRED_LITERALS": 49,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r24-governance-bootstrap-budget-repair-round-2",
+   "CANDIDATE_SHA": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "ORACLE": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r27-governance-memory-preset-budget-restore",
+   "CANDIDATE_SHA": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "ORACLE": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r31-governance-pr1-global-governance-audit",
+   "CANDIDATE_SHA": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "ORACLE": "scripts/validate_governance.py",
+   "REQUIRED_LITERALS": 53,
+   "ALIGNMENT": "NO_TICKET"
+  },
+  {
+   "CASE_ID": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "CANDIDATE_SHA": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "ORACLE": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r40-governance-ext-make-the-p1-t11-pre",
+   "CANDIDATE_SHA": "12c32f41898a5cec8db9346637c78800978f7549",
+   "ORACLE": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r41-governance-ext-scope-the-not-auditable-rule",
+   "CANDIDATE_SHA": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "ORACLE": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r44-governance-ext-converge-the-p1-p2-findings",
+   "CANDIDATE_SHA": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r45-governance-ext-close-an-evidence-orphaning-bug",
+   "CANDIDATE_SHA": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r46-governance-ext-close-the-guard-strength-gaps",
+   "CANDIDATE_SHA": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r47-governance-ext-the-agents-guard-was-pinning",
+   "CANDIDATE_SHA": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r48-governance-ext-close-the-three-guard-holes",
+   "CANDIDATE_SHA": "4935283172615de9e0954b67fee710c3b96eb549",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  },
+  {
+   "CASE_ID": "r49-governance-ext-roll-p22-up-and-stop",
+   "CANDIDATE_SHA": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "ORACLE": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+   "ALIGNMENT": "VISIBLE_FROZEN_ORACLE"
+  }
+ ]
+}

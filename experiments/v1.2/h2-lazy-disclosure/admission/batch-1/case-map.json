@@ -1,0 +1,22 @@
+{
+ "note": "candidate commit (full SHA taken from discovery-governance.json, never typed) -> replay-corpus case id. 2ed08f6 is the existing case r02 (same pair) and is reused, never duplicated. New ids continue the corpus numbering in commit-date order.",
+ "cases": {
+  "0007bb3096791114d4616b599f44428e9bbfeb83": "r22-governance-v12-experiment-foundation",
+  "fc7ad45838a641044b7d0404d25d497d7b11b258": "r21-governance-p1-t18-defect-promotion",
+  "f1323df2670c3fa6a554ae13d50784e1f96c7603": "r20-governance-p1-t14-model-dispatch",
+  "a1cf096ae7901e27c7c7ef7407e8bf542e7bbfc6": "r19-governance-p1-t13-learning-closure",
+  "07430d179138595497ddd8c20a934a93b46620b9": "r18-governance-p1-t12-single-writer",
+  "6856a322cdbc5282242464e068e9fb841f017642": "r17-governance-p1-t08-evidence-lifecycle",
+  "975c559fa9cfcabc012dcb9fb96ffadf32594b03": "r16-governance-p1-t10-audit-visibility",
+  "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48": "r15-governance-p1-t11-destructive-transaction",
+  "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d": "r14-governance-p1-t07-evidence-consumption",
+  "5c9f6a7fcfa67e081747e418ba549eb96da39a69": "r13-governance-p1-t06-producer-trust",
+  "8ae4e6058bbbbf800344d7a2861c1dd82dfda6bd": "r12-governance-p1-t03-closure-evidence",
+  "1ca93655425e07933f379b3fa30a26819a4adedd": "r11-governance-p1-t05-evidence-disposition",
+  "e398dde43042e0e00ca99076aa9ecd3e4f8951dd": "r10-governance-p1-t02-pre-ticket-record",
+  "2ed08f6f7ddf58b234b54afb8334e6fae32cd768": "r02-governance-review-evidence-interface",
+  "19c2c43682b4a0b26c44520e297f32c2f5a6c650": "r09-governance-seam-contract-partitions",
+  "af4df6ae706394db5f9dec313993312392aeb516": "r08-governance-project-continuity-contract",
+  "295ce6514f571ff0c9d8fee72b2fc11f54abc9a9": "r07-governance-external-findings-f1-f7"
+ }
+}

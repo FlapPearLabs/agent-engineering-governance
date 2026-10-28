@@ -1,0 +1,72 @@
+{
+  "arm": "control",
+  "artifacts": {
+    ".h2-telemetry.log": "724814e748ef406b0c0240b02a166ca885fe36c8d77f553d8c729c0b57819b06",
+    ".tmp/.bun-501-295fc1275a70d982.dylib": "f5034b5d03ef088e12cb61929996f8f568d1873140675dbe859e7c613a6cbc13",
+    ".tmp/.bun-501-682a1f449c0eca3d.dylib": "45062efb600391674e61abd704628dd0b3532db9d30f4f52d6c7910f1e73d7d8",
+    ".tmp/.bun-501-c22f2ef692948d9e.node": "ea31618e251be57fdf7a8160bc2cb57d3131a430287681de2d321bbc3679e777",
+    "AGENTS.md": "de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1",
+    "CONTRACT.md": "6ff8e455102aa929088735945b22fb979f3bd3fe4868a905d48eb7d2cb24a3dc",
+    "H2_RULES.md": "d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d",
+    "H2_WARM/references/codegraph-grounding.md": "1ae0cc25dc55d6470e1a35b08b4b14717dea160bac99018f49b2c14fb5d671a8",
+    "H2_WARM/references/engineering-memory.md": "40ad9e91cdb6f5b2209299f37c95fbee618dfc24ca4bd5592f302f8bffda0439",
+    "H2_WARM/references/execution-stage.md": "556fda85752d204ca392dffe17173cbe6a2620899f5ac62760377c4bf00b270b",
+    "H2_WARM/references/git-ci-integration.md": "cc236df6648cd174076d6ae99f44c3912877a5f1e9a4485d1bbb4623848e4308",
+    "H2_WARM/references/project-continuity-contract.md": "9087b7750fa6444280bfd020e618406ddd7084d2d85d504babeea42bedf83729",
+    "H2_WARM/references/project-state-persistence.md": "1b5a31323cd5a34094b57bceeb754c25f38405366ae129726664623e89eeda7e",
+    "H2_WARM/references/review-and-repair-saturation.md": "6b0167094c6cbafa925fe6bd948d4f955c9cacf0e09cb0debf87207c06cc144a",
+    "H2_WARM/references/skills-and-model-routing.md": "37e018c098857809bc75317de871f1d63747b50578bc565e56690507a39034ed",
+    "H2_WARM/references/static-analysis-and-code-intelligence.md": "51c1f3c9e8a40d1d5f5b4a89856796ac0c065d20e31c3ffe4e9e6977813013dd",
+    "H2_WARM/references/ticket-lane.md": "289398c12de357893bb16b5e6d8d1f381f23eb73287f1d8ad0a70226f6106749",
+    "H2_WARM/skills/README.md": "02258abf9d03ecd54be433b8e7ae32b7715180f3c33ff411f2a7eda94c695575",
+    "access-audit.json": "2bf8b3e5ad48ab0050fcb825ad319d316b378423fe61fa6bbe46819c32e331de",
+    "collected.json": "78fe397da39a9e6eaa58a424ba6d0eb940c0cd037e02863ccd8e45e6755a7d82",
+    "events.jsonl": "cd70eb437931d1f96f9429c48580f5ffc8440c8062eb134f94e03371472e2042",
+    "preflight.json": "e8cbf65820f99f4ed3d1cccea75bc89410e0bc0d3bb16cc03866ce4d419975e2",
+    "receipt.json": "e2ee66d92d31c04f52d8db7da8864beeff44c01b085a859a4170dc8e0317f522",
+    "report.md": "989fc212ce2f97f27acadfc89bbcc771f8c191abf67782cc82d45bcfc6c3e8c8",
+    "run.json": "bf0f7f9d0b80ff8e16ad325f69cf1aaead7f785d7e21fd8a8c0649e4e1a6c736",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verdict.json": "36ae14be0786bb47e10ae49673fcff675c028d94a462983b5edcdd05a4a813a2",
+    "worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2"
+  },
+  "attempt": 1,
+  "attempts": 1,
+  "audit_verdict": "SKIPPED",
+  "denied_attempts": 0,
+  "final_verdict": "INVALID",
+  "finished_at": "2026-10-28T02:44:24+00:00",
+  "reason": "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts",
+  "run_id": "h2r2-f03-c",
+  "session_id": "ses_e7fa2ce97ffeORFa9o56K2Md1x",
+  "started_at": "2026-10-28T02:35:26+00:00",
+  "task_id": "f03",
+  "verdict": "INVALID",
+  "wall_clock_seconds": 538.085,
+  "reason_codes": [
+    "OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN"
+  ],
+  "artifact_verification": [],
+  "mechanical": {
+    "verdict": "ACCEPT",
+    "reasons": []
+  },
+  "access_audit": {
+    "verdict": "INVALID",
+    "hits": [
+      {
+        "class": "POSSIBLE_SUCCESS",
+        "event": 40,
+        "path": "<HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py",
+        "reason": "PATH_OUTSIDE_RUN",
+        "tool": "shell",
+        "value": "sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts"
+      }
+    ],
+    "denied_attempts": []
+  },
+  "auditor": {
+    "correctness": null,
+    "findings": []
+  }
+}

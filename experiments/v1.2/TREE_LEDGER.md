@@ -23,7 +23,8 @@ N0  V1.2 ROOT
 ├── N1  H1 — Bounded Bootstrap / HOT Context                      [CLOSED]
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 │
-├── N2  H2 — Lazy Skill / Progressive Disclosure                  [ACTIVE]
+├── N2  H2 — Lazy Skill / Progressive Disclosure                  [CLOSED]
+│       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
@@ -92,7 +93,11 @@ NOTE = H1 **没有**产出 promotion 建议，只产出了量化事实与三条 
 
 #### N2 — H2 Lazy Skill / Progressive Disclosure
 ```text
-STATUS = **ACTIVE**（freeze 阶段已产出；runs 待 freeze 进 main 后执行）
+STATUS = **CLOSED**
+RESULT = INSUFFICIENT_EVIDENCE
+FREEZE_SHA = 4aa2e7b
+CLOSURE_REPORT = experiments/v1.2/h2-lazy-disclosure/freeze-v2-closure-report.md
+MERGE_SHA = merge SHA recorded post-merge
 ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
                     6 个不同 base（H2 base = n02 base）上 S3 载体行 11/11 VALID，
                     N8 冻结面 22/22 ✅
@@ -463,8 +468,13 @@ GIT_LOCATION =
 ```text
 TREE_NODES_TOTAL = 19
 CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
-CURRENT_NODE_STATUS = ACTIVE（freeze 已产出：协议/载体/任务集/评分/路由 manifest 冻结，
-                     P1–P7 逐项落实；runs 待 freeze 进默认分支后执行）
+CURRENT_NODE_STATUS = ACTIVE / ROUND_2_FROZEN_PENDING_REVIEW（freeze 已产出并已 merge 进默认分支；
+                     Round 1 已关闭为 INVALID，harness 读边界缺陷已修并独立评审，
+                     Round 2 已重新冻结待运行；**本轮未执行任何 Round 2 实跑**）
+  子状态：H2_ROUND_1 = CLOSED / INVALID（GLOBAL_HARNESS_CONTRACT_DEFECT；VALID_RUNS=0）
+          H2_HARNESS_REPAIR = CLOSED（读边界已修；treatment 未变；对抗评审的 B1/B2/B3 已修，
+                              新 SHA 待新一轮独立评审）
+          H2_ROUND_2 = FROZEN / PENDING_FRESH_REVIEW（身份 H2-R2-R01..R20，实跑 0）
   · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（6 个不同 base 复验：S3 11/11 VALID；
     N8 冻结面 22/22）；② N6.5 §0 的 P1–P7 = 已落实 ✅（precondition/ 证据）
 NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）

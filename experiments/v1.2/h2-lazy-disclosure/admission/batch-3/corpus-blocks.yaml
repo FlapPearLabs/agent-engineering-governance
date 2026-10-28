@@ -1,0 +1,111 @@
+  - case_id: r31-governance-pr1-global-governance-audit
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 8a99cbff7dfefcaca8000caafe80568c225e072b
+    candidate_sha: 2359283879cec3f37f6e357bd6b9a2cfeb6d45b0
+    historical_diff: 'git diff 8a99cbff7dfefcaca8000caafe80568c225e072b 2359283879cec3f37f6e357bd6b9a2cfeb6d45b0'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 30
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+      - signal: NEW_DIRECTORY
+        count: 9
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 8a99cbff7dfefcaca8000caafe80568c225e072b 2359283879cec3f37f6e357bd6b9a2cfeb6d45b0'
+          - 'git diff 8a99cbff7dfefcaca8000caafe80568c225e072b 2359283879cec3f37f6e357bd6b9a2cfeb6d45b0 --stat'
+          - 'git merge-base --is-ancestor 2359283879cec3f37f6e357bd6b9a2cfeb6d45b0 origin/main'
+      related_refs:
+        - 'candidate subject: Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05'
+      notes: |
+        merge commit; base = first parent (2 parents); 31 files changed, 2351 insertions(+), 2 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+  - case_id: r32-governance-pr40-replay-corpus
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 324fc36ec1696116c311fd440225a95aeda04a91
+    candidate_sha: 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02
+    historical_diff: 'git diff 324fc36ec1696116c311fd440225a95aeda04a91 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 2
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+      - signal: NEW_DIRECTORY
+        count: 1
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 324fc36ec1696116c311fd440225a95aeda04a91 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02'
+          - 'git diff 324fc36ec1696116c311fd440225a95aeda04a91 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02 --stat'
+          - 'git merge-base --is-ancestor 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02 origin/main'
+      related_refs:
+        - 'candidate subject: Merge pull request #40 from FlapPearLabs/experiment/v1.2-replay-corpus'
+      notes: |
+        merge commit; base = first parent (2 parents); 4 files changed, 631 insertions(+), 4 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.
+  - case_id: r33-governance-pr41-structure-delta-v0
+    class: H2_ADMISSION_CANDIDATE
+    source_repository: FlapPearLabs/agent-engineering-governance
+    source_ref: main
+    base_sha: 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02
+    candidate_sha: 5b55b6d7c3cd1fa25622b06bac43132e64f6e54a
+    historical_diff: 'git diff 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02 5b55b6d7c3cd1fa25622b06bac43132e64f6e54a'
+    expected_mechanical_signals:
+      - signal: NEW_FILE
+        count: 3
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+      - signal: NEW_DIRECTORY
+        count: 1
+        detail: |
+          computed by admission/corpus_cases.py (independent of the H3 detector)
+    structure_disposition: NOT_ADJUDICATED
+    structure_rationale: |
+      Added for H2 Schema-v2 candidate admission as an identity anchor only. No structure
+      verdict is made; this case is not an H3 positive or negative sample.
+    behavioral_disposition: NO_BEHAVIORAL_CLAIM
+    behavioral_rationale: |
+      No independent judgement of the candidate's correctness is recorded here. The H2
+      acceptance transition for this pair is measured by the eligibility validator, which
+      is a statement about the acceptance, not about the candidate.
+    provenance:
+      resolver:
+        repository: FlapPearLabs/agent-engineering-governance
+        commands:
+          - 'git rev-parse 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02 5b55b6d7c3cd1fa25622b06bac43132e64f6e54a'
+          - 'git diff 36b23dc9c1a888d2c4837e7fba1277ae56f8cb02 5b55b6d7c3cd1fa25622b06bac43132e64f6e54a --stat'
+          - 'git merge-base --is-ancestor 5b55b6d7c3cd1fa25622b06bac43132e64f6e54a origin/main'
+      related_refs:
+        - 'candidate subject: Merge pull request #41 from FlapPearLabs/experiment/v1.2-structure-delta-v0'
+      notes: |
+        merge commit; base = first parent (2 parents); 8 files changed, 951 insertions(+), 21 deletions(-).
+        Reachable from origin/main=5ab500e5478b671f43df80a78730ca172da6cf2b.

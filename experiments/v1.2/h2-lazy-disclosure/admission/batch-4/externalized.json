@@ -1,0 +1,515 @@
+{
+ "program": "admission/externalize.py",
+ "identity": [
+  "FlapPearLabs",
+  "151931662+FlapPearLabs@users.noreply.github.com"
+ ],
+ "eligible": 57,
+ "skipped": {
+  "606107903e5f28e5c30572e7fbeb14f4bf345a56": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "921be3e7e87fafa34855403ee317173210edc69b": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "143196e592dec60e919b9b68f21571fd0fb14dd2": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "da1cd4c49406b9218d06733ed5908a49dffe2195": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "fa6e131346e19d42bab47bcc63a77a190b598a46": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "3d0c5fcf4a1fd13f78c0b811cda34fec73507ca3": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "1e77b43e587f041f768aa992564082596ff947b4": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "2e3b3c5a8a57638b8f60958eeb8a0ae2d4a100a5": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "843828b3f090cc56b00cfdc2a1ba6843e36551a0": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "200679649f1ff3fe78cad53fd1006b83ddf792aa": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "7d868db65d281ec7bd52219c5166ab7b5c96d690": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "9bc3d951320165de573e9655b0093442617a72c1": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "65113de69bda6802a476eefa033cf00439d49f04": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "a0068745f268b777c5cbb270366072e420e737ba": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "2323a39ba33ebf9d3bfaf502d6dd4405bfd2a9e6": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "f2e3a52cb32d441c9179d4b40ab105dac32b2307": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "9fa8713637547471097cc0e8cb234b9589ca3e46": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "b0ea50033f3cb04980dcf2957d9298739dd98917": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "681000fe7dfb7978b6625e9954293dea039376e3": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "ed00e5df38d71e8cee32ac12e80a391661110e09": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "2b514e2c85c6881b49bc34f8b389676dc9274c5d": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "a920c6b35840d52990a93663a02686ae4b66feb4": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "c1681482a05e1de53b4d3c7e7619def91f94b3c6": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "770388d7acbd9ba818d5287e6dfe7f10c2aec961": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "d56d437f0cae6d431f66ef032bfd0bc4611fac7c": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "50b353b8da8c50c48fbd1feb50f60b7cdb80b719": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "cf02ea8ea2b384963e61a4e9808d2dafced6645a": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "231d9bd3f8ca7df202615132f1532e10271b6259": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "c6e970b895f129aeaa6ef994ed03fcf4a38248d3": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "28b33665dc5f86d8a6465aa8bf77100a07c010ca": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "bc561a6ae5a804ed42f2befd6a8e054d47936543": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "f3911e0ab1a5e9f9d0aab8c3539d14ecd39c16e0": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "790e0dca930a526d10f28b794f34cca55a8a9e4c": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "4b5d9ac589630d57003c7bdfcce7ec7dfcd37c90": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "fe7cc0bd00ba07aa8e142cad164a67aa11dafbd4": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "3f05077683660675340ae0929f908e8f35e77b71": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "43d37e650cd1796c5d1f2cfb852cbcd2e4848c9e": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "2051126eab121d95bd1baff0f1af15fd712e773f": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "5ae3e3c8e54e5fafe0cb908708f98e2b0d1512ae": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "5e98003322d265690cb3b5ae6577c364f76465f6": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "9380d791ea32d01afc36ff2ed1a2003efef07d78": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "ca9affe4c58cfaccc2db157e78144f75cac9c601": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "221145fac211b65d0001d808d92095f7d859146b": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "0ba2c7351d45dba1459a391b0d43e418ecf55280": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_TEST_ORACLE,WORKER_MODIFIES_VALIDATOR",
+  "3e1e44cb87c8dd4ea3c20366eda773a40e1143fe": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR",
+  "893990c8766d390005c03313027e41b191c88cf4": "TRIGGERS_BEYOND_TEST_ORACLE:WORKER_MODIFIES_VALIDATOR"
+ },
+ "externalized": {
+  "72bcb9d9c995a5961fc98dc272fd1b6f13fe5155": {
+   "original_base": "921be3e7e87fafa34855403ee317173210edc69b",
+   "base_prime": "aa8416e807cb5cfacbaa9d28b978a1ba50c220bb",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "subject": "experiments(v1.2): H2 freeze — remove duplicate PROTOCOL_HASH literal (round-10 hash-patch defect)"
+  },
+  "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d": {
+   "original_base": "728e9b0007e71089c36f92cd95972065240c3ce2",
+   "base_prime": "fe5f64ea6469030364dbdd7cb941e970fb5eed76",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "subject": "experiments(v1.2): H2 freeze — delta-review fixes before merge (P3s from 728e9b0 review)"
+  },
+  "728e9b0007e71089c36f92cd95972065240c3ce2": {
+   "original_base": "352631e9c76bfebb9ad9aa7be11d99fce61cb3a3",
+   "base_prime": "149913900a39706d8efa567a9fb27bfe44a0bb2f",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "subject": "experiments(v1.2): H2 freeze — address pre-merge review findings (0xP0, 2xP2, 5xP3)"
+  },
+  "d441414c3189d8b71c06785cfbe560414ce9f6b7": {
+   "original_base": "b839a8e9bb6d080b6b88f2c1fccb407ebf5ce7e3",
+   "base_prime": "8d431e98299d692def75b194f1133e39e75a8551",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "subject": "experiment(v1.2): rescope the N6 slice check to its frozen range"
+  },
+  "dec29b6c3a3bdc1324d6486da238717dc70a413c": {
+   "original_base": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+   "base_prime": "c71610c0c28eb3791bd33d1088d57020f2f6ff00",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "subject": "experiment(v1.2): address N6 delta-review findings"
+  },
+  "3b8d090dd83b4010bd2dcacde6f5244c62939c71": {
+   "original_base": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
+   "base_prime": "4f32d993db41a1ccf950634c909e97a220603eb8",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "subject": "experiment(v1.2): address N6 mechanization-gap review findings"
+  },
+  "d9c809e151eac23140d2f29c7e272efbeda9d5b4": {
+   "original_base": "fc5c3e4184ac9863f90f0bbe2fb0bd5c5b7980e1",
+   "base_prime": "ac3ed5187f92576d49a14d0f6bf0cfa32db915aa",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_h1_material.py"
+   ],
+   "subject": "experiment(v1.2): address H1 evidence review findings"
+  },
+  "eb2f51f58f7d63dc1bbe872b4bf71d8488894835": {
+   "original_base": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "base_prime": "ff7b7fab8463d3519e857fe982bdd1ee9ccdb6f2",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_structure_delta.py"
+   ],
+   "subject": "experiment(v1.2): close the two reader false-green paths (H3-A review fixes)"
+  },
+  "8c0075c5db0e06eec67d303955d13e214ba22782": {
+   "original_base": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "base_prime": "5abdc296c7beebf2416ce41d4d952ddaab756d75",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "subject": "fix: apply Skill receipt checks at input acquisition"
+  },
+  "f2f95f1d67cd903f8a3029b88abe62b6975b10ce": {
+   "original_base": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "base_prime": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "subject": "fix: preserve the consumer specified skill evidence root"
+  },
+  "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e": {
+   "original_base": "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26",
+   "base_prime": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "subject": "fix: bind skill evidence reads to safe directory handles"
+  },
+  "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48": {
+   "original_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+   "base_prime": "65651261dfa1447667a4bf617d766e11954d5b36",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "subject": "fix(tests): establish the local-only precondition instead of assuming it"
+  },
+  "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3": {
+   "original_base": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+   "base_prime": "42b467bb03819f66096ee9970564652d2fd2324d",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "subject": "fix(tests): strip the real host login from the surface-scope regression"
+  },
+  "72cd1a26dd62fd23d43491f0137f667f49f9ada6": {
+   "original_base": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+   "base_prime": "c5d3cd6a4169c59afe85ce58a590e9086509d877",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "subject": "docs(deployment): record git credential precedence, and fix the surface it exposed"
+  },
+  "3aa9e22cf9684de38781c8485689bc9a80dc78de": {
+   "original_base": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+   "base_prime": "8dd0ed0e6324f662a67fd366162eefdefca0d448",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(audit): correct ancestor label and narrow the self-reference claim"
+  },
+  "15ebd5e896601a4e628d1ba9d8c1238af9227cc7": {
+   "original_base": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+   "base_prime": "d00e6b383858065921e01f46f01faac307d9248f",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): drop two claims the evidence does not support"
+  },
+  "c526d7294a0b768489a3a670c8ba8eedd81d4692": {
+   "original_base": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+   "base_prime": "dfbd81b0f95522d5895b44ccae27a4054ffe72a9",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): make the ledger say only what the evidence supports"
+  },
+  "7fa2f5d929e0ce1aafb53916133981190ea4dc59": {
+   "original_base": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+   "base_prime": "daba5e4054f992a6f481f0880013595c62ad55d1",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): a false negative is still a false claim"
+  },
+  "4ba58151fdca1bf655a503f51fca07143cfaea08": {
+   "original_base": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+   "base_prime": "258f328c905cffb261cc2755d3c1942437bbf184",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): close the findings the contract pass raised"
+  },
+  "495f7cda50837d81f2bb53d8d7965ac37d92759b": {
+   "original_base": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "base_prime": "fc03136d3174fba73f7716e8a33f8928084845be",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): saturation is not a review gate"
+  },
+  "97ec8027d4744219e41e993ce5da361f99cda087": {
+   "original_base": "0fe2d765158fe34cd20955972176d7d5ac9ba45d",
+   "base_prime": "e1262d527d6b26acdc08a6a0b52cdb619575e11f",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): roll P22 up, and stop the guard that forbade it"
+  },
+  "a0c30e137be2fb73449bc6a2bbbb56e9276c9575": {
+   "original_base": "c7058214e8b467afeb42f5b062992af41427007a",
+   "base_prime": "8ab82265de52471586bfb3a94adfcd3f7b57ae96",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): encode the swap mutation instead of asserting it by hand"
+  },
+  "c7058214e8b467afeb42f5b062992af41427007a": {
+   "original_base": "f7fc998e62356603d4350db2de1d3213a802b090",
+   "base_prime": "099b5479cbdf26996bf1870ddcca07f27d225479",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): assert the conditions are lines of the conjunction"
+  },
+  "f7fc998e62356603d4350db2de1d3213a802b090": {
+   "original_base": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+   "base_prime": "fdef5860c4efda5407a209de25da035676f1b3f9",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): guard all seven PROMOTE_NOW conditions, not five"
+  },
+  "4832b6f6b616c6602f1b8d838eb03edf92e4b071": {
+   "original_base": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+   "base_prime": "1f4b130368a8370acd32bbfd07708dd505b9945d",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): make the round-4 fixes falsifiable instead of asserted"
+  },
+  "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7": {
+   "original_base": "4935283172615de9e0954b67fee710c3b96eb549",
+   "base_prime": "312331ce06048827c719ef1db4a750af0d546ab2",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): close the four holes the fourth review found"
+  },
+  "4935283172615de9e0954b67fee710c3b96eb549": {
+   "original_base": "3918a930b79a8747f7c741dace56e499a6443908",
+   "base_prime": "743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): close the three guard holes the third review found"
+  },
+  "3918a930b79a8747f7c741dace56e499a6443908": {
+   "original_base": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "base_prime": "063f47aad43fa4e5e959e1e0780d88f81b501c0d",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): build detectors for the two domains nobody guarded"
+  },
+  "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481": {
+   "original_base": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "base_prime": "6dffa981941668e70062beb2922e0d2f51d47c2b",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): the AGENTS guard was pinning a duplicate in place"
+  },
+  "16e30499fcb0bd45abd47f063763708662c12e65": {
+   "original_base": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "base_prime": "2219e31686c92e58ea77def33ab98cad3d1e1608",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): close the guard-strength gaps found by the second review"
+  },
+  "58870aaebfbd5f9051fed65865a69f5f664814ae": {
+   "original_base": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "base_prime": "d453ec549bea6375564ac943ed35fc0b13e5e9cf",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): close an evidence-orphaning bug and make the negative controls real"
+  },
+  "579f6d5e7762610382e4362f668efaffc51f04ce": {
+   "original_base": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "base_prime": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "subject": "fix(governance): converge the P1/P2 findings from both independent reviews"
+  },
+  "cea9acc4989d982e0717486687713fcbc5a01297": {
+   "original_base": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+   "base_prime": "a6de6e5006b934fca01d3d60f36345364ae8e884",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "docs(adapters): retract the last residual closure claim; name today's open instances"
+  },
+  "bc01c192ad8393796d5c5d4897c37c352d2df877": {
+   "original_base": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+   "base_prime": "7404be96c5df102c2aa408ba028173e78ef30e38",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): catch quoting / option-arity / plumbing bypasses, and stop claiming closure"
+  },
+  "5653ce32adc30fc3cae8c8b3f70e77d1879355b3": {
+   "original_base": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+   "base_prime": "8db0848f6bb4f670a0c29c0478d2541ce158f98b",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): match the force-carrier KEY instead of enumerating injection spellings"
+  },
+  "9a03ea59b8c49cf3cbcf04cee28425c319de4d55": {
+   "original_base": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+   "base_prime": "1518cc0c49afcc0f682eb8e0fa7684dfb8d75770",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): close --config-env, drop --force-if-includes, disclose the section 5.2 divergence"
+  },
+  "0dac4a269f1a4173b36ed27502eef093e69ce5d8": {
+   "original_base": "353988771bf75e5dde2db890259038298a6c4113",
+   "base_prime": "04e6b119a6b86fe31b9cb69ae1c1ebce9cb77089",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): re-derive the deny set from measurement; close --mirror, drop the falsified vector family"
+  },
+  "353988771bf75e5dde2db890259038298a6c4113": {
+   "original_base": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+   "base_prime": "0e81c01b87c73316335c47c8c95348440c08b576",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): close the cross-statement env force vector and correct a false review finding"
+  },
+  "f0a92e9cca7fb7096d88e93eef37b805d035b690": {
+   "original_base": "37416f8481ae601fa4d725b59e3deb5141934419",
+   "base_prime": "be1fd5e14700cea4383c5dc11276081cc33efcd3",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "subject": "fix(adapters): close in-command force vectors and disclose the shell-evaluation blind spot"
+  },
+  "b03d1811f63a6dbc4f8a983c336518df6bfd492c": {
+   "original_base": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "base_prime": "f1953504789df6a0733646a2a36f5c5461805184",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+   ],
+   "subject": "fix(stage5/lane-a): ground the reuse blank test in the declared ECMA-262 whitespace set and make the 9.6.1 guard discriminating (Issue #24)"
+  },
+  "1eaaea2c97bfe6ef36ae811298a68a52e04b554a": {
+   "original_base": "6856a322cdbc5282242464e068e9fb841f017642",
+   "base_prime": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+   ],
+   "subject": "fix(stage5/lane-a): treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration (Issue #24)"
+  },
+  "879475aaaed4612e5c8c6bd8e4034f9bea4a2786": {
+   "original_base": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
+   "base_prime": "c7217ffb409cab39ec4385788821a004021015ea",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+   ],
+   "subject": "test(p1-t09): enforce README.md as the fifth REQ-W4-01 convergence surface"
+  },
+  "0046c3648c4e6b2530c06cfce80df30c64d66ab6": {
+   "original_base": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "base_prime": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+   ],
+   "subject": "fix(stage4/lane-c): scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand (Issue #22)"
+  },
+  "12c32f41898a5cec8db9346637c78800978f7549": {
+   "original_base": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "base_prime": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+   ],
+   "subject": "fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)"
+  },
+  "51e7604be3689f31142d17144893790000efac30": {
+   "original_base": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "base_prime": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+   ],
+   "subject": "fix(stage3/lane-b): refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode (Issue #21)"
+  },
+  "33cfcc890e38032ba932e8de30fa30d5721d737a": {
+   "original_base": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "base_prime": "990177774cc4b906ec95146422356c97928b05fc",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t05_evidence_disposition.py"
+   ],
+   "subject": "fix(review-evidence): remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate (Issue #18)"
+  },
+  "89b97e3b65d3f13ec21d2b837457f63f8aff7c02": {
+   "original_base": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "base_prime": "a97595229f11cd7262f6a49abb433de408e94ca4",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+   ],
+   "subject": "fix(stage2/lane-a): make the P1-T02 mandatory base record unambiguously eight fields (Issue #16)"
+  },
+  "0ec774f06882b923fd89b2bb52784538a3367477": {
+   "original_base": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "base_prime": "ffb8db0dd2122a56004dea40f492fb87a0d0dbb9",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "subject": "fix(review-evidence): evaluate character classes with ECMA-262 semantics"
+  },
+  "1b48d2bb44e56c453a97b82bf5c88df2e89d0791": {
+   "original_base": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "base_prime": "4c104decd9fd969303c099f5c4bdc8a6eb331013",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "subject": "fix(review-evidence): evaluate declared patterns with ECMA-262 semantics end to end and fail closed"
+  },
+  "b88df0313b3b921978a9869b9422beb686d21f3c": {
+   "original_base": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "base_prime": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "subject": "fix(review-evidence): enforce anchored schema patterns and declared failure envelope"
+  },
+  "e1da1541eb2b11f1e44f972409abde701496f4b6": {
+   "original_base": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "base_prime": "95b790d2dc8edff96a907815c7c0cf0db60a95d9",
+   "externalized_paths": [
+    "scripts/tests/test_seam_contract_partitions.py"
+   ],
+   "subject": "test(ticket-lane): bind seam counterexample checks to the canonical contract document"
+  },
+  "d8632efba814b0151003078353d394db64773e53": {
+   "original_base": "b23714dd19acc2020d4e442591f60255826a10eb",
+   "base_prime": "b438f597e14ed1bb9dd7b72ef2356ea3877bda8b",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "subject": "security(R6.2): remove `find` from the pre-grounding read-only allowlist"
+  },
+  "b23714dd19acc2020d4e442591f60255826a10eb": {
+   "original_base": "231d9bd3f8ca7df202615132f1532e10271b6259",
+   "base_prime": "76e64e8a006b4f9173ea895ea19c3ab069aec010",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "subject": "PR5 R6.1: bash receipt gate + mode A review coherence + unapproved-delta runtime gate"
+  },
+  "e0e8d955fc1f936ea5928a0b058a0d902623975b": {
+   "original_base": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+   "base_prime": "e6aa6931337b6e44df47e9cc6c22be6b43139e7b",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "subject": "fix(review-r5): close core-continuity invariants F1-F6 (append-only on 82ce11a)"
+  },
+  "82ce11ac0208ca6b459e8392c7f739bf78e6399a": {
+   "original_base": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+   "base_prime": "06051bbb4d8c01ac5f30017ff4098554781bc938",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "subject": "fix(review-r4): reconcile main + close external-review A1/A2/B1/B2/B3/B4"
+  },
+  "19a4aed0c6598117b0737058c14859d00ae1f084": {
+   "original_base": "bc561a6ae5a804ed42f2befd6a8e054d47936543",
+   "base_prime": "b6ceab29117ce92844e64aac0fb2f2d2e8eba0cc",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "subject": "fix(review-r3): resolve external-review F1-F7 (append-only repair on bc561a6)"
+  },
+  "8b6b15d7553b6d59a5c1355c6fc88192a9251c65": {
+   "original_base": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+   "base_prime": "bbf5f103b9723208cfcbe23fd3414ef595640986",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "subject": "Merge pull request #50 from FlapPearLabs/experiment/v1.2-route-reachability"
+  }
+ }
+}

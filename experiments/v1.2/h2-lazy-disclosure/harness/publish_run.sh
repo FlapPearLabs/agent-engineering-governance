@@ -3,7 +3,46 @@
 # Copies a run's durable evidence into the repo-tracked runs/<RUN_ID>/ record (R2-sanitized):
 #   report.md, acceptance.txt, carrier-recheck.txt, telemetry.log -> telemetry.json, run.json
 # Safe to re-run (idempotent overwrite); refuses to publish when the evidence dir is absent.
+# ---------------------------------------------------------------------------------------------
+# STRUCTURAL ENV SANITIZATION (fresh review on d2c9b99, P1-1/P2-1): the caller's environment is
+# re-created from scratch (env -i) before ANY git invocation, so the whole GIT_* injection class
+# — GIT_CONFIG_PARAMETERS (applied AFTER the GIT_CONFIG_COUNT pins and previously honoured),
+# GIT_CONFIG, GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY/alternates, namespaces —
+# cannot reach the judgement commands. The branch is taken when the marker is absent OR when any
+# GIT_* variable is still present (so forging the marker while injecting GIT_* re-sanitizes
+# anyway). A caller that fully controls the process environment (PATH hijack, loader injection)
+# remains the documented same-UID boundary; the enforcement points are operator-run collect and
+# independent review.
+if [ "${H2_ENV_SANITIZED:-}" != "1" ] || env | grep -q '^GIT_'; then
+  exec env -i PATH="$PATH" HOME="$HOME" LANG="${LANG:-C}" LC_ALL="${LC_ALL:-C}" \
+       TERM="${TERM:-dumb}" H2_ENV_SANITIZED=1 PY="${PY:-}" \
+       H2_RUNS_ROOT="${H2_RUNS_ROOT:-}" \
+       WORKER_MODEL="${WORKER_MODEL:-}" WORKER_EPISODE="${WORKER_EPISODE:-}" \
+       AUDITOR_EPISODE="${AUDITOR_EPISODE:-}" bash "$0" "$@"
+fi
+
 set -u
+# Fresh adversarial review on 9f8e4ee (P3): `git -C <path>` resolves through GIT_DIR/GIT_WORK_TREE
+# from the environment; clear them so path resolution cannot be redirected by a wrapper.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR
+# Command-scope pins, set AFTER the caller's environment (overwriting any caller-provided
+# GIT_CONFIG_* / GIT_ATTR_*): hooks cannot execute, fsmonitor is off, status never hides
+# untracked entries, and the global attribute/exclude layers are neutralised. These hold
+# independently of the metadata guard (fresh review on 61bfbac, P0/P1 — all three vectors
+# verified empirically against the unpinned behaviour).
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+export GIT_CONFIG_COUNT=5
+export GIT_CONFIG_KEY_0=core.hooksPath            GIT_CONFIG_VALUE_0=/dev/null
+export GIT_CONFIG_KEY_1=core.fsmonitor            GIT_CONFIG_VALUE_1=false
+export GIT_CONFIG_KEY_2=status.showUntrackedFiles GIT_CONFIG_VALUE_2=all
+export GIT_CONFIG_KEY_3=core.attributesFile       GIT_CONFIG_VALUE_3=/dev/null
+export GIT_CONFIG_KEY_4=core.excludesFile         GIT_CONFIG_VALUE_4=/dev/null
+export GIT_ATTR_NOSYSTEM=1
+# replacement objects (git replace) are disabled for EVERY judgement command: even a replace ref
+# that the metadata guard failed to see cannot substitute the commits these commands compare
+# (fresh review on d2c9b99, P0 — pack-refs hid a replace ref from the guard and made the base
+# object itself resolve to attacker content).
+export GIT_NO_REPLACE_OBJECTS=1
 HERE="$(cd "$(dirname "$0")" && pwd)"
 EXP_DIR="$(cd "$HERE/.." && pwd)"
 PY="${PY:-python3}"
@@ -36,12 +75,121 @@ if [ -f "$DEST/run.json" ]; then
     done
   fi
 fi
-mkdir -p "$DEST"
+# F18 [P1, Codex on 09ed257]: validate every sanitizer input BEFORE creating or modifying DEST.
+# Previously the sanitizer sources were checked last, so a refusal exited nonzero only after the
+# destination had already been written with unsanitized host paths.
+CUR_USER_PRE="$(id -un)"
+MATERIALS_WT_PRE="$(git -C "$EXP_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+_preflight_fail() {
+  echo "PUBLISH_REFUSED reason=$1 ($2)"
+  echo "  DEST_MODIFIED = NO (refused before touching $DEST)"
+  exit 2
+}
+[ -n "$CUR_USER_PRE" ] || _preflight_fail PREFLIGHT_FAILED "empty current user"
+[ -n "$MATERIALS_WT_PRE" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "materials worktree (not a git checkout)"
+[ -n "$H2_RUNS_ROOT" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "runs root"
+[ -n "$WT" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "run worktree"
+[ -n "$EV" ] || _preflight_fail EMPTY_SANITIZER_SOURCE "run evidence"
+# fresh adversarial review on 9f8e4ee (P1): the model/episode gates were keyed on the
+# RECEIPT's plan_index — a worker-writable field. Deleting that field (or setting it to -1)
+# skipped the model-evidence, episode-presence and episode-uniqueness gates entirely, so a run
+# could be published under the Round-1 invalid episode, which the protocol forbids reusing.
+# Real-run status is now derived from FROZEN PLAN membership, and the receipt's plan_index must
+# AGREE with the frozen position instead of deciding whether the gates run.
+REAL_ROW="$("$PY" - "$EXP_DIR" "$RUN_ID" <<'PYEOF'
+import json, os, sys
+exp, rid = sys.argv[1], sys.argv[2]
+for name in ("run-plan-r2.json", "run-plan.json"):
+    p = os.path.join(exp, "harness", name)
+    if not os.path.isfile(p):
+        continue
+    try:
+        plan = json.load(open(p, encoding="utf-8"))
+    except Exception:
+        print("__UNREADABLE__"); raise SystemExit(0)
+    rows = [r for r in plan if r.get("run_id") == rid]
+    # fresh review on 9c5f059 (P2): folding "0 rows" and ">1 rows" into one answer made a
+    # DUPLICATED plan row silently disable every gate (the "worst input = pass" shape). A
+    # duplicate is fail-closed here, matching frozen_run_facts.py and collect_run.sh.
+    if len(rows) > 1:
+        print("__DUPLICATE__"); raise SystemExit(0)
+    if len(rows) == 1:
+        print(f"{plan.index(rows[0])}\t{name}"); raise SystemExit(0)
+# only the REGISTERED dry-run ids are exempt from the identity gates; any other unknown id is
+# refused rather than allowed to skip them
+if not rid.startswith("H2-DRYRUN"):
+    print("__UNKNOWN__"); raise SystemExit(0)
+print("__DRY_RUN__")
+PYEOF
+)" || { echo "PUBLISH_REFUSED reason=PLAN_LOOKUP_FAILED"; exit 2; }
+case "$REAL_ROW" in
+  __UNREADABLE__) echo "PUBLISH_REFUSED reason=PLAN_UNREADABLE"; exit 2 ;;
+  __DUPLICATE__) echo "PUBLISH_REFUSED reason=PLAN_DUPLICATE_ROWS (the run id appears more than once; refusing rather than skipping the gates)"; exit 2 ;;
+  __UNKNOWN__) echo "PUBLISH_REFUSED reason=UNKNOWN_RUN_ID (not a plan row and not a registered dry-run id)"; exit 2 ;;
+esac
 
-# R10-8 + R10-3: real runs require launcher-provided model evidence matching the frozen tier,
-# and non-null, globally unique episode identities per role (dry-runs are exempt: plan_index -1).
-PLAN_IDX="$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('plan_index',''))" "$EV/receipt.json" 2>/dev/null || echo '')"
-if [ -n "$PLAN_IDX" ] && [ "$PLAN_IDX" != "-1" ]; then
+# publish is DOWNSTREAM of collection. Fresh review on 9c5f059 (P1): presence checks over
+# worker-writable evidence files let a hand-written collect-summary/carrier-recheck pass as a
+# "successful collect". Verification now uses the collect-ok MARKER — written only by a
+# successful collect, and living OUTSIDE the evidence dir — and BINDS the two files by hash, so
+# editing either one after collection is refused.
+MARKER="$H2_RUNS_ROOT/collect-ok/$RUN_ID.json"
+if [ ! -f "$MARKER" ]; then
+  echo "PUBLISH_REFUSED reason=NO_COLLECT_EVIDENCE (no collect-ok marker for this run; run collect_run.sh first)"
+  exit 2
+fi
+EVID="$("$PY" - "$MARKER" "$RUN_ID" "$EV" <<'PYEOF'
+import hashlib, json, os, sys
+marker_p, rid, ev = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    m = json.load(open(marker_p, encoding="utf-8"))
+except Exception:
+    print("MARKER_UNREADABLE"); raise SystemExit(0)
+if m.get("run_id") != rid or m.get("collect") != "OK":
+    print("MARKER_MISMATCH"); raise SystemExit(0)
+# fresh review on 61bfbac (P1-4): the marker previously bound only 2 of the 6 evidence files
+# publish consumes, so report/acceptance/telemetry could be swapped between collect and publish.
+# Every file the record is built from is now verified against the marker: a file that was
+# collected must be unchanged; a file that APPEARED after collection is refused as UNBOUND.
+checks = [("collect-summary.txt", "summary_sha256"), ("carrier-recheck.txt", "recheck_sha256"),
+          ("telemetry.log", "telemetry_sha256"), ("report.md", "report_sha256"),
+          ("acceptance.txt", "acceptance_sha256"),
+          ("acceptance-operator.txt", "acceptance_operator_sha256")]
+for name, key in checks:
+    p = os.path.join(ev, name)
+    bound = m.get(key) or ""
+    if not os.path.isfile(p):
+        if bound:
+            print(f"MISSING:{name}"); raise SystemExit(0)
+        continue
+    if not bound:
+        print(f"UNBOUND:{name}"); raise SystemExit(0)
+    if hashlib.sha256(open(p, "rb").read()).hexdigest() != bound:
+        print(f"MISMATCH:{name}"); raise SystemExit(0)
+print("OK")
+PYEOF
+)" || EVID="VERIFIER_FAILED"
+case "$EVID" in
+  OK) : ;;
+  MISSING:*) echo "PUBLISH_REFUSED reason=NO_COLLECT_EVIDENCE ($EVID; run collect_run.sh first)"; exit 2 ;;
+  *) echo "PUBLISH_REFUSED reason=COLLECT_EVIDENCE_MISMATCH ($EVID; the evidence does not match what collect recorded)"; exit 3 ;;
+esac
+# worst-input-must-not-pass (fresh review on 61bfbac, P1-4): an acceptance file with NO RC marker
+# parsed to `fails = []` and was recorded as an all-green acceptance.
+if ! grep -qE '^=== RC=-?[0-9]+( \(tee=-?[0-9]+\))? ===$' "$EV/acceptance.txt"; then
+  echo "PUBLISH_REFUSED reason=ACCEPTANCE_MARKERS_MISSING (acceptance.txt contains no '=== RC=' marker; refusing to record it as a passing acceptance)"
+  exit 3
+fi
+
+if [ "$REAL_ROW" != "__DRY_RUN__" ]; then
+  # R10-8 + R10-3: real runs require launcher-provided model evidence matching the frozen tier,
+  # and non-null, globally unique episode identities per role.
+  EXPECT_IDX="$(printf '%s' "$REAL_ROW" | cut -f1)"
+  PLAN_IDX="$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('plan_index',''))" "$EV/receipt.json" 2>/dev/null || echo '')"
+  if [ "$PLAN_IDX" != "$EXPECT_IDX" ]; then
+    echo "PUBLISH_REFUSED reason=PLAN_INDEX_MISMATCH receipt=${PLAN_IDX:-<missing>} frozen=$EXPECT_IDX (the receipt may not decide whether the gates run)"
+    exit 3
+  fi
   TIER="$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('model_tier',''))" "$EV/receipt.json" 2>/dev/null || echo '')"
   if [ -z "${WORKER_MODEL:-}" ]; then
     echo "PUBLISH_REFUSED reason=MISSING_MODEL_EVIDENCE (set WORKER_MODEL to the observed dispatch tier)"; exit 2
@@ -58,6 +206,9 @@ if [ -n "$PLAN_IDX" ] && [ "$PLAN_IDX" != "-1" ]; then
   # R11-3: uniqueness is GLOBAL across roles, not per-role. Compare each supplied identity
   # against BOTH roles stored by prior runs AND against the other identity of this run, so an
   # auditor cannot reuse a worker episode (or vice versa) from this or any earlier run.
+  # PART 8: an INVALID run is NOT a nonexistent run. The Round-1 attempt executed a real
+  # episode but produced no run.json, so scanning only published run.json files would let
+  # Round 2 silently reuse that executor context. Preserved invalid-run records are scanned too.
   DUP="$("$PY" - "$EXP_DIR/runs" "$RUN_ID" "${WORKER_EPISODE}" "${AUDITOR_EPISODE}" <<'PYEOF'
 import json, os, sys
 runs_dir, self_id, wep, aep = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -68,19 +219,36 @@ if os.path.isdir(runs_dir):
     for name in sorted(os.listdir(runs_dir)):
         if name == self_id:
             continue
-        p = os.path.join(runs_dir, name, "run.json")
-        if not os.path.isfile(p):
+        d = os.path.join(runs_dir, name)
+        if not os.path.isdir(d):
             continue
-        try:
-            d = json.load(open(p, encoding="utf-8"))
-        except Exception:
-            continue
-        stored_w, stored_a = d.get("worker_episode"), d.get("auditor_episode")
-        # every stored identity is compared against BOTH supplied identities
-        if stored_w and stored_w in (wep, aep):
-            dups.append(f"{name}:stored_worker={stored_w}")
-        if stored_a and stored_a in (wep, aep):
-            dups.append(f"{name}:stored_auditor={stored_a}")
+        # (a) published runs
+        p = os.path.join(d, "run.json")
+        if os.path.isfile(p):
+            try:
+                rec = json.load(open(p, encoding="utf-8"))
+            except Exception:
+                rec = None
+            if rec:
+                sw, sa = rec.get("worker_episode"), rec.get("auditor_episode")
+                if sw and sw in (wep, aep):
+                    dups.append(f"{name}:stored_worker={sw}")
+                if sa and sa in (wep, aep):
+                    dups.append(f"{name}:stored_auditor={sa}")
+        # (b) preserved INVALID runs (no run.json by construction)
+        q = os.path.join(d, "round-1-run-record.json")
+        if os.path.isfile(q):
+            try:
+                inv = json.load(open(q, encoding="utf-8"))
+            except Exception:
+                inv = None
+            if inv:
+                ep = (inv.get("episode") or {}).get("worker_episode")
+                role = (inv.get("episode") or {}).get("auditor_episode")
+                if ep and ep in (wep, aep):
+                    dups.append(f"INVALID_EPISODE_REUSE:{inv.get('run_id')}:{ep}")
+                if role and role in (wep, aep):
+                    dups.append(f"INVALID_EPISODE_REUSE:{inv.get('run_id')}:{role}")
 print(" ".join(dups))
 PYEOF
 )"
@@ -89,14 +257,36 @@ PYEOF
   fi
 fi
 
-for f in report.md acceptance.txt carrier-recheck.txt; do
-  if [ -f "$EV/$f" ]; then cp "$EV/$f" "$DEST/$f"; fi
-done
-[ -f "$EV/telemetry.log" ] && cp "$EV/telemetry.log" "$DEST/telemetry.log" || : > "$DEST/telemetry.log"
+# stage, never write DEST directly: an invalid input or a staging failure must leave DEST as it
+# was. Created only AFTER every preflight and identity gate — an earlier placement meant a
+# refusal (missing plan_index, missing episode, ...) exited before cleanup and left
+# *.staging.* residue behind (observed by the round-6 battery: 7 residue dirs).
+STAGE="$DEST.staging.$$"
+rm -rf "$STAGE"
+mkdir -p "$STAGE" || { echo "PUBLISH_REFUSED reason=STAGE_CREATE_FAILED $STAGE"; exit 3; }
+# The explicit refusals below clean the stage themselves; this trap also covers INTERRUPTION
+# (fresh review on 9c5f059, P3: no trap meant a SIGINT left *.staging.<pid> behind).
+trap '[ -n "${STAGE:-}" ] && rm -rf "$STAGE"' EXIT INT TERM
 
-"$PY" - "$EV" "$DEST" <<'PYEOF'
+# fresh adversarial review on 9f8e4ee (P1-2): the copies were not rc-checked, so an unreadable
+# report.md (the R9-11 gate above passes on stat) silently produced a record WITHOUT the report
+# while PUBLISH_RUN OK was printed. Every copy is rc-checked; the staged artifact set is
+# verified before promotion below.
+for f in report.md acceptance.txt carrier-recheck.txt; do
+  if [ -f "$EV/$f" ]; then
+    cp "$EV/$f" "$STAGE/$f" || { rm -rf "$STAGE"; echo "PUBLISH_REFUSED reason=ARTIFACT_COPY_FAILED file=$f"; exit 3; }
+  fi
+done
+if [ -f "$EV/telemetry.log" ]; then
+  cp "$EV/telemetry.log" "$STAGE/telemetry.log" || { rm -rf "$STAGE"; echo "PUBLISH_REFUSED reason=ARTIFACT_COPY_FAILED file=telemetry.log"; exit 3; }
+else
+  : > "$STAGE/telemetry.log"
+fi
+
+"$PY" - "$EV" "$STAGE" "$DEST" <<'PYEOF'
 import json, os, re, sys
 ev, dest = sys.argv[1], sys.argv[2]
+prior = sys.argv[3]
 lines = open(f"{ev}/telemetry.log", encoding="utf-8", errors="replace").read().splitlines()
 tel = {"fully_read": [], "partial_read": [], "grepped": [], "routes": [], "skills": [], "other": []}
 for raw in lines:
@@ -137,9 +327,9 @@ fails = sorted(
     | {rc for rc in legacy if rc != 0}
 )
 prev = {}
-if os.path.exists(f"{dest}/run.json"):
+if os.path.exists(f"{prior}/run.json"):
     try:
-        prev = json.load(open(f"{dest}/run.json", encoding="utf-8"))
+        prev = json.load(open(f"{prior}/run.json", encoding="utf-8"))
     except Exception:
         prev = {}
 run = {
@@ -168,13 +358,33 @@ run = {
 json.dump(run, open(f"{dest}/run.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 print(f"composed run.json + telemetry.json for {receipt['run_id']}")
 PYEOF
+COMP_RC=$?
+if [ "$COMP_RC" -ne 0 ]; then
+  # Codex finding on 61dcf99 (P1): this step is not rc-checked, so a composition error (missing
+  # acceptance.txt, malformed receipt, ...) still fell through to promotion: the finalized
+  # destination was replaced by the PARTIAL stage, the backup was deleted and the script printed
+  # PUBLISH_RUN OK. Refuse, discard the stage, and leave DEST exactly as it was.
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=COMPOSITION_FAILED rc=$COMP_RC (staged artifacts discarded; DEST unchanged)"
+  exit 3
+fi
+# fresh adversarial review on 9f8e4ee (P1-2): the composer reads acceptance.txt and telemetry.log
+# but never verifies report.md reached the stage, so a failed copy surfaced only as a silent
+# omission in the published record. Verify the FULL required artifact set before promotion.
+# (The former `[ -L ]` half was removed as unreachable — cp dereferences, so a staged entry is
+# never a symlink — rather than kept as a vacuous check; flagged by the 9c5f059 review.)
+for f in report.md acceptance.txt carrier-recheck.txt telemetry.log telemetry.json run.json; do
+  if [ ! -f "$STAGE/$f" ]; then
+    rm -rf "$STAGE"
+    echo "PUBLISH_REFUSED reason=STAGED_ARTIFACT_MISSING file=$f (refusing to promote an incomplete record)"
+    exit 3
+  fi
+done
 
 # R2 sanitization pass (placeholders only; must not alter meaning).
 # Path forms are derived at RUNTIME (runs root / run worktree / evidence / materials worktree)
 # plus user-home identity forms — no hard-coded macOS layout (R9-3).
-CUR_USER="$(id -un)"
-MATERIALS_WT="$(git -C "$EXP_DIR" rev-parse --show-toplevel)"
-"$PY" - "$DEST" "$CUR_USER" "$H2_RUNS_ROOT" "$WT" "$EV" "$MATERIALS_WT" <<'PYEOF'
+"$PY" - "$STAGE" "$CUR_USER_PRE" "$H2_RUNS_ROOT" "$WT" "$EV" "$MATERIALS_WT_PRE" <<'PYEOF'
 import pathlib, re as _re, sys
 root = pathlib.Path(sys.argv[1])
 user = sys.argv[2]
@@ -185,6 +395,17 @@ literal_reps = [(wt, "<RUN_WORKTREE>"),
                 (materials_wt, "<H2_WORKTREE>"),
                 (f"/Users/{user}/.workbuddy/binaries/python/envs/default/bin/python", "<PY>"),
                 (f"/Users/{user}", "<USER_HOME>")]
+# An EMPTY replacement source is catastrophic, not cosmetic: str.replace("", X) inserts X
+# between every character, silently corrupting every published artifact. This is reachable when
+# the harness is invoked from a directory that is not a git worktree (git rev-parse then yields
+# an empty string). Refuse instead of publishing a mangled record.
+empty = [name for name, val in (("run_worktree", wt), ("run_evidence", ev),
+                                ("runs_root", runs_root), ("materials_worktree", materials_wt),
+                                ("user_home", f"/Users/{user}")) if not val]
+if empty:
+    print(f"PUBLISH_REFUSED reason=EMPTY_SANITIZER_SOURCE {empty} "
+          f"(a replacement source resolved to an empty string; refusing to write corrupt artifacts)")
+    raise SystemExit(2)
 regex_reps = []
 if len(user) >= 8:
     regex_reps.append((_re.compile(r"(?<![A-Za-z0-9._-])" + _re.escape(user) + r"(?![A-Za-z0-9._-])"),
@@ -206,4 +427,32 @@ for p in sorted(root.rglob("*")):
         changed.append(p.name)
 print("sanitized:", changed or "nothing-needed")
 PYEOF
+SAN_RC=$?
+if [ "$SAN_RC" -ne 0 ]; then
+  # The sanitizer refuses rather than writing a mangled record; that refusal must reach the
+  # caller. Without this the script would print PUBLISH_RUN OK and exit 0 over a rejected
+  # sanitization — a fail-open on the exact path that protects published artifacts.
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=SANITIZATION_FAILED rc=$SAN_RC (staged artifacts discarded; DEST unchanged)"
+  exit 3
+fi
+# fresh adversarial review on 9f8e4ee (P3): the sanitizer is a literal replacement table, so an
+# equivalent spelling that misses the table would publish a machine-local path with rc=0 (the
+# review demonstrated both /Users/<other-user> and an unresolved relative-spelling form). The
+# published record must be host-path-free AT THE SOURCE; refuse rather than publish.
+if grep -rqI "/Users/" "$STAGE" 2>/dev/null; then
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=UNSANITIZED_HOST_PATH (a /Users/ path survived sanitization; refusing to publish)"
+  exit 3
+fi
+# atomic promotion: DEST only ever moves to its final state in one step, so a failure above
+# cannot leave a partially written publication
+rm -rf "$DEST.prev.$$"
+if [ -e "$DEST" ]; then mv "$DEST" "$DEST.prev.$$" || { rm -rf "$STAGE"; echo "PUBLISH_REFUSED reason=PROMOTION_FAILED"; exit 3; }; fi
+if ! mv "$STAGE" "$DEST"; then
+  [ -e "$DEST.prev.$$" ] && mv "$DEST.prev.$$" "$DEST"
+  rm -rf "$STAGE"
+  echo "PUBLISH_REFUSED reason=PROMOTION_FAILED (DEST restored)"; exit 3
+fi
+rm -rf "$DEST.prev.$$"
 echo "PUBLISH_RUN OK run_id=$RUN_ID dest=$DEST"

@@ -1,0 +1,407 @@
+{
+  "schema_version": 2,
+  "program": "freeze-v2/build_registry.py",
+  "scope_prefix_source": "F1 (CODEX_FIXES_1 T10): deny_prefixes = ['scripts/tests/'] for every task — no add, modify, delete or rename inside the directory discover imports from, on top of the per-file deny list. Supersedes the round-2 n01/n02 empty-prefix interpretation, because an added stdlib-named module there shadows the imports the frozen oracle resolves and can make an unrepaired base pass.",
+  "tasks": [
+    {
+      "task_id": "f01",
+      "case_id": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+      "base_sha": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_review_evidence_contract.py",
+        "base_blob_sha256": "69f124f40d4b8a90c906f7a41458e18e7bbf3d7ab98e3873c3fa9d3d973ce953",
+        "candidate_blob_sha256": "69f124f40d4b8a90c906f7a41458e18e7bbf3d7ab98e3873c3fa9d3d973ce953",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_review_evidence_contract.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: enforce anchored schema patterns and declared failure envelope; make `scripts/tests/test_review_evidence_contract.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f02",
+      "case_id": "r37-governance-ext-make-the-p1-t02-mandatory",
+      "base_sha": "a97595229f11cd7262f6a49abb433de408e94ca4",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+        "base_blob_sha256": "84995aeebc1bc30612b9fad7a67e36e02bdff4158450b3accae3ec8495158806",
+        "candidate_blob_sha256": "84995aeebc1bc30612b9fad7a67e36e02bdff4158450b3accae3ec8495158806",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t02_execution_stage_pre_ticket_record.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: make the P1-T02 mandatory base record unambiguously eight fields; make `scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f03",
+      "case_id": "r38-governance-ext-remove-local-digest-fallback-use",
+      "base_sha": "990177774cc4b906ec95146422356c97928b05fc",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
+        "base_blob_sha256": "79a80756105cc0bd4af89588e61412790b81a1330873eb7eb5afa89c92e0e3a8",
+        "candidate_blob_sha256": "79a80756105cc0bd4af89588e61412790b81a1330873eb7eb5afa89c92e0e3a8",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t05_evidence_disposition.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate; make `scripts/tests/test_p1_t05_evidence_disposition.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f04",
+      "case_id": "r39-governance-ext-refuse-every-scheme-form-evidence",
+      "base_sha": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+        "base_blob_sha256": "a7d3431ad6053f28960f2ed3666f03ed45393ecb9ac950e31eb3ce8152e2867a",
+        "candidate_blob_sha256": "a7d3431ad6053f28960f2ed3666f03ed45393ecb9ac950e31eb3ce8152e2867a",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t06_producer_trust_boundary.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode; make `scripts/tests/test_p1_t06_producer_trust_boundary.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f05",
+      "case_id": "r40-governance-ext-make-the-p1-t11-pre",
+      "base_sha": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+        "base_blob_sha256": "8dfc6024e69ff2b4364b921da19dc2fb57278e40d39b95bdd142327fbda77753",
+        "candidate_blob_sha256": "8dfc6024e69ff2b4364b921da19dc2fb57278e40d39b95bdd142327fbda77753",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t11_destructive_workspace_transaction.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional; make `scripts/tests/test_p1_t11_destructive_workspace_transaction.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f06",
+      "case_id": "r41-governance-ext-scope-the-not-auditable-rule",
+      "base_sha": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+        "base_blob_sha256": "237b3c78496ac0065dec90b30b75241ff3ca15a1ec923cbae35beefa9b73ccb5",
+        "candidate_blob_sha256": "237b3c78496ac0065dec90b30b75241ff3ca15a1ec923cbae35beefa9b73ccb5",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t10_audit_visibility_recipe.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+          "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand; make `scripts/tests/test_p1_t10_audit_visibility_recipe.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f07",
+      "case_id": "r42-governance-ext-treat-a-partially-populated-reuse",
+      "base_sha": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+        "base_blob_sha256": "f0637113dc278d6b8c169105484f0d249d0ac105df6e6b00839c2bf3a43807aa",
+        "candidate_blob_sha256": "f0637113dc278d6b8c169105484f0d249d0ac105df6e6b00839c2bf3a43807aa",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t08_evidence_lifecycle.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+          "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+          "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration; make `scripts/tests/test_p1_t08_evidence_lifecycle.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f08",
+      "case_id": "r24-governance-bootstrap-budget-repair-round-2",
+      "base_sha": "825d3902597655c90393100281260cbba8697c07",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+        "base_blob_sha256": "dc5c7a0f38c339673787f7aadc1bb0d664c6350075a5afd124b9b598d686dd66",
+        "candidate_blob_sha256": "dc5c7a0f38c339673787f7aadc1bb0d664c6350075a5afd124b9b598d686dd66",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t09_bootstrap_byte_budget.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_orchestrator_closure_doctrine.py",
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+          "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+          "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+          "scripts/tests/test_p1_t13_learning_closure.py",
+          "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+          "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: repair round 2 - restore budget OWNER self-naming, bound the unit drift; make `scripts/tests/test_p1_t09_bootstrap_byte_budget.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f09",
+      "case_id": "r44-governance-ext-converge-the-p1-p2-findings",
+      "base_sha": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+        "base_blob_sha256": "13dbf2b9cc58418d3e1a7c89c967fd1c0307ee75f2a6d036b9466999318147c1",
+        "candidate_blob_sha256": "13dbf2b9cc58418d3e1a7c89c967fd1c0307ee75f2a6d036b9466999318147c1",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_p1_t18_defect_promotion_fast_full.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_p1_orchestrator_closure_doctrine.py",
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+          "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+          "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+          "scripts/tests/test_p1_t13_learning_closure.py",
+          "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+          "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+          "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
+          "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: converge the P1/P2 findings from both independent reviews; make `scripts/tests/test_p1_t18_defect_promotion_fast_full.py` pass without modifying any test file."
+    },
+    {
+      "task_id": "f10",
+      "case_id": "r50-governance-ext-bind-skill-evidence-reads-to",
+      "base_sha": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+      "task_class": "A_REPAIR",
+      "oracle": {
+        "path": "scripts/tests/test_skill_execution.py",
+        "base_blob_sha256": "b5eb1b24c7d55534e20a655e12db615ca3e9c73ba7b883dfa08aed81c5ed1694",
+        "candidate_blob_sha256": "b5eb1b24c7d55534e20a655e12db615ca3e9c73ba7b883dfa08aed81c5ed1694",
+        "provenance": "FRAMEWORK_FROZEN",
+        "command": "{PY} -m unittest discover -s scripts/tests -p test_skill_execution.py"
+      },
+      "admission": {
+        "request_status": "REQUEST_VALID",
+        "ledger": "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json"
+      },
+      "scope": {
+        "deny": [
+          "scripts/tests/test_fixture_identity_hygiene.py",
+          "scripts/tests/test_p1_orchestrator_closure_doctrine.py",
+          "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+          "scripts/tests/test_p1_t03_git_ci_integration_closure_evidence.py",
+          "scripts/tests/test_p1_t05_evidence_disposition.py",
+          "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+          "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+          "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+          "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+          "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+          "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+          "scripts/tests/test_p1_t12_shared_file_single_writer.py",
+          "scripts/tests/test_p1_t13_learning_closure.py",
+          "scripts/tests/test_p1_t14_model_dispatch_metadata.py",
+          "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+          "scripts/tests/test_p1_t17_static_gate_framework_semantics.py",
+          "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+          "scripts/tests/test_review_evidence_contract.py",
+          "scripts/tests/test_seam_contract_partitions.py",
+          "scripts/tests/test_skill_execution.py",
+          "scripts/tests/test_ticket_gate_wiring.py"
+        ],
+        "deny_prefixes": [
+          "scripts/tests/"
+        ],
+        "allow": "Every other path inside repo/"
+      },
+      "task_text": "Repair the reported issue: bind skill evidence reads to safe directory handles; make `scripts/tests/test_skill_execution.py` pass without modifying any test file."
+    }
+  ],
+  "expected": {
+    "f01": {
+      "candidate_sha": "b88df0313b3b921978a9869b9422beb686d21f3c"
+    },
+    "f02": {
+      "candidate_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02"
+    },
+    "f03": {
+      "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a"
+    },
+    "f04": {
+      "candidate_sha": "51e7604be3689f31142d17144893790000efac30"
+    },
+    "f05": {
+      "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549"
+    },
+    "f06": {
+      "candidate_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6"
+    },
+    "f07": {
+      "candidate_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a"
+    },
+    "f08": {
+      "candidate_sha": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0"
+    },
+    "f09": {
+      "candidate_sha": "579f6d5e7762610382e4362f668efaffc51f04ce"
+    },
+    "f10": {
+      "candidate_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e"
+    }
+  }
+}

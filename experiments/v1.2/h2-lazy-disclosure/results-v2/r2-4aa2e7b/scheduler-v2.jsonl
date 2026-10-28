@@ -1,0 +1,55 @@
+{"at": "2026-10-28T02:33:59+00:00", "event": "start", "pid": 20478, "run_id": "h2r2-f01-c"}
+{"at": "2026-10-28T02:34:00+00:00", "event": "start", "pid": 20521, "run_id": "h2r2-f02-v"}
+{"at": "2026-10-28T02:34:00+00:00", "event": "start", "pid": 20582, "run_id": "h2r2-f03-c"}
+{"at": "2026-10-28T02:34:01+00:00", "event": "start", "pid": 20642, "run_id": "h2r2-f04-v"}
+{"at": "2026-10-28T02:34:25+00:00", "event": "end", "outcome": "NOT_REGISTERED:BLOCKED", "pid": 20582, "reasons": ["PROVIDER_UNREACHABLE:EXIT:1", "PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route", "PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f03-c"}
+{"at": "2026-10-28T02:34:25+00:00", "event": "wait", "requeue": 1, "run_id": "h2r2-f03-c", "seconds": 60.0}
+{"at": "2026-10-28T02:35:26+00:00", "event": "start", "pid": 21337, "run_id": "h2r2-f03-c"}
+{"at": "2026-10-28T02:39:08+00:00", "event": "end", "outcome": "INVALID", "pid": 20642, "reasons": ["OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute"], "returncode": 1, "run_id": "h2r2-f04-v"}
+{"at": "2026-10-28T02:39:08+00:00", "event": "start", "pid": 23833, "run_id": "h2r2-f04-c"}
+{"at": "2026-10-28T02:39:44+00:00", "event": "end", "outcome": "NOT_REGISTERED:BLOCKED", "pid": 23833, "reasons": ["PROVIDER_UNREACHABLE:EXIT:1", "PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route", "PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f04-c"}
+{"at": "2026-10-28T02:39:44+00:00", "event": "wait", "requeue": 1, "run_id": "h2r2-f04-c", "seconds": 60.0}
+{"at": "2026-10-28T02:40:44+00:00", "event": "start", "pid": 36451, "run_id": "h2r2-f04-c"}
+{"at": "2026-10-28T02:41:25+00:00", "event": "end", "outcome": "ACCEPT", "pid": 20521, "reasons": [], "returncode": 0, "run_id": "h2r2-f02-v"}
+{"at": "2026-10-28T02:41:25+00:00", "event": "start", "pid": 37965, "run_id": "h2r2-f02-c"}
+{"at": "2026-10-28T02:44:24+00:00", "event": "end", "outcome": "INVALID", "pid": 21337, "reasons": ["OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:sed -n 270,330p <HOME>/.workbuddy/binaries/python/versions/3.13.12/lib/python3.13/unittest/loader.py; ls <RUNS_ROOT>/h2r2-f03-c/repo/scripts"], "returncode": 1, "run_id": "h2r2-f03-c"}
+{"at": "2026-10-28T02:44:24+00:00", "event": "start", "pid": 48131, "run_id": "h2r2-f03-v"}
+{"at": "2026-10-28T02:47:37+00:00", "event": "end", "outcome": "REJECT", "pid": 20478, "reasons": [], "returncode": 1, "run_id": "h2r2-f01-c"}
+{"at": "2026-10-28T02:47:37+00:00", "event": "start", "pid": 57945, "run_id": "h2r2-f01-v"}
+{"at": "2026-10-28T02:50:12+00:00", "event": "end", "outcome": "ACCEPT", "pid": 37965, "reasons": [], "returncode": 0, "run_id": "h2r2-f02-c"}
+{"at": "2026-10-28T02:50:12+00:00", "event": "start", "pid": 69964, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T02:50:30+00:00", "event": "end", "outcome": "NOT_REGISTERED:BLOCKED", "pid": 69964, "reasons": ["PROVIDER_UNREACHABLE:EXIT:1", "PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route", "PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T02:50:30+00:00", "event": "wait", "requeue": 1, "run_id": "h2r2-f05-c", "seconds": 60.0}
+{"at": "2026-10-28T02:51:04+00:00", "event": "end", "outcome": "REJECT", "pid": 36451, "reasons": ["WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t02_execution_stage_pre_ticket_record.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t03_git_ci_integration_closure_evidence.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t05_evidence_disposition.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_p1_t06_producer_trust_boundary.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_review_evidence_contract.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_seam_contract_partitions.cpython-313.pyc;WORKER_SCOPE_DENIED:scripts/tests/__pycache__/test_ticket_gate_wiring.cpython-313.pyc"], "returncode": 1, "run_id": "h2r2-f04-c"}
+{"at": "2026-10-28T02:51:30+00:00", "event": "start", "pid": 70905, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T02:51:31+00:00", "event": "start", "pid": 70944, "run_id": "h2r2-f06-v"}
+{"at": "2026-10-28T02:51:47+00:00", "event": "end", "outcome": "NOT_REGISTERED:BLOCKED", "pid": 70905, "reasons": ["PROVIDER_UNREACHABLE:EXIT:1", "PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route", "PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T02:51:47+00:00", "event": "wait", "requeue": 2, "run_id": "h2r2-f05-c", "seconds": 120.0}
+{"at": "2026-10-28T02:52:21+00:00", "event": "end", "outcome": "INVALID", "pid": 48131, "reasons": ["OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P -m unittest discover -s scripts/tests 2>&1 | tail -3 && $P scripts/review_evidence.py --help 2>&1 | head -4 && echo \"--- verify attempt ---\" && $P scripts/review_evidence.py verify --pack /nope 2>&1 | tail -2; echo \"rc=$?\";OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd <RUNS_ROOT>/h2r2-f03-v/repo && P=<HOME>/.workbuddy/binaries/python/envs/default/bin/python && $P scripts/review_evidence.py verify --pack /nope >/tmp/v.out 2>/tmp/v.err; echo \"verify_rc=$?\"; echo \"stdout_bytes=$(wc -c </tmp/v.out)\"; python3 - <<'EOF'\nimport json,subprocess,sys,os\nP=\"<HOME>/.workbuddy/binaries/python/envs/default/bin/python\"\npack={\n \"schemaVersion\":1,\n \"subject\":{\"repo\":\"o/r\",\"baseSha\":\"a\"*40,\"candidateSha\":\"b\"*40},\n \"authorityRefs\":[],\"producer\":{\"identity\":\"x\",\"version\":\"1\",\"observedAt\":\"2026-01-01T00:00:00Z\"},\n \"checks\":[],\"artifacts\":[],\n \"ci\":{\"run\":\"r\",\"job\":\"j\",\"checkedSha\":\"b\"*40,\"originalState\":\"PASS\"},\n \"grounding\":{\"mode\":\"UNAVAILABLE\",\"coverage\":\"\",\"evidenceRef\":\"\"},\n \"seams\":{\"applicability\":\"REQUIRED\",\"evidenceRefs\":[]},\n \"reuse\":{\"sourceEvidence\":\"\",\"validFor\":\"\",\"dependencies\":[],\"invalidation\":\"\"},\n \"unverified\":[],\"\u0053TRUCTURALLY_VALID\":\"YES\",\"\u0053OURCE_VERIFICATION_STATE\":\"NOT_VERIFIED\",\n \"\u0045VIDENCE_SUFFICIENCY\":\"SUFFICIENT\",\"\u0073emanticScopeStatus\":None,\"\u0072eviewerDecisionRefs\":[]}\nopen('/tmp/p.json','w').write(json.dumps(pack))\nr=subprocess.run([P,\"scripts/review_evidence.py\",\"validate\",\"--pack\",\"/tmp/p.json\",\n  \"--expect-repo\",\"o/r\",\"--expect-base-sha\",\"a\"*40,\"--expect-candidate-sha\",\"b\"*40],\n  capture_output=True,text=True)\nout=json.loads(r.stdout)\nprint(\"rc\",r.returncode,\"ok\",out[\"ok\"],\"reasons\",[v[\"reason\"] for v in out[\"violations\"]])\nEOF"], "returncode": 1, "run_id": "h2r2-f03-v"}
+{"at": "2026-10-28T02:53:47+00:00", "event": "start", "pid": 72455, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T02:53:47+00:00", "event": "start", "pid": 72493, "run_id": "h2r2-f07-c"}
+{"at": "2026-10-28T02:54:34+00:00", "event": "end", "outcome": "REJECT", "pid": 57945, "reasons": [], "returncode": 1, "run_id": "h2r2-f01-v"}
+{"at": "2026-10-28T02:54:34+00:00", "event": "start", "pid": 73069, "run_id": "h2r2-f08-v"}
+{"at": "2026-10-28T02:54:53+00:00", "event": "end", "outcome": "NOT_REGISTERED:BLOCKED", "pid": 73069, "reasons": ["PROVIDER_UNREACHABLE:EXIT:1", "PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route", "PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f08-v"}
+{"at": "2026-10-28T02:54:53+00:00", "event": "wait", "requeue": 1, "run_id": "h2r2-f08-v", "seconds": 60.0}
+{"at": "2026-10-28T02:55:23+00:00", "event": "end", "outcome": "ACCEPT", "pid": 70944, "reasons": [], "returncode": 0, "run_id": "h2r2-f06-v"}
+{"at": "2026-10-28T02:55:23+00:00", "event": "start", "pid": 73424, "run_id": "h2r2-f06-c"}
+{"at": "2026-10-28T02:55:53+00:00", "event": "start", "pid": 73689, "run_id": "h2r2-f08-v"}
+{"at": "2026-10-28T03:00:16+00:00", "event": "end", "outcome": "INVALID", "pid": 72455, "reasons": ["OUT_OF_RUN_ACCESS:TOOL_NOT_ALLOWED:execute"], "returncode": 1, "run_id": "h2r2-f05-c"}
+{"at": "2026-10-28T03:00:16+00:00", "event": "start", "pid": 1612, "run_id": "h2r2-f05-v"}
+{"at": "2026-10-28T03:02:26+00:00", "event": "end", "outcome": "REJECT", "pid": 73689, "reasons": [], "returncode": 1, "run_id": "h2r2-f08-v"}
+{"at": "2026-10-28T03:02:26+00:00", "event": "start", "pid": 6307, "run_id": "h2r2-f08-c"}
+{"at": "2026-10-28T03:02:42+00:00", "event": "end", "outcome": "ACCEPT", "pid": 73424, "reasons": [], "returncode": 0, "run_id": "h2r2-f06-c"}
+{"at": "2026-10-28T03:02:42+00:00", "event": "start", "pid": 6814, "run_id": "h2r2-f09-c"}
+{"at": "2026-10-28T03:05:15+00:00", "event": "end", "outcome": "REJECT", "pid": 1612, "reasons": [], "returncode": 1, "run_id": "h2r2-f05-v"}
+{"at": "2026-10-28T03:05:15+00:00", "event": "start", "pid": 9295, "run_id": "h2r2-f10-v"}
+{"at": "2026-10-28T03:07:27+00:00", "event": "end", "outcome": "REJECT", "pid": 72493, "reasons": [], "returncode": 1, "run_id": "h2r2-f07-c"}
+{"at": "2026-10-28T03:07:27+00:00", "event": "start", "pid": 18651, "run_id": "h2r2-f07-v"}
+{"at": "2026-10-28T03:08:40+00:00", "event": "end", "outcome": "BLOCKED", "pid": 6307, "reasons": ["AUDIT_BLOCKED:PROVIDER_UNREACHABLE:EXIT:1;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:PROVIDER_ERROR:provider.no-route;AUDIT_BLOCKED:PROVIDER_UNREACHABLE:NO_ANSWER"], "returncode": 1, "run_id": "h2r2-f08-c"}
+{"at": "2026-10-28T03:10:22+00:00", "event": "start", "pid": 28994, "run_id": "h2r2-f09-v"}
+{"at": "2026-10-28T03:10:23+00:00", "event": "end", "outcome": "INVALID", "pid": 6814, "reasons": ["OUT_OF_RUN_ACCESS:PATH_OUTSIDE_RUN:cd .. && diff -q repo/references/ticket-lane.md H2_WARM/references/ticket-lane.md; diff -q repo/references/static-analysis-and-code-intelligence.md H2_WARM/references/static-analysis-and-code-intelligence.md; wc -l H2_WARM/references/*.md"], "returncode": 1, "run_id": "h2r2-f09-c"}
+{"at": "2026-10-28T03:12:05+00:00", "event": "start", "pid": 30803, "run_id": "h2r2-f10-c"}
+{"at": "2026-10-28T03:12:06+00:00", "event": "end", "outcome": "REJECT", "pid": 9295, "reasons": [], "returncode": 1, "run_id": "h2r2-f10-v"}
+{"at": "2026-10-28T03:16:06+00:00", "event": "end", "outcome": "REJECT", "pid": 28994, "reasons": [], "returncode": 1, "run_id": "h2r2-f09-v"}
+{"at": "2026-10-28T03:17:21+00:00", "event": "end", "outcome": "REJECT", "pid": 18651, "reasons": [], "returncode": 1, "run_id": "h2r2-f07-v"}
+{"at": "2026-10-28T06:05:01+00:00", "event": "end", "outcome": "REJECT", "pid": 30803, "reasons": [], "returncode": 1, "run_id": "h2r2-f10-c"}

@@ -386,3 +386,797 @@ TRUE values:
   must come from a clean frozen commit.
 · Gates after the round-11 fixes: ruff check . clean; 134 material tests OK; inventory
   selftest PASS (0 failures); public-release VIOLATIONS=0; governance 35/35.
+
+--- [17] read-boundary repair battery (Round-1 defect; tests-first, red -> green) ---
+· ROOT CAUSE: the contract told the worker to read <REPORT_TEMPLATE_PATH>, which resolved into
+  the FROZEN MATERIALS TREE, while TELEMETRY_TARGETS required every READ target to resolve
+  inside the run worktree. A contract-COMPLIANT worker was therefore rejected by its own
+  harness. Global by nature: it would have invalidated every Round-1 run.
+· TESTS FIRST (PART 15/17): the inline predicate was extracted, behaviour-preserving, into
+  harness/read_surface.py, then experiments/v1.2/tests/test_v1_2_h2_read_surface.py was written
+  against that real module and run BEFORE the fix. RED = 21 tests / 14 failures, including the
+  regression test itself and a symlink-laundering case that the old code allowed (ALLOWED).
+  After the fix: 21 tests OK. Both sides of the red/green are real code paths.
+  No control uses unittest.TestCase.run() (it CAPTURES assertion failures instead of raising).
+· POSITIVE CONTROL (real prepared run): template located at the frozen materials commit,
+  copied byte-exact into the run evidence dir, SOURCE_TEMPLATE_HASH ==
+  RUN_TEMPLATE_HASH == 540cd07c6123..., contract points at the COPY and no longer mentions the
+  materials-tree path, compliant telemetry (incl. reading its own template copy) collects
+  rc=0, TEMPLATE_BINDING = OK (source == receipt copy == at_collect).
+· NC1 materials-root direct read      -> rc=3, reason MATERIALS_ROOT_READ.   TRIGGERED=YES
+· NC2 cross-arm carrier read           -> rc=3, reason CROSS_ARM_READ.        TRIGGERED=YES
+· NC3 per-run template 1-byte tamper   -> rc=3, TEMPLATE_BINDING FAIL (at_collect hash differs)
+· NC4 abbreviated '...' path (the exact Round-1 offending shape) -> rc=3, NON_CANONICAL_PATH
+· NC5 sibling-run evidence read        -> rc=3, reason OTHER_RUN_EVIDENCE_READ. TRIGGERED=YES
+· EXTRA symlinked per-run template     -> rc=3, "missing or is a symlink".   TRIGGERED=YES
+· EXTRA template restored after edit   -> rc=0, binding still holds (hash-based, not path-based)
+· Fixture note: the first NC5 fixture created a DIRECTORY named worker-report-template.md; the
+  control still triggered on the intended path-shape branch. The fixture was corrected.
+· TREATMENT INVARIANCE (PART 12), per-file hash vs 5ab500e:
+  task-registry / scoring-rubric / routes-h2 / protocol / run-plan / variant carrier /
+  arm-blocks/control.md / arm-blocks/variant.md  = ALL UNCHANGED.
+  worker-brief-template.md CHANGED but the diff is purely additive and lies ENTIRELY outside
+  the <BOOTSTRAP_DELIVERY_BLOCK> placeholder that carries the per-arm disclosure instruction,
+  so the change is arm-symmetric. => AFFECTS_EXPERIMENT_TREATMENT = NO (proven, not asserted).
+· LOCAL GATE = the exact workflow commands read from .github/workflows/governance-ci.yml
+  (compileall / ruff check . / validate_governance / validate_public_release x3 / scripts tests
+  / t16 entrypoint / zcode / workbuddy) rather than an approximation. Scripts-suite (32) and
+  zcode (23) failures in this sandbox are pre-existing and environment-caused; they reproduce
+  on the unmodified base. NOTE: experiments/v1.2/tests is NOT in CI at all — the H2 material
+  suite is a local-only gate.
+
+--- [18] PR #55 Codex findings + PART 7/8 recovery battery ---
+· F55-N1 whitespace root: prepare_run.sh now refuses UNSUPPORTED_RUN_ROOT_WHITESPACE before any
+  allocation. FIRST PROOF WAS VACUOUS: the probe used "/tmp/h2 runs", which trips VOLATILE_ROOT
+  first, so the whitespace predicate was never reached. Re-proved with a NON-volatile whitespace
+  root AND with the mutant COMMITTED (so MATERIALS_DIRTY could not stand in for the guard):
+  mutant -> passes the whitespace check and fails later at WORKTREE_CHECKOUT_FAILED;
+  fixed -> UNSUPPORTED_RUN_ROOT_WHITESPACE.
+· F55-N2 symlink test: the previous test passed the bare relative name, which resolves against
+  the WORKTREE, so it rejected a nonexistent worktree file and never touched the symlink. Now the
+  real link path is passed and the EXACT reason asserted. Removing resolve() from the classifier
+  fails 9 tests.
+· F55-N3 FETCH_HEAD: --no-write-fetch-head + checkout --detach $BASE_SHA + a scan that refuses
+  SOURCE_PATH_LEAK. NOTE: the first cut of this fix was a REGRESSION caught by the POSITIVE
+  control -- with the flag, FETCH_HEAD is never written, so "checkout FETCH_HEAD" failed and a
+  whitespace-free root reported WORKTREE_CHECKOUT_FAILED. Only running the positive path exposed
+  it.
+· 4245354606 evidence surface too broad: RUN_EVIDENCE/ namespace + an explicit 3-file allowlist
+  (contract.md, worker-report-template.md, report.md); receipt.json / task.txt are refused.
+· 4245354597 host paths in telemetry: absolute paths are now REFUSED outright (HOST_PATH_NOT_ALLOWED)
+  rather than allowed-then-sanitized; the log is collected into a published artifact, so the
+  spelling must be host-free at the source. This also closes the old os.path.join prefix hole,
+  whose actual behaviour is recorded in round-1-closure.md.
+· 4245354610 collector binding: read_surface.py AND routes-h2.json are now loaded from the
+  receipt's frozen materials commit, so a permissive later checkout cannot make evidence pass
+  that the frozen harness would reject.
+· 4245354590 plan propagation: collect honours H2_PLAN_FILE like prepare; mismatch is fail-closed;
+  MATERIALS_ADVANCED scan is scoped to the selected round so a retained runs root no longer
+  refuses a correct preparation.
+· PART 7 registry: two authoritative tables. R1 = 1 INVALID + 19 CANCELLED_ROUND_INVALID (zero
+  PLANNED rows remain); R2 = 20 FROZEN_NOT_EXECUTED. New suite test_v1_2_h2_run_registry.py binds
+  the tables to run-plan.json / run-plan-r2.json / round-1-closure.md / the invalid-run record
+  with COMPLETE ORDERED TUPLES. Four mutations all bite: R2 row -> PLANNED; R1 arm transposed;
+  R2 id colliding with R1; episode identity removed. The pre-existing row-shape test was retired
+  (superseded, not weakened) because it could not survive a second table.
+· PART 8 invalid-episode gate: an INVALID run is NOT a nonexistent run. publish_run.sh now also
+  reads preserved invalid-run records, so Round 2 cannot reuse the Round-1 executor context.
+  Controls (real publish_run.sh): POSITIVE fresh -> rc=0; R1-invalid episode as WORKER -> rc=3
+  EPISODE_REUSE; as AUDITOR -> rc=3; prior-R2 worker -> rc=3; prior-R2 auditor -> rc=3;
+  worker==auditor -> rc=3; MISSING identity -> rc=2 (fail-closed).
+· CONTROL CAUGHT A LATENT FAIL-OPEN: the sanitizer derived MATERIALS_WT from git; outside a git
+  worktree that resolves to the EMPTY string, and str.replace("", X) inserts X between EVERY
+  character -- silently corrupting every published artifact. Now PUBLISH_REFUSED
+  EMPTY_SANITIZER_SOURCE, AND the refusal propagates as exit 3 (the first cut returned rc=0 over
+  a rejected sanitization, because the python exit code was not checked -- a fail-open on the
+  very path that protects published artifacts).
+· PART 10 treatment invariance vs 5ab500e: task set / scoring / routes / protocol / R1 run plan /
+  variant carrier / BOTH arm blocks all UNCHANGED. Changed: prepare_run, collect_run, publish_run,
+  worker-brief-template. The brief diff touches ZERO lines mentioning the per-arm
+  BOOTSTRAP_DELIVERY block => arm-symmetric => AFFECTS_EXPERIMENT_TREATMENT = NO.
+· PART 11 local gate: compileall OK; ruff clean; governance 35/35; public-release clean + 51/51
+  selftest; t16 OK; workbuddy adapter OK; material suites OK; inventory selftest PASS;
+  10 harness scripts syntax-clean. scripts/tests (32) and adapters/zcode (23) remain pre-existing
+  sandbox failures that reproduce on the base.
+
+--- [19] Codex review on 7b9251a (2 x P1) + N4/N5 controls ---
+· N4 [P1] "Bind frozen validator loading to a trusted commit": receipt.json is worker-writable and
+  collect loaded the validator FROM receipt.materials_commit, so a worker could point that field
+  at an older reachable commit whose read_surface.py is more permissive. Real prepared-run probe:
+    A. honest receipt                      -> TEMPLATE_BINDING = OK, COLLECT_RUN OK (rc=0)
+    B. materials_commit forged (92bae0d -> 7ba6361)
+         FIXED   -> rc=3, "materials_commit 7ba6361... != live materials HEAD 92bae0d...",
+                    TARGET_PREDICATE_REACHED = 1
+         MUTANT  -> rc=0, COLLECT_RUN OK   <-- the reviewer's bypass reproduced exactly
+  The mutant arm proves the predicate is load-bearing; the fixed arm proves it fires. A first
+  probe attempt was INVALID and is recorded as such: the fixture worktree was not a git repo, so
+  an earlier HEAD check fired (HEAD_UNREADABLE) and the binding predicate was never reached.
+· N5 [P1] "Reject runs roots nested beneath the materials checkout": with a runs root inside the
+  repo (e.g. the already-ignored .workbuddy/h2-runs) the worktree and evidence dir are DESCENDANTS
+  of the materials root; testing `mat` first made every compliant read classify as
+  MATERIALS_ROOT_READ, so preparation succeeded and collection then rejected the run after the
+  worker episode had been spent. Fixed by ORDER: the explicitly allowed roots are tested before
+  the forbidden one. A worktree symlink into the materials tree still fails both allowed-root
+  tests and lands on the materials branch, so the reorder does not open the tree.
+  Control: restoring the old order fails 2 tests (the nested-layout regression); restored passes.
+  New regression class NestedRunsRootLayout covers compliant worktree read, compliant evidence
+  read, and materials content still refused, all in the nested layout.
+· PROCESS NOTE: the first attempt to record this section used a substring test (`"[19]" in text`)
+  which matched an unrelated pre-existing reference and skipped the append while still reporting
+  success. Evidence anchors must key on the section header, not on a bare marker.
+· Both findings are P1, so the merge gate is closed and the candidate was NOT merged. Any new
+  commit also makes every prior review STALE, so a fresh Codex review of the new SHA is required
+  before the gate can reopen.
+
+--- [20] Codex review on 61dcf99 (4 x P1) + round-5 repair battery ---
+· F19 carrier-kind selection trusted the receipt. The expected carrier was chosen by
+  receipt["carrier_kind"] — worker-writable, and receipt revalidation checks `arm` but not the
+  kind — so a control run could be handed the VARIANT carrier with the claim rewritten to match
+  and every hash check would pass, silently inverting the independent variable. The expected kind
+  is now derived from the plan row's arm (already frozen-validated); receipt kind is a CLAIM.
+  CONTROL (fixed): kind-swap attack -> rc=3, expected_kind=control_full_v1 (from frozen plan
+  arm=control) claimed_kind=variant_lean_v1 frozen=de5d1bb7e3ce claimed=actual=c5c8261591d7.
+  MUTATION: with the kind derivation reverted to the receipt (committed mutant), the SAME attack
+  -> rc=0 "COLLECT_RUN OK" — the reviewer's bypass reproduced exactly, so the predicate is
+  load-bearing (TARGET_PREDICATE_REACHED, MUTANT_SURVIVED=NO).
+· F20 publish composition rc was unchecked. A composition error (e.g. missing acceptance.txt)
+  still fell through to promotion: the finalized DEST was replaced by the PARTIAL stage, the
+  backup deleted, and PUBLISH_RUN OK printed. Now rc-checked: discard the stage, leave DEST as-is.
+  S4: preflight PASSES, staging composition FAILS -> rc=3 COMPOSITION_FAILED, DEST hash
+  unchanged (before==after), staging residue 0.
+  MUTATION: with the rc check stripped from the fixture copy, the same failure -> rc=0
+  PUBLISH_RUN OK, sentinel LOST, no run.json => the old fail-open reproduced; the control
+  catches it.
+· F21 the frozen control-carrier recomputation read AGENTS.md at the historical task base.
+  prepare_run.sh composes from MATERIALS_COMMIT, and those revisions differ for t01-t04, so an
+  UNTOUCHED control run was rejected: frozen=e00d281d800c claimed=actual=de5d1bb7e3ce — exactly
+  the numbers the review predicted. Now read at the frozen materials commit, matching prepare.
+  CONTROL (fixed): clean collect rc=0, frozen==claimed==actual=de5d1bb7e3ce.
+  MUTATION: with the base-era read restored (same committed mutant), a clean control run ->
+  rc=3 with the review's exact frozen=e00d... claimed=actual=de5d... signature.
+· F22 GREP rejected directory targets. The preserved Round-1 telemetry contains
+  "READ GREP scripts/tests" and "READ GREP adapters/zcode/tests" — both DIRECTORIES — and the
+  classifier required a regular file, so a valid worker that searched a directory (or .) was
+  invalidated at collection. classify_read_target now takes the read kind: GREP may target an
+  existing directory; FULL/PARTIAL still require a regular file; the default (no kind) keeps the
+  strict behaviour so pre-existing callers are unchanged.
+  MUTATION: removing the directory allowance fails 3 tests; restored passes. The real B-run
+  telemetry (which includes both preserved GREP-directory lines AND "READ GREP .") collects rc=0.
+· F16/F17 rechecks: DH1/DH2/DH3 (tamper + receipt rewritten to match) all rc=3 with
+  frozen != claimed == actual; plan authority still refuses a one-row R20-only copy and a
+  byte-identical copy at a non-canonical path (PLAN_AUTHORITY_FAIL).
+· N4 recheck: forged materials_commit -> rc=3 (receipt may not select which harness validates the
+  run); restored -> rc=0. The earlier rc=3-after-restore was BATTERY DAMAGE (the DH3 WARM tamper
+  was not restored because `git checkout -- H2_WARM` cannot restore PLACED delivery files), not a
+  code defect; re-proved cleanly on a fresh root: forge -> 3, restore -> 0.
+· S2/S3/S5: S2 non-git checkout -> rc=2 EMPTY_SANITIZER_SOURCE, DEST never created; S3 existing
+  DEST + sentinel + preflight failure -> rc=2, recursive DEST hash UNCHANGED; S5 clean publish ->
+  rc=0, complete record (acceptance.txt carrier-recheck.txt report.md run.json telemetry.json
+  telemetry.log), staging residue 0, prev residue 0, host paths in the published record 0.
+· Battery process notes (recorded because they invalidated two control attempts): (a) the first
+  mutant window ran against a STALE probe root — the workspace bulk-delete shim blocked removal of
+  the 154-file probe tree, prepare then refused with MATERIALS_ADVANCED and the "attack" collected
+  against a mismatched receipt (rc=3 for the wrong reason); re-proved on a fresh root. Deletion
+  works by moving the tree OUT of the workspace first. (b) A battery run attempted to clear
+  [19]'s dangling concern by re-running the restore check, which exposed the WARM-restore damage.
+  Neither is a harness defect; both are recorded so the controls that DID reach their predicates
+  can be told apart from the ones that did not.
+· TRUST-ROOT AUDIT (narrow, H2 acceptance path): every receipt field consumed by collect_run.sh
+  is either validated against the frozen plan/registry (run_id, task_id, arm, expected_base,
+  plan_index, materials_commit) or re-derived from the frozen materials commit and used only as a
+  CLAIM (carrier_kind, carrier_hash, h2_rules_sha256, warm_bundle_sha256,
+  report_template_source/run_sha256). Publish records receipt fields into run.json but they are
+  validated upstream by collect; publish makes no acceptance decision from them.
+  WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0.
+· LOCAL GATE = the exact workflow commands: compileall PASS; ruff clean; governance 35/35;
+  scripts/tests 32 failures and adapters/zcode 23 errors are PRE-EXISTING sandbox failures that
+  reproduce on the base; t16 OK; workbuddy adapter OK; public-release VIOLATIONS=0 + commit
+  metadata canonical + selftest 51/51; experiments tests OK (read-surface 35, registry suite,
+  material suite); inventory selftest PASS; 10 harness scripts syntax-clean.
+
+--- [21] fresh adversarial review on 9f8e4ee (2 x P0 + 3 x P1 + 3 x P2) + round-6 repair battery ---
+CORRECTION OF [20]: the [20] trust-root audit was scoped to collect_run.sh only, and its
+"WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0" did NOT cover the ACCEPTANCE scripts. The fresh
+review falsified that reading on 9f8e4ee: check_scope.sh / check_hygiene.sh took `base` from
+EV/receipt.json (worker-writable) and check_restore.sh took base + a ruff hash + a status
+snapshot the same way. The corrected statement is at the end of this entry.
+
+· P0-1/P0-2 acceptance trust roots (fixed; fix load-bearing in BOTH directions):
+  new harness/frozen_run_facts.py derives (task_id, base_sha, arm, plan_index) from the FROZEN
+  plan + registry AND binds the plan to its COMMITTED bytes (git show HEAD:<rel> == working file).
+  check_scope / check_hygiene / check_restore now use it; check_restore additionally compares
+  ruff.toml against the BASE BLOB (raw or CRLF-normalized) instead of a recorded receipt hash, and
+  its status-restore expectation is stated directly (normalized status must be empty) because the
+  old comparison file (EV/status-pre-ignored.txt) was written by NOTHING and was worker-creatable.
+  Controls: scope POSITIVE pass; the review's attack (commit a denied path + rewrite
+  receipt.expected_base to the worker's own HEAD) -> rc=1 DENIED_PREFIX via the frozen base;
+  MUTANT (scope base from receipt, committed) -> rc=0 BYPASS REPRODUCED; restored -> rc=1 again.
+  task-id arg mismatching the frozen row -> SCOPE_FAIL TASK_ID_DOES_NOT_MATCH_FROZEN_ROW;
+  plan-less id -> SCOPE_FAIL NO_FROZEN_ROW. restore: clean PASS; untracked residue -> NO with the
+  residue listed; ruff tamper -> NO (no receipt shortcut); restored -> PASS.
+  hygiene: committed force-added __pycache__ => PYCACHE_IN_CHANGESET = 1 + FAIL; committed broken
+  .py => FAIL py_compile; cleanup => PASS.
+· P1-1 publish identity gates (fixed): real-plan-run status now comes from PLAN MEMBERSHIP (not
+  receipt plan_index), and receipt plan_index must EQUAL the frozen position. Controls:
+  plan_index removed -> rc=3 PLAN_INDEX_MISMATCH; plan_index=-1 -> rc=3; correct index +
+  Round-1 invalid episode (workbuddy-agent-8c1a4d7e2f94b60) -> rc=3
+  EPISODE_REUSE [INVALID_EPISODE_REUSE:H2-R1-R01:...] — the review's exact bypass now blocked.
+· P1-2 publish artifact copies (fixed): every copy rc-checked; the staged set
+  (report.md acceptance.txt carrier-recheck.txt telemetry.log telemetry.json run.json) verified as
+  regular non-symlink files before promotion. Control: chmod 000 report.md -> rc=3
+  ARTIFACT_COPY_FAILED, DEST absent (the old code printed PUBLISH_RUN OK with no report.md).
+· P1-3 collect plan authority (fixed): the working-tree plan must byte-equal the version committed
+  at the materials HEAD, mirroring prepare. Control: edit plan arm + freeze pin in lockstep and
+  sync the receipt -> rc=2 PLAN_AUTHORITY_FAIL (working-tree differs from the frozen commit);
+  MUTANT (binding stripped) -> rc=0 COLLECT_RUN OK BYPASS REPRODUCED; restored -> binding fires.
+  Battery note: the post-restore sanity printed rc=3 because the receipt BACKUP used for the
+  restore was itself contaminated by the aborted first attempt (its receipt3.bak carried
+  arm=variant from that run) — the harness correctly rejected a receipt inconsistent with the
+  frozen plan; the clean path is proven by C1 rc=0 on this same code.
+· P2-2 registry suite (fixed): the number of tables WITH DATA ROWS is pinned to 2 and the record
+  file column is bound. Controls (corrected driver — REGISTRY must be a Path; the first driver
+  passed a str and every test ERRORED, i.e. the first "DETECTED" reading was vacuous): appended
+  conflicting table -> failures=1 (test_exactly_two_registry_tables_with_expected_sizes);
+  appended all-VALID copy -> failures=1 (same); record column rewritten -> failures=1
+  (test_record_file_column_is_bound); real registry -> failures=0 errors=0 (the driver printed
+  its summary label "MISSED (BAD)" for this row because the label logic treats zero findings as a
+  miss — a DRIVER LABEL artifact; the numbers are the evidence).
+· P3 fixes: template SOURCE claim now participates (tamper -> rc=3 with deadbeef shown);
+  collect temp index uses mktemp (unpredictable) and is removed on success and in fail();
+  STAGE creation moved AFTER every preflight/identity gate — the review-adjacent battery exposed
+  that refusals after the old creation point left *.staging.* residue (7 dirs observed); now every
+  refusal path asserts residue=0. Post-sanitize /Users/ scan -> rc=3 UNSANITIZED_HOST_PATH.
+  GIT_DIR/GIT_WORK_TREE/GIT_COMMON_DIR unset at collect/publish/check-script entry.
+· P2-1 (materials_commit == live HEAD) ACCEPTED with rationale: the value cannot be frozen
+  per-run without trusting a worker-writable store; binding to the live HEAD is the strongest
+  available anchor, the direction is fail-closed, and a WORKER cannot learn the live HEAD (no ODB
+  path, no .git leak — re-verified). An operator advancing the snapshot mid-round violates the
+  one-snapshot-per-round invariant and is refused by prepare (MATERIALS_ADVANCED).
+· P2-3 (episodes recorded only on published runs) OPEN DEBT, not silently claimed fixed: an
+  INVALID run that is never published leaves no episode record, so a later reuse of that episode
+  would not be caught mechanically. Enforcement point defined: the INVALID-registration step must
+  write runs/<id>/round-record.json with the episode, mirroring the preserved Round-1 record;
+  mechanizing it belongs to the next harness revision (no protocol change is made here).
+· TRUST-ROOT AUDIT (corrected, acceptance path): collect_run.sh receipt fields are all validated
+  against the frozen plan/registry or re-derived from the frozen materials commit and used as
+  claims only; the three acceptance scripts now derive their judgment base from the frozen
+  helper; publish records receipt fields but makes no acceptance decision from them and requires
+  collect evidence. WORKER_WRITABLE_TRUST_ROOTS_REMAINING = 0 on the collect + acceptance path,
+  with the P2-1 caveat documented (not hidden).
+
+--- [22] fresh adversarial review on 9c5f059 (1 x P0 + 1 x P1 + 4 x P2) + round-7 battery ---
+CORRECTION OF [21] (third scope correction): [21] closed the RECEIPT as a trust root but the
+judgement BASE of the three acceptance scripts — the worktree's own git view — was still the
+worker's to manipulate, because a run worktree is an independent repo and .git/ sits inside the
+worker's write surface. The fresh review constructed all of:
+  * `git update-index --assume-unchanged <tracked denied path>` + edit -> SCOPE = PASS;
+  * same flag on a tracked .py + syntax corruption        -> HYGIENE = PASS;
+  * same flag + edited tracked files                      -> STATUS_RESTORED = YES;
+  * `.git/info/exclude` entry                             -> untracked denied files vanish from
+    the change surface AND from collect's captured diff;
+  * `.git/info/attributes` + a `filter.<x>.clean` in `.git/config` -> even `git add` records the
+    FROZEN bytes, so the captured diff hides the change entirely.
+· P0-1 fix: new harness/check_git_metadata.sh refuses a worktree whose git metadata was used to
+  hide changes — index flags (assume-unchanged/skip-worktree), local `filter.*`/`core.excludesFile`/
+  `core.attributesFile` config, and substantive .git/info/{exclude,attributes}. collect_run.sh and
+  all three acceptance scripts call it before judging; all four also run with
+  GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM=/dev/null so the global/system config layer is out of scope.
+  Controls on a REAL prepared run: each construction above -> GIT_METADATA = TAMPERED with
+  scope/restore/hygiene refusing (rc=2) and collect INVALID (rc=3); cleaned -> guard OK and the
+  honest paths green (scope PASS / hygiene PASS / restore PASS / collect rc=0).
+· P1-2 fix: publish's collect gate no longer trusts worker-writable evidence files. A successful
+  collect writes a collect-ok MARKER outside the evidence dir (H2_RUNS_ROOT/collect-ok/<id>.json)
+  binding collect-summary.txt and carrier-recheck.txt by hash; publish verifies marker + hashes.
+  Controls: marker removed (the review's fake-collect construction) -> rc=2 NO_COLLECT_EVIDENCE;
+  edit carrier-recheck after collect -> rc=3 COLLECT_EVIDENCE_MISMATCH.
+· P2-3 fix: publish's plan lookup no longer folds "0 rows" and ">1 rows" into the dry-run
+  exemption. Duplicate rows -> rc=2 PLAN_DUPLICATE_ROWS (matching frozen_run_facts rc=3 and
+  collect's fail-closed); any id that is neither a plan row nor a registered H2-DRYRUN id ->
+  rc=2 UNKNOWN_RUN_ID.
+· P2-4 fix: the scope and hygiene enumerations now include IGNORED entries
+  (--ignored=matching), so pycache/pyc residue and files hidden behind an exclude edit remain
+  visible. Control: an ignored deployment/__pycache__/mod.pyc -> hygiene FAIL (PYCACHE=1) and
+  scope FAIL (DENIED_PREFIX) — previously invisible to both.
+· P2-5 fix: the base-relative diffs are rc-checked (a failed diff refuses as
+  FROZEN_BASE_UNREADABLE instead of silently yielding an empty commit set), and
+  frozen_run_facts.py now binds task-registry.json to its committed bytes as well (the base_sha
+  is only as trustworthy as the file it comes from).
+· P2-6 fix: frozen_run_facts realpath-resolves paths before the repo-relative comparison (reaching
+  the harness through a symlink — macOS /tmp, /var, a symlinked workspace — no longer fails a
+  legitimate call; control: symlinked EXP_DIR -> rc=0), and validates the arm against
+  {control, variant} (arm=banana -> rc=3).
+· Removed as VACUOUS (review's own list): the tautological merge-base ancestor check in collect
+  (equal to the equality check just performed); the unreachable `[ -L ]` half of publish's staged
+  artifact loop (cp dereferences). Added: a publish EXIT/INT/TERM trap cleaning the stage (an
+  interrupt previously left *.staging.<pid>); collect's telemetry copy is rc-checked.
+· Registry suite, fourth fraud class (the review's): a table line whose first cell is NOT a digit
+  was invisible to every test; header labels participated in no assertion; physically swapping the
+  two tables passed; a whole-file substring test accepted the episode hidden in an HTML comment.
+  Fixes: exact table-line count (2 x 22), header-label assertions, table ORDER bound (first = R1),
+  comments stripped before the episode check. Controls: FRAUD4/5/6 all DETECTED by the intended
+  tests.
+· Documented trade-offs (not silently claimed fixed): the /Users/ post-sanitize refusal is
+  fail-closed and could consume a run whose report legitimately quotes a foreign /Users path
+  (P3, accepted); the collect-ok marker is contract-adjacent (a same-UID adversary that leaves the
+  worktree+evidence surface can still forge it — the sandbox boundary, stated not hidden); no
+  `set -e`/pipefail was added to collect/publish (no exploit found; changing it now would alter
+  long-standing capture semantics).
+· SECOND SCOPE CORRECTION — see [23]: this round's guard was a BLACKLIST and missed
+  .git/hooks (a planted post-index-change hook executes during collect's `git add` —
+  verified), `status.showUntrackedFiles` (restore read a hidden-untracked status —
+  verified) and `includeIf` (invisible to the old regex — verified); and the marker
+  bound only 2 of the 6 inputs publish consumes. Round 8 closes all four. The
+  trust-root sentence below is SUPERSEDED by [23].
+· CORRECTED TRUST-ROOT STATEMENT: on the collect + acceptance path, (a) receipt fields are
+  validated or re-derived, (b) the acceptance judgement base is the frozen commit-bound plan +
+  registry, and (c) the judgement SUBJECT is guarded against git-metadata manipulation. The
+  remaining worker-writable inputs are the judged FILES themselves (which is the measurement) and,
+  outside the contract surface, the same-UID sandbox boundary.
+
+--- [22] addendum (same round, before any external review of this SHA) ---
+· the guard additionally refuses three same-family vectors found while reviewing its own scope:
+  a `gitdir:` redirect (the worktree's .git must BE the resolved git dir — a `.git` file moving
+  the git dir elsewhere would relocate the info/* files the guard inspects), local `core.worktree`
+  (redirects which work tree git inspects), and local `include.path` config (an included file can
+  smuggle filter definitions). Controls re-run on a fresh prepared run: each vector -> TAMPERED;
+  honest guard OK and the full honest chain (scope/hygiene/restore/collect + marker) green.
+
+--- [23] fresh adversarial review on 61bfbac (reviewer could NOT execute — env degraded) + round-8
+        battery: every static finding independently verified and closed ---
+The review of 61bfbac returned CHANGES_REQUIRED but its environment returned 137/SIGTERM for every
+command, so every finding was source-reading only. Each one was therefore verified HERE, by
+construction, before being acted on. Three were REAL and are now closed; the rest are fixed or
+documented.
+
+· VERIFIED V1 — .git/hooks: a planted `.git/hooks/post-index-change` RUNS during `git add`
+  (reproduced in a scratch repo: hook fired). collect's `git add -A` would therefore execute
+  worker code inside the operator process. Fix: (a) guard refuses any non-.sample hook file;
+  (b) all six scripts export GIT_CONFIG_COUNT pins (core.hooksPath=/dev/null, core.fsmonitor=false,
+  status.showUntrackedFiles=all, core.attributesFile=/dev/null, core.excludesFile=/dev/null) +
+  GIT_ATTR_NOSYSTEM=1 AFTER the caller's environment, overwriting caller-provided GIT_CONFIG_*.
+  Controls: planted hook -> guard TAMPERED (hooks(1)); collect rc=3; hook did NOT fire during
+  collect; a raw `git add` WITH the pins did not fire it either.
+· VERIFIED V2 — status.showUntrackedFiles=no hid untracked files from `status --porcelain
+  --ignored` (reproduced), and check_restore had no `-u` override. Fix: guard config regex now
+  includes `status.`; restore adds explicit --untracked-files=all; the pins force
+  showUntrackedFiles=all for every judgement command. Controls: config planted -> guard TAMPERED
+  (local_config(status.showuntrackedfiles)); with the pins the same command shows the file
+  (visible_with_pins=1).
+· VERIFIED V3 — includeIf was invisible to the old `^include\.` regex (reproduced: --get-regexp
+  returns empty, --list shows includeif.*). Fix: the guard matches `config --local --list`
+  case-insensitively for `^(filter\.|include|core\.(worktree|excludesfile|attributesfile|
+  hookspath|fsmonitor|quotepath|sparsecheckout)|status\.)`. Control: planted includeIf -> guard
+  TAMPERED (local_config(includeif.…)).
+· FIXED (static-only finding, code-verified) — the collect-ok marker bound only 2 of the 6 inputs
+  publish consumes. It now binds telemetry.log, report.md and acceptance.txt as well; publish
+  refuses UNBOUND (file appeared after collection) and MISMATCH (file changed), and REFUSES an
+  acceptance.txt with no `=== RC=` marker (a marker-less file previously parsed to an all-green
+  `acceptance_nonzero_rcs = []` — worst-input-must-not-pass). Controls: edit report after collect
+  -> MISMATCH:report.md; edit acceptance -> MISMATCH:acceptance.txt; marker-less acceptance
+  recorded by a REAL collect -> ACCEPTANCE_MARKERS_MISSING; honest publish rc=0 with the six-file
+  record.
+· FIXED — check_scope's `--name-status -z` parser skipped any path token spelling a status letter
+  (a committed file literally named "A" vanished). Parsing is now by PARITY (strict
+  STATUS\0path\0 under --no-renames; multi-char status = fail-closed anomaly). Control: committed
+  root file "A" -> SCOPE_VIOLATION PATH_OUTSIDE_ALLOWED 'A' (seen).
+· FIXED — registry: a GFM row WITHOUT a leading pipe renders as a table row but was invisible to
+  every test. test_no_unpinned_table_lines now also asserts no line contains a pipe unless it IS
+  a table line. Control: appended bare row -> failures=1 (intended test).
+· REMOVED as vacuous, per the same review: nothing further (the round-7 removals stand).
+· STILL DOCUMENTED, NOT FIXED (stated so the record is honest): the same-UID sandbox boundary
+  (a worker that leaves the worktree+evidence contract surface can still forge markers or edit
+  scripts — no cryptographic separation exists in this harness); the /Users/ refusal may consume a
+  run whose report legitimately quotes a foreign /Users path (fail-closed by choice).
+· INFRASTRUCTURE DEFECT FOUND WHILE PUSHING (not a harness defect): rounds 6-8 squashed their
+  final commits onto 61dcf99 each time, which turned the already-pushed 9f8e4ee into a SIBLING of
+  the local history. Every push of rounds 6-8 was therefore rejected as NON-FAST-FORWARD (the
+  retry loops reported it as network failure; `git ls-remote` showed the remote frozen at 9f8e4ee
+  and `git merge-base --is-ancestor 9f8e4ee HEAD` returned 1). Fix: the final commit is rebuilt
+  with `git reset --soft 9f8e4ee` (tree preserved) so the push is a genuine fast-forward; no
+  force-push, no history rewrite of any pushed ref.
+· CORRECTED TRUST-ROOT STATEMENT (supersedes [22]): on the collect + acceptance path, (a) receipt
+  fields are validated against or re-derived from frozen commit-bound sources; (b) the judgement
+  BASE is the frozen plan+registry; (c) the judgement SUBJECT is guarded against git-metadata
+  manipulation (flags, hooks, filters, includes, excludes, gitdir/work-tree redirects, replace
+  refs); (d) pins force the judgement commands' parameters regardless of caller config or env;
+  (e) every input publish consumes is bound to the successful collect that produced it. The
+  worker's legitimate write surface remains the judged FILES themselves (that is the measurement)
+  plus, outside the contract boundary, the same-UID sandbox caveat above.
+
+--- [24] fresh adversarial review on d2c9b99 (EXECUTING; 1 x P0 + 1 x P1 + 2 x P2) + round-9 ---
+This review round could run commands and DEMONSTRATED every finding end-to-end (acceptance PASS,
+COLLECT_RUN OK with a 0-byte diff.patch, PUBLISH_RUN OK — all over a fabricated change surface).
+Each was independently reproduced here before the fix, and each fix carries its own control.
+
+· P0 — replace refs: the guard only read the LOOSE refs/replace directory; `git pack-refs --all`
+  moves a replace ref into packed-refs, after which `git replace` substituted the FROZEN BASE
+  OBJECT itself (the base blob resolved to attacker content; ruff.toml tamper undetected). Fixes:
+  (a) the guard enumerates via `git replace -l` (covers packed; run with GIT_NO_REPLACE_OBJECTS
+  temporarily unset so listing always sees them); (b) EVERY judgement command exports
+  GIT_NO_REPLACE_OBJECTS=1, so even an unseen replace ref cannot substitute objects. Controls:
+  loose replace -> TAMPERED (replace_refs(1)); after `git pack-refs --all` -> STILL TAMPERED;
+  belt demonstrated (with a replace present, the pinned command reads the TRUE blob 5e1a8244…
+  while the unpinned one does not); delete -> OK.
+· P1 — GIT_CONFIG_PARAMETERS is honoured AFTER the GIT_CONFIG_COUNT pins and no script cleared it:
+  one exported variable restored core.hooksPath and the planted post-index-change hook FIRED
+  during a real collect step (the reviewer's PWNED reproduction; raw vector re-confirmed here).
+  Fix: STRUCTURAL env sanitization — every one of the six scripts re-execs itself under `env -i`
+  (PATH/HOME/LANG/TERM + the run's own variables) unless a sanitization marker is present AND no
+  GIT_* variable remains in the environment (so forging the marker while injecting GIT_* simply
+  re-sanitizes). Controls: with PARAMETERS set (and with marker forged + PARAMETERS set) the hook
+  does NOT fire and the scripts run honestly; the raw vector still fires, showing the vector was
+  real. The re-exec pass-list preserves H2_RUNS_ROOT, PY and the operator's WORKER_MODEL /
+  WORKER_EPISODE / AUDITOR_EPISODE. CAUGHT BY THIS ROUND'S OWN POSITIVE CONTROL: the first pass
+  list dropped those three, which made publish report MISSING_MODEL_EVIDENCE on the honest path —
+  a regression of exactly the kind the positive controls exist to catch; fixed and re-verified
+  (full honest chain green, publish rc=0).
+· P2 — the guard's config listing was fail-open: a failed read (e.g. GIT_CONFIG pointing elsewhere
+  producing "only one config file at a time") was silently treated as "no local config". Fix:
+  the listing is rc-checked (failure -> config_unreadable, TAMPERED); and the env sanitization
+  removes GIT_CONFIG before the guard's own reads. Control: GIT_CONFIG set + a real filter in
+  .git/config -> TAMPERED via the real config; clean worktree + GIT_CONFIG -> OK.
+· P2 — publish's ACCEPTANCE_MARKERS_MISSING regex was unanchored while the composer's is
+  anchored: `=== RC=7 (tee=1) === trailing junk` passed the gate but parsed to an all-green
+  record. Fix: the assertion uses the composer's exact formats
+  (`^=== RC=-?[0-9]+( \(tee=-?[0-9]+\))? ===$`). Controls: trailing-junk -> rc=3; good modern
+  marker -> rc=0; legacy `=== RC=3 ===` still parses to [3].
+· Remaining known boundary (stated, not hidden): a caller that wholly controls the process
+  environment (PATH hijack, loader injection) can still subvert any in-process tool — no
+  cryptographic separation exists at the same UID. The structural sanitization closes the entire
+  demonstrated GIT_*/env-config class; the enforcement points for experimental validity remain
+  operator-run collect (env sanitized there too) and independent review.
+· Also noted: [23]'s claim that the guard covers "refs/replace" was written before this review
+  showed packed refs evade the directory scan; the corrected statement is above ([23] kept
+  unedited as the record of what was believed then).
+
+--- [25] fresh adversarial review on 57fb787 (EXECUTING; 1 x P0 + 1 x P1 + 1 x P2 + P3s) + round-10 ---
+· P0 diff.external: the guard's config regex omitted `diff.`, and collect's `git diff --binary`
+  (no --no-ext-diff) executed a script named by a LOCAL worktree config key — worker code ran
+  inside the operator's collect process (demonstrated; the diff.patch was blanked and a file was
+  written into the materials checkout). Fixes: guard regex + `diff.`; `--no-ext-diff` on EVERY
+  diff invocation in collect/scope/hygiene. Controls: diff.external planted -> TAMPERED
+  (local_config(diff.external)); collect rc=3; the external script did NOT run; cleaned -> OK.
+· P1 config.worktree: `extensions.worktreeConfig` introduces a SECOND local config file that
+  `--local --list` does not read, so unpinned keys there (core.fileMode demonstrated) escaped both
+  detection and the command-scope pins. Fix: the guard refuses any .git/config.worktree and flags
+  `extensions.` in the listing. Control: planted -> TAMPERED (config_worktree
+  local_config(extensions.worktreeconfig)); cleaned -> OK.
+· P1 (design class) fabricated acceptance: nothing validated the CONTENT of the worker's
+  acceptance.txt, so a 25-byte `=== RC=0 (tee=0) ===` over a dirty scope was recorded as
+  all-green (demonstrated end-to-end). Fix: collect now RE-RUNS the task's mechanical INTEGRITY
+  checks operator-side — the task-registry entries that invoke the harness `check_*` judgement
+  scripts, i.e. exactly the gates the review rounds attacked (task-specific test commands remain
+  worker-attested; they are covered by the independent review of the captured diff). The verdict
+  is recorded to $EV/acceptance-operator.txt, bound into the collect-ok marker (7th hash) and
+  required by publish; any failure invalidates the run. Controls: the reviewer's demo (committed
+  deployment/evil.md + fabricated acceptance) -> collect rc=3 OPERATOR acceptance FAILED with the
+  scope violations listed; honest probe (scope-satisfying change) -> operator acceptance
+  `SCOPE = PASS`, collect rc=0, marker carries acceptance_operator_sha256, publish rc=0.
+· P2 BASH_ENV: a caller can source a file before the script body (BASH_ENV applies to
+  non-interactive bash) and thereby skip the sanitization re-exec; a forged H2_ENV_SANITIZED
+  marker also skips it by construction. Impact is bounded (the operator's collect environment is
+  not worker-controlled; a worker can fabricate its own acceptance anyway — which the operator
+  re-run above now covers), but [24]'s phrase "closes the entire demonstrated GIT_*/env-config
+  class" was stronger than the mechanism. Corrected statement: the sanitization re-exec closes
+  the entire class for every invocation that reaches the script body; a caller who controls the
+  invoking shell cannot be constrained from inside it — that remains the documented same-UID
+  boundary.
+· P3 fixes: `git replace -l` listing is rc-checked; `frozen_run_facts.py` scrubs all GIT_*
+  variables from its own environment and pins config/attributes/replace for DIRECT invocation
+  (previously safe only because its callers sanitize first). P3-3 (alternates/shallow) remains
+  documented static-only: alternates are content-addressed (cannot substitute existing objects)
+  and a failed read is fail-closed.
+· Also CAUGHT BY THIS ROUND'S OWN CONTROLS: the first cut of the operator acceptance referenced
+  an undefined TASK_ID under `set -u`, crashing collect for every run (rc=1) — the honest-chain
+  control failed immediately and the bug was fixed (TASK_ID now comes from the frozen-validated
+  receipt) before any push. This is the second time the positive controls caught a regression the
+  negative controls could not (the first: the re-exec pass-list dropping operator evidence).
+
+--- [26] fresh adversarial review on 08d8611 (EXECUTING; P0 = NONE + 3 x P1 + 2 x P2 + P3s) + round-11 ---
+FIRST ROUND WITH P0 = NONE: the reviewer confirmed that every previously-disclosed execution vector
+refuses (assume-unchanged/skip-worktree, info/exclude, diff.external, config.worktree+extension,
+includeIf, loose AND packed replace refs, hooks, filters/attributes, commondir — the last of which
+is now also refused by the guard). The remaining findings were real regressions/gaps and are
+closed:
+· P1 {PY} not substituted in the operator re-run: t02's entry `{HARNESS}/check_t02_gate_teeth.sh
+  {WT} {RUN_ID} {PY}` ran with a literal `{PY}` -> rc=127 -> the two t02 runs could never be
+  collected. Fix: the re-run substitutes the FULL placeholder set exactly as run_acceptance.sh
+  ({PY} {GIT} {WT} {RUN_ID} {TASK_ID} {HARNESS} {H2_REPO} + the trailing (cwd={WT}) convention).
+· P1 dry-run collect was broken: check_scope refuses plan-less ids (NO_FROZEN_ROW) and the
+  operator re-run invoked it for every run, so the documented H2-DRYRUN collect from the
+  p1-p2 evidence was no longer reproducible. Fix: dry-run ids SKIP the operator re-run (they have
+  no experiment standing and no plan row); the skip is itself recorded to acceptance-operator.txt
+  and bound like any other verdict. Control: dry-run collect rc=0 with the SKIPPED record.
+· P1 the fabricated-acceptance hole was only half-closed: re-running only check_* scripts left a
+  CLEAN-SCOPE fabrication open (a scope-satisfying trivial file + an all-zero acceptance.txt was
+  collected AND published green while the task was not done). Fix: the re-run now executes the
+  task's FULL mechanical EXEC set, INCLUDING its test commands (t01's unittest entries etc.),
+  with PYTHONDONTWRITEBYTECODE=1; the count of executed entries is recorded
+  (INTEGRITY_CHECKS_RUN) and a task with no executable entry fails closed. Control: the clean-scope
+  fabrication (test_honest_probe.py + all-zero acceptance over an unfixed worktree) -> operator
+  re-run executes 3 entries (both unittest entries RC=1) -> COLLECT INVALID rc=3. This is the
+  reviewer's exact construction, now refused.
+· P2 `--no-ext-diff` was missing on one `git diff --name-status` (the AGENTS/RULES check) while
+  [25] claimed "EVERY diff invocation" — added, and the overstatement corrected here.
+· P2 config.worktree TOCTOU is static-only (a concurrent writer in the guard-to-judgement window);
+  judgement commands pass explicit flags and env pins outrank worktree config — documented, not
+  demonstrated.
+· P3 fixes: plan-less receipts are now restricted to H2-DRYRUN* ids (an unknown run id cannot use
+  the looser branch); the guard refuses .git/commondir (control: bogus commondir -> refused via the
+  unreadable-worktree branch, fail-closed); materials-cleanliness re-check at collect remains a
+  documented same-UID-boundary item (prepare's MATERIALS_DIRTY is the gate).
+· Honest-path note (disclosed): on a REAL run the operator re-run re-executes the task's own test
+  commands against the worker's worktree — post-fix they pass (that IS the task), so the full
+  plan-row green chain could not be exercised by the smoke batteries (an unfixed probe
+  intentionally fails), and it now gets its first end-to-end validation at Round-2 execution. The
+  machinery is verified: entries listed, executed, rcs recorded, count recorded, verdict gates
+  collect.
+
+--- [27] fresh adversarial review on f8d072b (EXECUTING; P0 x2 + P1 x2 + P2 x2) + round-12 ---
+VERDICT = CHANGES_REQUIRED. P0 = NONE on every previously disclosed EXECUTION vector again
+(assume-unchanged/skip-worktree, info/exclude, loose AND packed replace refs, hooks,
+info/attributes, includeIf, info/grafts, diff.external, config.worktree+extension, commondir,
+GIT_CONFIG_PARAMETERS + forged marker) — all still refused, plus the round-11 controls reproduce
+exactly. The two P0s are NEW and both were independently reproduced by my own batteries.
+
+P0-1 (DEMONSTRATED end to end): the operator re-run executes the task's own test commands from
+the WORKER'S MUTABLE tree, so for any task whose scope includes its own tests it is
+self-certification. The reviewer's construction: rewrite every failing test method body in
+scripts/tests/*.py (allowed by t01 allow_prefixes=['scripts/tests/']), touch no production code
+=> INTEGRITY_CHECKS_RUN=3 all RC=0 => COLLECT_RUN OK => PUBLISH_RUN OK with
+acceptance_nonzero_rcs=[]. Confirmed: a control that only passes on a fraudulent input and cannot
+pass on a correct one has zero discriminating power.
+  ROUND-12 REPAIR, and what it does NOT do: new harness/check_test_provenance.sh re-executes
+  the FROZEN-BASE version of every pre-existing test the worker edited, against the worker's
+  tree, and refuses when the frozen copy is RED — the worker's copy cannot move the oracle.
+  Falsification battery (r12d/r12e):
+    * fabrication + policy=FROZEN            => rc=1 FROZEN_ORACLE_RED   (CLOSED)
+    * fabrication + policy=WORKER_EDITABLE   => rc=0 declared no-op      (OPEN, by policy)
+    * historical honest fix 6d841d5 + FROZEN => rc=1  <-- THE REPAIR REFUSES THE HONEST FIX
+    * nonexistent worktree                   => rc=1 NO_WORKTREE (fail-closed; the first
+      version fail-OPENED here — the r12c battery never built a worktree because a dirty
+      materials tree made prepare refuse, and the gate answered "0 modified / nothing required")
+    * new .py file with no base blob         => excluded and NAMED, not failed (r12d CONTROL 5
+      defect: pure additions were being failed closed; a file with no frozen counterpart has
+      nothing to anchor and is pure addition)
+  WHY t01 IS DECLARED WORKER_EDITABLE_SUBJECT, NOT FROZEN: t01's declared subject IS the failing
+  test — scope is scripts/tests/ alone and task_text is "only the test and its own preconditions
+  may change". Its base version is RED BY CONSTRUCTION and the task is to change it, so a frozen
+  anchor forbids the task itself. This was not assumed: it is what the battery measured when the
+  gate refused 6d841d5. The policy is now an explicit, per-task frozen field
+  (task-registry.json#tasks[].oracle_policy.pre_existing_tests; verified byte-additive — the
+  registry compares equal to f8d072b once that field is dropped). t02/t03/t04/n01/n02 = FROZEN:
+  their subject is production code or a gate and their tests are the oracle.
+  => P0-1 IS CLOSED FOR FROZEN-POLICY TASKS AND REMAINS OPEN FOR t01. It is NOT claimed closed
+  for t01. For t01 the control is the independent review of diff.patch against the historical
+  oracle 6d841d5 — which is what the registry's must_not_do ("放宽断言以让它变绿") and
+  review_focus already named. The harness now says this out loud instead of passing silently.
+  REJECTED ALTERNATIVE (recorded so it is not retried): a non-regression count on assertion
+  statements. The historical honest fix REDUCES the assertion count in the file it touches
+  (c08f6f8b 83 asserts -> 6d841d5 82 asserts) while doing the right thing, so any
+  assert-count-non-decreasing rule refuses the honest candidate. Counting is used as a proxy for
+  honesty nowhere.
+
+P0-2 (DEMONSTRATED, and it is an EXPERIMENT-DESIGN defect, not a harness bug): on a PRISTINE
+prepared H2-R2-R01 worktree with zero worker changes, t01's own gate is already failing for
+reasons the worker cannot repair inside its frozen scope.
+  t16 gate: 1 failure WITHOUT the delivered carrier (= the real t01 target RED, the gitignored
+  local profile) -> 4 failures WITH it. The 3 carrier-induced ones are
+  test_consumer_accepts_the_real_structured_pass_run,
+  test_legacy_stdout_is_unchanged_and_carries_no_structured_result,
+  test_malformed_result_is_never_accepted.
+  full suite: 1 -> 19 (the delivered H2_WARM bundle duplicates canonical declarations, e.g.
+  EXPECTED_PRODUCTION_EFFECT found in both H2_WARM/references/ticket-lane.md and
+  references/ticket-lane.md).
+  Cause: the delivered HEAD-era RULES.md (placed as H2_RULES.md) links to
+  deployment/organization-policy.md and docs/adoption.md; both are ABSENT at t01's frozen base
+  c08f6f8b and PRESENT at HEAD (added by 95667e8). The link validator scans the whole tree.
+  Both repairs are refused, so the honest path is unreachable:
+    A. add the missing link targets -> SCOPE_VIOLATION PATH_OUTSIDE_ALLOWED + DENIED_PREFIX
+       'deployment/' + REQUIRED_MISSING -> SCOPE = FAIL
+    B. repair the links inside the delivered carrier -> CARRIER_RECHECK(H2_RULES.md)
+       actual=729cfd270703 != frozen=d00a5527663c -> COLLECT_RUN INVALID
+  And the historical honest fix 6d841d5, applied cleanly to a prepared worktree, still leaves
+  t16 at 4 failures (r12d CONTROL 4). So on t01: no work => INVALID, honest work => INVALID.
+  => t01 has NO honest green path in either direction. [26]'s "post-fix they pass (that IS the
+  task)" is FALSE and is withdrawn; the "first end-to-end validation at Round-2 execution" it
+  promised would have failed for a reason no worker can address.
+  The three available repairs each cost something real, so NONE was taken unilaterally:
+    (a) deliver base-era carrier bytes  -> destroys the treatment (the carrier IS the independent
+        variable; H2 measures HEAD-era governance context);
+    (b) widen t01's scope to the carrier  -> lets the worker edit the treatment, and contradicts
+        the hash-pinned CARRIER_RECHECK;
+    (c) rebase t01 onto 0a180fee/9494de8 (the two bases that DO contain both link targets)
+        -> changes the task's identity, and the RED test the task exists to fix is a property of
+        c08f6f8b.
+  ESCALATED as a design decision, not fixed here. P0-2 is also bounded: only t01 has a
+  repo-markdown-reading unittest gate; t02's mechanical gate is ruff and t03/t04/n01/n02 have no
+  {PY} unittest entry, so the contamination is t01-local.
+
+P1-1 (STATIC-ONLY): the re-run substitutes paths with str.replace while run_acceptance.sh uses
+printf %q; the two executors of the same frozen entry list do not agree on quoting. prepare
+refuses whitespace-bearing runs roots today, so it is latent. NOT fixed in round-12 (it changes
+both executors; kept visible rather than half-fixed).
+P1-2 (DEMONSTRATED): the `n == 0 => fail closed` guard is unreachable — EXEC counts are t01 3/3,
+t02 3/4, t03 3/5, t04 1/3, n01 1/3, n02 2/4; no task has 0. Kept as a cheap invariant, but it
+is recorded as untested-by-construction rather than as assurance.
+P2-1: the dry-run skip keys on the prefix ^H2-DRYRUN while prepare admits only three exact
+literals, and no plan row (H2-R2-R01..R20) matches — verified, an unknown id cannot reach the
+skip. Prefix is broader than the registered set on both collect and publish sides; exact-match
+would be tighter. Not fixed.
+P2-2: INTEGRITY_CHECKS_RUN is recorded and hash-bound but never parsed — the same class of claim
+round 11 removed elsewhere. Not fixed.
+P3-1: the review request listed a harness script check_t01_honest_probe.sh that does not exist in
+any commit (the behaviour it stands for is a worker-created scripts/tests/test_honest_probe.py).
+A reviewer following the list hunts a file that was never committed. Harness unaffected.
+P3-2: check_git_metadata.sh is 0644 while every other judgement script is 0755. Harmless today
+(always invoked as `bash <path>`).
+
+SELF-INFLICTED INCIDENT, recorded because it is evidence about the controls rather than about the
+code: while building the falsification battery, the neutering heredoc of r12c-1 ran with the
+HARNESS repo as its cwd (the worktree did not exist, the `cd` guard did not abort) and rewrote
+scripts/tests/test_p1_t16_gate_cli_entrypoint.py IN PLACE — i.e. I executed the exact P0-1 attack
+against the governance repository's own production test file, 82 assertions replaced by
+`return  # NEUTERED`. It was caught by the two material self-checks
+(test_committed_change_set_is_confined_to_the_experiment_directory /
+test_no_canonical_file_is_dirty_in_the_worktree, both of which turned RED) and by ruff
+(103 errors), not by inspection. Recovery: git checkout of the file from f8d072b plus
+`git reset --soft f8d072b` to drop the polluted commit from history; registry and harness changes
+re-committed confined to experiments/; ruff and the material self-checks are green again and
+`git diff f8d072b -- scripts/` is empty. Lesson kept for the batteries: every mutation binds an
+absolute path under $WT, asserts containment before writing, and the battery ABORTS if the
+worktree is absent.
+
+STATE: P0-1 closed for FROZEN-policy tasks, OPEN for t01 by declared policy. P0-2 open, escalated
+as a design decision. Falsification evidence: r12b (P0-2 isolation + both repairs refused),
+r12d (five controls incl. the two defects in my own repair), r12e (FROZEN branch proven live,
+registry byte-identical after restore). ROUND_2_REAL_RUNS_EXECUTED = 0.
+
+--- [28] P0-2 disposition (operator decision, 2026-10-14) + its mechanical enforcement ---
+DECISION, verbatim scope: keep the current HEAD-era harness; mark t01 as a compatibility sentinel;
+remove t01 from the causal H2-R2 task set or mark it NON_ELIGIBLE; preserve the failure evidence;
+leave the t02..R20 treatment unchanged; update the registry and the ledger mechanically.
+Explicitly REFUSED: injecting base-era carrier bytes; widening worker scope; checking out a
+historical experiment commit.
+
+WHAT CHANGED (mechanically, nothing else):
+· harness/run-plan-r2.json: the two t01 rows (H2-R2-R01 control, H2-R2-R02 variant) carry
+  eligibility=NON_ELIGIBLE, ineligible_reason_token=NON_ELIGIBLE_COMPATIBILITY_SENTINEL, the full
+  reason from [27], counts_toward_h2_result=false, and causal_role=COMPATIBILITY_SENTINEL. Their
+  run ids, order and every other field are UNCHANGED — ids are never reused and never renumbered,
+  because renumbering would break supersedes_run_id, prepare's frozen-order check and the
+  round1/round2 disjointness assertion. Verified after the edit: 20 rows, arms still 10/10, task
+  histogram unchanged, run ids still H2-R2-R01..R20, and every non-t01 row field-identical.
+· task-registry.json: t01 carries the same three markers plus causal_role. The registry is
+  byte-additive apart from them (verified: it compares equal to the previous state once
+  oracle_policy and the eligibility markers are dropped).
+· harness/prepare_run.sh: a plan row with eligibility == NON_ELIGIBLE is refused BEFORE any
+  worktree or evidence directory is allocated, with
+  `PREPARE_FAIL reason=__NON_ELIGIBLE__ NON_ELIGIBLE_COMPATIBILITY_SENTINEL causal_role=...`.
+  Refusing in code rather than only in documentation is what makes the marker a sentinel: a
+  sentinel that could still be executed would not be one.
+· round-2-freeze.json: TASK_SET_HASH_R2 resynced to the real sha256 of the registry.
+· Nothing else moved: the carrier, the delivery block, the arm definitions, the reps/blocks, the
+  model tiers and t02..R20's treatment are untouched.
+
+FALSIFICATION (r12f, all green):
+  A. both t01 rows refused with the sentinel token                              PASS
+  B. zero worktrees and zero evidence dirs created (no run id is burned)       PASS
+  C. H2-R2-R03 (the first t02 row) passes the eligibility gate and stops later on the frozen
+     arm check (row_arm=variant) — the marker does not block eligible rows        PASS
+  D. a forged eligibility value ("ELIGIBLE_PLEASE") does not reach execution: the plan is
+     hash-bound from the materials commit and prepare refuses with PLAN_AUTHORITY_FAIL   PASS
+  E. the plan restored byte-exactly after the forgery probe; harness repo left clean        PASS
+
+TWO SELF-INFLICTED ERRORS IN THIS DISPOSITION, both caught by running the batteries:
+1. RUN_PLAN_HASH_R2 was rewritten from its value into a DERIVED_NOT_HARDCODED sentence on the
+   reasoning that "no check consumes it, so it silently goes stale". That inference was WRONG:
+   prepare_run.sh compares the value against the plan blob in the materials commit and refuses
+   with PLAN_AUTHORITY_FAIL / "RUN_PLAN_HASH_R2 mismatch" — the rewrite broke every prepare. The
+   value was restored to the real sha256 and the correction is recorded in
+   round-2-freeze.json#hash_corrections so the inference is not retried. The corrected lesson: a
+   self-declared hash is ENFORCED until prepare/collect/publish have actually been read; the
+   absence of a unit test is not evidence of absence of an enforcement.
+2. The r12f battery's own first run appeared to show the sentinel "not refusing" — it was reading
+   `tail -1` of a PLAN_AUTHORITY_FAIL caused by (1). The battery was reading the wrong line of the
+   wrong failure; full-output inspection located it. Lesson kept: assert on the reason TOKEN, not
+   on the last line of stdout.
+
+STATE AFTER THIS DISPOSITION:
+  P0-1 = CLOSED for FROZEN-policy tasks (t02/t03/t04/n01/n02), OPEN for t01 by declared policy
+         (t01 is no longer executed, so it can no longer be turned into a published green record).
+  P0-2 = DISPOSED: t01 is a compatibility sentinel outside the causal set; its failure evidence
+         is preserved in [27] and in the plan/registry markers.
+  REAL_RUNS_EXECUTED = 0. The causal Round-2 set is 18 rows (t02 x2, t03 x4, t04 x4, n01 x4,
+  n02 x4) over arms control/variant 9/9 — recorded here as a derived count, not a frozen literal.
+
+--- [29] round-13 disposition: order deadlock fixed, DELIVERY_DELTA measured, TASK_VALIDITY
+         layer added; Round-2 freeze REVISED and marked NOT_EXECUTABLE --------------------
+ROUND-13 REVIEW VERDICT = CHANGES_REQUIRED with 2 x P0, 4 x P1. All were reproduced here before
+any fix. Treatment invariance confirmed: zero files outside experiments/.
+
+P0-2 (deadlock) — CAUSED BY ROUND-12'S OWN DISPOSITION, and fixed. The NON_ELIGIBLE gate refused
+R01/R02 before any allocation, so they could never produce a collect-summary.txt, and the frozen
+ORDER check had no exemption: EVERY later row was unrunnable. Demonstrated on a genuinely fresh
+runs root — R03 and R20 both failed with OUT_OF_ORDER missing_terminal_prior_runs=[H2-R2-R01],
+zero worktrees created. A task-level dead end had become a round-level one. Fixed by exempting
+rows whose eligibility is NON_ELIGIBLE from the order check: a refused row is a deliberate,
+RECORDED non-execution, as settled as a collected row. Ordering among eligible rows is unchanged.
+Re-verified on a fresh root: R03 now passes the order gate. [28]'s control C is corrected — it had
+reported R03 stopping on ARM_MISMATCH, which was an artifact of a runs root that already held
+R01's receipt, not of a fresh one.
+
+P0-1 (the frozen oracle could never return GREEN) — mechanism corrected, then the deeper cause
+found. Round 13 was right that the first implementation was a constant refuser: the frozen copy
+lived in a scratch tree, and these tests locate the repository from their OWN PATH
+(ROOT = Path(__file__).resolve().parents[2]), so 16 of 17 anchored files died on missing
+production modules. The frozen file is now executed IN PLACE at its own relative path inside the
+worktree, with the worker's bytes moved aside (never consulted) and restored in a finally, the
+restoration verified by sha256. That made the test run — and exposed the real problem: at t02's
+base 015780be, with ZERO worker edits, that test is RED once the carrier is delivered (3 failures)
+and GREEN without it. A frozen oracle that is already red at hand-off refuses every edit, honest
+or not.
+
+The fix is to decide oracle candidacy MECHANICALLY from the task's DECLARED acceptance, and to
+measure the two anchors per candidate file:
+  · an entry that NAMES the file, or discovers its directory, executes it -> a real oracle;
+  · an entry that only inspects the change set (check_scope) does not -> anchoring that file would
+    assert nothing about the task's verdict, so it is recorded as NOT_EXECUTED and left alone;
+  · for each real oracle, the frozen copy is run twice, post-delivery and pre-delivery:
+    GREEN post-delivery -> it GATES (a worker edit that turns it red moved the oracle);
+    RED post / GREEN pre -> DELIVERY_CONTAMINATION = YES, the redness is the HARNESS's, the file is
+    EXCLUDED and the delta is recorded, never normalized into a "pre-existing red";
+    RED in both -> ORACLE_RED_AT_BASE, also excluded. A gate that cannot discriminate must not
+    refuse.
+
+TWO CONTROLS THAT WERE WRONG IN MY OWN BATTERIES, recorded because both produced false confidence:
+  · r13-1's GREEN control anchored NOTHING and reported success: `git apply` of the honest fix had
+    FAILED silently (>/dev/null 2>&1) because that patch is based on t01's base c08f6f8b while the
+    battery had prepared t02's base 015780be. A green control that anchors nothing proves nothing;
+    every control now fails the run if its anchor count is 0.
+  · r13-1's "no deadlock" control read `tail -1` of a PLAN_AUTHORITY_FAIL and misattributed it to
+    the eligibility gate. Assert on the reason TOKEN, never on the last line.
+  · the first DELIVERY_DELTA measurement DELETED `{PY}` instead of substituting it, so every
+    command failed to exec and every task read RED->RED; and it ran the t16 unittest on every task,
+    which measures nothing because only t01 DECLARES a unittest gate (t02 = ruff; t03/t04/n01/
+    n02 = harness check_* scripts).
+
+FALSIFICATION (r14, on this SHA): prepare writes evidence/delivery-anchors.json with both anchors
+measured at hand-off on zero worker edits (contamination=NO, entries=0 for t02, which declares no
+repo-invariant gate); a NEUTRAL edit to a pre-existing test is ACCEPTED (rc=0) with the worktree
+bytes verified intact; t01 remains unreachable (refused at prepare). The RED control for t02 also
+returns rc=0 — and that is now the correct, informative result, not a defect: t02's declared
+acceptance never executes that test file, so neutering it cannot move t02's verdict. There is
+nothing for an oracle to protect there.
+
+STRUCTURAL FINDING, measured not assumed: after t01 became a sentinel, NO task in the causal set
+declares a unittest gate, so the frozen oracle currently has no load-bearing target. It is
+retained as correct, falsified machinery that will bite the first task that declares a test gate;
+it is NOT claimed to be doing work today.
+
+TASK_VALIDITY_STATUS layer (operator ruling), added as a NEW layer — nothing deleted, no history
+rewritten:
+  ELIGIBLE     — a stable mechanical TASK_COMPLETION gate exists (its verdict moves with the work).
+  NON_ELIGIBLE — the task exists but has no verifiable correctness oracle
+                  (NO_MECHANICAL_ACCEPTANCE_TARGET). Not deleted, not counted in the aggregate.
+  INVALID      — the experimental condition is broken. Not assigned in this pass.
+  The rule classifies entries by WHAT THEY MEASURE, not by how they are spelled. TASK_COMPLETION =
+  runs the repo's own tests, or a linter/type checker over the delivered tree. BOUNDARY/HYGIENE =
+  check_scope, check_hygiene, check_restore — all satisfied by touching nothing. Rule v1 got this
+  wrong by spelling and mis-classified t03 and n02 as ELIGIBLE; v2 supersedes it and is frozen.
+  Result: t01 ELIGIBLE (unittest), t02 ELIGIBLE (ruff), t03/t04/n01/n02 NON_ELIGIBLE.
+  Validity is a property of the TASK and is kept ORTHOGONAL to the P0-2 sentinel marking, which is a
+  property of the Round-2 ROW: t01 is ELIGIBLE by validity while its two rows are non-executable.
+  Collapsing the two axes would either lose the P0-2 disposition or misstate t01's validity.
+  Task-completion gates are mechanically derivable, so no field is hand-asserted.
+
+ROUND-2 FREEZE REVISION (rule frozen BEFORE any replacement, as the ruling requires):
+  status = REVISED / NOT_EXECUTABLE — INSUFFICIENT_ELIGIBLE_TASKS.
+  valid_tasks = [t01, t02]; executable rows = 18/20; AGGREGATE-ELIGIBLE ROWS = 2 (H2-R2-R03/R04,
+  t02's rows). Two rows cannot support an H2 aggregate claim, so Round 2 is explicitly marked
+  not-executable rather than executed with a sample too small to mean anything.
+  No task was added, deleted or rewritten in this revision. TASK_SET_HASH, RUN_PLAN_HASH_R2 and the
+  material self-check literal were all recomputed from the real bytes. REAL_RUNS_EXECUTED = 0.
+  Next action, in this order: add real task(s) that declare a stable mechanical TASK_COMPLETION
+  gate, each with its own historical oracle and a verified base-GREEN property; task addition must
+  NOT weaken the eligibility rule; then regenerate this freeze.

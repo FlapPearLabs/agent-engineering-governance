@@ -1,0 +1,437 @@
+{
+ "schema": "ELIGIBILITY_SCHEMA_V2",
+ "schema_version": "2.8.12",
+ "status": "ADMISSION_BATCH_REQUESTS_NOT_FROZEN",
+ "record_semantics": "one record per measured historical pair; class and lifecycle statuses follow the measured transition and are re-executed and bound by the validator. REQUEST_VALID is a request to Freeze v2, not an admission.",
+ "records": [
+  {
+   "candidate_id": "r23-governance-bootstrap-facts-review-round-1",
+   "corpus_case_id": "r23-governance-bootstrap-facts-review-round-1",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "cf7034cb543ce8fc60d783bcdc48f1738daf1aac",
+   "candidate_sha": "825d3902597655c90393100281260cbba8697c07",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "NO_DISCRIMINATING_ACCEPTANCE",
+     "detail": "A: NO_DISCRIMINATING_ACCEPTANCE (surfaces moving FAIL->PASS: none); B: CANDIDATE_REGRESSES_A_FROZEN_GUARD (biting: none; regressed guards: scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] 0->1; unmeasured guards: none)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=NO_DISCRIMINATING_ACCEPTANCE B=CANDIDATE_REGRESSES_A_FROZEN_GUARD over 20 surface(s), 20 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/825d39025976.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured NO_DISCRIMINATING_ACCEPTANCE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
+     "NO_DISCRIMINATING_ACCEPTANCE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r24-governance-bootstrap-budget-repair-round-2",
+   "corpus_case_id": "r24-governance-bootstrap-budget-repair-round-2",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "825d3902597655c90393100281260cbba8697c07",
+   "candidate_sha": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 20 surface(s), 20 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/4505faeaaa7a.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/probes/4505faeaaa7a.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r25-governance-readme-design-decisions",
+   "corpus_case_id": "r25-governance-readme-design-decisions",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "833046a7c440a74925773d7b4fdadbf42c745c27",
+   "candidate_sha": "a22fe184ef783799cb1ea3ea5f7449f65a1457dd",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/validate_governance.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=PASS_TO_FAIL_UNDER_MUTATION over 23 surface(s), 23 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/a22fe184ef78.json"
+    }
+   ],
+   "class": "B_REGRESSION_GUARD",
+   "class_considered": [
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "PASS",
+    "mutation_oracle_status": "FAIL",
+    "mutation_touches_target_predicate": true,
+    "acceptance_surface_frozen": true,
+    "validator_not_worker_controlled": true
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r26-governance-portable-adoption-exercise",
+   "corpus_case_id": "r26-governance-portable-adoption-exercise",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "candidate_sha": "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "NO_DISCRIMINATING_ACCEPTANCE",
+     "detail": "A: NO_DISCRIMINATING_ACCEPTANCE (surfaces moving FAIL->PASS: none); B: CANDIDATE_REGRESSES_A_FROZEN_GUARD (biting: scripts/validate_governance.py [DELTA_FROZEN] 0->0, scripts/tests/test_p1_t16_gate_cli_entrypoint.py [DELTA_FROZEN] 0->0; regressed guards: scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] 0->1; unmeasured guards: none)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=NO_DISCRIMINATING_ACCEPTANCE B=CANDIDATE_REGRESSES_A_FROZEN_GUARD over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/95667e8e3d9a.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured NO_DISCRIMINATING_ACCEPTANCE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "CANDIDATE_REGRESSES_A_FROZEN_GUARD",
+     "NO_DISCRIMINATING_ACCEPTANCE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r27-governance-memory-preset-budget-restore",
+   "corpus_case_id": "r27-governance-memory-preset-budget-restore",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "3e92751a6e5490e826a130835598e5069d8fe8ce",
+   "candidate_sha": "7cadc9c445180395bf8494644ab91a4d55717438",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/tests/test_p1_t09_bootstrap_byte_budget.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=FAIL_TO_PASS B=MUTATION_DOES_NOT_BITE over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/7cadc9c44518.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/probes/7cadc9c44518.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured MUTATION_DOES_NOT_BITE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": false,
+    "oracle_authority": "FRAMEWORK_FROZEN"
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ],
+    "note": "a valid REQUEST is not an admission; the grant is Freeze v2 plus independent review"
+   }
+  },
+  {
+   "candidate_id": "r28-governance-adoption-trial-evidence",
+   "corpus_case_id": "r28-governance-adoption-trial-evidence",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "1356aa27d16fa41d0706ef2cdc11ef153d341e9d",
+   "candidate_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/validate_governance.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=PASS_TO_FAIL_UNDER_MUTATION over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/0404879936a3.json"
+    }
+   ],
+   "class": "B_REGRESSION_GUARD",
+   "class_considered": [
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "PASS",
+    "mutation_oracle_status": "FAIL",
+    "mutation_touches_target_predicate": true,
+    "acceptance_surface_frozen": true,
+    "validator_not_worker_controlled": true
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r29-governance-v12-experiment-shape-convergence",
+   "corpus_case_id": "r29-governance-v12-experiment-shape-convergence",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "a90fb637928220396cad48d10783f9692aa70cb8",
+   "candidate_sha": "5205e5bd92317d9ad1ad53725dc14444f5201d32",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [
+    {
+     "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+     "reason_code": "BASE_EQUALS_CANDIDATE",
+     "detail": "A: BASE_EQUALS_CANDIDATE (surfaces moving FAIL->PASS: none); B: CANDIDATE_REGRESSES_A_FROZEN_GUARD (biting: scripts/validate_governance.py [DELTA_FROZEN] 0->0, scripts/tests/test_p1_t16_gate_cli_entrypoint.py [DELTA_FROZEN] 0->0; regressed guards: scripts/tests/test_experiment_v12_foundation.py [DELTA_DELETED] 0->1; unmeasured guards: none)"
+    }
+   ],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=CANDIDATE_REGRESSES_A_FROZEN_GUARD over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/5205e5bd9231.json"
+    }
+   ],
+   "class": "C_REJECT",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    },
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "BLOCKED",
+     "reason": "measured CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+    }
+   ],
+   "round_admission": {
+    "verdict": "NOT_ADMITTED",
+    "reason_codes": [
+     "BASE_EQUALS_CANDIDATE",
+     "CANDIDATE_REGRESSES_A_FROZEN_GUARD"
+    ]
+   }
+  },
+  {
+   "candidate_id": "r30-governance-h3a-replay-results",
+   "corpus_case_id": "r30-governance-h3a-replay-results",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "a24231483f0046052d86b3d2b27e96b3db6b2629",
+   "candidate_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "the transition is carried by scripts/validate_governance.py [DELTA_FROZEN] — identical bytes at both revisions (framework-frozen)"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and adds no acceptance surface, so every frozen surface was executed",
+     "measured": "discovery disposition DEFERRED_FROZEN_BASIS_SCAN",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=PASS_TO_FAIL_UNDER_MUTATION over 24 surface(s), 24 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-2/measurements/a652fd44bcaa.json"
+    }
+   ],
+   "class": "B_REGRESSION_GUARD",
+   "class_considered": [
+    {
+     "class": "B_REGRESSION_GUARD",
+     "verdict": "SHAPE_SATISFIED"
+    },
+    {
+     "class": "A_REPAIR",
+     "verdict": "BLOCKED",
+     "reason": "measured BASE_EQUALS_CANDIDATE"
+    }
+   ],
+   "class_requirements": {
+    "baseline_oracle_status": "PASS",
+    "mutation_oracle_status": "FAIL",
+    "mutation_touches_target_predicate": true,
+    "acceptance_surface_frozen": true,
+    "validator_not_worker_controlled": true
+   },
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ]
+   }
+  }
+ ]
+}

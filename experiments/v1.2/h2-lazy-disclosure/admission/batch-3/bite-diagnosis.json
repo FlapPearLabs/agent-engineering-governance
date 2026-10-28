@@ -1,0 +1,46 @@
+[
+ {
+  "candidate_sha": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+  "bites": [
+   {
+    "path": "scripts/validate_governance.py",
+    "rc": 1,
+    "failing": [
+     "markdown-links-resolve"
+    ]
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "rc": 1,
+    "failing": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   }
+  ]
+ },
+ {
+  "candidate_sha": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
+  "bites": [
+   {
+    "path": "scripts/validate_governance.py",
+    "rc": 1,
+    "failing": [
+     "markdown-links-resolve"
+    ]
+   },
+   {
+    "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+    "rc": 1,
+    "failing": [
+     "test_consumer_accepts_the_real_structured_pass_run",
+     "test_gitignored_local_profile_stays_out_of_candidate_surface",
+     "test_legacy_stdout_is_unchanged_and_carries_no_structured_result",
+     "test_malformed_result_is_never_accepted"
+    ]
+   }
+  ]
+ }
+]

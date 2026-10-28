@@ -1,0 +1,17 @@
+[
+  {
+    "type": "document",
+    "path": "<PROFILE_HOME>/.config/opencode/opencode.json",
+    "info": {
+      "$schema": "https://opencode.ai/config.json",
+      "update": "disable",
+      "share": "disabled",
+      "mcp": {},
+      "plugins": []
+    }
+  },
+  {
+    "type": "directory",
+    "path": "<PROFILE_HOME>/.config/opencode"
+  }
+]

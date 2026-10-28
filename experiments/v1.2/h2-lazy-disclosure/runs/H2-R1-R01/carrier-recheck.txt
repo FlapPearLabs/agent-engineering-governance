@@ -1,0 +1,6 @@
+CARRIER_RECHECK(CODEBUDDY.md carrier) = OK kind=control_full_v1 sha256=de5d1bb7e3ceb0081665d754ca29e42a080bd50cdde2800f2c486ada100e95d1
+CARRIER_RECHECK(H2_RULES.md) = OK sha256=d00a5527663ceedf642b6e79fb582c2bbefa67ba648eeb9bbfdd90bb06088a9d
+CARRIER_RECHECK(H2_WARM bundle) = OK recomputed=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 expected=cce07831244a4ef20611896db2e884b7f9429cec8f776029533e5710d075b4e1 files=11/11 extra=[] missing=[] symlinks=[]
+CARRIER_RECHECK(run-tree AGENTS.md/RULES.md untouched) = OK
+TELEMETRY_RECHECK = OK lines=11 valid_reads=9 malformed=0
+TELEMETRY_TARGETS = FAIL READ target missing in worktree: h2-materials/.../worker-report-template.md

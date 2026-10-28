@@ -1,0 +1,301 @@
+{
+  "schema": "ELIGIBILITY_SCHEMA_V2",
+  "schema_version": "2.8.12",
+  "status": "PROPOSED_NOT_FROZEN",
+  "proposed_on": "2026-10-14",
+  "proposed_in_node": "N2.1 Eligibility Schema Revision",
+  "frozen_only_by": "H2-R2 Freeze v2",
+  "record_semantics": "class_requirements describe the PROPOSED TASK DESIGN for each candidate, not the historical candidate commit. The historical replay supplies the two OBSERVED oracle statuses; anything not yet materialised is listed in pending_requirements and blocks round admission. Disclosures carry the historical facts that differ from the proposed design.",
+  "classes": {
+    "A_REPAIR": {
+      "definition": "real defect repair; the oracle is red at the base and green at the candidate",
+      "lifecycle": {
+        "baseline": {
+          "oracle_status": "FAIL"
+        },
+        "candidate": {
+          "oracle_status": "PASS"
+        }
+      }
+    },
+    "B_REGRESSION_GUARD": {
+      "definition": "verification of a protective capability; the oracle is green at the baseline and a mutation that touches the target predicate turns it red",
+      "lifecycle": {
+        "baseline": {
+          "oracle_status": "PASS"
+        },
+        "mutation": {
+          "oracle_status": "FAIL"
+        }
+      }
+    },
+    "C_REJECT": {
+      "definition": "not admissible under any class; every rejection carries enumerated trigger codes and the blocked-class reasoning"
+    }
+  },
+  "reject_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": "the verdict-deciding harness or validator bytes are inside the worker's delta",
+    "WORKER_MODIFIES_TEST_ORACLE": "the test oracle bytes are inside the worker's delta",
+    "ACCEPTANCE_SURFACE_IN_WORKER_SCOPE": "the verdict-producing surface is authored by the worker",
+    "SELF_PROVING_HASH": "a hash the acceptance relies on is computed from worker-writable bytes",
+    "OBSERVATION_COVERAGE_UNPROVEN": "no frozen acceptance can observe the target predicate (sub-reasons: ORACLE_SATISFIABLE_WITHOUT_THE_PREDICATE, SPECIMEN_SET_DOES_NOT_COVER_THE_PREDICATE, NO_GATE_OBSERVES_THE_DELIVERABLE)",
+    "BASE_CANDIDATE_NOT_COMPARABLE": "the base and the candidate are not comparable under one frozen delivery and one oracle"
+  },
+  "records": [
+    {
+      "candidate_id": "r01-zhihu-t14-async-seam-mismatch",
+      "corpus_case_id": "r01-zhihu-t14-async-seam-mismatch",
+      "source_repository": "FlapPearLabs/zhihu-grabber-toolkit",
+      "base_sha": "4b6d182f1388e27ae33820feee1589cb0188d59b",
+      "candidate_sha": "fa997c12e4c35fdb9267882747d2b55d13772ae2",
+      "sha_binding": "EXTERNAL_UNVERIFIABLE_LOCALLY",
+      "external_repository": "FlapPearLabs/zhihu-grabber-toolkit",
+      "external_verification": "git -C <zhihu-grabber-toolkit clone> rev-parse 4b6d182f1388e27ae33820feee1589cb0188d59b fa997c12e4c35fdb9267882747d2b55d13772ae2 — both resolve there and the candidate's parent is the base; verified 2026-10-14. This repository does not contain either revision, so the pair can never support round admission from here.",
+      "class": "A_REPAIR",
+      "class_considered": [
+        {
+          "class": "A_REPAIR",
+          "verdict": "SHAPE_SATISFIED_PENDING_MATERIALISATION"
+        },
+        {
+          "class": "B_REGRESSION_GUARD",
+          "verdict": "NOT_APPLICABLE",
+          "reason": "the baseline oracle is RED, so there is no baseline-green protective capability to mutate"
+        }
+      ],
+      "class_requirements": {
+        "baseline_oracle_status": "FAIL",
+        "candidate_oracle_status": "PASS",
+        "oracle_in_worker_scope": false,
+        "oracle_authority": "PENDING_FREEZE_V2"
+      },
+      "reject_triggers": [],
+      "externalized_paths": [
+        "research-orchestration/test/p1-t14-cross-group-synthesis.test.mjs"
+      ],
+      "disclosures": {
+        "historical_delta_touched_oracle": true,
+        "historical_delta_touched_validator": false,
+        "oracle_externalisation_evidence": "a frozen-oracle cross test was measured: the CANDIDATE version of the test file placed into the BASE tree FAILS (Cannot find module), and passes in the candidate tree — so the externalised oracle does attest the repair",
+        "derived_triggers_note": "the pair does not resolve in this repository, so the DERIVED_TRIGGERS rule cannot run for this record; that is one more reason an externally bound record can never carry a valid request"
+      },
+      "pending_requirements": [
+        "ORACLE_EXTERNALIZATION: the test file must be frozen as a framework artifact and excluded from the worker's scope at H2-R2 Freeze v2 (the historical candidate commit modified it)",
+        "DELIVERY_DELTA_MEASUREMENT: the two anchors (pre-delivery / post-delivery, zero worker edits) have NOT been measured for this candidate — the measurement ran on bare trees without the H2 carrier, and carrier delivery has already been shown to flip gates on a frozen base",
+        "ROUND_SCOPE_DECISION: the source repository is not the governance repository, while the frozen Round-2 plan, route preconditions and delivery materials are governance-scoped",
+        "RUNTIME_PROVISIONING: the oracle needs Node 22 in the run environment (the current task bases use Python only)"
+      ],
+      "round_admission": {
+        "verdict": "NOT_ADMITTED",
+        "reason_codes": [
+          "PENDING_REQUIREMENTS_UNMET",
+          "ROUND_SCOPE_DECISION_REQUIRED"
+        ],
+        "note": "CLASS A shaped; admission is a Freeze-v2 decision, and no task-set change is in scope for this node"
+      },
+      "evidence": [
+        {
+          "claim": "baseline oracle FAIL, and the only failing test is the task's target file",
+          "measured": "509 tests / pass 508 / fail 1; the failing entry is test/p1-t14-cross-group-synthesis.test.mjs with ERR_MODULE_NOT_FOUND for lib/pre-synthesis-guard.mjs",
+          "source": "precondition/n2-r01-base.txt"
+        },
+        {
+          "claim": "candidate oracle PASS",
+          "measured": "539 tests / pass 539 / fail 0 (the target file alone: 31/31)",
+          "source": "precondition/n2-r01-cand.txt"
+        },
+        {
+          "claim": "the oracle discriminates an incomplete deliverable",
+          "measured": "deleting one new lib file from the candidate tree turns the target file red again (independent negative control)",
+          "source": "precondition/n2-controls-final.txt"
+        },
+        {
+          "claim": "the externalised oracle still certifies the historical candidate",
+          "measured": "candidate test file placed in the base tree fails; the same file passes in the candidate tree",
+          "source": "precondition/n2-controls-rest.txt"
+        }
+      ]
+    },
+    {
+      "candidate_id": "r03-governance-static-gate-adoption",
+      "corpus_case_id": "r03-governance-static-gate-adoption",
+      "source_repository": "FlapPearLabs/agent-engineering-governance",
+      "base_sha": "015780be7a3f863c05509b437e4e586b4f388794",
+      "candidate_sha": "65113de69bda6802a476eefa033cf00439d49f04",
+      "sha_binding": "LOCAL_REPO_VERIFIED",
+      "class": "C_REJECT",
+      "class_considered": [
+        {
+          "class": "A_REPAIR",
+          "verdict": "BLOCKED",
+          "reason": "ACCEPTANCE_SURFACE_IN_WORKER_SCOPE: the only artifacts whose verdict moves on the static-gate predicate (ruff.toml and the t17 semantics test) are inside the historical delta; the base-green gates (validate_governance.py, the test suite, the t16 entry) show zero verdict movement between base and candidate"
+        },
+        {
+          "class": "B_REGRESSION_GUARD",
+          "verdict": "BLOCKED",
+          "reason": "OBSERVATION_COVERAGE_UNPROVEN: the framework-owned specimen (check_t02_gate_teeth.sh, a single injected F841) is defeated by narrowing the rule set, and the only artifact that catches that narrowing is worker-authored"
+        }
+      ],
+      "class_requirements": null,
+      "reject_triggers": [
+        {
+          "trigger": "WORKER_MODIFIES_VALIDATOR",
+          "reason_code": "VALIDATOR_IN_DELTA",
+          "detail": "the historical delta modifies scripts/validate_governance.py (its own check count moves 32 -> 34), so that validator cannot serve as an oracle"
+        },
+        {
+          "trigger": "WORKER_MODIFIES_TEST_ORACLE",
+          "reason_code": "TEST_ORACLE_IN_DELTA",
+          "detail": "derived from the pair's changed-file list, not declared by hand: the delta rewrites adapters/zcode/tests/test_project_continuity.py, scripts/tests/test_p1_t12_shared_file_single_writer.py, scripts/tests/test_p1_t17_static_gate_framework_semantics.py and scripts/tests/test_review_evidence_contract.py"
+        },
+        {
+          "trigger": "ACCEPTANCE_SURFACE_IN_WORKER_SCOPE",
+          "reason_code": "VERDICT_PRODUCING_BYTES_ARE_DELIVERABLES",
+          "detail": "ruff.toml (the rule selection that decides the linter verdict) and scripts/tests/test_p1_t17_static_gate_framework_semantics.py are both deliverables of this task"
+        },
+        {
+          "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+          "reason_code": "SPECIMEN_SET_DOES_NOT_COVER_THE_PREDICATE",
+          "detail": "measured: with select = [] the plain linter reports All checks passed (rc=0) while the teeth probe correctly refuses (GATE_NOT_LOAD_BEARING); with select = [\"F841\"] — narrowed to exactly the probe's own rule — the teeth probe PASSES (rc=0) and the linter still reports rc=0, i.e. the single-specimen probe cannot observe the hollowing, and only the worker-authored t17 test catches it"
+        }
+      ],
+      "disclosures": {
+        "historical_delta_touched_oracle": true,
+        "historical_delta_touched_validator": true,
+        "base_green_gate_discrimination": "none measured: validate_governance 32/32 -> 34/34, suite 423 OK -> 441 OK, t16 12 OK -> 12 OK, compileall rc=0 -> rc=0 — identical verdicts"
+      },
+      "pending_requirements": [],
+      "round_admission": {
+        "verdict": "NOT_ADMITTED",
+        "reason_codes": [
+          "CLASS_C_REJECT"
+        ],
+        "note": "remaining rejected unless the task material is redesigned so that a framework-owned, multi-specimen acceptance observes the guard's semantics; that is a task-material change and is out of scope for this node"
+      },
+      "evidence": [
+        {
+          "claim": "base-green gates do not discriminate the delta",
+          "measured": "validate_governance 32/32 vs 34/34; suite 423 vs 441 tests, both OK; t16 12 OK both; compileall rc=0 both",
+          "source": [
+            "precondition/n2-r03-base.txt",
+            "precondition/n2-r03-cand.txt"
+          ]
+        },
+        {
+          "claim": "the linter gate is satisfiable without the predicate",
+          "measured": "select = [] -> ruff check . reports All checks passed (rc=0); the framework-owned teeth probe refuses it [probe A]",
+          "source": [
+            "precondition/n2-vacuity-probe.txt"
+          ]
+        },
+        {
+          "claim": "a single-specimen probe does not cover the predicate",
+          "measured": "select = [\"F841\"] -> teeth probe PASS (rc=0), ruff rc=0; only the worker-authored t17 test fails (test_pinned_toolchain_is_repository_controlled) [probes B and C]",
+          "source": [
+            "precondition/n2-vacuity-probe.txt"
+          ]
+        },
+        {
+          "claim": "a real semantic defect is invisible to both base-green gates",
+          "measured": "forcing the state validator to report every check as passing leaves the suite OK and validate_governance at 34/34",
+          "source": "precondition/n2-controls-r03.txt"
+        },
+        {
+          "claim": "one modified test is not compatible with its frozen base version",
+          "measured": "base adapters/zcode/tests/test_project_continuity.py against the candidate tree: 69 tests, 23 errors",
+          "source": "precondition/n2-controls-rest.txt"
+        }
+      ]
+    },
+    {
+      "candidate_id": "r06-governance-zcode-adapter-reference",
+      "corpus_case_id": "r06-governance-zcode-adapter-reference",
+      "source_repository": "FlapPearLabs/agent-engineering-governance",
+      "base_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+      "candidate_sha": "069f8be26cc04bb4f9bf3428c1e23b310debb984",
+      "sha_binding": "LOCAL_REPO_VERIFIED",
+      "class": "C_REJECT",
+      "class_considered": [
+        {
+          "class": "A_REPAIR",
+          "verdict": "BLOCKED",
+          "reason": "no oracle changes status: every gate available at that base returns an identical verdict before and after the delta"
+        },
+        {
+          "class": "B_REGRESSION_GUARD",
+          "verdict": "BLOCKED",
+          "reason": "NO_GATE_OBSERVES_THE_DELIVERABLE: the delta adds eight adapter files and the only era gate is a document/structure validator that does not read them"
+        }
+      ],
+      "class_requirements": null,
+      "reject_triggers": [
+        {
+          "trigger": "OBSERVATION_COVERAGE_UNPROVEN",
+          "reason_code": "NO_GATE_OBSERVES_THE_DELIVERABLE",
+          "detail": "measured: validate_governance reports 23/23 both before and after, item-for-item identical; the base has no scripts/tests directory at all (unittest discover fails with Start directory is not importable)"
+        }
+      ],
+      "disclosures": {
+        "historical_delta_touched_oracle": false,
+        "historical_delta_touched_validator": false,
+        "negative_control_available": "deleting a REQUIRED_FILES entry does make the validator fail, but as an unhandled traceback rather than a FAIL report — that is robustness of the validator, not observation of the deliverable"
+      },
+      "pending_requirements": [],
+      "round_admission": {
+        "verdict": "NOT_ADMITTED",
+        "reason_codes": [
+          "CLASS_C_REJECT"
+        ],
+        "note": "remaining rejected: closing this coverage gap would require a framework-supplied conformance spec that observes the adapter contract, which the corpus does not contain"
+      },
+      "evidence": [
+        {
+          "claim": "the only era gate is invariant to the delta",
+          "measured": "validate_governance 23/23 PASS both at base and at the candidate, item-for-item identical",
+          "source": [
+            "precondition/n2-r06-base.txt",
+            "precondition/n2-r06-cand.txt"
+          ]
+        },
+        {
+          "claim": "the base has no test surface",
+          "measured": "unittest discover -s scripts/tests -> ImportError: Start directory is not importable; 39 tracked files at the base",
+          "source": "precondition/n2-r06-base.txt"
+        },
+        {
+          "claim": "the gate has teeth but they do not point at the deliverable",
+          "measured": "removing mcp/README.md makes the validator exit 1 via an unhandled traceback",
+          "source": "precondition/n2-controls-rest.txt"
+        }
+      ]
+    }
+  ],
+  "enforcement": {
+    "enforced_recomputed_here": [
+      "IDENTITY — the record's corpus_case_id must name a case whose revision pair AND source repository equal the record's; both are read from the replay corpus, whose sha256 is pinned by a literal in the validator; the corpus is pinned TWICE (its sha256 as a literal in the validator, the per-case pairs of all five cases as a literal in the test file)",
+      "DERIVED TRIGGERS — the pair's changed-file list is read from the object database; a changed test file derives WORKER_MODIFIES_TEST_ORACLE and a changed validate_*/check_* file derives WORKER_MODIFIES_VALIDATOR (NOT derived: configuration such as ruff.toml, CI workflows, conftest.py — those must be declared by hand); the rules are NAME-based and therefore blind to ROLE — r02's scripts/review_evidence.py is a collect/validate CLI that derives nothing, so a task whose verdict hangs on such a file must declare the trigger by hand",
+      "REVISION BINDING — git cat-file resolution, ancestry for admissible claims, refusal of a degenerate base == candidate pair",
+      "an externally bound pair can never carry a valid request, and the derived-trigger rule cannot even run for it",
+      "every evidence[].source must resolve to an existing file INSIDE the repository",
+      "one record per corpus case; schema_version must equal the implemented version; closed vocabularies, per-class field equalities, trigger/class consistency, the disclosure-to-authority binding, the C_REJECT blocked-class rule, and structural rules that never mask a record's other defects",
+      "a disclosure that contradicts the object database is refused independently of what the record declares (a false historical_delta_touched_validator beside a provably validator-touching delta is an error even when the derived trigger is declared), and a record may not list its own class as BLOCKED",
+      "the verdict vocabulary for an entry describing a class the record CLAIMS is CLOSED (SHAPE_SATISFIED / SHAPE_SATISFIED_PENDING_MATERIALISATION): a synonym cannot stand in for 'blocked' on the record's own class",
+      "a non-object `disclosures` is a structured error, not a traceback",
+      "the disclosure cross-check runs on BOTH derived axes (test oracle and validator), each independent of what the record declares",
+      "the STATE TRANSITION itself, for an admissible class: the candidate revision's own acceptance surfaces are discovered from its tree and executed, byte-pinned, against materialised base and candidate worktrees (and against a controlled mutation), and the class is supported only if the measured verdicts move in the direction it claims",
+      "the provenance of each acceptance surface (DELTA_FROZEN / DELTA_ADDED / DELTA_MODIFIED), recomputed from the object database — a REWRITTEN acceptance is never a basis, because the delta rewrote the thing that judges it",
+      "oracle_authority, derived from the basis provenance: a DELTA_FROZEN basis requires FRAMEWORK_FROZEN, a DELTA_ADDED one requires DELTA_AUTHORED_DISCRIMINATING",
+      "the oracle-rewrite triggers fire on paths the delta REWRITES, not on paths it ADDS: an added acceptance cannot neuter an oracle that already existed"
+    ],
+    "not_enforced_out_of_band_obligations": [
+      "the TRUTH of baseline_oracle_status / mutation_oracle_status is never recomputed (this program cannot re-run a candidate's oracle): a record bound to a real corpus pair can still declare false statuses",
+      "whether the oracle really sits outside the worker's scope is a claim about a task design that does not exist yet",
+      "externalisation that silences a derived trigger is an assertion — it is bounded only by the fact that the same pending requirement forbids a valid request",
+      "the class itself is bound to nothing recomputable; the corpus's own per-case dispositions are deliberately not consulted, because the corpus header forbids collapsing those axes",
+      "ancestry is deliberately not required of C_REJECT (a non-comparable pair is a legitimate reject reason)",
+      "nothing compels a pending requirement to be discharged (liveness, not soundness)",
+      "the validator is not wired into prepare/collect/publish — Freeze v2 must decide whether it becomes a gate"
+    ],
+    "what_a_pass_means": "the record is internally consistent and, where this repository can check it, consistent with the repository — not that the declared oracle statuses are true"
+  }
+}

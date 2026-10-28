@@ -1,0 +1,1096 @@
+{
+ "program": "admission/discover.py",
+ "schema_version_consulted": "2.8.8",
+ "repository_remote": "https://github.com/FlapPearLabs/agent-engineering-governance.git",
+ "ref": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+ "ref_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+ "mode": "merges (first-parent pairs)",
+ "pairs_total": 25,
+ "funnel": {
+  "DEFERRED_FROZEN_BASIS_SCAN": 10,
+  "DERIVED_TRIGGER_PRESENT": 6,
+  "DUPLICATE_TASK": 7,
+  "MEASURE_ADDED_ACCEPTANCE": 1,
+  "NO_DELTA": 1
+ },
+ "pairs": [
+  {
+   "base_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
+   "candidate_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/h2_hot_inventory.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_hygiene.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_restore.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_scope.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/check_t02_gate_teeth.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/list_changes.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/publish_run.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run-plan.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_release_scan_on.sh"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-brief-template.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-n8-frozen-9494de8.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-015780be.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-0a180fee.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-9494de8e.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-af4df6ae.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-c08f6f8b.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-routes-h2-e1da1541.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-summary.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-gates.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-t01-base-protocol.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p7-t01-fullsuite-base.txt"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/results.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/routes-h2.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/run-registry.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/task-registry.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_v1_2_h2_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "experiments(v1.2): H2 freeze — lazy-disclosure protocol, carrier, task registry, scoring, route manifest; N2 -> ACTIVE (#53)",
+   "date": "2026-10-12"
+  },
+  {
+   "base_sha": "ca9affe4c58cfaccc2db157e78144f75cac9c601",
+   "candidate_sha": "9494de8e2d3bbc5c38b311e8cce29230e7574dce",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #51 from FlapPearLabs/experiment/v1.2-n8-closure-ledger",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+   "candidate_sha": "ca9affe4c58cfaccc2db157e78144f75cac9c601",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/route-reachability/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #52 from FlapPearLabs/experiment/v1.2-n8-postmerge-fixes",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+   "candidate_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/routes.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #50 from FlapPearLabs/experiment/v1.2-route-reachability",
+   "date": "2026-10-11"
+  },
+  {
+   "base_sha": "c028a719ba27ab7aff3035c6269e477491983219",
+   "candidate_sha": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/experiment-protocols.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/failure-mechanism-map.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/longhorizon-mechanism-map.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_mechanization_gap_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #49 from FlapPearLabs/experiment/v1.2-mechanization-gap-analysis",
+   "date": "2026-10-10"
+  },
+  {
+   "base_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
+   "candidate_sha": "c028a719ba27ab7aff3035c6269e477491983219",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "639d19991256156bc9d2cec266e611931d6a8645",
+   "subject": "Merge pull request #48 from FlapPearLabs/experiment/v1.2-h1-closure-ledger",
+   "date": "2026-10-09"
+  },
+  {
+   "base_sha": "562cb5ccb38846cd635851c13d8998e83a027f29",
+   "candidate_sha": "5ea5ed41f42cb83c97e0227d594b7501ed617eba",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/hot_inventory.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/lean/CODEBUDDY.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_A.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B9.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_K7.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_M4.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_P3.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_Q2.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_T1.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_W6.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/runs/RUN_Z8.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/h1-hot-context/tasks.yaml"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_h1_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #47 from FlapPearLabs/experiment/v1.2-h1-hot-context-ablation",
+   "date": "2026-10-09"
+  },
+  {
+   "base_sha": "6b9ba7314c4e82e809dca1d965edd4b3ed1889b6",
+   "candidate_sha": "a7f9e7c1fb2b868ffae9627825c9d1953b36956d",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/live-shadow/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #43 from FlapPearLabs/experiment/v1.2-prospective-shadow",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
+   "candidate_sha": "6b9ba7314c4e82e809dca1d965edd4b3ed1889b6",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/live-shadow/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/live-shadow/check_observations.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/live-shadow/observations.jsonl"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #42 from FlapPearLabs/experiment/v1.2-live-shadow",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+   "candidate_sha": "5b55b6d7c3cd1fa25622b06bac43132e64f6e54a",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ],
+    [
+     "A",
+     "experiments/v1.2/results/h3-a-structure-delta-v0.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/structure_delta.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_structure_delta.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #41 from FlapPearLabs/experiment/v1.2-structure-delta-v0",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "324fc36ec1696116c311fd440225a95aeda04a91",
+   "candidate_sha": "36b23dc9c1a888d2c4837e7fba1277ae56f8cb02",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/replay/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/replay/cases.yaml"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #40 from FlapPearLabs/experiment/v1.2-replay-corpus",
+   "date": "2026-10-08"
+  },
+  {
+   "base_sha": "0404879936a3c36f5eca2b32d36f0d664464411a",
+   "candidate_sha": "324fc36ec1696116c311fd440225a95aeda04a91",
+   "changed": [
+    [
+     "A",
+     "experiments/v1.2/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/cases.yaml"
+    ],
+    [
+     "A",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_material.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #39 from FlapPearLabs/experiment/v1.2-foundation",
+   "date": "2026-10-07"
+  },
+  {
+   "base_sha": "1ffe65f0449f162f10305a870c3b7f53b63dc776",
+   "candidate_sha": "5ee1a20433e045417dca3d2edb30ba27231c820d",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "9fa8713637547471097cc0e8cb234b9589ca3e46",
+   "subject": "Merge pull request #30 from FlapPearLabs/fix/shallow-clone-merge-parent-detection",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "221145fac211b65d0001d808d92095f7d859146b",
+   "candidate_sha": "1ffe65f0449f162f10305a870c3b7f53b63dc776",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "b0ea50033f3cb04980dcf2957d9298739dd98917",
+   "subject": "Merge pull request #29 from FlapPearLabs/fix/shallow-clone-merge-parent-detection",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "72dedbed455bb091d1f951439e32ec7373c965cc",
+   "candidate_sha": "221145fac211b65d0001d808d92095f7d859146b",
+   "changed": [
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #28 from FlapPearLabs/fix/vpr-github-merge-committer-identity",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "1a0207334a8c372a45a1345ac61cbf717e2ff9c0",
+   "candidate_sha": "72dedbed455bb091d1f951439e32ec7373c965cc",
+   "changed": [
+    [
+     "M",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py",
+     "scripts/validate_public_release.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "2b514e2c85c6881b49bc34f8b389676dc9274c5d",
+   "subject": "Merge pull request #27 from FlapPearLabs/fix/vpr-github-merge-committer-identity",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "f1323df2670c3fa6a554ae13d50784e1f96c7603",
+   "candidate_sha": "1a0207334a8c372a45a1345ac61cbf717e2ff9c0",
+   "changed": [
+    [
+     "M",
+     "references/engineering-memory.md"
+    ],
+    [
+     "A",
+     "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/tests/test_p1_orchestrator_closure_doctrine.py"
+   ],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "a920c6b35840d52990a93663a02686ae4b66feb4",
+   "subject": "Merge pull request #26 from FlapPearLabs/work/p1-orchestrator-closure-doctrine-repair",
+   "date": "2026-09-22"
+  },
+  {
+   "base_sha": "d8632efba814b0151003078353d394db64773e53",
+   "candidate_sha": "0ba2c7351d45dba1459a391b0d43e418ecf55280",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "A",
+     ".github/workflows/public-release-audit.yml"
+    ],
+    [
+     "M",
+     ".gitignore"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY.md"
+    ],
+    [
+     "M",
+     "audit/AS_IS_WORKBUDDY_V2.md"
+    ],
+    [
+     "M",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "A",
+     "scripts/validate_public_release.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_TEST_ORACLE": [
+     "adapters/zcode/tests/test_project_continuity.py"
+    ],
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [
+    "scripts/validate_public_release.py"
+   ],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge main (cf02ea8, PR#8 public-release hardening) into state/project-continuity-v1",
+   "date": "2026-09-09"
+  },
+  {
+   "base_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
+   "candidate_sha": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DEFERRED_FROZEN_BASIS_SCAN",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge remote-tracking branch 'origin/main' into state/project-continuity-v1",
+   "date": "2026-09-07"
+  },
+  {
+   "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "candidate_sha": "7803333d73d5a0b06d9e655562038f7a9b89cdd1",
+   "changed": [
+    [
+     "M",
+     "README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "6a2e05c0d3b082328ac6f612c4bd56d7972fd2c2",
+   "subject": "Merge pull request #6 from FlapPearLabs/docs/readme-rewrite",
+   "date": "2026-09-07"
+  },
+  {
+   "base_sha": "3e1e44cb87c8dd4ea3c20366eda773a40e1143fe",
+   "candidate_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "references/engineering-memory.md"
+    ],
+    [
+     "A",
+     "references/project-state-persistence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DUPLICATE_TASK",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "duplicate_of": "4b5d9ac589630d57003c7bdfcce7ec7dfcd37c90",
+   "subject": "Merge pull request #4 from FlapPearLabs/state/persistence-v1.1.2",
+   "date": "2026-09-06"
+  },
+  {
+   "base_sha": "893990c8766d390005c03313027e41b191c88cf4",
+   "candidate_sha": "3e1e44cb87c8dd4ea3c20366eda773a40e1143fe",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "M",
+     "RULES.md"
+    ],
+    [
+     "M",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "M",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #3 from FlapPearLabs/closure/governance-v1.1.1",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "candidate_sha": "893990c8766d390005c03313027e41b191c88cf4",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "A",
+     "audit/PORTABILITY_HARDENING_EVIDENCE.md"
+    ],
+    [
+     "M",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "A",
+     "references/engineering-memory.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "A",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ],
+    [
+     "M",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "M",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {
+    "WORKER_MODIFIES_VALIDATOR": [
+     "scripts/validate_governance.py"
+    ]
+   },
+   "added_acceptance_surfaces": [],
+   "disposition": "DERIVED_TRIGGER_PRESENT",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #2 from FlapPearLabs/portability/hardening-v1",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+   "candidate_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+   "changed": [
+    [
+     "A",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "A",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "README.md"
+    ],
+    [
+     "A",
+     "RULES.md"
+    ],
+    [
+     "A",
+     "audit/AS_IS_WORKBUDDY.md"
+    ],
+    [
+     "A",
+     "audit/AS_IS_WORKBUDDY_V2.md"
+    ],
+    [
+     "A",
+     "audit/AUDIT_QUALITY_REVIEW.md"
+    ],
+    [
+     "A",
+     "audit/AUTHORITY_MAP_V1.md"
+    ],
+    [
+     "A",
+     "audit/AUTHORITY_MAP_V2.md"
+    ],
+    [
+     "A",
+     "audit/GAP_MATRIX.md"
+    ],
+    [
+     "A",
+     "audit/MIGRATION_PLAN.md"
+    ],
+    [
+     "A",
+     "audit/PAIN_TO_POLICY_MAP.md"
+    ],
+    [
+     "A",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "A",
+     "audit/SCENARIO_VALIDATION.md"
+    ],
+    [
+     "A",
+     "audit/TARGET_ARCHITECTURE_CHALLENGE.md"
+    ],
+    [
+     "A",
+     "audit/TARGET_WORKFLOW_V1.md"
+    ],
+    [
+     "A",
+     "audit/WORKFLOW_EVOLUTION_MAP.md"
+    ],
+    [
+     "A",
+     "deployment/BOOTSTRAP_CONTRACT.md"
+    ],
+    [
+     "A",
+     "deployment/MEMORY_POINTER_CANDIDATE.md"
+    ],
+    [
+     "A",
+     "deployment/PORTABLE_SETUP.md"
+    ],
+    [
+     "A",
+     "deployment/deployment-profile.md"
+    ],
+    [
+     "A",
+     "mcp/README.md"
+    ],
+    [
+     "A",
+     "mcp/example/mcp.example.json"
+    ],
+    [
+     "A",
+     "references/codegraph-grounding.md"
+    ],
+    [
+     "A",
+     "references/execution-stage.md"
+    ],
+    [
+     "A",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "A",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "A",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "A",
+     "references/ticket-lane.md"
+    ],
+    [
+     "A",
+     "scripts/validate_governance.py"
+    ],
+    [
+     "A",
+     "skills/README.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [
+    "scripts/validate_governance.py"
+   ],
+   "disposition": "MEASURE_ADDED_ACCEPTANCE",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05",
+   "date": "2026-09-05"
+  },
+  {
+   "base_sha": "47c2aef6b21f0d0c75a4a5d5365e6e6caefc3b82",
+   "candidate_sha": "e5a4871de6404f1a64ff013e0c3aa8f079c934ee",
+   "changed": [],
+   "derived_triggers": {},
+   "added_acceptance_surfaces": [],
+   "disposition": "NO_DELTA",
+   "pair_kind": "FIRST_PARENT_OF_MERGE",
+   "subject": "chore: unite main stub history with candidate branch (PR ancestry requirement); candidate README retained",
+   "date": "2026-09-05"
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+{
+ "base_sha": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
+ "candidate_sha": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
+ "elapsed_s": 0.3,
+ "facts": {
+  "base": "449c10c3a5185494a29bbbeba322f485e4ba9f05",
+  "candidate": "c42c865302a5c9bde886670d5f3a6f32e35d1cd8",
+  "class": "A_REPAIR",
+  "surfaces": [],
+  "deleted_surfaces": [],
+  "acceptance_count": 0,
+  "frozen_count": 0,
+  "acceptance_surface_frozen": false,
+  "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
+  "guard_unmeasured": [],
+  "unmeasured": [],
+  "discriminating": [],
+  "biting": [],
+  "regressed": [],
+  "baseline_oracle_status": "PASS",
+  "candidate_oracle_status": "FAIL",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": false,
+   "reason": "NO_ACCEPTANCE"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "NO_ACCEPTANCE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.12",
+  "validator_sha256": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "feat(governance): candidate global AGENTS.md + RULES.md + six canonical references"
+}

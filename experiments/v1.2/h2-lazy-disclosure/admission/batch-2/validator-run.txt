@@ -1,0 +1,14 @@
+  TRANSITION r24-governance-bootstrap-budget-repair-round-2 class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t09_bootstrap_byte_budget.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r25-governance-readme-design-decisions class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/validate_governance.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
+  TRANSITION r27-governance-memory-preset-budget-restore class=A_REPAIR verdict=FAIL_TO_PASS basis=scripts/tests/test_p1_t09_bootstrap_byte_budget.py provenance=DELTA_FROZEN base_rc=1 cand_rc=0 mut_rc=0
+  TRANSITION r28-governance-adoption-trial-evidence class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/validate_governance.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
+  TRANSITION r30-governance-h3a-replay-results class=B_REGRESSION_GUARD verdict=PASS_TO_FAIL_UNDER_MUTATION basis=scripts/validate_governance.py provenance=DELTA_FROZEN base_rc=0 cand_rc=0 mut_rc=1
+  r23-governance-bootstrap-facts-review-round-1 class=C_REJECT             binding=LOCAL_REPO_VERIFIED              triggers=1 request=NOT_ADMITTED
+  r24-governance-bootstrap-budget-repair-round-2 class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r25-governance-readme-design-decisions       class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r26-governance-portable-adoption-exercise    class=C_REJECT             binding=LOCAL_REPO_VERIFIED              triggers=1 request=NOT_ADMITTED
+  r27-governance-memory-preset-budget-restore  class=A_REPAIR             binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r28-governance-adoption-trial-evidence       class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+  r29-governance-v12-experiment-shape-convergence class=C_REJECT             binding=LOCAL_REPO_VERIFIED              triggers=1 request=NOT_ADMITTED
+  r30-governance-h3a-replay-results            class=B_REGRESSION_GUARD   binding=LOCAL_REPO_VERIFIED              triggers=0 request=REQUEST_VALID
+TASK_CLASS_VERDICT = PASS records=8 valid_requests=5 rejected=3 errors=0 enforcement=IDENTITY+DERIVED_TRIGGERS+REPO_FACTS (a valid request is NOT an admission: the grant is the round freeze plus review)

@@ -1,0 +1,2723 @@
+{
+ "program": "admission/externalize.py --pairs-out",
+ "ref_sha": "5ab500e5478b671f43df80a78730ca172da6cf2b",
+ "pairs_total": 57,
+ "funnel": {
+  "EXTERNALIZED_ORACLE": 57
+ },
+ "pairs": [
+  {
+   "base_sha": "aa8416e807cb5cfacbaa9d28b978a1ba50c220bb",
+   "candidate_sha": "72bcb9d9c995a5961fc98dc272fd1b6f13fe5155",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "921be3e7e87fafa34855403ee317173210edc69b",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "921be3e7e87fafa34855403ee317173210edc69b",
+    "candidate_sha": "72bcb9d9c995a5961fc98dc272fd1b6f13fe5155",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    }
+   },
+   "subject": "experiments(v1.2): H2 freeze — remove duplicate PROTOCOL_HASH literal (round-10 hash-patch defect)"
+  },
+  {
+   "base_sha": "fe5f64ea6469030364dbdd7cb941e970fb5eed76",
+   "candidate_sha": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "728e9b0007e71089c36f92cd95972065240c3ce2",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "728e9b0007e71089c36f92cd95972065240c3ce2",
+    "candidate_sha": "7f68797c5d0fe7d1624ec8ca20abcc6c7d2aa49d",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/TREE_LEDGER.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h1-hot-context/runs/RUN_B.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    }
+   },
+   "subject": "experiments(v1.2): H2 freeze — delta-review fixes before merge (P3s from 728e9b0 review)"
+  },
+  {
+   "base_sha": "149913900a39706d8efa567a9fb27bfe44a0bb2f",
+   "candidate_sha": "728e9b0007e71089c36f92cd95972065240c3ce2",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/precondition/p6-summary.txt"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "352631e9c76bfebb9ad9aa7be11d99fce61cb3a3",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_v1_2_h2_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "352631e9c76bfebb9ad9aa7be11d99fce61cb3a3",
+    "candidate_sha": "728e9b0007e71089c36f92cd95972065240c3ce2",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/control.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/arm-blocks/variant.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/collect_run.sh"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/prepare_run.sh"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/run_acceptance.sh"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/precondition/p1-p2-dryrun.txt"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/precondition/p6-summary.txt"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/protocol.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_v1_2_h2_material.py"
+     ]
+    }
+   },
+   "subject": "experiments(v1.2): H2 freeze — address pre-merge review findings (0xP0, 2xP2, 5xP3)"
+  },
+  {
+   "base_sha": "8d431e98299d692def75b194f1133e39e75a8551",
+   "candidate_sha": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "b839a8e9bb6d080b6b88f2c1fccb407ebf5ce7e3",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "b839a8e9bb6d080b6b88f2c1fccb407ebf5ce7e3",
+    "candidate_sha": "d441414c3189d8b71c06785cfbe560414ce9f6b7",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    }
+   },
+   "subject": "experiment(v1.2): rescope the N6 slice check to its frozen range"
+  },
+  {
+   "base_sha": "c71610c0c28eb3791bd33d1088d57020f2f6ff00",
+   "candidate_sha": "dec29b6c3a3bdc1324d6486da238717dc70a413c",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+    "candidate_sha": "dec29b6c3a3bdc1324d6486da238717dc70a413c",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/TREE_LEDGER.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/README.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/rule-inventory.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    }
+   },
+   "subject": "experiment(v1.2): address N6 delta-review findings"
+  },
+  {
+   "base_sha": "4f32d993db41a1ccf950634c909e97a220603eb8",
+   "candidate_sha": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/experiment-protocols.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/failure-mechanism-map.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-inventory.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "1713db217da1cd9ac37b173f83135d0ce2b4df0f",
+    "candidate_sha": "3b8d090dd83b4010bd2dcacde6f5244c62939c71",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/TREE_LEDGER.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/README.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/experiment-protocols.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/failure-mechanism-map.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/rule-inventory.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/mechanization-gap/rule-migration-matrix.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    }
+   },
+   "subject": "experiment(v1.2): address N6 mechanization-gap review findings"
+  },
+  {
+   "base_sha": "ac3ed5187f92576d49a14d0f6bf0cfa32db915aa",
+   "candidate_sha": "d9c809e151eac23140d2f29c7e272efbeda9d5b4",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/README.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/hot_inventory.py"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/results.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/h1-hot-context/runs/RUN_P3.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "fc5c3e4184ac9863f90f0bbe2fb0bd5c5b7980e1",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_h1_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "fc5c3e4184ac9863f90f0bbe2fb0bd5c5b7980e1",
+    "candidate_sha": "d9c809e151eac23140d2f29c7e272efbeda9d5b4",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/h1-hot-context/README.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h1-hot-context/hot_inventory.py"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h1-hot-context/results.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/h1-hot-context/runs/RUN_P3.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_h1_material.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_h1_material.py"
+     ]
+    }
+   },
+   "subject": "experiment(v1.2): address H1 evidence review findings"
+  },
+  {
+   "base_sha": "ff7b7fab8463d3519e857fe982bdd1ee9ccdb6f2",
+   "candidate_sha": "eb2f51f58f7d63dc1bbe872b4bf71d8488894835",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/evidence-lineage.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/metrics.md"
+    ],
+    [
+     "M",
+     "experiments/v1.2/replay/cases.yaml"
+    ],
+    [
+     "M",
+     "experiments/v1.2/structure_delta.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_structure_delta.py"
+   ],
+   "original_pair": {
+    "base_sha": "a652fd44bcaa0052d3185296ef2b9efd91a14639",
+    "candidate_sha": "eb2f51f58f7d63dc1bbe872b4bf71d8488894835",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/evidence-lineage.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/metrics.md"
+     ],
+     [
+      "M",
+      "experiments/v1.2/replay/cases.yaml"
+     ],
+     [
+      "M",
+      "experiments/v1.2/structure_delta.py"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_structure_delta.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_structure_delta.py"
+     ]
+    }
+   },
+   "subject": "experiment(v1.2): close the two reader false-green paths (H3-A review fixes)"
+  },
+  {
+   "base_sha": "5abdc296c7beebf2416ce41d4d952ddaab756d75",
+   "candidate_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "original_pair": {
+    "base_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+    "candidate_sha": "8c0075c5db0e06eec67d303955d13e214ba22782",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "docs/design-history.md"
+     ],
+     [
+      "M",
+      "references/skills-and-model-routing.md"
+     ],
+     [
+      "M",
+      "scripts/skill_execution.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_skill_execution.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_skill_execution.py"
+     ]
+    }
+   },
+   "subject": "fix: apply Skill receipt checks at input acquisition"
+  },
+  {
+   "base_sha": "042be40ae27fb8b3da6a941120e9ec5504cf5d3d",
+   "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "original_pair": {
+    "base_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+    "candidate_sha": "f2f95f1d67cd903f8a3029b88abe62b6975b10ce",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "docs/design-history.md"
+     ],
+     [
+      "M",
+      "references/skills-and-model-routing.md"
+     ],
+     [
+      "M",
+      "scripts/skill_execution.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_skill_execution.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_skill_execution.py"
+     ]
+    }
+   },
+   "subject": "fix: preserve the consumer specified skill evidence root"
+  },
+  {
+   "base_sha": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+   "candidate_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "docs/design-history.md"
+    ],
+    [
+     "M",
+     "references/skills-and-model-routing.md"
+    ],
+    [
+     "M",
+     "scripts/skill_execution.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26",
+   "externalized_paths": [
+    "scripts/tests/test_skill_execution.py"
+   ],
+   "original_pair": {
+    "base_sha": "abad56b51ef8cad899fca2aaee3ae39c3f2ffc26",
+    "candidate_sha": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "docs/design-history.md"
+     ],
+     [
+      "M",
+      "references/skills-and-model-routing.md"
+     ],
+     [
+      "M",
+      "scripts/skill_execution.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_skill_execution.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_skill_execution.py"
+     ]
+    }
+   },
+   "subject": "fix: bind skill evidence reads to safe directory handles"
+  },
+  {
+   "base_sha": "65651261dfa1447667a4bf617d766e11954d5b36",
+   "candidate_sha": "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "original_pair": {
+    "base_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+    "candidate_sha": "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    }
+   },
+   "subject": "fix(tests): establish the local-only precondition instead of assuming it"
+  },
+  {
+   "base_sha": "42b467bb03819f66096ee9970564652d2fd2324d",
+   "candidate_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "original_pair": {
+    "base_sha": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+    "candidate_sha": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    }
+   },
+   "subject": "fix(tests): strip the real host login from the surface-scope regression"
+  },
+  {
+   "base_sha": "c5d3cd6a4169c59afe85ce58a590e9086509d877",
+   "candidate_sha": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "deployment/deployment-profile.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+   ],
+   "original_pair": {
+    "base_sha": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+    "candidate_sha": "72cd1a26dd62fd23d43491f0137f667f49f9ada6",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "deployment/deployment-profile.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t16_gate_cli_entrypoint.py"
+     ]
+    }
+   },
+   "subject": "docs(deployment): record git credential precedence, and fix the surface it exposed"
+  },
+  {
+   "base_sha": "8dd0ed0e6324f662a67fd366162eefdefca0d448",
+   "candidate_sha": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+    "candidate_sha": "3aa9e22cf9684de38781c8485689bc9a80dc78de",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(audit): correct ancestor label and narrow the self-reference claim"
+  },
+  {
+   "base_sha": "d00e6b383858065921e01f46f01faac307d9248f",
+   "candidate_sha": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+    "candidate_sha": "15ebd5e896601a4e628d1ba9d8c1238af9227cc7",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): drop two claims the evidence does not support"
+  },
+  {
+   "base_sha": "dfbd81b0f95522d5895b44ccae27a4054ffe72a9",
+   "candidate_sha": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+    "candidate_sha": "c526d7294a0b768489a3a670c8ba8eedd81d4692",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): make the ledger say only what the evidence supports"
+  },
+  {
+   "base_sha": "daba5e4054f992a6f481f0880013595c62ad55d1",
+   "candidate_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+    "candidate_sha": "7fa2f5d929e0ce1aafb53916133981190ea4dc59",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): a false negative is still a false claim"
+  },
+  {
+   "base_sha": "258f328c905cffb261cc2755d3c1942437bbf184",
+   "candidate_sha": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+    "candidate_sha": "4ba58151fdca1bf655a503f51fca07143cfaea08",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "AGENTS.md"
+     ],
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): close the findings the contract pass raised"
+  },
+  {
+   "base_sha": "fc03136d3174fba73f7716e8a33f8928084845be",
+   "candidate_sha": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+    "candidate_sha": "495f7cda50837d81f2bb53d8d7965ac37d92759b",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "AGENTS.md"
+     ],
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): saturation is not a review gate"
+  },
+  {
+   "base_sha": "e1262d527d6b26acdc08a6a0b52cdb619575e11f",
+   "candidate_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "0fe2d765158fe34cd20955972176d7d5ac9ba45d",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "0fe2d765158fe34cd20955972176d7d5ac9ba45d",
+    "candidate_sha": "97ec8027d4744219e41e993ce5da361f99cda087",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "AGENTS.md"
+     ],
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): roll P22 up, and stop the guard that forbade it"
+  },
+  {
+   "base_sha": "8ab82265de52471586bfb3a94adfcd3f7b57ae96",
+   "candidate_sha": "a0c30e137be2fb73449bc6a2bbbb56e9276c9575",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "c7058214e8b467afeb42f5b062992af41427007a",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "c7058214e8b467afeb42f5b062992af41427007a",
+    "candidate_sha": "a0c30e137be2fb73449bc6a2bbbb56e9276c9575",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): encode the swap mutation instead of asserting it by hand"
+  },
+  {
+   "base_sha": "099b5479cbdf26996bf1870ddcca07f27d225479",
+   "candidate_sha": "c7058214e8b467afeb42f5b062992af41427007a",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "f7fc998e62356603d4350db2de1d3213a802b090",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "f7fc998e62356603d4350db2de1d3213a802b090",
+    "candidate_sha": "c7058214e8b467afeb42f5b062992af41427007a",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): assert the conditions are lines of the conjunction"
+  },
+  {
+   "base_sha": "fdef5860c4efda5407a209de25da035676f1b3f9",
+   "candidate_sha": "f7fc998e62356603d4350db2de1d3213a802b090",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+    "candidate_sha": "f7fc998e62356603d4350db2de1d3213a802b090",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): guard all seven PROMOTE_NOW conditions, not five"
+  },
+  {
+   "base_sha": "1f4b130368a8370acd32bbfd07708dd505b9945d",
+   "candidate_sha": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+    "candidate_sha": "4832b6f6b616c6602f1b8d838eb03edf92e4b071",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): make the round-4 fixes falsifiable instead of asserted"
+  },
+  {
+   "base_sha": "312331ce06048827c719ef1db4a750af0d546ab2",
+   "candidate_sha": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "4935283172615de9e0954b67fee710c3b96eb549",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+    "candidate_sha": "e4ecd610b64bacbb73dff19d997a2c8a7b968ce7",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): close the four holes the fourth review found"
+  },
+  {
+   "base_sha": "743235ce2c7bccbc3e3f0d58d22c51b96e199e71",
+   "candidate_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "3918a930b79a8747f7c741dace56e499a6443908",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "3918a930b79a8747f7c741dace56e499a6443908",
+    "candidate_sha": "4935283172615de9e0954b67fee710c3b96eb549",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): close the three guard holes the third review found"
+  },
+  {
+   "base_sha": "063f47aad43fa4e5e959e1e0780d88f81b501c0d",
+   "candidate_sha": "3918a930b79a8747f7c741dace56e499a6443908",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+    "candidate_sha": "3918a930b79a8747f7c741dace56e499a6443908",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): build detectors for the two domains nobody guarded"
+  },
+  {
+   "base_sha": "6dffa981941668e70062beb2922e0d2f51d47c2b",
+   "candidate_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "AGENTS.md"
+    ],
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+    "candidate_sha": "2d4bb9dcbd3cbf70c8fcdb38dbcbc130f9a4c481",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "AGENTS.md"
+     ],
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): the AGENTS guard was pinning a duplicate in place"
+  },
+  {
+   "base_sha": "2219e31686c92e58ea77def33ab98cad3d1e1608",
+   "candidate_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+    "candidate_sha": "16e30499fcb0bd45abd47f063763708662c12e65",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): close the guard-strength gaps found by the second review"
+  },
+  {
+   "base_sha": "d453ec549bea6375564ac943ed35fc0b13e5e9cf",
+   "candidate_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "audit/PAIN_TO_POLICY_MAP_V2.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+    "candidate_sha": "58870aaebfbd5f9051fed65865a69f5f664814ae",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "audit/PAIN_TO_POLICY_MAP_V2.md"
+     ],
+     [
+      "M",
+      "references/ticket-lane.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): close an evidence-orphaning bug and make the negative controls real"
+  },
+  {
+   "base_sha": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+   "candidate_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ],
+    [
+     "M",
+     "references/static-analysis-and-code-intelligence.md"
+    ],
+    [
+     "M",
+     "references/ticket-lane.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+   ],
+   "original_pair": {
+    "base_sha": "fc7ad45838a641044b7d0404d25d497d7b11b258",
+    "candidate_sha": "579f6d5e7762610382e4362f668efaffc51f04ce",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "references/static-analysis-and-code-intelligence.md"
+     ],
+     [
+      "M",
+      "references/ticket-lane.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t18_defect_promotion_fast_full.py"
+     ]
+    }
+   },
+   "subject": "fix(governance): converge the P1/P2 findings from both independent reviews"
+  },
+  {
+   "base_sha": "a6de6e5006b934fca01d3d60f36345364ae8e884",
+   "candidate_sha": "cea9acc4989d982e0717486687713fcbc5a01297",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+    "candidate_sha": "cea9acc4989d982e0717486687713fcbc5a01297",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "docs(adapters): retract the last residual closure claim; name today's open instances"
+  },
+  {
+   "base_sha": "7404be96c5df102c2aa408ba028173e78ef30e38",
+   "candidate_sha": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+    "candidate_sha": "bc01c192ad8393796d5c5d4897c37c352d2df877",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): catch quoting / option-arity / plumbing bypasses, and stop claiming closure"
+  },
+  {
+   "base_sha": "8db0848f6bb4f670a0c29c0478d2541ce158f98b",
+   "candidate_sha": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+    "candidate_sha": "5653ce32adc30fc3cae8c8b3f70e77d1879355b3",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): match the force-carrier KEY instead of enumerating injection spellings"
+  },
+  {
+   "base_sha": "1518cc0c49afcc0f682eb8e0fa7684dfb8d75770",
+   "candidate_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+    "candidate_sha": "9a03ea59b8c49cf3cbcf04cee28425c319de4d55",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): close --config-env, drop --force-if-includes, disclose the section 5.2 divergence"
+  },
+  {
+   "base_sha": "04e6b119a6b86fe31b9cb69ae1c1ebce9cb77089",
+   "candidate_sha": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "353988771bf75e5dde2db890259038298a6c4113",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "353988771bf75e5dde2db890259038298a6c4113",
+    "candidate_sha": "0dac4a269f1a4173b36ed27502eef093e69ce5d8",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): re-derive the deny set from measurement; close --mirror, drop the falsified vector family"
+  },
+  {
+   "base_sha": "0e81c01b87c73316335c47c8c95348440c08b576",
+   "candidate_sha": "353988771bf75e5dde2db890259038298a6c4113",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+    "candidate_sha": "353988771bf75e5dde2db890259038298a6c4113",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): close the cross-statement env force vector and correct a false review finding"
+  },
+  {
+   "base_sha": "be1fd5e14700cea4383c5dc11276081cc33efcd3",
+   "candidate_sha": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/workbuddy/README.md"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/hooks/git_safety_guard.py"
+    ],
+    [
+     "M",
+     "adapters/workbuddy/install.py"
+    ],
+    [
+     "A",
+     "adapters/workbuddy/tests/test_install.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "37416f8481ae601fa4d725b59e3deb5141934419",
+   "externalized_paths": [
+    "adapters/workbuddy/tests/test_git_safety_guard.py"
+   ],
+   "original_pair": {
+    "base_sha": "37416f8481ae601fa4d725b59e3deb5141934419",
+    "candidate_sha": "f0a92e9cca7fb7096d88e93eef37b805d035b690",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/workbuddy/README.md"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/hooks/git_safety_guard.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/install.py"
+     ],
+     [
+      "M",
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ],
+     [
+      "A",
+      "adapters/workbuddy/tests/test_install.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/workbuddy/tests/test_git_safety_guard.py"
+     ]
+    }
+   },
+   "subject": "fix(adapters): close in-command force vectors and disclose the shell-evaluation blind spot"
+  },
+  {
+   "base_sha": "f1953504789df6a0733646a2a36f5c5461805184",
+   "candidate_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+   ],
+   "original_pair": {
+    "base_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+    "candidate_sha": "b03d1811f63a6dbc4f8a983c336518df6bfd492c",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+     ]
+    }
+   },
+   "subject": "fix(stage5/lane-a): ground the reuse blank test in the declared ECMA-262 whitespace set and make the 9.6.1 guard discriminating (Issue #24)"
+  },
+  {
+   "base_sha": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+   "candidate_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ],
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "6856a322cdbc5282242464e068e9fb841f017642",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+   ],
+   "original_pair": {
+    "base_sha": "6856a322cdbc5282242464e068e9fb841f017642",
+    "candidate_sha": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/git-ci-integration.md"
+     ],
+     [
+      "M",
+      "references/review-evidence.md"
+     ],
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t08_evidence_lifecycle.py"
+     ]
+    }
+   },
+   "subject": "fix(stage5/lane-a): treat a partially-populated reuse object as a declared claim and align the placeholder-exemption declaration (Issue #24)"
+  },
+  {
+   "base_sha": "c7217ffb409cab39ec4385788821a004021015ea",
+   "candidate_sha": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+   ],
+   "original_pair": {
+    "base_sha": "292a6329d85b539bd8b8a7c827c53ae377d84ba9",
+    "candidate_sha": "879475aaaed4612e5c8c6bd8e4034f9bea4a2786",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t09_bootstrap_byte_budget.py"
+     ]
+    }
+   },
+   "subject": "test(p1-t09): enforce README.md as the fifth REQ-W4-01 convergence surface"
+  },
+  {
+   "base_sha": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+   "candidate_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-and-repair-saturation.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+   ],
+   "original_pair": {
+    "base_sha": "975c559fa9cfcabc012dcb9fb96ffadf32594b03",
+    "candidate_sha": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-and-repair-saturation.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t10_audit_visibility_recipe.py"
+     ]
+    }
+   },
+   "subject": "fix(stage4/lane-c): scope the NOT_AUDITABLE rule to the enabled recipe so the recipe stays on-demand (Issue #22)"
+  },
+  {
+   "base_sha": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+   "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/git-ci-integration.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+   ],
+   "original_pair": {
+    "base_sha": "dc7aef63001e998d4e0de1fc59d3cfe310ed2a48",
+    "candidate_sha": "12c32f41898a5cec8db9346637c78800978f7549",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/git-ci-integration.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t11_destructive_workspace_transaction.py"
+     ]
+    }
+   },
+   "subject": "fix(stage4/lane-a): make the P1-T11 pre-state record mandatory and the preservation-loss reject unconditional (Issue #23)"
+  },
+  {
+   "base_sha": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+   "candidate_sha": "51e7604be3689f31142d17144893790000efac30",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+   ],
+   "original_pair": {
+    "base_sha": "5c9f6a7fcfa67e081747e418ba549eb96da39a69",
+    "candidate_sha": "51e7604be3689f31142d17144893790000efac30",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-evidence.md"
+     ],
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t06_producer_trust_boundary.py"
+     ]
+    }
+   },
+   "subject": "fix(stage3/lane-b): refuse every scheme-form evidence location except declared CI identifiers, and run the retrieval boundary in every validate mode (Issue #21)"
+  },
+  {
+   "base_sha": "990177774cc4b906ec95146422356c97928b05fc",
+   "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "1ca93655425e07933f379b3fa30a26819a4adedd",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t05_evidence_disposition.py"
+   ],
+   "original_pair": {
+    "base_sha": "1ca93655425e07933f379b3fa30a26819a4adedd",
+    "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-evidence.md"
+     ],
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t05_evidence_disposition.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t05_evidence_disposition.py"
+     ]
+    }
+   },
+   "subject": "fix(review-evidence): remove local digest fallback, use canonical ECMA-262 evaluation, and fold P1-T05 disposition into validate (Issue #18)"
+  },
+  {
+   "base_sha": "a97595229f11cd7262f6a49abb433de408e94ca4",
+   "candidate_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/execution-stage.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+   "externalized_paths": [
+    "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+   ],
+   "original_pair": {
+    "base_sha": "e398dde43042e0e00ca99076aa9ecd3e4f8951dd",
+    "candidate_sha": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/execution-stage.md"
+     ],
+     [
+      "M",
+      "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py"
+     ]
+    }
+   },
+   "subject": "fix(stage2/lane-a): make the P1-T02 mandatory base record unambiguously eight fields (Issue #16)"
+  },
+  {
+   "base_sha": "ffb8db0dd2122a56004dea40f492fb87a0d0dbb9",
+   "candidate_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "original_pair": {
+    "base_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+    "candidate_sha": "0ec774f06882b923fd89b2bb52784538a3367477",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    }
+   },
+   "subject": "fix(review-evidence): evaluate character classes with ECMA-262 semantics"
+  },
+  {
+   "base_sha": "4c104decd9fd969303c099f5c4bdc8a6eb331013",
+   "candidate_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "original_pair": {
+    "base_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+    "candidate_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-evidence.md"
+     ],
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    }
+   },
+   "subject": "fix(review-evidence): evaluate declared patterns with ECMA-262 semantics end to end and fail closed"
+  },
+  {
+   "base_sha": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+   "candidate_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "references/review-evidence.md"
+    ],
+    [
+     "M",
+     "schemas/review-evidence.schema.json"
+    ],
+    [
+     "M",
+     "scripts/review_evidence.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+   "externalized_paths": [
+    "scripts/tests/test_review_evidence_contract.py"
+   ],
+   "original_pair": {
+    "base_sha": "2ed08f6f7ddf58b234b54afb8334e6fae32cd768",
+    "candidate_sha": "b88df0313b3b921978a9869b9422beb686d21f3c",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "references/review-evidence.md"
+     ],
+     [
+      "M",
+      "schemas/review-evidence.schema.json"
+     ],
+     [
+      "M",
+      "scripts/review_evidence.py"
+     ],
+     [
+      "M",
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_review_evidence_contract.py"
+     ]
+    }
+   },
+   "subject": "fix(review-evidence): enforce anchored schema patterns and declared failure envelope"
+  },
+  {
+   "base_sha": "95b790d2dc8edff96a907815c7c0cf0db60a95d9",
+   "candidate_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [],
+   "derived_triggers": {},
+   "original_base": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+   "externalized_paths": [
+    "scripts/tests/test_seam_contract_partitions.py"
+   ],
+   "original_pair": {
+    "base_sha": "19c2c43682b4a0b26c44520e297f32c2f5a6c650",
+    "candidate_sha": "e1da1541eb2b11f1e44f972409abde701496f4b6",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "scripts/tests/test_seam_contract_partitions.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "scripts/tests/test_seam_contract_partitions.py"
+     ]
+    }
+   },
+   "subject": "test(ticket-lane): bind seam counterexample checks to the canonical contract document"
+  },
+  {
+   "base_sha": "b438f597e14ed1bb9dd7b72ef2356ea3877bda8b",
+   "candidate_sha": "d8632efba814b0151003078353d394db64773e53",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/bash_preflight_guard.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "b23714dd19acc2020d4e442591f60255826a10eb",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "original_pair": {
+    "base_sha": "b23714dd19acc2020d4e442591f60255826a10eb",
+    "candidate_sha": "d8632efba814b0151003078353d394db64773e53",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/zcode/README.md"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/bash_preflight_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/tests/test_project_continuity.py"
+     ],
+     [
+      "M",
+      "references/project-continuity-contract.md"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/zcode/tests/test_project_continuity.py"
+     ]
+    }
+   },
+   "subject": "security(R6.2): remove `find` from the pre-grounding read-only allowlist"
+  },
+  {
+   "base_sha": "76e64e8a006b4f9173ea895ea19c3ab069aec010",
+   "candidate_sha": "b23714dd19acc2020d4e442591f60255826a10eb",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     ".github/workflows/governance-ci.yml"
+    ],
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/bash_preflight_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "231d9bd3f8ca7df202615132f1532e10271b6259",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "original_pair": {
+    "base_sha": "231d9bd3f8ca7df202615132f1532e10271b6259",
+    "candidate_sha": "b23714dd19acc2020d4e442591f60255826a10eb",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      ".github/workflows/governance-ci.yml"
+     ],
+     [
+      "M",
+      "adapters/zcode/README.md"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/bash_preflight_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_lifecycle.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/tests/test_project_continuity.py"
+     ],
+     [
+      "M",
+      "references/project-continuity-contract.md"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/zcode/tests/test_project_continuity.py"
+     ]
+    }
+   },
+   "subject": "PR5 R6.1: bash receipt gate + mode A review coherence + unapproved-delta runtime gate"
+  },
+  {
+   "base_sha": "e6aa6931337b6e44df47e9cc6c22be6b43139e7b",
+   "candidate_sha": "e0e8d955fc1f936ea5928a0b058a0d902623975b",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "original_pair": {
+    "base_sha": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+    "candidate_sha": "e0e8d955fc1f936ea5928a0b058a0d902623975b",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/zcode/README.md"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_lifecycle.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_state.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/state_flush_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/tests/test_project_continuity.py"
+     ],
+     [
+      "M",
+      "references/project-continuity-contract.md"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/zcode/tests/test_project_continuity.py"
+     ]
+    }
+   },
+   "subject": "fix(review-r5): close core-continuity invariants F1-F6 (append-only on 82ce11a)"
+  },
+  {
+   "base_sha": "06051bbb4d8c01ac5f30017ff4098554781bc938",
+   "candidate_sha": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "original_pair": {
+    "base_sha": "a8770b3cbcdaa1d7bf80ecc54a0ff6c3a6109c4d",
+    "candidate_sha": "82ce11ac0208ca6b459e8392c7f739bf78e6399a",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/zcode/README.md"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_lifecycle.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_state.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/state_flush_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/tests/test_project_continuity.py"
+     ],
+     [
+      "M",
+      "references/project-continuity-contract.md"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/zcode/tests/test_project_continuity.py"
+     ]
+    }
+   },
+   "subject": "fix(review-r4): reconcile main + close external-review A1/A2/B1/B2/B3/B4"
+  },
+  {
+   "base_sha": "b6ceab29117ce92844e64aac0fb2f2d2e8eba0cc",
+   "candidate_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "adapters/zcode/README.md"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_lifecycle.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/codegraph_state.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/grounding_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/project_state_guard.py"
+    ],
+    [
+     "M",
+     "adapters/zcode/hooks/state_flush_guard.py"
+    ],
+    [
+     "M",
+     "references/project-continuity-contract.md"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "bc561a6ae5a804ed42f2befd6a8e054d47936543",
+   "externalized_paths": [
+    "adapters/zcode/tests/test_project_continuity.py"
+   ],
+   "original_pair": {
+    "base_sha": "bc561a6ae5a804ed42f2befd6a8e054d47936543",
+    "candidate_sha": "19a4aed0c6598117b0737058c14859d00ae1f084",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "adapters/zcode/README.md"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_lifecycle.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/codegraph_state.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/grounding_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/project_state_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/hooks/state_flush_guard.py"
+     ],
+     [
+      "M",
+      "adapters/zcode/tests/test_project_continuity.py"
+     ],
+     [
+      "M",
+      "references/project-continuity-contract.md"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "adapters/zcode/tests/test_project_continuity.py"
+     ]
+    }
+   },
+   "subject": "fix(review-r3): resolve external-review F1-F7 (append-only repair on bc561a6)"
+  },
+  {
+   "base_sha": "bbf5f103b9723208cfcbe23fd3414ef595640986",
+   "candidate_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+   "disposition": "EXTERNALIZED_ORACLE",
+   "changed": [
+    [
+     "M",
+     "experiments/v1.2/TREE_LEDGER.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/README.md"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/routes.json"
+    ],
+    [
+     "A",
+     "experiments/v1.2/route-reachability/validate_routes.py"
+    ],
+    [
+     "A",
+     "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+    ]
+   ],
+   "derived_triggers": {},
+   "original_base": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+   "externalized_paths": [
+    "experiments/v1.2/tests/test_mechanization_gap_material.py"
+   ],
+   "original_pair": {
+    "base_sha": "6217cc0adcd6c064e8c74e670de6a081bdaba2f6",
+    "candidate_sha": "8b6b15d7553b6d59a5c1355c6fc88192a9251c65",
+    "disposition": "DERIVED_TRIGGER_PRESENT",
+    "changed": [
+     [
+      "M",
+      "experiments/v1.2/TREE_LEDGER.md"
+     ],
+     [
+      "A",
+      "experiments/v1.2/route-reachability/README.md"
+     ],
+     [
+      "A",
+      "experiments/v1.2/route-reachability/routes.json"
+     ],
+     [
+      "A",
+      "experiments/v1.2/route-reachability/validate_routes.py"
+     ],
+     [
+      "M",
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ],
+     [
+      "A",
+      "experiments/v1.2/tests/test_v1_2_route_reachability.py"
+     ]
+    ],
+    "derived_triggers": {
+     "WORKER_MODIFIES_TEST_ORACLE": [
+      "experiments/v1.2/tests/test_mechanization_gap_material.py"
+     ]
+    }
+   },
+   "subject": "Merge pull request #50 from FlapPearLabs/experiment/v1.2-route-reachability"
+  }
+ ]
+}

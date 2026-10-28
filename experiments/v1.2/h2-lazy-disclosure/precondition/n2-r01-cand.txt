@@ -1,0 +1,54 @@
+# [R2-REDACTION] machine paths replaced with the documented placeholder form
+# ('/(?:Users|home)/songshiyao' -> /Users/<LOCAL_OS_USERNAME>, which the public-release rule
+#  UNIX_USER_HOME deliberately does not match). Original preserved outside the repo.
+# origin sha256 (unredacted original) = e69d1eaf08182c1189629d5a99c3e4cd7ce4c8af62b875fe492af6112cab9ec5
+# source: r01 candidate measurement log
+
+### TREE=r01-cand  HEAD=fa997c12e4c35fdb9267882747d2b55d13772ae2  tracked=215
+### node=v22.22.2  start 2026-10-14T06:16:03Z
+=== R1: research-orchestration full suite (declared npm test) ===
+--- [R1] (cd research-orchestration && bash -c /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/node/versions/22.22.2-6/bin/node --test test/*.test.mjs)
+--- [R1] rc=0 elapsed=3s
+      ok 431 - P1-2: valid + invalid mix → only the valid group is eligible/selectable
+      ok 432 - reform F1/F2: fail-closed plan-intent gates + pool planHash identity
+      ok 433 - repair round 2: constraint-first group-set construction + clarification identity boundary
+      ok 434 - canonical questionId gate consistency with T06
+      ok 435 - third-party review round 3: invalid-pool no-echo (F-A) + duplicate pool identity fail-closed (F-B)
+      ok 436 - external repair R3: canonical pool-consumption boundary (P1-A) + clarification resolution binding (P1-B)
+      # tests 539
+      # pass 539
+      # fail 0
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # pass 539
+      # fail 0
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # duration_ms 2572.771208
+
+=== R2: the single test file the candidate MODIFIES (base version present) ===
+--- [R2] (cd research-orchestration && /Users/<LOCAL_OS_USERNAME>/.workbuddy/binaries/node/versions/22.22.2-6/bin/node --test test/p1-t14-cross-group-synthesis.test.mjs)
+--- [R2] rc=0 elapsed=0s
+      ok 3 - P1-T14 PRE-SYNTHESIS guard — negative branch (unequal → FAIL_CLOSED, NO artifact)
+      ok 4 - P1-T14 single-writer discipline: analyzed source-set identity is NEVER written by T14
+      ok 5 - P1-T14 failure semantics (fail-closed, no silent fallback / degradation)
+      ok 6 - P1-T14 diagnostics — written ONLY through the frozen T07 hook (exactly five owned keys)
+      ok 7 - P1-T14 UNTRUSTED_CONTENT projection safety (Spec §10.1 EXTERNAL_CORPUS)
+      ok 8 - P1-T14 lineage — controller-owned (every synthesis claim traceable to SEAM C)
+      # tests 31
+      # pass 31
+      # fail 0
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # pass 31
+      # fail 0
+      # cancelled 0
+      # skipped 0
+      # todo 0
+      # duration_ms 151.433625
+
+### dirty after: 0 entries
+### DONE r01-cand

@@ -1,0 +1,219 @@
+{
+ "program": "freeze-v2/route_preconditions.py",
+ "manifest": "experiments/v1.2/h2-lazy-disclosure/routes-h2.json",
+ "summary": {
+  "ROUTES_ADMISSIBLE": 10
+ },
+ "rows": [
+  {
+   "CASE_ID": "r34-governance-ext-enforce-anchored-schema-patterns-and",
+   "BASE_SHA": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r37-governance-ext-make-the-p1-t02-mandatory",
+   "BASE_SHA": "a97595229f11cd7262f6a49abb433de408e94ca4",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r38-governance-ext-remove-local-digest-fallback-use",
+   "BASE_SHA": "990177774cc4b906ec95146422356c97928b05fc",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r39-governance-ext-refuse-every-scheme-form-evidence",
+   "BASE_SHA": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r40-governance-ext-make-the-p1-t11-pre",
+   "BASE_SHA": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r41-governance-ext-scope-the-not-auditable-rule",
+   "BASE_SHA": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r42-governance-ext-treat-a-partially-populated-reuse",
+   "BASE_SHA": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r24-governance-bootstrap-budget-repair-round-2",
+   "BASE_SHA": "825d3902597655c90393100281260cbba8697c07",
+   "routes_declared": 33,
+   "routes_valid": 31,
+   "validator_verdict": "ROUTES_UNSATISFIED",
+   "failing": [
+    {
+     "route_id": "LEAN-12",
+     "surface": "S1",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    },
+    {
+     "route_id": "AGENTS-03",
+     "surface": "S2",
+     "destination": "references/static-tooling-profiles.md",
+     "result": "DESTINATION_MISSING",
+     "class": "HISTORICAL_BASE_ROUTE_UNSATISFIED"
+    }
+   ],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r44-governance-ext-converge-the-p1-p2-findings",
+   "BASE_SHA": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+   "routes_declared": 33,
+   "routes_valid": 33,
+   "validator_verdict": "ALL_ROUTES_VALID",
+   "failing": [],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  },
+  {
+   "CASE_ID": "r50-governance-ext-bind-skill-evidence-reads-to",
+   "BASE_SHA": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+   "routes_declared": 33,
+   "routes_valid": 33,
+   "validator_verdict": "ALL_ROUTES_VALID",
+   "failing": [],
+   "ROUTE_PRECONDITION": "ROUTES_ADMISSIBLE"
+  }
+ ]
+}

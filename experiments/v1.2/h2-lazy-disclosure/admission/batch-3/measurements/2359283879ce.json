@@ -1,0 +1,77 @@
+{
+ "base_sha": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+ "candidate_sha": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+ "elapsed_s": 0.6,
+ "facts": {
+  "base": "8a99cbff7dfefcaca8000caafe80568c225e072b",
+  "candidate": "2359283879cec3f37f6e357bd6b9a2cfeb6d45b0",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_ADDED",
+    "rc_base": 1,
+    "rc_cand": 0,
+    "rc_mut": null,
+    "rc_alt": [
+     1,
+     0,
+     null
+    ],
+    "environment_sensitive": false
+   }
+  ],
+  "deleted_surfaces": [],
+  "acceptance_count": 1,
+  "frozen_count": 0,
+  "acceptance_surface_frozen": false,
+  "oracle_in_worker_scope": true,
+  "environment_sensitive": [],
+  "guard_unmeasured": [],
+  "unmeasured": [],
+  "discriminating": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_ADDED",
+    "rc_base": 1,
+    "rc_cand": 0,
+    "rc_mut": null,
+    "rc_alt": [
+     1,
+     0,
+     null
+    ],
+    "environment_sensitive": false
+   }
+  ],
+  "biting": [],
+  "regressed": [],
+  "baseline_oracle_status": "FAIL",
+  "candidate_oracle_status": "PASS",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": true,
+   "reason": "FAIL_TO_PASS"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "NO_FROZEN_ACCEPTANCE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.12",
+  "validator_sha256": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "Merge pull request #1 from FlapPearLabs/audit/workbuddy-global-governance-v1-2026-09-05"
+}

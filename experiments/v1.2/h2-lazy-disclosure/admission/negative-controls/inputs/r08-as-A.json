@@ -1,0 +1,57 @@
+{
+ "schema": "ELIGIBILITY_SCHEMA_V2",
+ "schema_version": "2.8.12",
+ "records": [
+  {
+   "candidate_id": "r08-governance-project-continuity-contract",
+   "corpus_case_id": "r08-governance-project-continuity-contract",
+   "source_repository": "FlapPearLabs/agent-engineering-governance",
+   "base_sha": "f40525bd9f37b883420089f0422abcedef0b7d11",
+   "candidate_sha": "af4df6ae706394db5f9dec313993312392aeb516",
+   "sha_binding": "LOCAL_REPO_VERIFIED",
+   "reject_triggers": [],
+   "pending_requirements": [],
+   "disclosures": {
+    "historical_delta_touched_oracle": false,
+    "historical_delta_touched_validator": false,
+    "acceptance_provenance_note": "no surface carries a supported transition"
+   },
+   "evidence": [
+    {
+     "claim": "the pair was routed to measurement because its delta rewrites no test and no validator (derived triggers empty) and ADDS an acceptance surface",
+     "measured": "discovery disposition MEASURE_ADDED_ACCEPTANCE",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/discovery-governance.json"
+    },
+    {
+     "claim": "the acceptance transition, executed in base / candidate / controlled-mutation trees by the validator's own recompute_transition",
+     "measured": "A=BASE_EQUALS_CANDIDATE B=MUTATION_DOES_NOT_BITE over 2 surface(s), 1 frozen",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/measurements/af4df6ae7063.json"
+    },
+    {
+     "claim": "the basis acceptance exercised tests (not skipped, not empty)",
+     "measured": "unittest-reported ran/skipped/failures/errors per state",
+     "source": "experiments/v1.2/h2-lazy-disclosure/admission/batch-1/probes/af4df6ae7063.json"
+    }
+   ],
+   "class": "A_REPAIR",
+   "class_considered": [
+    {
+     "class": "A_REPAIR",
+     "verdict": "SHAPE_SATISFIED"
+    }
+   ],
+   "round_admission": {
+    "verdict": "REQUEST_VALID",
+    "reason_codes": [
+     "SHAPE_COMPLETE"
+    ]
+   },
+   "class_requirements": {
+    "baseline_oracle_status": "FAIL",
+    "candidate_oracle_status": "PASS",
+    "oracle_in_worker_scope": true,
+    "oracle_authority": "DELTA_AUTHORED_DISCRIMINATING"
+   }
+  }
+ ]
+}

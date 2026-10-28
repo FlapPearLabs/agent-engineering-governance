@@ -1,0 +1,147 @@
+{
+ "base_sha": "4c104decd9fd969303c099f5c4bdc8a6eb331013",
+ "candidate_sha": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+ "elapsed_s": 32.4,
+ "facts": {
+  "base": "4c104decd9fd969303c099f5c4bdc8a6eb331013",
+  "candidate": "1b48d2bb44e56c453a97b82bf5c88df2e89d0791",
+  "class": "A_REPAIR",
+  "surfaces": [
+   {
+    "path": "scripts/validate_governance.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   },
+   {
+    "path": "scripts/validate_project_state.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 1,
+    "rc_mut": 1,
+    "rc_alt": [
+     1,
+     1,
+     1
+    ],
+    "environment_sensitive": false
+   },
+   {
+    "path": "scripts/validate_public_release.py",
+    "kind": "VALIDATOR",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   },
+   {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   },
+   {
+    "path": "scripts/tests/test_seam_contract_partitions.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   },
+   {
+    "path": "scripts/tests/test_ticket_gate_wiring.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 0,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     0,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   }
+  ],
+  "deleted_surfaces": [],
+  "acceptance_count": 6,
+  "frozen_count": 6,
+  "acceptance_surface_frozen": true,
+  "oracle_in_worker_scope": false,
+  "environment_sensitive": [],
+  "guard_unmeasured": [],
+  "unmeasured": [],
+  "discriminating": [
+   {
+    "path": "scripts/tests/test_review_evidence_contract.py",
+    "kind": "TEST",
+    "provenance": "DELTA_FROZEN",
+    "rc_base": 1,
+    "rc_cand": 0,
+    "rc_mut": 0,
+    "rc_alt": [
+     1,
+     0,
+     0
+    ],
+    "environment_sensitive": false
+   }
+  ],
+  "biting": [],
+  "regressed": [],
+  "baseline_oracle_status": "FAIL",
+  "candidate_oracle_status": "PASS",
+  "mutation_oracle_status": "PASS",
+  "mutation_touches_target_predicate": false
+ },
+ "verdicts": {
+  "A_REPAIR": {
+   "supported": true,
+   "reason": "FAIL_TO_PASS"
+  },
+  "B_REGRESSION_GUARD": {
+   "supported": false,
+   "reason": "MUTATION_DOES_NOT_BITE"
+  }
+ },
+ "environment": {
+  "python": "<PY>",
+  "python_version": "3.13.12",
+  "acceptance_tmpdir": "per-run, realpath-resolved, set by run_acceptance",
+  "git": "git version 2.53.0",
+  "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+  "schema_version": "2.8.12",
+  "validator_sha256": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
+  "acceptance_timeout_s": 300
+ },
+ "subject": "fix(review-evidence): evaluate declared patterns with ECMA-262 semantics end to end and fail closed"
+}

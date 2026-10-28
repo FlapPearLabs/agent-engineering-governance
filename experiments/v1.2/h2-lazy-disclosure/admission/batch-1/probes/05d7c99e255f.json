@@ -1,0 +1,31 @@
+{
+ "base_sha": "51e7604be3689f31142d17144893790000efac30",
+ "candidate_sha": "05d7c99e255fa278c332b3562e8d1fa7ccf27e5d",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t07_evidence_consumption_separation.py",
+   "kind": "TEST",
+   "provenance": "DELTA_ADDED",
+   "base": {
+    "rc": 1,
+    "ran": 15,
+    "verdict_line": "FAILED",
+    "failures": 24,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 15,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

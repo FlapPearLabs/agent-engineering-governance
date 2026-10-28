@@ -1,0 +1,32 @@
+{
+ "base_sha": "990177774cc4b906ec95146422356c97928b05fc",
+ "candidate_sha": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+ "probes": [
+  {
+   "path": "scripts/tests/test_p1_t05_evidence_disposition.py",
+   "kind": "TEST",
+   "provenance": "DELTA_FROZEN",
+   "base": {
+    "rc": 1,
+    "ran": 26,
+    "verdict_line": "FAILED",
+    "failures": 12,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": [
+     "AssertionError",
+     "TypeError"
+    ]
+   },
+   "candidate": {
+    "rc": 0,
+    "ran": 26,
+    "verdict_line": "OK",
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "first_error_types": []
+   }
+  }
+ ]
+}

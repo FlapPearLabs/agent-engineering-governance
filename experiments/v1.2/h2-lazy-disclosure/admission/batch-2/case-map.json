@@ -1,0 +1,14 @@
+{
+ "note": "batch 2 = the DEFERRED_FROZEN_BASIS_SCAN pairs of batch-1/discovery-governance.json. Records are made for every pair whose measured transition supports an admissible class, plus r23 (825d390) as the named negative example of finding F-A3. The other 75 pairs measured no supported transition and stay as measurement evidence only. Full SHAs are taken from the discovery file, never typed.",
+ "discovery": "../batch-1/discovery-governance.json",
+ "cases": {
+  "825d3902597655c90393100281260cbba8697c07": "r23-governance-bootstrap-facts-review-round-1",
+  "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0": "r24-governance-bootstrap-budget-repair-round-2",
+  "a22fe184ef783799cb1ea3ea5f7449f65a1457dd": "r25-governance-readme-design-decisions",
+  "95667e8e3d9ac9742a1a80e7dcf7f8e3b4ea5dba": "r26-governance-portable-adoption-exercise",
+  "7cadc9c445180395bf8494644ab91a4d55717438": "r27-governance-memory-preset-budget-restore",
+  "0404879936a3c36f5eca2b32d36f0d664464411a": "r28-governance-adoption-trial-evidence",
+  "5205e5bd92317d9ad1ad53725dc14444f5201d32": "r29-governance-v12-experiment-shape-convergence",
+  "a652fd44bcaa0052d3185296ef2b9efd91a14639": "r30-governance-h3a-replay-results"
+ }
+}
