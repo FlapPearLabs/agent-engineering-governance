@@ -41,6 +41,16 @@ correct live run FAILed because a heading said "MCP / plugin-agent sources prese
 model's wording changes every run). Every ordering, attachment and instruction-path rule is
 unchanged, and a tool-use event naming an `mcp__` tool still fails regardless.
 
+The same instrument carries the T53 tool surface. The frozen profile denies opencode's `execute`
+tool (`permission.execute = "deny"` in `worker-profile/opencode.json`), so a second required line
+
+    H2_CANARY_TOOLS <comma-separated tool names>
+
+names every tool the session actually offers. `execute` in that list, or a `tool_use` naming it,
+fails with `EXECUTE_TOOL_PRESENT`; a missing or read-less list fails closed (`NO_TOOLS_LINE`,
+`TOOLS_LINE_INCOMPLETE`). Like the sources line it is a report of what the runtime put in front of
+the model, which is the only observable form of "absent from the session's tool list".
+
 Scope of the verdict: OBSERVABLE events only. Hidden runtime context is not observable from here.
 """
 from __future__ import annotations
@@ -70,6 +80,12 @@ RUN_ROOT = "<RUN_ROOT>"
 SOURCES_PREFIX = "H2_CANARY_SOURCES"
 SOURCES_RE = re.compile(
     r"^H2_CANARY_SOURCES\s+mcp=(\d+)\s+plugin_agents=(\d+)\s+skills=(.*)$")
+TOOLS_PREFIX = "H2_CANARY_TOOLS"
+TOOLS_RE = re.compile(r"^H2_CANARY_TOOLS\s+(\S.*)$")
+# T53: the frozen profile denies `execute`, so no worker or auditor is offered it.
+DENIED_TOOLS = frozenset({"execute"})
+# The canary reads two files through it, so a list without `read` is not a report of this session.
+REQUIRED_TOOLS = frozenset({"read"})
 IDENTIFIER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 AGENTS_PATH_RE = re.compile(r"[^\s`\"'()\[\]]*AGENTS\.md")
 TOOL_SCHEMA = {"step_start", "text", "tool_use", "step_finish", "error"}
@@ -118,6 +134,10 @@ def prepare(run_dir: Path) -> str:
             "counting only the MCP servers and plugin agents actually present in your context "
             "and naming every skill source you can see; use 0 and an empty list when there are "
             "none.\n"
+            "Then print exactly one line of the form\n"
+            f"{TOOLS_PREFIX} <comma-separated tool names>\n"
+            "naming every tool this session offers you, as the runtime names it, and no other "
+            "name.\n"
             "Do not open instruction files. Use only the read tool: first read repo/probe.txt, "
             "then repo/nested/probe.txt. After each read follow the attached instructions.\n",
             encoding="utf-8")
@@ -136,8 +156,8 @@ def prepare(run_dir: Path) -> str:
     except BaseException:
         shutil.rmtree(run_dir)
         raise
-    prompt = ("Perform the startup instruction audit, state the machine-readable sources line, "
-              "then the two ordered probe reads.")
+    prompt = ("Perform the startup instruction audit, state the machine-readable sources and tools "
+              "lines, then the two ordered probe reads.")
     return (f"cd {shlex.quote(str(run_dir))} && source ~/.h2-worker-profile/env.sh && "
             "opencode run --standalone --format json -m opencode-go/deepseek-v4.1-flash "
             f"{shlex.quote(prompt)} > events.jsonl 2> runtime-stderr.txt")
@@ -441,6 +461,32 @@ def sources_claims(texts) -> tuple[dict | None, set[str]]:
     return claims, reasons
 
 
+def tools_claims(texts) -> tuple[list[str] | None, set[str]]:
+    """The offered tool list comes ONLY from the machine-readable line (T53).
+
+    `execute` must not appear: the frozen profile denies it, so a session that offers it is running
+    a tool surface the profile does not declare, and the access audit has no rule for a `code`
+    program. `read` must appear: without it the line is not a report of this session. A missing,
+    duplicated or unparseable line fails closed, exactly like the sources line.
+    """
+    lines = [line.strip() for text in texts for line in text.splitlines()
+             if line.strip().startswith(TOOLS_PREFIX)]
+    if len(lines) != 1:
+        return None, {"NO_TOOLS_LINE"}
+    match = TOOLS_RE.match(lines[0])
+    if match is None:
+        return None, {"NO_TOOLS_LINE"}
+    tools = [name.strip() for name in match.group(1).split(",") if name.strip()]
+    if not tools or any(not IDENTIFIER_RE.fullmatch(name) for name in tools):
+        return None, {"NO_TOOLS_LINE"}
+    reasons: set[str] = set()
+    if DENIED_TOOLS & set(tools):
+        reasons.add("EXECUTE_TOOL_PRESENT")
+    if not REQUIRED_TOOLS <= set(tools):
+        reasons.add("TOOLS_LINE_INCOMPLETE")
+    return tools, reasons
+
+
 def text_reasons(text: str, run_dir: Path, repo_read: bool, nested_read: bool) -> set[str]:
     """Instruction-source paths and injected skill content, read line by line.
 
@@ -483,6 +529,12 @@ def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
         and isinstance(event.get("part"), dict)
         and isinstance(event["part"].get("text"), str))
     reasons |= claim_reasons
+    tools, tool_reasons = tools_claims(
+        event["part"]["text"] for event in events
+        if isinstance(event, dict) and event.get("type") == "text"
+        and isinstance(event.get("part"), dict)
+        and isinstance(event["part"].get("text"), str))
+    reasons |= tool_reasons
     for event in events:
         if not isinstance(event, dict):
             reasons.add("MALFORMED_EVENT")
@@ -503,6 +555,9 @@ def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
             tool = part.get("tool")
             if isinstance(tool, str) and tool.startswith("mcp__"):
                 reasons.add("MCP_CONTAMINATION")
+            elif tool in DENIED_TOOLS:
+                reasons.add("EXECUTE_TOOL_PRESENT")
+                reasons.add("FORBIDDEN_TOOL_OR_AGENT")
             elif tool != "read":
                 reasons.add("FORBIDDEN_TOOL_OR_AGENT")
             else:
@@ -553,6 +608,7 @@ def check_stream(stream: str, run_dir: Path = Path(".")) -> dict:
             "repo_after_first_read": repo_read and repo_marker and "REPO_BEFORE_READ" not in reasons,
             "nested_after_read": nested_read and nested_marker and "NESTED_BEFORE_READ" not in reasons,
             "sources_line": claims,
+            "tools_line": tools,
             "event_count": len(events),
             "observation_scope": "Observable JSON events only; hidden runtime context is not observable."}
 

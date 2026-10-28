@@ -484,10 +484,12 @@ class DeliveryAnchors(unittest.TestCase):
 
 class IsolationCanary(unittest.TestCase):
     SOURCES_LINE = "H2_CANARY_SOURCES mcp=0 plugin_agents=0 skills=opencode,report"
+    TOOLS_LINE = "H2_CANARY_TOOLS read,glob,grep,shell,edit,write,webfetch,websearch,skill"
 
     def fixture(self):
         return [
-            {"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP\n" + self.SOURCES_LINE}},
+            {"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP\n" + self.SOURCES_LINE
+                                      + "\n" + self.TOOLS_LINE}},
             {"type": "tool_use", "part": {"tool": "read", "state": {
                 "input": {"filePath": "repo/probe.txt"}}}},
             {"type": "text", "part": {"text": "H2_CANARY_REPO_ATTACHED"}},
@@ -505,10 +507,16 @@ class IsolationCanary(unittest.TestCase):
         """F5's own evidence: the fresh 86ac104 live canary, sanitised, no sources line."""
         return (FZ / "fixtures" / "canary-86ac104-events.jsonl").read_text(encoding="utf-8")
 
-    def passing_stream(self):
-        """The clearly-labelled synthetic fixture: the live stream plus the sources line."""
+    def sources_only_stream(self):
+        """The pre-T53 synthetic pass fixture: a sources line, no tools line."""
         return (FZ / "fixtures" / "canary-86ac104-synthetic-sources-line.jsonl").read_text(
             encoding="utf-8")
+
+    def passing_stream(self):
+        """The clearly-labelled synthetic fixture: the live stream plus both machine lines."""
+        return (FZ / "fixtures"
+                / "canary-86ac104-synthetic-sources-and-tools-line.jsonl").read_text(
+                    encoding="utf-8")
 
     def passing_events(self):
         return [json.loads(line) for line in self.passing_stream().splitlines() if line.strip()]
@@ -525,13 +533,15 @@ class IsolationCanary(unittest.TestCase):
             "status": "completed", "input": {"path": path}}}}
 
     def test_the_labelled_pass_fixture_passes_and_the_cli_agrees(self):
-        """The committed pass fixture is synthetic: the live stream plus the sources line."""
+        """The committed pass fixture is synthetic: the live stream plus both machine lines."""
         canary = load("isolation_canary")
         verdict = canary.check_stream(self.passing_stream())
         self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
         self.assertEqual(10, verdict["event_count"])
         self.assertEqual({"mcp": 0, "plugin_agents": 0, "skills": ["opencode", "report"]},
                          verdict["sources_line"])
+        self.assertEqual(["read", "glob", "grep", "shell", "edit", "write", "webfetch",
+                          "websearch", "skill"], verdict["tools_line"])
         for key in ("wrapper_at_startup", "repo_after_first_read", "nested_after_read"):
             self.assertTrue(verdict[key])
         text = self.passing_stream()
@@ -547,9 +557,19 @@ class IsolationCanary(unittest.TestCase):
                           for event in reads})
         cli = subprocess.run(
             [sys.executable, str(FZ / "isolation_canary.py"), "check",
-             str(FZ / "fixtures" / "canary-86ac104-synthetic-sources-line.jsonl")],
+             str(FZ / "fixtures" / "canary-86ac104-synthetic-sources-and-tools-line.jsonl")],
             capture_output=True, text=True)
         self.assertEqual(0, cli.returncode, cli.stdout)
+
+    def test_the_pre_t53_fixture_fails_closed_on_the_missing_tools_line(self):
+        """A stream older than the tool-surface check carries one line, so it cannot attest two."""
+        canary = load("isolation_canary")
+        verdict = canary.check_stream(self.sources_only_stream())
+        self.assertEqual("FAIL", verdict["verdict"])
+        self.assertEqual(["NO_TOOLS_LINE"], verdict["reasons"])
+        self.assertEqual({"mcp": 0, "plugin_agents": 0, "skills": ["opencode", "report"]},
+                         verdict["sources_line"])
+        self.assertIsNone(verdict["tools_line"])
 
     def test_both_real_streams_are_regressions_for_the_f5_false_positive(self):
         """F5: a correct live run must fail on the missing line, never on its own prose."""
@@ -559,7 +579,7 @@ class IsolationCanary(unittest.TestCase):
             with self.subTest(label=label):
                 verdict = canary.check_stream(stream)
                 self.assertEqual("FAIL", verdict["verdict"])
-                self.assertEqual(["NO_SOURCES_LINE"], verdict["reasons"], label)
+                self.assertEqual(["NO_SOURCES_LINE", "NO_TOOLS_LINE"], verdict["reasons"], label)
                 self.assertEqual(10, verdict["event_count"])
         self.assertIn("Actual MCP / plugin-agent / skill sources present:", self.live_stream())
         self.assertIn("Plugin agents: none present", self.live_stream())
@@ -571,7 +591,7 @@ class IsolationCanary(unittest.TestCase):
              str(FZ / "fixtures" / "canary-86ac104-events.jsonl")],
             capture_output=True, text=True)
         self.assertEqual(1, cli.returncode)
-        self.assertEqual(["NO_SOURCES_LINE"], json.loads(cli.stdout)["reasons"])
+        self.assertEqual(["NO_SOURCES_LINE", "NO_TOOLS_LINE"], json.loads(cli.stdout)["reasons"])
 
     def test_each_real_schema_refusal_is_reported(self):
         canary = load("isolation_canary")
@@ -606,11 +626,18 @@ class IsolationCanary(unittest.TestCase):
                     "type": "tool", "tool": "bash"}}] + base[first_read:]),
                 "FORBIDDEN_TOOL_OR_AGENT"),
             "truncated stream": (self.render(base[:-1]), "INCOMPLETE_STREAM"),
-            "sources line missing": (with_line(self.SOURCES_LINE + "\n\n", ""),
+            "sources line missing": (with_line(self.SOURCES_LINE, ""),
                                      "NO_SOURCES_LINE"),
             "sources line malformed": (with_line(
                 self.SOURCES_LINE, "H2_CANARY_SOURCES mcp=none plugin_agents=0 skills="),
                 "NO_SOURCES_LINE"),
+            "tools line missing": (with_line(self.TOOLS_LINE, ""), "NO_TOOLS_LINE"),
+            "tools line malformed": (with_line(self.TOOLS_LINE, "H2_CANARY_TOOLS"),
+                                     "NO_TOOLS_LINE"),
+            "tools line without the read tool": (with_line(
+                self.TOOLS_LINE, "H2_CANARY_TOOLS glob,grep"), "TOOLS_LINE_INCOMPLETE"),
+            "the execute tool is offered": (with_line(
+                self.TOOLS_LINE, self.TOOLS_LINE + ",execute"), "EXECUTE_TOOL_PRESENT"),
             "mcp reported": (with_line("mcp=0", "mcp=2"), "MCP_CONTAMINATION"),
             "plugin agent reported": (with_line("plugin_agents=0", "plugin_agents=1"),
                                       "PLUGIN_AGENT_CONTAMINATION"),
@@ -687,10 +714,12 @@ class IsolationCanary(unittest.TestCase):
             self.assertIn("source ~/.h2-worker-profile/env.sh", command)
             self.assertIn("opencode run --standalone --format json -m "
                           "opencode-go/deepseek-v4.1-flash", command)
+            self.assertIn("sources and tools lines", command)
             wrapper = (run / "AGENTS.md").read_text()
             self.assertIn("H2_CANARY_WRAPPER_STARTUP", wrapper)
             self.assertIn("H2_CANARY_SOURCES mcp=<integer> plugin_agents=<integer> "
                           "skills=<comma-separated names>", wrapper)
+            self.assertIn("H2_CANARY_TOOLS <comma-separated tool names>", wrapper)
             for rel, token in (("AGENTS.md", "H2_CANARY_WRAPPER_STARTUP"),
                                ("repo/AGENTS.md", "H2_CANARY_REPO_ATTACHED"),
                                ("repo/nested/AGENTS.md", "H2_CANARY_NESTED_ATTACHED")):
@@ -1004,7 +1033,7 @@ class FrozenWorkerProfile(unittest.TestCase):
         self.assertEqual("disabled", config["share"])
         self.assertEqual([], config["plugin"])
         self.assertEqual({}, config["mcp"])
-        self.assertEqual({"question": "deny"}, config["permission"])
+        self.assertEqual({"execute": "deny", "question": "deny"}, config["permission"])
         self.assertTrue(raw.endswith(b"\n"))
         canary = load("isolation_canary")
         self.assertEqual(FZ / "worker-profile" / "opencode.json", canary.CONFIG_TEMPLATE)
@@ -1014,6 +1043,91 @@ class FrozenWorkerProfile(unittest.TestCase):
             profile_home="<PROFILE_HOME>", template=raw, config_file=raw)
         self.assertEqual("PASS", verdict["verdict"], verdict["reasons"])
         self.assertEqual(digest(raw), verdict["template_sha256"])
+
+
+class WorkerToolSurface(unittest.TestCase):
+    """T53: `execute` is denied in the one frozen profile every launch copies.
+
+    The deny is a permission rule, not a hidden flag: opencode 2.0.25 normalises a config
+    `permission` map into `{action, resource, effect}` rules, appends the document's rules to every
+    agent, and drops a tool whose last matching rule is `deny` on resource `*` (local evidence:
+    `opencode debug config` output in `preflight-debug-config-execute-deny.json`, 2.0.25 binary).
+    The canary is the live instrument: the session reports its own tool list and `execute` in it
+    fails the run.
+    """
+
+    EXECUTE_RULE = {"action": "execute", "resource": "*", "effect": "deny"}
+
+    def normalised(self):
+        return json.loads((FZ / "fixtures" / "preflight-debug-config-execute-deny.json")
+                          .read_text(encoding="utf-8"))
+
+    def test_the_frozen_template_denies_execute_and_is_the_only_profile_config(self):
+        config = json.loads((FZ / "worker-profile" / "opencode.json").read_text(encoding="utf-8"))
+        self.assertEqual("deny", config["permission"]["execute"])
+        sandbox = load("sandbox_v2")
+        canary = load("isolation_canary")
+        self.assertEqual(FZ / "worker-profile" / "opencode.json", sandbox.CONFIG_TEMPLATE)
+        self.assertEqual(sandbox.CONFIG_TEMPLATE, canary.CONFIG_TEMPLATE)
+        runs = json.loads((FZ / "run-plan-v3.json").read_text())["runs"]
+        self.assertEqual({"~/.h2-worker-profile"}, {run["profile"] for run in runs})
+        self.assertEqual({"control", "variant"}, {run["arm"] for run in runs})
+
+    def test_every_launch_role_copies_that_config_into_its_own_fresh_home(self):
+        """Worker, auditor and probe homes come from one function and one template."""
+        module = load("sandbox_v2")
+        template = (FZ / "worker-profile" / "opencode.json").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            driver = Path(tmp) / ".driver" / "h2r3-f01-c"
+            launch = Path(tmp) / "run"
+            launch.mkdir()
+            for name in ("home-1", "audit-home-1", "probe-home-reachability-1"):
+                with self.subTest(home=name):
+                    home = module.fresh_home(driver, name, launch)
+                    imported = home / module.CONFIG_DIR_REL / module.CONFIG_NAME
+                    self.assertEqual(template, imported.read_bytes())
+                    self.assertEqual([f"{module.CONFIG_DIR_REL}/{module.CONFIG_NAME}"],
+                                     module.imported_files(home))
+
+    def test_the_recorded_runtime_output_normalises_the_deny_to_a_tool_deny(self):
+        fixture = (FZ / "fixtures" / "preflight-debug-config-execute-deny.json").read_text(
+            encoding="utf-8")
+        sources = load("isolation_canary").parse_debug_config(fixture)
+        document = self.normalised()[0]
+        self.assertEqual([{"type": "document",
+                           "path": "<PROFILE_HOME>/.config/opencode/opencode.json"},
+                          {"type": "directory", "path": "<PROFILE_HOME>/.config/opencode"}],
+                         sources)
+        self.assertIn(self.EXECUTE_RULE, document["info"]["permissions"])
+        # the rule opencode hides a tool on is exactly this one: deny on resource `*`
+        self.assertEqual("*", self.EXECUTE_RULE["resource"])
+        self.assertEqual("deny", self.EXECUTE_RULE["effect"])
+        for host_prefix in ("/Users/", "/private/"):
+            self.assertNotIn(host_prefix, fixture)
+
+    def test_a_session_that_still_offers_execute_cannot_pass_the_canary(self):
+        canary = load("isolation_canary")
+        stream = (FZ / "fixtures" / "canary-86ac104-synthetic-sources-and-tools-line.jsonl"
+                  ).read_text(encoding="utf-8")
+        self.assertEqual("PASS", canary.check_stream(stream)["verdict"])
+        offered = stream.replace("H2_CANARY_TOOLS read,",
+                                 "H2_CANARY_TOOLS execute,read,")
+        self.assertIn("H2_CANARY_TOOLS execute,read,", offered)
+        verdict = canary.check_stream(offered)
+        self.assertEqual("FAIL", verdict["verdict"])
+        self.assertIn("EXECUTE_TOOL_PRESENT", verdict["reasons"])
+        self.assertIn("execute", verdict["tools_line"])
+        called = [{"type": "text", "part": {"text": "H2_CANARY_WRAPPER_STARTUP\n"
+                                                    "H2_CANARY_SOURCES mcp=0 plugin_agents=0 "
+                                                    "skills=opencode,report\n"
+                                                    "H2_CANARY_TOOLS read,glob"}},
+                  {"type": "tool_use", "part": {"tool": "execute", "state": {
+                      "status": "error", "input": {"code": "await tools.read({path: 'x'})"}}}}]
+        result = canary.check_stream("\n".join(json.dumps(event) for event in called))
+        self.assertEqual("FAIL", result["verdict"])
+        self.assertIn("EXECUTE_TOOL_PRESENT", result["reasons"])
+        # the audit is not asked to interpret a `code` program: the tool never runs
+        self.assertNotIn("execute", load("access_audit").TOOL_ALLOW)
 
 
 class AccessAudit(unittest.TestCase):
