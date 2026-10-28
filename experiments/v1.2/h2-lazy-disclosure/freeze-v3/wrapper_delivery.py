@@ -135,10 +135,25 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def run_dir_for(runs_root: Path, run_id: str) -> Path:
+    """Resolve existing legacy runs, otherwise use an isolated cell."""
+    root = Path(runs_root)
+    cell = root / ".cells" / run_id / run_id
+    legacy = root / run_id
+    return legacy if legacy.exists() and not cell.exists() else cell
+
+
+def runs_root_of(run_dir: Path) -> Path:
+    run_dir = Path(run_dir)
+    if run_dir.parent.name == run_dir.name and run_dir.parent.parent.name == ".cells":
+        return run_dir.parent.parent.parent
+    return run_dir.parent
+
+
 def driver_root(run_dir: Path) -> Path:
     """`<runs_root>/.driver/<run_id>` — outside the run dir the worker can write."""
     run_dir = Path(run_dir)
-    return run_dir.parent / DRIVER_DIR / run_dir.name
+    return runs_root_of(run_dir) / DRIVER_DIR / run_dir.name
 
 
 def base_dir(run_dir: Path) -> Path:

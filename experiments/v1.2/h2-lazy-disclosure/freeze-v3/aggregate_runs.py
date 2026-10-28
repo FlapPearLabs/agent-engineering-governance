@@ -61,6 +61,8 @@ SAFE into INSUFFICIENT_EVIDENCE, and step 9 says so instead of claiming safety (
 """
 from __future__ import annotations
 
+import wrapper_delivery
+
 import argparse
 import hashlib
 import json
@@ -349,12 +351,12 @@ def aggregate(runs_root: Path) -> dict:
                                       "reason": item.get("reason")}
                                      for item in attempts.get(run_id, [])]})
             # T46: reported per arm and per task, and never read by the decision rules below.
-            denied = denied_attempts(entry, runs_root / run_id)
+            denied = denied_attempts(entry, wrapper_delivery.run_dir_for(runs_root, run_id))
             row.update({"denied_attempts": denied["count"],
                         "denied_attempt_list": denied["list"],
                         "denied_attempts_verified": denied["verified"]})
             if usable(entry):
-                run_dir = runs_root / run_id
+                run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
                 trust, problems = evidence_trust(entry, run_dir)
                 row["evidence"] = trust
                 if trust == "UNTRUSTED":

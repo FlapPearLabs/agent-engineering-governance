@@ -632,32 +632,42 @@ def sweep(launch_dir: Path, *, pgid: int | None = None, log_path: Path | None = 
 
 
 def _snapshot_entry(source: Path, target: Path, rel: str, manifest: dict) -> None:
-    """Copy one path into the snapshot and record what it was; an unreadable file is recorded."""
+    """Copy an entry without following source links or overwriting target entries."""
     try:
         info = source.lstat()
+        if stat.S_ISLNK(info.st_mode):
+            link = os.readlink(source)
+            entry = {"type": "symlink", "mode": "120000",
+                     "sha256": sha256(os.fsencode(link)), "target": link}
+            try:
+                target.symlink_to(link)
+            except FileExistsError:
+                entry["collision"] = True
+            manifest[rel] = entry
+        elif stat.S_ISREG(info.st_mode):
+            entry = {"type": "file", "mode": "100755" if info.st_mode & 0o111 else "100644"}
+            manifest[rel] = entry
+            fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "rb") as stream:
+                opened = os.fstat(stream.fileno())
+                if not stat.S_ISREG(opened.st_mode):
+                    raise OSError("source changed type")
+                data = stream.read()
+            entry["sha256"] = sha256(data)
+            try:
+                fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             opened.st_mode & 0o777)
+            except FileExistsError:
+                entry["collision"] = True
+                return
+            with os.fdopen(fd, "wb") as stream:
+                os.fchmod(stream.fileno(), opened.st_mode & 0o777)
+                stream.write(data)
+        else:
+            manifest[rel] = {"type": "other", "mode": "000000", "sha256": None}
     except OSError as exc:
-        manifest[rel] = {"type": "unknown", "unreadable": True, "error": type(exc).__name__}
-        return
-    if stat.S_ISLNK(info.st_mode):
-        link = os.readlink(source)
-        manifest[rel] = {"type": "symlink", "mode": "120000",
-                         "sha256": sha256(os.fsencode(link)), "target": link}
-        target.symlink_to(link)
-    elif stat.S_ISREG(info.st_mode):
-        try:
-            data = source.read_bytes()
-        except OSError as exc:
-            # F37 / T38a: one unreadable file must not make the registration path raise; the
-            # manifest states it, and the driver turns that into INVALID:EVIDENCE_UNREADABLE.
-            manifest[rel] = {"type": "file", "unreadable": True, "error": type(exc).__name__,
-                             "mode": "100755" if info.st_mode & 0o111 else "100644"}
-            return
-        manifest[rel] = {"type": "file", "mode": "100755" if info.st_mode & 0o111 else "100644",
-                         "sha256": sha256(data)}
-        target.write_bytes(data)
-        target.chmod(info.st_mode & 0o777)
-    else:
-        manifest[rel] = {"type": "other", "mode": "000000", "sha256": None}
+        entry = manifest.setdefault(rel, {"type": "unknown"})
+        entry.update({"unreadable": True, "error": type(exc).__name__})
 
 
 def snapshot(run_dir: Path, target: Path) -> dict:
@@ -683,13 +693,19 @@ def snapshot(run_dir: Path, target: Path) -> dict:
                 _snapshot_entry(path, target / rel, rel, manifest)
                 dirnames.remove(name)
                 continue
-            (target / rel).mkdir(parents=True, exist_ok=True)
-            manifest[rel] = {"type": "dir", "mode": "040000"}
+            entry = {"type": "dir", "mode": "040000"}
+            manifest[rel] = entry
+            try:
+                (target / rel).mkdir()
+            except FileExistsError:
+                if not stat.S_ISDIR((target / rel).lstat().st_mode):
+                    entry["collision"] = True
+                    dirnames.remove(name)
         for name in sorted(filenames):
             path = current / name
             rel = (rel_dir / name).as_posix()
             _snapshot_entry(path, target / rel, rel, manifest)
-    unreadable = sorted(rel for rel, entry in manifest.items() if entry.get("unreadable"))
+    unreadable = sorted(rel for rel, entry in manifest.items() if entry.get("unreadable") or entry.get("collision"))
     data = {"schema_version": 1, "program": "freeze-v3/sandbox_v2.py", "source": str(run_dir),
             "snapshot": str(target), "entries": manifest,
             "unreadable": unreadable, "count": len(manifest)}
@@ -738,7 +754,9 @@ class Gate:
         if self.root.exists():
             shutil.rmtree(self.root)
         self.root.mkdir(parents=True)
-        shutil.copytree(source, self.repo, symlinks=True)
+        copied = snapshot(source, self.repo)
+        if copied["unreadable"]:
+            raise ValueError("GATE_SNAPSHOT_UNREADABLE")
         for path in (self.home, self.resolved, self.pycache):
             path.mkdir(parents=True, exist_ok=True)
         os.symlink(self.resolved, self.link)

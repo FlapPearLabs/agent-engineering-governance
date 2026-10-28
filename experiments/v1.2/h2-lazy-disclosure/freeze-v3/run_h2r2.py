@@ -397,7 +397,7 @@ def started_state(runs_root: Path, run_id: str) -> bool:
     """
     if lock_path(runs_root, run_id).is_file():
         return True
-    run_dir = Path(runs_root) / run_id
+    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
     return run_dir.exists() and any(entry.name != ATTEMPTS_DIR for entry in run_dir.iterdir())
 
 
@@ -1230,7 +1230,8 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             register_interrupted(runs_root, plan_run)
         return {"outcome": "REFUSED", "run_id": run_id, "reason": reason}
 
-    run_dir = runs_root / run_id
+    run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
+    run_dir.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     driver_dir = wrapper_delivery.driver_root(run_dir)
     env_file = profile_env_file(plan_run, profile_env)
     command = tuple(worker_command or WORKER_COMMAND)
@@ -2028,7 +2029,7 @@ def annotate_lock(path: Path, verdict: str) -> None:
 def register_interrupted(runs_root: Path, plan_run: dict) -> None:
     """A started run that never registered is registered now, once, as INVALID:INTERRUPTED."""
     register(runs_root, plan_run, verdict="INVALID", reason="INTERRUPTED",
-             run_dir=Path(runs_root) / plan_run["run_id"],
+             run_dir=wrapper_delivery.run_dir_for(runs_root, plan_run["run_id"]),
              registered_by="SECOND_START_ATTEMPT_REFUSED")
 
 
@@ -2040,7 +2041,7 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
     live = in_progress(runs_root, planned, entries)
     for plan_run in planned:
         run_id = plan_run["run_id"]
-        run_dir = runs_root / run_id
+        run_dir = wrapper_delivery.run_dir_for(runs_root, run_id)
         if run_id in entries:
             entry = entries[run_id]
             state = "REGISTERED"
@@ -2083,7 +2084,7 @@ def status(runs_root: Path, root: Path = ROOT) -> dict:
 def child_log_path(runs_root: Path, run_id: str) -> Path:
     """Where one scheduler-started `run` child keeps its stdout/stderr (outside its run dir)."""
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    return (wrapper_delivery.driver_root(Path(runs_root) / run_id)
+    return (wrapper_delivery.driver_root(wrapper_delivery.run_dir_for(runs_root, run_id))
             / f"{SCHEDULER_CHILD_PREFIX}-{stamp}.log")
 
 

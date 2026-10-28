@@ -31,3 +31,17 @@ claim the snapshot or cell-layout acceptance criteria.
 Checks: the new unittest module ran 1 test (OK); ruff on the changed Python files passed;
 `validate_public_release.py` reported `VIOLATIONS=0`; the freeze-v2 manifest check reported
 `PASS` with no mismatches. The full freeze-v3 suite was not run.
+
+### T51b — snapshot and cell layout
+
+Snapshot copies now reject non-directory target collisions, create files exclusively without
+following links, and open regular sources nonblocking with no-follow and a post-open type check.
+The gate copy uses the same snapshot mechanism and rejects unreadable or colliding entries.
+Runs use `.cells/<run_id>/<run_id>` with a private cell parent; legacy flat runs remain readable,
+and driver artifacts remain under `.driver/<run_id>`. This closes T51a's identified snapshot
+and cell-layout gaps. The directory-collision test simulates the case-folding collision by
+planting a symlink at the target; it does not exercise an actual case-insensitive APFS collision.
+
+Checks: driverfs unittest module (6 tests); ruff for changed Python files; public-release
+validator `VIOLATIONS=0`; freeze-v2 manifest check `PASS`; `git diff --check`. The full freeze-v3
+suite and re-pinning are deferred to T54; no live worker or platform sandbox launch was run.
