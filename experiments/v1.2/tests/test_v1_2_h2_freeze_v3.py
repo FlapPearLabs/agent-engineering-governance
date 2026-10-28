@@ -47,19 +47,21 @@ EXPECTED_V3_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/admission/batch-4/ledger.json": "048705f5418af830bba30a4a3f2a48041f1672eadff39ac7b902a0d952b65a5e",
     "experiments/v1.2/h2-lazy-disclosure/admission/freeze-v2-input/shortlist.json": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
     "experiments/v1.2/h2-lazy-disclosure/carriers/H2_LEAN_BOOTSTRAP.md": "c5c8261591d70b21c167b1659e1d06cbb3f8f7d347b261180e321f6d6b0c932b",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/access_audit.py": "c105ee0b025b9e15709971fc9527b2d9a9c131b2299ba50578943ccc163e4ffd",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/aggregate_runs.py": "6d8699843fc9e2c962733c0ceedb6c746ace08fa161c60eb2e9bba37c8a118bf",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/access_audit.py": "ef690c741cbcfd985a2ece7fdd64f7d64adee586d17d2cf83d03324e8a92e2cd",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/aggregate_runs.py": "a0d36ed38d1a8cd78b53d01137d2369c33239f5929c358ea6cedad269b979dc0",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/aggregate_set.py": "03cc6f68d847ff50c743abd2c4b5029a65ab36a82da027e5700e6937e50763f9",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/build_manifest.py": "a60d78924f1d6e4f49fedad13be9ba669092822dc9126702a372645bdb9986aa",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/build_manifest.py": "da3252d9e0537053993f4feab3437552c6aedeae473a93f44103a4ccd09d6217",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/build_registry.py": "9114aeb9bcef1b0f0bebb363ad891e43f669f547f57a92435cb5d8363f8888a8",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/build_run_plan.py": "f266ceb6dcc7011a7817a6109dabb6bd1a73c84e6f2b288ce24443069592f91c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/collect_v2.py": "b1ab0b6279c70999095e9682b8570b0e4b1130e614671a62b56d32a30c213eb7",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/delivery-anchors.json": "3e0376fc8d5c893ad5309cfcd3d2c83be1cd4aee07f141e700f86eb7f2610b10",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/delivery-anchors.json": "e1e8b237378d9a8bd3d2ad759ec1f8a0f60aff0bcf2f36492856fc3e59607095",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/delivery_anchors.py": "914682c465b91f2aac969da0c86369736a200361b96c1741404fd244ba187728",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/egress_v2.py": "401af2384ce9c0f43a69439c786fbef2a7c15fc6cb705e04aab01c812d39977f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/access-audit-clean.jsonl": "e79a8be43c13af170e9424c8d138fd2d42f37f50c93d97b6fe3d19afad3377d1",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/access-audit-hits.jsonl": "147e72b06bc03488918e23eedc20659f8cbb48b0508b9d12aff05d0d042c431b",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/access-audit-replay-v3.json": "6488ec646eb0a8f0b92414983b9498fe2de65e88ff1dd4eb2842a52c2014520c",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/canary-86ac104-events.jsonl": "2b596be37ac0b9aff56989302ee8b44af4246ea2a11f88b3c16875073130d82a",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/canary-86ac104-synthetic-sources-and-tools-line.jsonl": "b528400e2a1b2188062ae310cb0e04692f302dd165ecb96249567bbe934a9214",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/canary-86ac104-synthetic-sources-line.jsonl": "0d310198bc7ef4cab0734b4a4e01aebadcb4e862a032a305f50eed10ccb23ffa",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/isolation-canary-events.jsonl": "070743f27b4386e36f99c7fa86badf9b2b4d9b7293d27dc4af75099854acae8f",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/pilot-0335de8-f42-events.jsonl": "5bf6c837c3e459cfb5a3c475cf081446804939d57b0ff76a97cd5a7789eb81e7",
@@ -71,34 +73,35 @@ EXPECTED_V3_HASHES = {
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/pilot-bf2ca30-f03-c-worker.sb": "e8f822e13b60536484e62ae44f28df55e42cf34c7b70956e37943298c76f9e6e",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/pilot-efc46fc-f27-events.jsonl": "eea5516714f36aef54f058f036e568d09478f25b41a75902471e5346a242ff37",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/pilot-f01-c-events.jsonl": "8df3d734070e50bdd6e425da3fa43f9206daa1ffa1754b7ba5c28c4867d0e099",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/preflight-debug-config-execute-deny.json": "d0b8738a0cc21bfffa0c08af3d2f203b9063af9564baa5baa32835aaa3041708",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/preflight-debug-config.json": "6e7ba3d7954852de5b4c931532160945a4ce76f728b46272e4b23f2e2ace78c2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/preflight-debug-paths.txt": "cb7c7f731823fa7f96136e0272ba73079d3d455095b26c478a6518711ab68dbc",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/fixtures/toolname-probe-events.jsonl": "7220205bd72abc05fd1d615cb6a69111685febfd40e0f7840b06cf5bcd9461e6",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/isolation_canary.py": "a7b33f9377bed4c3835250a1219e5738be225637e1db5926a1dca0625fb7fdc0",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/protocol-v3.md": "eb91f1733704fb950ad6e17e20a680453290f3d60beb13fd1397fda5a3f2ff56",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/isolation_canary.py": "2f2c9c8cdbfae02ba6fc706e9076bfcc4d49646391cf89458da702edb65edec1",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/protocol-v3.md": "ace9de6c5780fea490382589f03ac4b4f2fa1a9d7d637173d975148b1d52c8a2",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/render_brief.py": "b5f63b977ea57d0870edcd6d01516994576e75342c971ff64b1896c1bad9b2e9",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/route-preconditions.json": "96a10055d04c95249f1bac2e6d4cd9e19f728fc80b471f7fd7f376d17bb69f9b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/route_preconditions.py": "2bf5af5da7565cce372e0758f92ec992d9c397573e68243466b7a2b6c925cb1d",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run-plan-v3.json": "47a0bd6b53f97b9080b868ac977453c88c5afc5f8e40af2d957c6c9d6f92200e",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run-plan-v3.json": "eacb6618f6b77569fa2370ae8f79043d8d6120332dac54cfff1bd84e8d167a2b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_acceptance_v2.py": "70a79a993eae3a372ccb82b43d26629cadb38f8c0c1cc9bf0f04af9859b8792c",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_audit_v2.py": "acffaf9bfa98bf63264324e1ccc93892d52850caab79aca0a4ae23ec3d40812d",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_h2r2.py": "d094afa77db77a9eadf94fb7128a2d24ea15b658168e003b985234c7e4b9f1e0",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/sandbox_v2.py": "e06a879dda561af213f6a2414e72e0658fd2d34777f14a7da63d06076978c0c5",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_audit_v2.py": "6554be29f8bf42c05eedc83fcdfe12a93baaf1f3fe77dff383ef7487b7e53f69",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/run_h2r2.py": "b868def0602e4f94c3a0af4e39228591c50ff088291a892c291461db759d4c78",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/sandbox_v2.py": "068655dff2f8545256ce3867fdaeef20d4df02414f14a3df218655e10ae4c3a5",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/scope_v2.py": "1d5a1d4f65011cfed15873deae7c300385cf2e0bac173a4c34211e0b0d31ab97",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/task-registry-v3.json": "d0c424ed42036a331c26cfc79cb8fb3b7a5600bc0e4975b5ea11e9d18b11d88b",
     "experiments/v1.2/h2-lazy-disclosure/freeze-v3/worker-brief-v3.md": "31908a89ec197b768b8736bc314e9aed0869906808ed0f85ae44e74464f472e4",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/worker-profile/opencode.json": "409f61b632da9001f18adf8e929094d2127ffe225c782d3eaec2c8106d695ba3",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/worker-sandbox.sb.template": "548917491e08b0e6fedbcd80c60a8fd3bad40dc780584d6bf55fe9da1d50aa1e",
-    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/wrapper_delivery.py": "de6c39aff6585bf1d52d25fbc5c81e3db1510fa5b08ba32f93e7f9e774750be8",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/worker-profile/opencode.json": "bcd624f1145e92290188aab9f332b3a5802cb42fca4e2ad5cbb6a429c4b6a957",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/worker-sandbox.sb.template": "552adecac5ebcf4af43a9c8d61328e431bbb5d5dd437f3472bd801f0639447b6",
+    "experiments/v1.2/h2-lazy-disclosure/freeze-v3/wrapper_delivery.py": "12d67633771449d712fc1d4f86176e4277811f9689c92e1fb81ad1f3d4569659",
     "experiments/v1.2/h2-lazy-disclosure/harness/check_task_class.py": "f4ae829acf4d2416bce9d6b721f631149e22ef0378ae78eb9bc15c880059c666",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-footer.md": "cb0dfc40247c1575c0706175b3d4bf029973e8b94bf943e6fbccf9a485549186",
     "experiments/v1.2/h2-lazy-disclosure/harness/control-carrier-header.md": "50193bcc4cb882094ee5afcf3e3126a1d610c8f699905e4ac3c97beeab38986e",
     "experiments/v1.2/h2-lazy-disclosure/harness/worker-report-template.md": "540cd07c612319e67b0bce796cbadee1ac57e189613a9de571514414d24dc2f2",
     "experiments/v1.2/h2-lazy-disclosure/routes-h2.json": "a9d0e61dc85fe4bead5d993ddc0bb805e683bdea88d6c36c3aecdd5653304636",
     "experiments/v1.2/h2-lazy-disclosure/scoring-rubric.md": "bcaa4e624f10fe4a9a42852db92cc5e777c7255c8d891680bd72d87ab74c7cef",
-    "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137"
+    "experiments/v1.2/h2-lazy-disclosure/variant-manifest.json": "8abc1c05a076e39f3b7d04bb1784e7d36cb5e3f1556c5f24b2f47d6ebc164137",
 }
-MANIFEST_SHA256 = "379540433c215a1bb5bb0019771dc1b43097c00893659967cc8651fcfa5d6346"
+MANIFEST_SHA256 = "b7958302f884b5ab61d9226147e7d0759d08ebe8ecc356577f08b0f3a2cf5da9"
 SANDBOX_READY = sys.platform == "darwin" and shutil.which("sandbox-exec") is not None
 
 
@@ -193,6 +196,15 @@ def prepare_run(tmp, task_id, arm="control"):
     run = Path(tmp) / f"run-{task_id}-{arm}"
     wrapper.prepare(ROOT, run, task_id, arm, git("rev-parse", "HEAD").decode().strip())
     return run
+
+
+def run_dir_for(runs, run_id):
+    """T51b: a v3 run lives in `<runs_root>/.cells/<run_id>/<run_id>`.
+
+    Legacy flat runs remain readable, so the wrapper's own resolver decides; a fresh runs root
+    always yields the cell. Tests must ask this instead of spelling `runs/<run_id>`.
+    """
+    return load("wrapper_delivery").run_dir_for(Path(runs), run_id)
 
 
 def write_artifacts(run, report="# report\n\nFilled.\n",
@@ -2473,7 +2485,10 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
         self.assertIsNone(load("access_audit").profile_rules(None))
         self.assertIsNone(load("access_audit").profile_rules(Path("/nonexistent/worker.sb")))
 
-    def test_the_deny_roots_are_the_frozen_templates_own_list(self):
+    def test_the_deny_surface_is_the_frozen_templates_deny_all_plus_allowlist(self):
+        # T51d/T51e: the template no longer names shared roots as a read deny-list; it denies
+        # reads under "/" and the renderer re-allows exactly the launch surface. The parsed
+        # surface is therefore one deny entry per operation, and `/Users` is not a named deny.
         sandbox = load("sandbox_v2")
         audit = load("access_audit")
         with tempfile.TemporaryDirectory() as tmp:
@@ -2484,8 +2499,12 @@ class AccessAuditDeniedAttempts(unittest.TestCase):
             record = sandbox.profile(Path(tmp) / "stream", launch, home, sys.executable,
                                      proxy_port=1234, serve_port=1235)
             rules = audit.profile_rules(record["path"])
-        self.assertEqual(sorted(sandbox.DENY_ROOTS), rules["deny_read"])
-        self.assertEqual(sorted({*sandbox.DENY_ROOTS, "/"}), rules["deny_write"])
+            text = Path(record["path"]).read_text(encoding="utf-8")
+        self.assertEqual(["/"], rules["deny_read"])
+        self.assertEqual(["/"], rules["deny_write"])
+        self.assertIn('(deny file-read-data (subpath "/"))', text)
+        for root in sandbox.DENY_ROOTS:
+            self.assertNotIn(f'(subpath "{root}")', text, root)
 
     def test_every_earlier_pilot_fixture_still_passes(self):
         module = load("access_audit")
@@ -3731,7 +3750,10 @@ import json
 import os
 
 run_id = os.path.basename(os.getcwd())
-driver = os.path.join(os.path.dirname(os.getcwd()), ".driver", run_id)
+# T51b: the launch is `<runs_root>/.cells/<run_id>/<run_id>`, so the driver root is three levels
+# up from the launch and then `.driver/<run_id>`; `dirname(cwd)` would be the run's cell parent.
+runs_root = os.path.abspath(os.path.join(os.getcwd(), "..", "..", ".."))
+driver = os.path.join(runs_root, ".driver", run_id)
 target = os.path.join(driver, "confinement-plant.txt")
 message = ""
 try:
@@ -4186,7 +4208,7 @@ class RunDriver(unittest.TestCase):
                     preflight=passing_preflight, auditor=recording_auditor,
                     probe=passing_probe, profile_env=env_file,
                     sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
                 worker = captured["worker"]
@@ -4206,13 +4228,14 @@ class RunDriver(unittest.TestCase):
                 self.assertEqual(worker["HTTP_PROXY"], worker["http_proxy"])
                 self.assertRegex(worker["OPENCODE_SERVER_PASSWORD"], r"^[0-9a-f]{32}$")
                 self.assertNotEqual(expected.get("HOME"), worker["HOME"])
-                self.assertEqual((run_dir.parent / ".driver" / "h2r3-f01-c"
+                # T51b: the driver root hangs off the runs root, not off the run's cell parent.
+                self.assertEqual((runs / ".driver" / "h2r3-f01-c"
                                   / "home-1").resolve(), Path(worker["HOME"]))
                 self.assertEqual((run_dir / ".tmp").resolve(), Path(worker["TMPDIR"]))
                 # F25 / T32: zsh heredocs write under TMPPREFIX, so it lives in the launch dir too.
                 self.assertEqual((run_dir / ".tmp" / "zsh").resolve(),
                                  Path(worker["TMPPREFIX"]))
-                self.assertEqual((run_dir.parent / ".driver" / "h2r3-f01-c"
+                self.assertEqual((runs / ".driver" / "h2r3-f01-c"
                                   / "audit-home-1").resolve(), Path(auditor["HOME"]))
                 self.assertEqual((run_dir / "audit" / ".tmp").resolve(),
                                  Path(auditor["TMPDIR"]))
@@ -4227,7 +4250,7 @@ class RunDriver(unittest.TestCase):
     def test_the_candidate_delta_is_accepted_end_to_end_with_every_artefact_hashed(self):
         with tempfile.TemporaryDirectory() as tmp:
             driver, runs, result = execute_stub(tmp, "accept")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("EXECUTED", result["outcome"])
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
@@ -4277,7 +4300,7 @@ class RunDriver(unittest.TestCase):
     def test_a_stub_worker_that_does_nothing_is_rejected_even_with_a_passing_audit(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "noop", auditor=stub_auditor("FAIL"))
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("REJECT", result["verdict"])
                 self.assertEqual("FAIL", result["audit_verdict"])
@@ -4289,7 +4312,7 @@ class RunDriver(unittest.TestCase):
     def test_a_stub_worker_past_the_shortened_limit_is_invalid_timeout(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "timeout", limit_seconds=1)
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 self.assertEqual(["TIMEOUT"], result["reasons"])
@@ -4308,7 +4331,7 @@ class RunDriver(unittest.TestCase):
     def test_a_stub_worker_error_event_is_invalid(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "error")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 self.assertEqual(["WORKER_ERROR_EVENT"], result["reasons"])
@@ -4362,7 +4385,7 @@ class RunDriver(unittest.TestCase):
                 self.assertTrue(directory.is_dir())
                 self.assertEqual(".reachability", directory.parent.name)
             # the probe runs in a scratch dir outside the run dir; no run dir is created
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
 
     def test_a_failed_reachability_check_blocks_without_consuming_an_attempt(self):
         driver = load("run_h2r2")
@@ -4389,7 +4412,7 @@ class RunDriver(unittest.TestCase):
             self.assertFalse(launched.exists())
             self.assertFalse((runs / "registry-v3.jsonl").exists())
             self.assertFalse((runs / "attempts-v3.jsonl").exists())
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
             self.assertFalse((runs / ".locks" / "h2r3-f01-c.json").exists())
             # no attempt was consumed, so the same run id may be started later
             task, _ = task_pair("f01")
@@ -4401,7 +4424,7 @@ class RunDriver(unittest.TestCase):
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
                 self.assertEqual(1, accepted["attempts"])
@@ -4429,7 +4452,7 @@ class RunDriver(unittest.TestCase):
                 preflight=counting_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
                 self.assertEqual(2, result["attempts"])
@@ -4471,7 +4494,7 @@ class RunDriver(unittest.TestCase):
     def test_three_before_work_failures_block_the_run_and_stop_retrying(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "provider-always")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("BLOCKED", result["verdict"])
                 self.assertEqual("BLOCKED", result["final_verdict"])
@@ -4502,7 +4525,7 @@ class RunDriver(unittest.TestCase):
     def test_a_provider_error_after_a_tool_call_is_invalid_and_never_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             driver, runs, result = execute_stub(tmp, "provider-after-tool")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 self.assertEqual("INVALID", result["final_verdict"])
@@ -4543,7 +4566,7 @@ class RunDriver(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "accept", auditor=flaky_audit)
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual(2, len(calls))
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
@@ -4569,7 +4592,7 @@ class RunDriver(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             driver, runs, result = execute_stub(tmp, "accept", probe=flaky_probe)
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
                 archived = run_dir / "attempts" / "audit-1" / "probe.json"
@@ -4603,7 +4626,7 @@ class RunDriver(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "accept", sandbox=FlakyConfinement())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
                 probe_path = run_dir / "attempts" / "audit-1" / "probe.json"
@@ -4624,7 +4647,7 @@ class RunDriver(unittest.TestCase):
         """F9: the events already record the access; a hit is terminal and cannot be re-run."""
         with tempfile.TemporaryDirectory() as tmp:
             driver, runs, result = execute_stub(tmp, "escape")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 self.assertEqual("INVALID", result["final_verdict"])
@@ -4666,12 +4689,12 @@ class RunDriver(unittest.TestCase):
             # the same-task refusal (it is also the first run in plan order that has not started).
             self.assertEqual({"outcome": "REFUSED", "run_id": "h2r3-f01-v",
                               "reason": "SAME_TASK_ARM_NOT_REGISTERED:h2r3-f01-c"}, refused)
-            self.assertFalse((runs / "h2r3-f01-v").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-v").exists())
             self.assertFalse((runs / "registry-v3.jsonl").exists())
             self.assertEqual("h2r3-f01-c", driver.next_run_id(runs))
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "timeout", limit_seconds=1)
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 again = load("run_h2r2").execute("h2r3-f01-c", runs,
@@ -4712,7 +4735,7 @@ class RunDriver(unittest.TestCase):
                                     preflight=failed_preflight, auditor=must_not_run,
                                     profile_env=profile_env_file(tmp),
                                     sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("BLOCKED", result["verdict"])
                 self.assertEqual("BLOCKED", result["final_verdict"])
@@ -4803,14 +4826,16 @@ class BoundedConcurrency(unittest.TestCase):
             self.assertEqual("PREDECESSOR_NOT_STARTED:h2r3-f01-v",
                              reason(runs, "h2r3-f05-c", entries))
             # A started-but-dead earlier run is the INTERRUPTED case, not a rule-(b) wait.
+            # T51b: a v3 start is the run's own cell, so the fixture plants that layout.
             registry.write_text(registered("h2r3-f01-c", "h2r3-f01-v"), encoding="utf-8")
             entries = driver.read_registry(runs)
-            (runs / "h2r3-f02-v").mkdir()
-            (runs / "h2r3-f02-v" / "run.json").write_text("{}\n", encoding="utf-8")
+            started = run_dir_for(runs, "h2r3-f02-v")
+            started.mkdir(parents=True)
+            (started / "run.json").write_text("{}\n", encoding="utf-8")
             self.assertEqual("PREDECESSOR_NOT_STARTED:h2r3-f02-v",
                              reason(runs, "h2r3-f03-c", entries))
-            (runs / "h2r3-f02-v" / "run.json").unlink()
-            (runs / "h2r3-f02-v").rmdir()
+            (started / "run.json").unlink()
+            started.rmdir()
             lock.unlink()
             # (c) four live lock holders fill every slot of this runs root.
             for run_id in ("h2r3-f03-c", "h2r3-f03-v", "h2r3-f04-v", "h2r3-f04-c"):
@@ -4819,7 +4844,7 @@ class BoundedConcurrency(unittest.TestCase):
             refused = driver.execute("h2r3-f05-c", runs, profile_env=profile_env_file(tmp))
             self.assertEqual({"outcome": "REFUSED", "run_id": "h2r3-f05-c",
                               "reason": "PARALLEL_LIMIT:4"}, refused)
-            self.assertFalse((runs / "h2r3-f05-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f05-c").exists())
 
     def test_the_scheduler_keeps_four_alive_and_starts_in_plan_order(self):
         """T42 / F44: the first arms of four tasks start together, in plan order.
@@ -4942,7 +4967,7 @@ class BoundedConcurrency(unittest.TestCase):
                 self.assertEqual(60.0, first[2]["seconds"])
                 self.assertEqual("ACCEPT", first[4]["outcome"])
             finally:
-                cleanup_run(runs / "h2r3-f01-c")
+                cleanup_run(run_dir_for(runs, "h2r3-f01-c"))
 
     def test_the_backoff_is_exponential_capped_and_jittered(self):
         driver = load("run_h2r2")
@@ -4994,7 +5019,7 @@ class BoundedConcurrency(unittest.TestCase):
                                   "start", "end"], [line["event"] for line in first])
                 self.assertEqual("ACCEPT", first[-1]["outcome"])
             finally:
-                cleanup_run(runs / "h2r3-f01-c")
+                cleanup_run(run_dir_for(runs, "h2r3-f01-c"))
 
     def test_the_scheduler_stops_at_the_requeue_budget_and_lists_the_run(self):
         driver = load("run_h2r2")
@@ -5087,7 +5112,7 @@ class BoundedConcurrency(unittest.TestCase):
             with self.assertRaises(ValueError):
                 driver.execute("h2r3-f01-c", runs, root=root,
                                profile_env=profile_env_file(tmp))
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
             with self.assertRaises(ValueError):
                 driver.schedule(runs, root=root, spawn=lambda run_id: self.fail(
                     f"spawned {run_id} with an unfrozen model"))
@@ -5128,10 +5153,11 @@ class BoundedConcurrency(unittest.TestCase):
                     preflight=passing_preflight, auditor=None,
                     profile_env=profile_env_file(tmp), probe=passing_probe,
                     sandbox=StubSandbox(), auth=StubAuth())
-                record = json.loads((runs / "h2r3-f01-c" / "run.json").read_text())
+                record = json.loads((run_dir_for(runs, "h2r3-f01-c")
+                                     / "run.json").read_text())
             finally:
                 driver.launch = real_launch
-                cleanup_run(runs / "h2r3-f01-c")
+                cleanup_run(run_dir_for(runs, "h2r3-f01-c"))
             self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
             worker = [argv for argv in launches if argv[-1] == driver.LAUNCH_PROMPT]
             auditor = [argv for argv in launches if argv[-1] == audit_module.AUDIT_PROMPT]
@@ -5261,7 +5287,7 @@ class BoundedConcurrency(unittest.TestCase):
                              aggregate.overlap_pairs(aggregate.read_registry(runs)))
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "noop")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
                 record = json.loads((run_dir / "run.json").read_text())
@@ -5313,7 +5339,7 @@ class BoundedConcurrency(unittest.TestCase):
                 return {"verdict": "PASS", "reasons": []}
 
             _, runs, result = execute_stub(tmp, "noop", preflight=flaky_service)
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
                 self.assertEqual(2, len(calls))
@@ -5674,7 +5700,7 @@ class DeniedAttemptsInRun(unittest.TestCase):
     def test_a_denied_out_of_run_read_is_evidence_in_the_run_and_in_the_registry(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "denied-read", sandbox=DenyProfileSandbox())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
                 self.assertEqual("ACCEPT", result["final_verdict"])
@@ -5710,7 +5736,7 @@ class DeniedAttemptsInRun(unittest.TestCase):
     def test_a_read_that_returned_content_for_a_denied_path_is_a_sandbox_breach(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "breach-read", sandbox=DenyProfileSandbox())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"], result["reasons"])
                 self.assertEqual("INVALID", result["final_verdict"])
@@ -5820,24 +5846,40 @@ class SandboxConfinement(unittest.TestCase):
     def layout(self, tmp):
         module = load("sandbox_v2")
         runs = Path(tmp) / "runs"
-        run_dir = runs / "h2r3-f01-c"
+        run_dir = run_dir_for(runs, "h2r3-f01-c")
         run_dir.mkdir(parents=True)
         driver = runs / ".driver" / "h2r3-f01-c"
         home = module.fresh_home(driver, "home-1", run_dir)
         return module, runs, run_dir, home, driver
 
-    def test_the_template_denies_the_shared_roots_and_renders_only_the_launch_surface(self):
+    def test_the_template_denies_every_read_and_renders_only_the_allowlisted_surface(self):
+        """T51d/T51e: the read surface is deny-all plus an allowlist, not a shared-root deny-list.
+
+        The equivalent property is checked where it now lives: an outside path under `/Users` or
+        `/private/tmp` that the launch does not own is DENIED, while the launch, its cell parent,
+        its fresh home and the ancestors (names only) are the rendered read surface.
+        """
         module = load("sandbox_v2")
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, run_dir, home, _ = self.layout(tmp)
             proxy_port, serve_port = 41001, 41002
             text = module.render(run_dir, home, sys.executable, proxy_port=proxy_port,
                                  serve_port=serve_port)
-            self.assertIn("(deny file-read-data file-write*", text)
-            for root in ("/Users", "/private/tmp", "/private/var/folders"):
-                self.assertIn(f'(subpath "{root}")', text, root)
+            self.assertIn('(deny file-read-data (subpath "/"))', text)
+            self.assertIn('(deny file-write* (subpath "/"))', text)
+            profile_path = Path(tmp) / "rendered.sb"
+            profile_path.write_text(text, encoding="utf-8")
+            audit = load("access_audit")
+            rules = audit.profile_rules(profile_path)
+            # Assembled so no committed file spells an operator home path (public-release rule).
+            users = os.path.join(os.sep, "Users")
+            for outside in (os.path.join(users, "h2-other-operator", "probe.txt"),
+                            os.path.join(os.sep, "private", "tmp", "h2-other-run", "probe.txt")):
+                self.assertEqual("DENIED_BY_POLICY", audit.path_class(outside, rules), outside)
             self.assertIn(f'(subpath "{run_dir}")', text)
             self.assertIn(f'(subpath "{home}")', text)
+            # T51e: the cell parent is a literal only (a listing), never a recursive read grant.
+            self.assertIn(f'(allow file-read-data (literal "{run_dir.parent}"))', text)
             self.assertIn(f'(literal "{runs}")', text)
             # F26 / T36b: the network is closed except the proxy and this launch's server.
             self.assertIn("(deny network-outbound)", text)
@@ -5949,11 +5991,11 @@ class SandboxConfinement(unittest.TestCase):
             self.assertEqual("BLOCKED", result["outcome"])
             self.assertEqual(["SANDBOX_UNAVAILABLE"], result["reasons"])
             self.assertFalse(result["registered"])
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
             self.assertFalse((runs / "registry-v3.jsonl").exists())
             self.assertFalse((runs / ".locks" / "h2r3-f01-c.json").exists())
             _, _, accepted = execute_stub(tmp, "accept")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
             finally:
@@ -5965,14 +6007,14 @@ class SandboxConfinement(unittest.TestCase):
             self.assertEqual("BLOCKED", blocked["outcome"])
             self.assertEqual(["SANDBOX_NOT_CONFINING:PYTHON_READ_NOT_DENIED"], blocked["reasons"])
             self.assertFalse((runs / "registry-v3.jsonl").exists())
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
             self.assertFalse((runs / ".locks" / "h2r3-f01-c.json").exists())
             log = [json.loads(line) for line in
                    (runs / ".driver" / "h2r3-f01-c" / "blocked.jsonl").read_text().splitlines()]
             self.assertEqual(["SANDBOX_NOT_CONFINING:PYTHON_READ_NOT_DENIED"],
                              log[0]["reasons"])
             _, _, accepted = execute_stub(tmp, "accept")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
                 self.assertEqual(1, accepted["attempts"])
@@ -5986,7 +6028,7 @@ class SandboxConfinement(unittest.TestCase):
             self.assertEqual(["CREDENTIAL_IMPORT_FAILED:AUTH_EXPORT_FAILED"], blocked["reasons"])
             self.assertFalse((runs / "registry-v3.jsonl").exists())
             _, _, accepted = execute_stub(tmp, "accept")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
             finally:
@@ -6000,7 +6042,7 @@ class DriverConfinement(unittest.TestCase):
         """F17: the worker's own cwd is not evidence; the driver's copy decides the verdict."""
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "tamper")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("INVALID", result["verdict"])
                 self.assertIn("WORKER_ERROR_EVENT", result["reasons"])
@@ -6025,7 +6067,7 @@ class DriverConfinement(unittest.TestCase):
         template = (FZ / "worker-profile" / "opencode.json").read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "provider-once")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             driver = (runs / ".driver" / "h2r3-f01-c").resolve()
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
@@ -6056,7 +6098,7 @@ class DriverConfinement(unittest.TestCase):
         template = (FZ / "worker-profile" / "opencode.json").read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
             runs = Path(tmp) / "runs"
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             run_dir.mkdir(parents=True)
             driver = runs / ".driver" / "h2r3-f01-c"
             first = module.fresh_home(driver, "home-1", run_dir)
@@ -6086,7 +6128,7 @@ class DriverConfinement(unittest.TestCase):
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
                 self.assertNotIn("OUT_OF_RUN_ACCESS", ";".join(result["reasons"]))
@@ -6144,7 +6186,7 @@ class RealProbePath(unittest.TestCase):
                 server_command=(sys.executable, "-c", STUB_SERVER_SOURCE),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=None, auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
@@ -6193,7 +6235,7 @@ class HarnessDefect(unittest.TestCase):
             self.assertEqual(["HARNESS_DEFECT:RuntimeError"], result["reasons"])
             self.assertFalse(result["registered"])
             self.assertFalse((runs / "registry-v3.jsonl").exists())
-            self.assertFalse((runs / "h2r3-f01-c").exists())
+            self.assertFalse(run_dir_for(runs, "h2r3-f01-c").exists())
             self.assertFalse((runs / ".locks" / "h2r3-f01-c.json").exists())
             driver_dir = runs / ".driver" / "h2r3-f01-c"
             trace = sorted(driver_dir.glob("harness-defect-*.txt"))
@@ -6217,7 +6259,7 @@ class HarnessDefect(unittest.TestCase):
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
                 self.assertEqual(1, accepted["attempts"])
@@ -6237,7 +6279,7 @@ class HarnessDefect(unittest.TestCase):
                 preflight=passing_preflight, auditor=self.exploding_auditor,
                 profile_env=profile_env_file(tmp), probe=passing_probe,
                 sandbox=StubSandbox(), auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
                 self.assertEqual("INVALID", result["verdict"])
@@ -6568,7 +6610,7 @@ class EgressAllowlist(unittest.TestCase):
         """F30: only the self-test was refused, so the launch's `egress_denied` must be empty."""
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "accept", sandbox=SelfTestingSandbox())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             stream = runs / ".driver" / "h2r3-f01-c" / "attempt-1"
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
@@ -6595,7 +6637,7 @@ class EgressAllowlist(unittest.TestCase):
     def test_a_run_records_the_egress_log_beside_the_access_audit(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "accept")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("ACCEPT", result["verdict"], result["reasons"])
                 audit = json.loads((run_dir / "access-audit.json").read_text())
@@ -6623,7 +6665,7 @@ class SandboxNetwork(unittest.TestCase):
     def layout(self, tmp):
         module = load("sandbox_v2")
         runs = Path(tmp) / "runs"
-        run_dir = runs / "h2r3-f01-c"
+        run_dir = run_dir_for(runs, "h2r3-f01-c")
         run_dir.mkdir(parents=True)
         driver = runs / ".driver" / "h2r3-f01-c"
         home = module.fresh_home(driver, "home-1", run_dir)
@@ -6683,7 +6725,7 @@ class SandboxNetwork(unittest.TestCase):
                 server_command=(sys.executable, "-c", STUB_SERVER_SOURCE),
                 preflight=passing_preflight, auditor=stub_auditor(),
                 profile_env=profile_env_file(tmp), probe=passing_probe, auth=StubAuth())
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
                 self.assertEqual("REJECT", result["verdict"], result["reasons"])
@@ -6743,7 +6785,7 @@ class WorkerCodeConfinement(unittest.TestCase):
     def layout(self, tmp):
         module = load("sandbox_v2")
         runs = Path(tmp).resolve() / "runs"
-        run_dir = runs / "h2r3-f01-c"
+        run_dir = run_dir_for(runs, "h2r3-f01-c")
         run_dir.mkdir(parents=True)
         driver = runs / ".driver" / "h2r3-f01-c"
         home = module.fresh_home(driver, "home-1", run_dir)
@@ -6824,7 +6866,7 @@ class WorkerCodeConfinement(unittest.TestCase):
         """F33: a survivor cannot rewrite the oracle after the worker exits."""
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "survivor")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             driver_dir = runs / ".driver" / "h2r3-f01-c"
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
@@ -6927,7 +6969,7 @@ class WorkerCodeConfinement(unittest.TestCase):
         """F37: registration stays total and names the file."""
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "unreadable")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
                 self.assertEqual("INVALID", result["verdict"])
@@ -6951,7 +6993,7 @@ class WorkerCodeConfinement(unittest.TestCase):
         """F38: the driver's copy is the contract; the run-dir copy is not a source."""
         with tempfile.TemporaryDirectory() as tmp:
             _, runs, result = execute_stub(tmp, "contract-tamper")
-            run_dir = runs / "h2r3-f01-c"
+            run_dir = run_dir_for(runs, "h2r3-f01-c")
             driver_dir = runs / ".driver" / "h2r3-f01-c"
             try:
                 self.assertEqual("EXECUTED", result["outcome"], result)
@@ -6994,7 +7036,7 @@ class WorkerCodeConfinement(unittest.TestCase):
                 earlier = driver_dir / "attempt-1" / "confinement.json"
                 self.assertTrue(earlier.is_file(), sorted(driver_dir.iterdir()))
                 _, _, accepted = execute_stub(tmp, "accept")
-                run_dir = runs / "h2r3-f01-c"
+                run_dir = run_dir_for(runs, "h2r3-f01-c")
                 self.assertEqual("ACCEPT", accepted["verdict"], accepted["reasons"])
                 archived = sorted(driver_dir.glob(f"attempt-1-{driver.SUPERSEDED_SUFFIX}-*"))
                 self.assertEqual(1, len(archived), sorted(driver_dir.iterdir()))
@@ -7002,7 +7044,7 @@ class WorkerCodeConfinement(unittest.TestCase):
                 record = json.loads((run_dir / "run.json").read_text())
                 self.assertEqual([archived[0].name], record["archived_streams"])
             finally:
-                cleanup_run(runs / "h2r3-f01-c")
+                cleanup_run(run_dir_for(runs, "h2r3-f01-c"))
 
     @unittest.skipUnless(SANDBOX_READY, "sandbox-exec is not available on this platform")
     def test_the_drivers_tools_are_absolute_and_never_a_late_path_lookup(self):

@@ -21,8 +21,10 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/isolation-canary-events.jsonl",
         "fixtures/canary-86ac104-events.jsonl",
         "fixtures/canary-86ac104-synthetic-sources-line.jsonl",
+        "fixtures/canary-86ac104-synthetic-sources-and-tools-line.jsonl",
         "fixtures/access-audit-clean.jsonl",
         "fixtures/access-audit-hits.jsonl",
+        "fixtures/access-audit-replay-v3.json",
         "fixtures/pilot-f01-c-events.jsonl",
         "fixtures/pilot-efc46fc-f27-events.jsonl",
         "fixtures/pilot-0335de8-f42-events.jsonl",
@@ -35,6 +37,7 @@ FROZEN_FILES = tuple(sorted(
         "fixtures/toolname-probe-events.jsonl",
         "fixtures/preflight-debug-paths.txt",
         "fixtures/preflight-debug-config.json",
+        "fixtures/preflight-debug-config-execute-deny.json",
         "worker-profile/opencode.json")]
     + [f"{H2_REL}/{name}" for name in (
         "routes-h2.json", "variant-manifest.json", "scoring-rubric.md",

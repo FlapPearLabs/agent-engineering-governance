@@ -1961,12 +1961,20 @@ def drive(run_id: str, runs_root: Path, *, root: Path, plan_run: dict, planned: 
             if record.get("violations"):
                 confinement_record["violations"] = record["violations"]
                 sandbox_record["confinement"] = confinement_record
+            # T54a / T52: the audit reads the SAME two pieces of evidence this launch produced,
+            # through the parameters it actually consumes. `snapshot` is the post-sweep copy (a
+            # path the tree no longer holds and the snapshot does not hold either did not exist
+            # for the launch), and `violations` is this launch's collected unified-log file: a
+            # violation naming the same place turns a POSSIBLE_SUCCESS hit into DENIED_BY_POLICY.
+            # The confinement copy keeps carrying the record too; neither input can soften a hit.
             access = access_audit.audit(driver_events, run_dir,
                                         home=prepared["env"].get("HOME"),
                                         python=sys.executable,
                                         profile=(sandbox_record.get("profile") or {}).get("path"),
                                         egress_log=egress_log,
-                                        confinement=confinement_record)
+                                        confinement=confinement_record,
+                                        snapshot=evidence,
+                                        violations=(record.get("violations") or {}).get("path"))
             access["egress_log"] = str(egress_log)
             access["egress_denied"] = egress_v2.denied(egress_log)
             record["egress_log"] = str(egress_log)

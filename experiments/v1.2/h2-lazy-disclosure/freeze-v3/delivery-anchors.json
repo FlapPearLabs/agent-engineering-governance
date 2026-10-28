@@ -1,8 +1,8 @@
 {
  "program": "freeze-v3/delivery_anchors.py",
- "materials_commit": "308cbbf3cbfab83cdb96027dc26bdd6b061ad331",
+ "materials_commit": "da2744cff46e7ddd42c49b453c6244a0c8292060",
  "repository": "standalone_history_free",
- "wrapper_program_sha256": "de6c39aff6585bf1d52d25fbc5c81e3db1510fa5b08ba32f93e7f9e774750be8",
+ "wrapper_program_sha256": "12d67633771449d712fc1d4f86176e4277811f9689c92e1fb81ad1f3d4569659",
  "shortlist_sha256": "34bd783b8b55383b8fa7189c44a357077e6b165847e4afe6dcbad10a4cafc803",
  "environment": "check_task_class.acceptance_env(RESOLVED)",
  "neutral_tasks_per_slot": {

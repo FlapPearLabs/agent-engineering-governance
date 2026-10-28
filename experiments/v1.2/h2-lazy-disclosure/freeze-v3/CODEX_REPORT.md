@@ -317,3 +317,85 @@ fixture `fixtures/access-audit-replay-v3.json` is not a member of `build_manifes
 yet: T54 must add it to that list and rebuild the manifest, or the replay expectation stays
 unpinned. The whole v3 module otherwise passes: `Ran 224 tests`, `FAILED (failures=2)`, and the
 two failures are exactly the pins above.
+
+### T54a — integration and re-pin
+
+Built on `da2744c` (T50–T53 merged). One commit; no model, no worker and no run against a real
+runs root was performed.
+
+**(1) Audit inputs wired.** `freeze-v3/run_h2r2.py` now calls
+`access_audit.audit(..., snapshot=evidence, violations=record["violations"]["path"])`: the
+post-sweep snapshot directory and this launch's `violations-<launch>.jsonl`. The earlier
+`confinement["violations"]` record is still handed over, but it is no longer the only path: the
+two parameters `audit()` actually reads are populated. A read of an existing outside path that
+the sandbox denied and the unified log recorded is therefore `DENIED_BY_POLICY`/`VIOLATION_LOG`
+instead of `POSSIBLE_SUCCESS`. New stubbed driver test
+`test_v1_2_h2_freeze_v3_violations.AuditInputWiring.test_snapshot_and_violations_reach_the_audit_it_reads`:
+the audit spy receives the driver's own snapshot path and violations path, and with a profile
+that proves nothing the violation record alone changes the class (PASS, one `DENIED_BY_POLICY`
+attempt, `policy: VIOLATION_LOG`). No production defect was needed beyond the missing wiring.
+
+**(2) Frozen test module against the merged design.** The first full run before any change was
+`Ran 229 tests`, `FAILED (failures=10, errors=21)`; after the updates below it is
+`Ran 229 tests ... OK`. Expectations changed, each only to the pre-registered design:
+
+- Flat run dir `runs/<run_id>` → `wrapper_delivery.run_dir_for(...)` (T51b cell layout
+  `.cells/<run_id>/<run_id>`), including fixture plants, cleanups and "no run dir was created"
+  assertions. Where the driver root is asserted it is `runs/.driver/<run_id>`, not the cell
+  parent's child (T51b).
+- `test_the_deny_roots_are_the_frozen_templates_own_list` became
+  `test_the_deny_surface_is_the_frozen_templates_deny_all_plus_allowlist`: parsed deny surface is
+  `read: ["/"], write: ["/"]`, the rendered profile carries
+  `(deny file-read-data (subpath "/"))` and no shared-root read deny (T51d/T51e).
+- `test_the_template_denies_the_shared_roots...` became
+  `test_the_template_denies_every_read_and_renders_only_the_allowlisted_surface`: it checks the
+  equivalent allowlist property — an outside path under `Users` or the temp root is
+  `DENIED_BY_POLICY` through `access_audit.path_class`, while the launch, its cell parent
+  (literal only) and home are re-allowed (T51d/T51e).
+- The end-to-end dynamic-read stub computed the driver root as `dirname(cwd)/.driver/<run_id>`;
+  with a cell launch it must be the runs root three levels up (T51b). This was a test-fixture
+  assumption, not a driver defect.
+- The started-but-dead scheduler fixture now plants the run's cell (T51b), so the
+  `INTERRUPTED` property is exercised on the production layout.
+- Pins regenerated (below); no assertion was deleted and none was weakened.
+
+The gate sandbox self-test (`GATE_SANDBOX_NOT_CONFINING`) no longer fails: it was a consequence
+of the flat run-dir expectations aborting the driver tests before the real gate path ran, not a
+separate defect. No production code change was required for it.
+
+**(3) Re-pin, using the freeze-v3 build programs as in T50.** Materials = `da2744c` (parent of
+this commit):
+
+- `delivery_anchors.py . admission/freeze-v2-input/shortlist.json --materials da2744c --out
+  delivery-anchors.json` → `DELIVERY_ANCHORS neutral per slot: {"CODEBUDDY": 0, "AGENTS": 0,
+  "WRAPPER": 10}`; exit 0. Re-measured because `wrapper_delivery.py` changed in T51b and the
+  anchors pin the measuring program by hash.
+- `build_run_plan.py --materials da2744c --out run-plan-v3.json` →
+  `RUN_PLAN_V3 runs=20 control_first=5 variant_first=5 fresh_episode=20`.
+- `build_manifest.py build --freeze-parent da2744c --out freeze-manifest.json` →
+  `FREEZE_MANIFEST files=63 delivery_payload_equivalent_to_T2=YES`.
+- `FROZEN_FILES` gained the three evidence fixtures created after T50:
+  `fixtures/access-audit-replay-v3.json` (T52 replay expectation),
+  `fixtures/preflight-debug-config-execute-deny.json` and
+  `fixtures/canary-86ac104-synthetic-sources-and-tools-line.jsonl` (T53). `EXPECTED_V3_HASHES`
+  (63 entries) and `MANIFEST_SHA256` in the v3 test module were regenerated from the new
+  manifest.
+
+**Gate outputs** (`PYTHONPATH` unset, `TMPDIR=$(cd /tmp && pwd -P)`; run after the final edits):
+
+- `python -m ruff check .` → `All checks passed!`
+- `python scripts/validate_governance.py` → `35/35 checks passed`
+- `python scripts/validate_public_release.py` → `VIOLATIONS=0`
+- `freeze-v2/build_manifest.py check` → `{"verdict": "PASS", "mismatches": []}`
+- `freeze-v3/build_manifest.py check` → `{"verdict": "PASS", "mismatches": []}`
+- `git diff --exit-code 4aa2e7b -- experiments/v1.2/h2-lazy-disclosure/freeze-v2` → exit 0
+  (`freeze-v2/` byte-identical)
+- `python -m unittest discover -s experiments/v1.2/tests -p 'test_v1_2_h2_freeze_v3*.py'` →
+  `Ran 262 tests in 650.654s`, `OK` (229 big module + 14 violations + 10 auditretry + 6
+  driverfs + 3 sandboxread).
+- `git diff --check` → exit 0.
+
+**Not verified / limits:** no live worker, auditor, model or platform launch was run here; the
+T53 `H2_CANARY_TOOLS` line still awaits the operator's pilot. The re-measured anchors reproduce
+T50's neutral verdict (WRAPPER 10/10); the `CODEBUDDY`/`AGENTS` slots remain blocked by design.
+No file outside `freeze-v3/` (plus the two v3 test modules) was modified.

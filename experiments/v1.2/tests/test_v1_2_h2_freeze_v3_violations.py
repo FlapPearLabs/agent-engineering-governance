@@ -202,5 +202,189 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(json.loads(out.read_text())["operation"], "file-read-data")
 
 
+STUB_SERVER = '''"""Test-only loopback server: it only has to answer on its port (F26 / T36b)."""
+import socket
+import sys
+import time
+
+port = int(sys.argv[-1])
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(("127.0.0.1", port))
+server.listen(8)
+server.settimeout(1.0)
+deadline = time.time() + 60
+while time.time() < deadline:
+    try:
+        conn, _ = server.accept()
+    except OSError:
+        continue
+    conn.close()
+'''
+
+# One recorded attempt on a path outside the run: exactly the shape T52 §2 has to decide.
+STUB_WORKER = '''"""Test-only worker: records one out-of-run read and never calls a model."""
+import json
+import sys
+
+open("report.md", "w").write("# report\\n\\nstub worker\\n")
+open(".h2-telemetry.log", "w").write("READ FULL repo/RULES.md\\n")
+print(json.dumps({"type": "tool_use", "part": {"tool": "read",
+      "state": {"status": "completed", "input": {"path": {outside}}}}}))
+print(json.dumps({"type": "text", "sessionID": "ses_stub", "part": {"text": "stub done"}}))
+sys.exit(0)
+'''
+
+
+class StubSandbox:
+    """A stand-in for the OS sandbox: the driver's steps run, the barrier does not."""
+
+    def available(self):
+        return True
+
+    def plant(self, driver_dir):
+        path = Path(driver_dir) / "confinement-plant-stub.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("stub-plant\n", encoding="utf-8")
+        return path, "stub-plant"
+
+    def profile(self, stream_dir, launch, home, python=None, *, proxy_port, serve_port):
+        path = Path(stream_dir) / "worker.sb"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # No deny block on purpose: the archived profile proves nothing here, so only the launch's
+        # own violation record can turn the read into DENIED_BY_POLICY (T52 §2).
+        text = "(stub sandbox)\n"
+        path.write_text(text, encoding="utf-8")
+        return {"path": str(path), "sha256": hashlib.sha256(text.encode()).hexdigest(),
+                "template": "stub", "template_sha256": hashlib.sha256(b"stub").hexdigest(),
+                "launch": str(launch), "home": str(home),
+                "interpreter": str(python or sys.executable), "deny_roots": [],
+                "proxy_port": int(proxy_port), "serve_port": int(serve_port)}
+
+    def confine(self, profile_path, argv):
+        return [str(item) for item in argv]
+
+    def self_test(self, profile_path, launch, planted, python=None, token=None, *,
+                  proxy_port, serve_port):
+        return {"verdict": "PASS", "reasons": [],
+                "profile_sha256": hashlib.sha256(Path(profile_path).read_bytes()).hexdigest(),
+                "proxy_port": int(proxy_port), "serve_port": int(serve_port)}
+
+
+class StubAuth:
+    """Test-only credential hand-off: never a real credential."""
+
+    def import_(self, master_env, env, cwd):
+        return {"ok": True, "export_returncode": 0, "import_returncode": 0, "bytes": 0}
+
+    def logout(self, env, cwd):
+        return {"ran": True, "returncode": 0}
+
+
+def profile_env_file(directory):
+    path = Path(directory) / "profile-env.sh"
+    path.write_text(f"export PATH={os.environ.get('PATH', '/usr/bin:/bin')}\nexport LANG=C\n",
+                    encoding="utf-8")
+    return path
+
+
+def stub_server_command(directory):
+    path = Path(directory) / "stub-server.py"
+    path.write_text(STUB_SERVER, encoding="utf-8")
+    return (sys.executable, str(path))
+
+
+def stub_worker_command(directory, outside):
+    path = Path(directory) / "stub-worker.py"
+    path.write_text(STUB_WORKER.replace("{outside}", repr(str(outside))), encoding="utf-8")
+    return (sys.executable, str(path))
+
+
+def passing_preflight(run_dir, env_file, **kwargs):
+    return {"verdict": "PASS", "reasons": []}
+
+
+def passing_probe(purpose, attempt):
+    return {"verdict": "PASS", "reasons": [], "seconds": 0.01, "events": 2, "token_seen": True,
+            "purpose": purpose, "attempt": attempt}
+
+
+def stub_auditor(verdict="PASS"):
+    def audit(run_dir, plan_run, task, *, launch, command, env, limit_seconds,
+              events_path=None, stderr_path=None, **kwargs):
+        bundle = Path(kwargs.get("bundle_dir") or (Path(run_dir) / "audit"))
+        bundle.mkdir(parents=True, exist_ok=True)
+        (bundle / "audit.json").write_text(json.dumps(
+            {"correctness": verdict, "invalid_completion": False, "findings": []}),
+            encoding="utf-8")
+        return {"verdict": verdict, "correctness": verdict, "findings": [],
+                "invalid_completion": False, "leakage": [], "reasons": []}
+    return audit
+
+
+class AuditInputWiring(unittest.TestCase):
+    """T54a: the driver hands `access_audit.audit` the snapshot and the violations log it reads.
+
+    `audit()` accepts `snapshot=` and `violations=` (T52), and T51e collected the launch's unified
+    log into `violations-<launch>.jsonl`. Passing the record only inside `confinement[...]` left
+    both parameters empty, so an existing outside path that the sandbox denied stayed a
+    POSSIBLE_SUCCESS hit. This is the stubbed driver path: no model, no real runs root.
+    """
+
+    def execute(self, tmp, outside):
+        accepted = {"verdict": "ACCEPT", "reasons": [], "gates": [], "oracle": {}}
+        with mock.patch.object(driver.run_acceptance_v2, "accept", return_value=accepted):
+            return driver.execute(
+                "h2r3-f01-c", Path(tmp) / "runs",
+                worker_command=stub_worker_command(tmp, outside),
+                server_command=stub_server_command(tmp), preflight=passing_preflight,
+                auditor=stub_auditor(), profile_env=profile_env_file(tmp),
+                probe=passing_probe, sandbox=StubSandbox(), auth=StubAuth())
+
+    def test_snapshot_and_violations_reach_the_audit_it_reads(self):
+        outside = ROOT / "README.md"             # exists, outside run and home, not allow-listed
+        self.assertTrue(outside.is_file())
+        with tempfile.TemporaryDirectory() as tmp:
+            seen = {}
+            original = driver.access_audit.audit
+
+            def spy(*args, **kwargs):
+                seen["args"], seen["kwargs"] = args, dict(kwargs)
+                return original(*args, **kwargs)
+
+            def collect(start, end, pids, output):
+                Path(output).write_text(json.dumps({"path": str(outside)}) + "\n",
+                                        encoding="utf-8")
+                return 1
+
+            with mock.patch.object(driver.access_audit, "audit", side_effect=spy), \
+                    mock.patch.object(driver.violations_v3, "collect_violations",
+                                      side_effect=collect):
+                result = self.execute(tmp, outside)
+            self.assertEqual("EXECUTED", result["outcome"], result)
+            run_dir = driver.wrapper_delivery.run_dir_for(Path(tmp) / "runs", "h2r3-f01-c")
+            try:
+                record = json.loads((run_dir / "run.json").read_text())
+                snapshot = Path(record["snapshot"]["path"])
+                violations_path = record["violations"]["path"]
+                self.assertTrue(snapshot.is_dir())
+                self.assertTrue(Path(violations_path).is_file())
+                # the audit received the driver's own snapshot and this launch's log, by value
+                self.assertEqual(snapshot, Path(seen["kwargs"]["snapshot"]))
+                self.assertEqual(violations_path, seen["kwargs"]["violations"])
+                # and they changed the class: the profile proves nothing, the log confirms a denial
+                audit = json.loads((run_dir / "access-audit.json").read_text())
+                self.assertEqual("PASS", audit["verdict"], audit["hits"])
+                self.assertEqual([], audit["hits"])
+                self.assertEqual([("DENIED_BY_POLICY", "VIOLATION_LOG")],
+                                 [(hit["class"], hit["policy"])
+                                  for hit in audit["denied_attempts"]])
+                self.assertEqual(str(snapshot), audit["snapshot"])
+                self.assertEqual(1, audit["sandbox_violations_count"])
+            finally:
+                if run_dir.exists():
+                    driver.wrapper_delivery.cleanup(ROOT, run_dir)
+
+
 if __name__ == "__main__":
     unittest.main()
