@@ -1,0 +1,10 @@
+home       <PROFILE_HOME>
+data       <PROFILE_HOME>/.local/share/opencode
+cache      <PROFILE_HOME>/.cache/opencode
+config     <PROFILE_HOME>/.config/opencode
+state      <PROFILE_HOME>/.local/state/opencode
+tmp        <OS_TMPDIR>/opencode
+bin        <PROFILE_HOME>/.cache/opencode/bin
+log        <PROFILE_HOME>/.local/share/opencode/log
+repos      <PROFILE_HOME>/.local/share/opencode/repos
+db         <PROFILE_HOME>/.local/share/opencode/opencode.db
