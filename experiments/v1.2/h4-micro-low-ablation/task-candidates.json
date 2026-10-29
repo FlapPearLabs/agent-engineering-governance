@@ -1,5 +1,5 @@
 {
-  "risk_rule": "AGENTS.md section 3 risk table + ESCALATION list; experiments/v1.2/mechanization-gap/rule-inventory.md R-V12-042 ('LOW：非生产/机械票可 L0-only（仓政策允许时）；生产代码必须 L1'). Every classification below is ASSUMED pending independent review.",
+  "risk_rule": "AGENTS.md section 3 risk table + ESCALATION list; experiments/v1.2/mechanization-gap/rule-inventory.md R-V12-042 ('LOW：非生产/机械票可 L0-only（仓政策允许时）；生产代码必须 L1'). Round-3 rows (p01-p03) are confined to experiments/ (non-canonical experiment harness, not production) and are classified LOW on that basis; any delta that itself enforces a security, sandbox, audit or acceptance-verdict mechanism escalates and was therefore screened out before execution (see TASKS.md). Every classification below is ASSUMED pending independent review.",
   "tasks": [
     {
       "id": "f01",
@@ -140,6 +140,39 @@
       "risk": "LOW",
       "risk_basis": "ASSUMED",
       "risk_evidence": "git diff --stat: scripts/tests/test_p1_t16_gate_cli_entrypoint.py 55 (test-only fix); experiments/v1.2/h1-hot-context/tasks.yaml records risk: LOW => AGENTS.md section 3 LOW 'fixture/确定性胶水'. The frozen oracle is a different, untouched test, so it is green at both ends: control only."
+    },
+    {
+      "id": "p01-driver-artifact-link-safety",
+      "base": "bcbd3c4c3ab9d9399a5337cb1da60dfa5f800a0b",
+      "candidate": "20403fe6b3be306b71bd5181517ca23e99c774da",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_freeze_v3_driverfs.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: freeze-v3/run_h2r2.py 30/10, freeze-v3/CODEX_REPORT.md 16/0, + the added oracle test 59/0 => non-test delta 56 changed lines. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/freeze-v3/, a NON-canonical experimental driver), no canonical file, no gate-verdict logic, no privilege or credential boundary => R-V12-042 'LOW：非生产/机械票可 L0-only' and AGENTS.md section 3 LOW '确定性胶水'."
+    },
+    {
+      "id": "p02-freeze-v2-carrier-delivery",
+      "base": "0edbbaba82de777402addcf9026a3f5dabdd5f02",
+      "candidate": "1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: freeze-v2/wrapper_delivery.py 151/0 (one new module), + the added oracle test 143/0 => non-test delta 151 added lines, no deletion. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/freeze-v2/, NON-canonical), no canonical file, no gate-verdict logic => R-V12-042 'LOW：非生产/机械票可 L0-only'; LOW by kind, the largest of the three by size."
+    },
+    {
+      "id": "p03-results-export-renderer",
+      "base": "231dd720bedd047f9ae07d9237da6382f080d136",
+      "candidate": "d9c4b9a7b8c96f4c370d3ed837873dcde967bd8c",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_results_v2.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: results-v2/export_results.py 91/0 and results-v2/render_closure.py 69/0 (two new reporting modules), + the added oracle test 71/0 => non-test delta 160 added lines, no deletion. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/results-v2/, NON-canonical), no canonical file, no gate-verdict logic => R-V12-042 'LOW：非生产/机械票可 L0-only'."
     }
   ]
 }

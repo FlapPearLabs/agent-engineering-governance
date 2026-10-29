@@ -1,10 +1,10 @@
 # H4 task selection — draft, not a freeze
 
-**PROTOCOL_NOT_STARTABLE**: two of the thirteen examined historical tasks qualify for the
-MICRO/LOW pool, and one of those two is the required false-green control. The search is now
-wide (the ten real freeze-v3 tasks plus round 1's three rows) and every row carries a measured
-oracle transition and a measured per-base injection, so the shortfall is a property of this
-repository's history, not of the probe's scope.
+**PROTOCOL_NOT_STARTABLE**: three rounds of search now cover every pool this repository has
+offered, and still only two tasks qualify for the MICRO/LOW pool (one of them the required
+false-green control). Round 3 widened the search past H2 admission's `5ab500e` ceiling into the
+149 experiment-only commits landed since, screened them cheaply, and executed the three
+survivors. The shortfall is a property of this repository's history, not of the probe's scope.
 
 All risk classifications are **ASSUMED** pending independent review. The rule text is
 `AGENTS.md` section 3 (risk table, line 85-87, and the ESCALATION list, line 89-92) and
@@ -13,6 +13,61 @@ L0-only（仓政策允许时）；生产代码必须 L1”. Section 3 puts docum
 configuration in LOW but escalates “Approved Spec / governance 变更”; R-V12-042 keeps any
 production code at L1 or above. Canonical references, canonical contracts, governance
 validators and production scripts are therefore not LOW.
+
+## Round 3: the post-admission experiment pool
+
+Round 2 examined the freeze-v3 registry plus three admission rows; its search stopped where H2
+admission stopped. `git log --no-merges --format='%H %s' 5ab500e..origin/main -- experiments/`
+lists **149** further commits, all of them confined to `experiments/`. The cheap screen ran
+before any oracle was executed (`git diff --numstat <c>^ <c>` over the whole commit, not just
+the `experiments/` paths, so a commit that also touched a canonical file would have shown up):
+
+| Step | Rows | Excluded here, and why |
+| --- | --- | --- |
+| pool | 149 | — |
+| touches `experiments/v1.2/tests/` | 98 | 51 touch nothing there |
+| adds a test file (`DELTA_ADDED`) | 15 | the other 83 rewrite an existing test and add nothing — the r03 shape: the delta edited the acceptance that is supposed to judge it, so it is not admissible as a basis (eligibility-schema-v2 §3.3) |
+| adds a test and rewrites no test | 12 | 3 also rewrite a sibling test (`eac803686f`, `7b9251aaa8`, `4add2ca288`) — same r03 shape, refused |
+| touches no canonical path | 12 | 0 — the survivor set is experiment-only |
+| non-test delta ≤ 200 changed lines | 5 | 7 are 213–16395 lines (213 `718ab4efdd`, 264 `c57f8f4c12`, 540 `46fb9fb39e`, 650 `db64a465b6`, 790 `7ba6361189`, 1566 `ea268dd888`, 16395 `bcbd3c4c3a`) |
+| LOW after the risk screen | 3 | `6951caa07b` (82) rewrites `run_acceptance_v2.py` — the program that produces the verdict — and `sandbox_v2.py`; `510478fb19` (91) rewrites `sandbox_v2.py` and `worker-sandbox.sb.template`, the OS sandbox profile. Both hit section 3's ESCALATION list (“安全/凭据边界”, and for the acceptance program the governance/verdict analogue), so they were never executed |
+| executed oracles | 3 | `20403fe6b3`, `1dbcf3f2d3`, `d9c4b9a7b8` — the three smallest non-test deltas (56/151/160) |
+
+The size bound is **≤ 200 changed lines outside the oracle test**; the whole 149-commit pool
+contains nothing between 160 and 213, so any bound in [160, 213) yields the same three rows, and
+the two rows just above it are escalated on security grounds anyway. The bound is stated rather
+than tuned; it is the only judgement in the screen that is not mechanical.
+
+Executing 3 of 149 commits is well inside the 25-execution cap, and it is the smallest-delta
+end of the pool by construction.
+
+## How experiment harness code is treated as risk
+
+`experiments/` is experiment material, not the repository's governed surface: the D-layer
+canonical files are `AGENTS.md` and `references/` (with `deployment/` contracts and the
+`scripts/` validators that enforce them), and the round-3 pool was selected precisely because it
+is **non-canonical**. The harness under `experiments/v1.2/h2-lazy-disclosure/` is therefore
+**not production**: no file under `scripts/` or `.github/workflows/` references `experiments/`
+(checked with `grep -rn 'experiments/' scripts/*.py .github/workflows/*.yml` → no output), it
+ships no gate the repository enforces, and it is not covered by `validate_governance.py`.
+
+The text relied on, in order of precedence:
+
+* `AGENTS.md` section 3 LOW row: “LOW | 文档、fixture、确定性胶水、机械配置；**微型生产修复** |
+  非生产/机械票：**可 L0-only 闭合（仓政策允许时）**；生产代码：**必须 L1**”.
+* R-V12-042 (`rule-inventory.md` 358-366): “REQ = LOW：非生产/机械票可 L0-only（仓政策允许时）；
+  生产代码必须 L1。” — the discriminating axis is *production vs non-production*, not line count.
+* R-V12-043/R-V12-044: the escalation list still binds a LOW ticket — “LOW 票不得触发 ESCALATION
+  清单，除非命中清单本身” — with “安全与凭据边界” and “Approved Spec 或 governance 变更” as
+  list items.
+
+So: an `experiments/`-only delta is LOW by **kind** (non-production), and the escalation list is
+then applied *on top* of that kind, not replaced by it. A delta that itself decides what a
+sandbox allows, what the access audit convicts, or what the acceptance program returns is a
+mechanism whose correctness carries the escalation trigger even though the code is experimental —
+which is why the two sandbox/verdict rows above were screened out before execution rather than
+argued down to LOW for being under `experiments/`. Size is recorded separately (`MICRO`/`LOW`
+by the ≤ 200-line bound) and never used to argue a security-boundary delta downward.
 
 ## Examined rows and ASSUMED classification
 
@@ -33,6 +88,9 @@ validators and production scripts are therefore not LOW.
 | r24 | not a candidate | ESCALATION_REQUIRED | Canonical bootstrap contract; the same historical pair as f08, kept as round 1's diagnostic row |
 | r27 | outcome | LOW | `deployment/MEMORY_POINTER_CANDIDATE.md` 4 (3+,1-): a candidate pointer text, not the approved canonical contract |
 | t01 | false-green control | LOW | `scripts/tests/test_p1_t16_gate_cli_entrypoint.py` 55 (test-only fix); `experiments/v1.2/h1-hot-context/tasks.yaml` records `risk: LOW` |
+| p01 | outcome | LOW | `freeze-v3/run_h2r2.py` 30/10, `CODEX_REPORT.md` 16/0 + the added oracle 59/0: non-test delta 56 lines, experiment-only. Artifact hashing records symlinks/FIFOs instead of silently skipping them — evidence bookkeeping in the experimental driver. Closest call of the three: it stops a symlink from being followed while hashing, so it *is* integrity code; it is not an enforcement boundary (nothing is allowed or denied by it, no credential, no sandbox rule) and no canonical file is touched |
+| p02 | outcome | LOW | `freeze-v2/wrapper_delivery.py` 151/0 (one new module) + the added oracle 143/0: non-test delta 151 added lines, experiment-only, no deletion. Carrier delivery for the experiment; no canonical file, no gate mechanism |
+| p03 | outcome | LOW | `results-v2/export_results.py` 91/0 and `results-v2/render_closure.py` 69/0 (two new reporting modules) + the added oracle 71/0: non-test delta 160 added lines, experiment-only. Report rendering; no canonical file, no gate mechanism |
 
 Per-row evidence text is in `task-candidates.json` (`risk_evidence`).
 
@@ -46,20 +104,48 @@ revisions are the `CANDIDATE_SHA` values in
 oracle) and calls it twice on one prepared run: on the unchanged base, then after applying the
 candidate's non-test delta. The base must be `REJECT` with `WORKER_NOT_PASSING:RESOLVED` and
 `WORKER_NOT_PASSING:SYMLINKED` and no `BASE_NOT_FAILING:*`; the candidate must be `ACCEPT`.
-This is the path that handles ADDED and externalized acceptances, which round 1 did not cover.
+This is the path that handles ADDED and externalized acceptances.
 
 r27 and t01 keep the frozen-test path: the test is byte-identical at both revisions and run
-with the H2 acceptance command. t01's oracle is a different, untouched test, so it is
-`NOT_TRANSITIONING` with the base green — that is what makes it the false-green control, not
-an outcome task.
+with the H2 acceptance command (`unittest discover -s scripts/tests`). t01's oracle is a
+different, untouched test, so it is `NOT_TRANSITIONING` with the base green — that is what makes
+it the false-green control, not an outcome task.
+
+p01-p03 use the **added-oracle path** (`oracle_kind: added_experiment`). The candidate ADDS the
+test, so there is no frozen surface to run at the base; the candidate's own bytes are carried
+onto the base tree — the externalised oracle of eligibility-schema-v2 §3.1 (“They are carried
+byte-identically into the base tree, so the BASE verdict cannot be produced by editing the
+acceptance between the two runs”), with provenance `DELTA_ADDED`. The measurement refuses a row
+whose oracle already exists at the base (that would be `DELTA_MODIFIED`, the r03 shape), then
+runs the carried test with `unittest discover -s experiments/v1.2/tests` at the base and at the
+candidate.
+
+Strictness, unchanged from round 2: the candidate must be a clean `OK` with at least one test
+run and no errors or skips, and the **base must be a clean unittest FAILURE** — at least one
+test run, `failures=`, no `errors=`, no skips. A base run whose module never imports is
+`ORACLE_BASE_NO_LOAD`; a base run that reports any `errors=` is `ORACLE_BASE_ERRORS`, because a
+clean assertion failure must not be mixed with errors (round 2's `run_oracle` refused `errors=`
+for the frozen path for the same reason). Both are recorded as `NOT_TRANSITIONING`: a surface
+that cannot run reports no verdict to disagree with — schema §3.1, “A missing, unrunnable,
+timed-out or uncomputable acceptance is never a pass”.
+
+This is the decisive rule for p02/p03, and it is deliberately the conservative one. Their tests
+produce no assertion failure at the base: p03 cannot import at all, and p02 errors on the symbol
+the delta creates. A grader that counts “could not run” as FAIL_TO_PASS would admit both. It is
+not counted here: the delta would be judged by a test it authored against an API that does not
+exist at the base — the same takeover §3.3 refuses for r03 — and a worker holding the base cannot
+even learn the API from a hidden oracle. Under that looser reading the eligible count would be 4
+(r27, p01, p02, p03), which with t01 would make the gate MET; the reading is recorded here so the
+choice is visible, not because it is unavailable.
 
 ## Injection (F-010 hollowed gate), per base
 
 The hollowed gate is injected into the task's **base** tree, which is the tree the task's gate
 has to catch a defect in, and the N7 load-bearing probe grades it:
 
-- base has `ruff.toml` with the exact `select = ["E9", "F"]` line (f09, f10, r27, t01): the
-  predicate is hollowed to `select = []` and the F841 control must flip from caught to missed;
+- base has `ruff.toml` with the exact `select = ["E9", "F"]` line (f09, f10, r27, t01, p01, p02,
+  p03): the predicate is hollowed to `select = []` and the F841 control must flip from caught to
+  missed;
 - base has no `ruff.toml` (f01-f08, r24): `scripts/validate_governance.py`'s
   `markdown-links-resolve` predicate is forced to `True` and the N7 governance probe must find
   the planted broken link missed. The unmodified gate reports `LOAD_BEARING` on the same tree,
@@ -70,7 +156,7 @@ has to catch a defect in, and the N7 load-bearing probe grades it:
 
 ## Measurement
 
-**MEASURED:** at source checkout `7885e6b7f62d59511c80bfcfa61e17e75b53c631` with these
+**MEASURED:** at source checkout `7de9a18b1b05501a2bd134c022f13f93474cc09b` with these
 deliverables uncommitted, using Python 3.13.12, `PYTHONPATH` unset, physical `TMPDIR`, and the
 Python environment's bin directory first on `PATH`:
 
@@ -80,20 +166,20 @@ exit 0. Verbatim JSON:
 
 ```json
 {
-  "source_sha": "7885e6b7f62d59511c80bfcfa61e17e75b53c631",
-  "measurement_sha256": "03df4bf4965292400714da3448816bc54af14032f197d6354be3ed182c1cbfd9",
-  "candidates_sha256": "72b419f4ac44125748d4d8d0ce927dc62e0c59712a99bf9d2514a267fdc36296",
-  "eligible_count": 1,
+  "source_sha": "7de9a18b1b05501a2bd134c022f13f93474cc09b",
+  "measurement_sha256": "5cd19636850ed6f7c0740834954572588411a06f71e451f34687246e0bf48c82",
+  "candidates_sha256": "45c1c75c2584f4df40864dee4f6f5d719dedd4b9c69bb4153e9bb1323624cd27",
+  "eligible_count": 2,
   "false_green_control_count": 1,
   "task_count_gate": "PROTOCOL_NOT_STARTABLE",
   "funnel": {
-    "examined": 13,
+    "examined": 16,
     "not_a_candidate": 1,
-    "excluded_at_oracle": 0,
+    "excluded_at_oracle": 2,
     "excluded_at_risk": 10,
     "excluded_at_injection": 0,
     "probe_error": 0,
-    "eligible_outcomes": 1,
+    "eligible_outcomes": 2,
     "qualifying_controls": 1
   },
   "tasks": [
@@ -512,6 +598,127 @@ exit 0. Verbatim JSON:
         "status": "DETECTED"
       },
       "ineligible_reasons": []
+    },
+    {
+      "id": "p01-driver-artifact-link-safety",
+      "verdict": "ELIGIBLE",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "base_resolved": "bcbd3c4c3ab9d9399a5337cb1da60dfa5f800a0b",
+      "candidate_resolved": "20403fe6b3be306b71bd5181517ca23e99c774da",
+      "oracle_provenance": "DELTA_ADDED",
+      "base_oracle": {
+        "rc": 1,
+        "ran": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
+      "candidate_oracle": {
+        "rc": 0,
+        "ran": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
+      "oracle_transition": "FAIL_TO_PASS",
+      "base_passing": false,
+      "injection": {
+        "kind": "ruff",
+        "gate": "N7 ruff load-bearing probe",
+        "clean": "LOAD_BEARING",
+        "hollow": "GATE_NOT_LOAD_BEARING",
+        "control_before": 1,
+        "control_after": 0,
+        "crucible": "F841",
+        "status": "DETECTED"
+      },
+      "ineligible_reasons": []
+    },
+    {
+      "id": "p02-freeze-v2-carrier-delivery",
+      "verdict": "INELIGIBLE",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "base_resolved": "0edbbaba82de777402addcf9026a3f5dabdd5f02",
+      "candidate_resolved": "1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a",
+      "oracle_provenance": "DELTA_ADDED",
+      "base_oracle": {
+        "rc": 1,
+        "ran": 4,
+        "failures": 0,
+        "errors": 4,
+        "skipped": 0,
+        "loaded": true
+      },
+      "candidate_oracle": {
+        "rc": 0,
+        "ran": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
+      "oracle_transition": "NOT_TRANSITIONING",
+      "base_passing": false,
+      "injection": {
+        "kind": "ruff",
+        "gate": "N7 ruff load-bearing probe",
+        "clean": "LOAD_BEARING",
+        "hollow": "GATE_NOT_LOAD_BEARING",
+        "control_before": 1,
+        "control_after": 0,
+        "crucible": "F841",
+        "status": "DETECTED"
+      },
+      "ineligible_reasons": [
+        "ORACLE_BASE_ERRORS"
+      ]
+    },
+    {
+      "id": "p03-results-export-renderer",
+      "verdict": "INELIGIBLE",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "base_resolved": "231dd720bedd047f9ae07d9237da6382f080d136",
+      "candidate_resolved": "d9c4b9a7b8c96f4c370d3ed837873dcde967bd8c",
+      "oracle_provenance": "DELTA_ADDED",
+      "base_oracle": {
+        "rc": 1,
+        "ran": 1,
+        "failures": 0,
+        "errors": 1,
+        "skipped": 0,
+        "loaded": false
+      },
+      "candidate_oracle": {
+        "rc": 0,
+        "ran": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
+      "oracle_transition": "NOT_TRANSITIONING",
+      "base_passing": false,
+      "injection": {
+        "kind": "ruff",
+        "gate": "N7 ruff load-bearing probe",
+        "clean": "LOAD_BEARING",
+        "hollow": "GATE_NOT_LOAD_BEARING",
+        "control_before": 1,
+        "control_after": 0,
+        "crucible": "F841",
+        "status": "DETECTED"
+      },
+      "ineligible_reasons": [
+        "ORACLE_BASE_NO_LOAD"
+      ]
     }
   ]
 }
@@ -519,27 +726,35 @@ exit 0. Verbatim JSON:
 
 ## Funnel
 
-Thirteen rows examined; each excluded row is charged to the first step it fails.
+Sixteen rows examined; each excluded row is charged to the first step it fails.
 
 1. not a candidate: 1 (r24, canonical contract, duplicate of f08);
-2. oracle does not transition: 0 — all ten freeze-v3 oracles reject their base and accept their
-   reference candidate, and both frozen-test rows behave as designed;
+2. oracle does not transition: 2 — p02 (`ORACLE_BASE_ERRORS`: its test loads but errors on the
+   symbol the delta creates) and p03 (`ORACLE_BASE_NO_LOAD`: its test module cannot import at
+   all). All ten freeze-v3 oracles reject their base and accept their reference candidate, p01
+   transitions, and both frozen-test rows behave as designed;
 3. risk above LOW: 10 — every freeze-v3 task is a canonical-reference, canonical-contract or
    production-code change, so section 3 escalates it and R-V12-042 keeps production code at L1;
-4. injection not detected: 0 — every base had a gate that exists there;
+4. injection not detected: 0 — every base had a gate that exists there, and p01-p03's bases
+   carry the exact E9,F ruff select line;
 5. probe errors: 0;
-6. eligible outcomes: 1 (r27); qualifying false-green controls: 1 (t01).
+6. eligible outcomes: 2 (r27, p01); qualifying false-green controls: 1 (t01).
 
-`eligible + controls = 2 < 4`, so `task_count_gate = PROTOCOL_NOT_STARTABLE`. The gate needs
-four qualifying tasks including at least one control. Qualifying f09/f10 style tasks are not
-available here: the ten real freeze-v3 tasks are governance work by construction, and widening
-the search further would mean searching this repository's history for other non-governance
-LOW deltas — that is a new search, not a re-measurement, and it is not claimed here.
+`eligible + controls = 3 < 4`, so `task_count_gate = PROTOCOL_NOT_STARTABLE`. The gate needs
+four qualifying tasks including at least one control.
+
+What this round establishes, beyond round 2: the post-admission history does not contain the
+missing tasks either. 149 experiment-only commits, 15 that add a test, 12 that add a test
+without rewriting one, 5 within the size bound, 3 after the risk screen — and of those three
+exactly one is a repair a base-held worker could actually be asked to make. The rest of the pool
+is either a security/verdict mechanism (escalated on the list, not on size) or a test that only
+exists to check a module the same commit creates.
 
 ## What this does not establish
 
 No H4 protocol, no harness, no model run, no independent review. The risk column is ASSUMED.
-N7's limits (`experiments/v1.2/gate-load-bearing/README.md`) still apply: one probe per gate,
-no CI-execution claim, no real-path exclusion coverage. The measurement reads committed
-objects through `git archive` and `git clone --shared`; the working-tree bytes are covered only
-by the two hashes above.
+The 200-line size bound is a stated judgement, not a measured threshold. N7's limits
+(`experiments/v1.2/gate-load-bearing/README.md`) still apply: one probe per gate, no
+CI-execution claim, no real-path exclusion coverage. The measurement reads committed objects
+through `git archive` and `git clone --shared`; the working-tree bytes are covered only by the
+two hashes above.
