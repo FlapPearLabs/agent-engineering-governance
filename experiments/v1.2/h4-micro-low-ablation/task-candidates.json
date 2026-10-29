@@ -1,0 +1,178 @@
+{
+  "risk_rule": "AGENTS.md section 3 risk table + ESCALATION list; experiments/v1.2/mechanization-gap/rule-inventory.md R-V12-042 ('LOW：非生产/机械票可 L0-only（仓政策允许时）；生产代码必须 L1'). Round-3 rows (p01-p03) are confined to experiments/ (non-canonical experiment harness, not production) and are classified LOW on that basis; any delta that itself enforces a security, sandbox, audit or acceptance-verdict mechanism escalates and was therefore screened out before execution (see TASKS.md). Every classification below is ASSUMED pending independent review.",
+  "tasks": [
+    {
+      "id": "f01",
+      "base": "e11a8461e3cb906f1321c95589eb88256ae1a213",
+      "candidate": "b88df0313b3b921978a9869b9422beb686d21f3c",
+      "oracle": "scripts/tests/test_review_evidence_contract.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/review-evidence.md 81, schemas/review-evidence.schema.json 3, scripts/review_evidence.py 193. Canonical reference plus the governance validator's production code => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更' and R-V12-042 '生产代码必须 L1'."
+    },
+    {
+      "id": "f02",
+      "base": "a97595229f11cd7262f6a49abb433de408e94ca4",
+      "candidate": "89b97e3b65d3f13ec21d2b837457f63f8aff7c02",
+      "oracle": "scripts/tests/test_p1_t02_execution_stage_pre_ticket_record.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/execution-stage.md 18. Canonical D-layer reference => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更'."
+    },
+    {
+      "id": "f03",
+      "base": "990177774cc4b906ec95146422356c97928b05fc",
+      "candidate": "33cfcc890e38032ba932e8de30fa30d5721d737a",
+      "oracle": "scripts/tests/test_p1_t05_evidence_disposition.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/review-evidence.md 71, scripts/review_evidence.py 194. Canonical reference plus production code => AGENTS.md section 3 ESCALATION and R-V12-042 '生产代码必须 L1'."
+    },
+    {
+      "id": "f04",
+      "base": "698cd1468f33410800dad3af2972a7bc8b317d7b",
+      "candidate": "51e7604be3689f31142d17144893790000efac30",
+      "oracle": "scripts/tests/test_p1_t06_producer_trust_boundary.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/review-evidence.md 32, scripts/review_evidence.py 105. Canonical reference plus production code => AGENTS.md section 3 ESCALATION and R-V12-042 '生产代码必须 L1'."
+    },
+    {
+      "id": "f05",
+      "base": "072d32e2146b28fadbf1c1a1ddcf3bb5cad446a2",
+      "candidate": "12c32f41898a5cec8db9346637c78800978f7549",
+      "oracle": "scripts/tests/test_p1_t11_destructive_workspace_transaction.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/git-ci-integration.md 9. Canonical D-layer reference => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更'."
+    },
+    {
+      "id": "f06",
+      "base": "7a38de6f3c1f20228b5ecb5bc0bb3d0d49d75e01",
+      "candidate": "0046c3648c4e6b2530c06cfce80df30c64d66ab6",
+      "oracle": "scripts/tests/test_p1_t10_audit_visibility_recipe.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/review-and-repair-saturation.md 6. Canonical D-layer reference => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更'."
+    },
+    {
+      "id": "f07",
+      "base": "e5c5950bca5fba0562f0ad6cd7fe7b367fc64cf3",
+      "candidate": "1eaaea2c97bfe6ef36ae811298a68a52e04b554a",
+      "oracle": "scripts/tests/test_p1_t08_evidence_lifecycle.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/git-ci-integration.md 2, references/review-evidence.md 7, scripts/review_evidence.py 27. Canonical references plus production code => AGENTS.md section 3 ESCALATION and R-V12-042 '生产代码必须 L1'."
+    },
+    {
+      "id": "f08",
+      "base": "825d3902597655c90393100281260cbba8697c07",
+      "candidate": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+      "oracle": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: audit/AUDIT_QUALITY_REVIEW.md 2, deployment/BOOTSTRAP_CONTRACT.md 2. Canonical bootstrap contract => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更'. Same historical pair as r24."
+    },
+    {
+      "id": "f09",
+      "base": "ade16de80c1deb47b776874f0f1a2b10e8f7e16c",
+      "candidate": "579f6d5e7762610382e4362f668efaffc51f04ce",
+      "oracle": "scripts/tests/test_p1_t18_defect_promotion_fast_full.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: references/review-and-repair-saturation.md 2, references/static-analysis-and-code-intelligence.md 2, references/ticket-lane.md 3. Canonical D-layer references => AGENTS.md section 3 ESCALATION 'Approved Spec / governance 变更'."
+    },
+    {
+      "id": "f10",
+      "base": "41cd7f59ca2afe6d4cb44ff5e4bce169108db340",
+      "candidate": "5d61ad139ceb5408a6d96ce269f9a76f89df8b4e",
+      "oracle": "scripts/tests/test_skill_execution.py",
+      "oracle_kind": "freeze_v3",
+      "role": "outcome",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: audit/PAIN_TO_POLICY_MAP_V2.md 1, docs/design-history.md 2, references/skills-and-model-routing.md 3, scripts/skill_execution.py 60. Canonical reference plus production code => AGENTS.md section 3 ESCALATION and R-V12-042 '生产代码必须 L1'."
+    },
+    {
+      "id": "r24-governance-bootstrap-budget-repair-round-2",
+      "base": "825d3902597655c90393100281260cbba8697c07",
+      "candidate": "4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0",
+      "oracle": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+      "role": "excluded",
+      "risk": "ESCALATION_REQUIRED",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: audit/AUDIT_QUALITY_REVIEW.md 2, deployment/BOOTSTRAP_CONTRACT.md 2. Canonical bootstrap contract => AGENTS.md section 3 ESCALATION. Kept as the diagnostic row round 1 measured; identical to f08."
+    },
+    {
+      "id": "r27-governance-memory-preset-budget-restore",
+      "base": "3e92751a6e5490e826a130835598e5069d8fe8ce",
+      "candidate": "7cadc9c445180395bf8494644ab91a4d55717438",
+      "oracle": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: deployment/MEMORY_POINTER_CANDIDATE.md 4 (3+,1-). A candidate pointer text, not the approved canonical contract => AGENTS.md section 3 LOW '文档'."
+    },
+    {
+      "id": "t01-low-doc-accuracy",
+      "base": "c08f6f8b3bbe57853a56adf3c2847e806bbb60a3",
+      "candidate": "6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48",
+      "oracle": "scripts/tests/test_p1_t09_bootstrap_byte_budget.py",
+      "role": "false-green-control",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --stat: scripts/tests/test_p1_t16_gate_cli_entrypoint.py 55 (test-only fix); experiments/v1.2/h1-hot-context/tasks.yaml records risk: LOW => AGENTS.md section 3 LOW 'fixture/确定性胶水'. The frozen oracle is a different, untouched test, so it is green at both ends: control only."
+    },
+    {
+      "id": "p01-driver-artifact-link-safety",
+      "base": "bcbd3c4c3ab9d9399a5337cb1da60dfa5f800a0b",
+      "candidate": "20403fe6b3be306b71bd5181517ca23e99c774da",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_freeze_v3_driverfs.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: freeze-v3/run_h2r2.py 30/10, freeze-v3/CODEX_REPORT.md 16/0, + the added oracle test 59/0 => non-test delta 56 changed lines. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/freeze-v3/, a NON-canonical experimental driver), no canonical file, no gate-verdict logic, no privilege or credential boundary => R-V12-042 'LOW：非生产/机械票可 L0-only' and AGENTS.md section 3 LOW '确定性胶水'."
+    },
+    {
+      "id": "p02-freeze-v2-carrier-delivery",
+      "base": "0edbbaba82de777402addcf9026a3f5dabdd5f02",
+      "candidate": "1dbcf3f2d3bc9ec0c230c36784db6adcc2a8713a",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_freeze_v2.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: freeze-v2/wrapper_delivery.py 151/0 (one new module), + the added oracle test 143/0 => non-test delta 151 added lines, no deletion. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/freeze-v2/, NON-canonical), no canonical file, no gate-verdict logic => R-V12-042 'LOW：非生产/机械票可 L0-only'; LOW by kind, the largest of the three by size."
+    },
+    {
+      "id": "p03-results-export-renderer",
+      "base": "231dd720bedd047f9ae07d9237da6382f080d136",
+      "candidate": "d9c4b9a7b8c96f4c370d3ed837873dcde967bd8c",
+      "oracle": "experiments/v1.2/tests/test_v1_2_h2_results_v2.py",
+      "oracle_kind": "added_experiment",
+      "role": "outcome",
+      "risk": "LOW",
+      "risk_basis": "ASSUMED",
+      "risk_evidence": "git diff --numstat: results-v2/export_results.py 91/0 and results-v2/render_closure.py 69/0 (two new reporting modules), + the added oracle test 71/0 => non-test delta 160 added lines, no deletion. Experiment harness only (experiments/v1.2/h2-lazy-disclosure/results-v2/, NON-canonical), no canonical file, no gate-verdict logic => R-V12-042 'LOW：非生产/机械票可 L0-only'."
+    }
+  ]
+}

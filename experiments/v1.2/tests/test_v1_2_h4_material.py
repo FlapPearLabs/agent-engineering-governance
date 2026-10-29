@@ -1,0 +1,269 @@
+import importlib.util
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[3]
+AREA = ROOT / "experiments/v1.2/h4-micro-low-ablation"
+SCRIPT = AREA / "measure_eligibility.py"
+
+
+class EligibilityTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        self.git("init", "-q")
+        self.git("config", "user.name", "Test")
+        self.git("config", "user.email", "test@example.invalid")
+        (self.repo / "scripts/tests").mkdir(parents=True)
+        (self.repo / ".github/workflows").mkdir(parents=True)
+        (self.repo / ".github/workflows/test.yml").write_text("steps:\n  - run: python3 -m ruff check .\n")
+        (self.repo / "scripts/tests/test_oracle.py").write_text(
+            "import unittest\nfrom pathlib import Path\n"
+            "class Oracle(unittest.TestCase):\n"
+            "    def test_marker(self):\n        self.assertEqual(Path('marker').read_text(), 'fixed')\n")
+        (self.repo / "ruff.toml").write_text('[lint]\nselect = ["E9", "F"]\n')
+        (self.repo / "marker").write_text("broken")
+        self.git("add", ".")
+        self.git("commit", "-qm", "base")
+        self.base = self.git("rev-parse", "HEAD")
+        (self.repo / "marker").write_text("fixed")
+        self.git("add", "marker")
+        self.git("commit", "-qm", "fix")
+        self.candidate = self.git("rev-parse", "HEAD")
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.repo), *args], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def check_task(self, base=None, candidate=None, oracle="scripts/tests/test_oracle.py",
+                   kind=None):
+        task = {"id": "test", "base": base or self.base,
+                "candidate": candidate or self.candidate,
+                "oracle": oracle, "role": "outcome", "risk": "LOW"}
+        if kind:
+            task["oracle_kind"] = kind
+        file = self.root / "tasks.json"
+        file.write_text(json.dumps({"tasks": [task]}))
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+        process = subprocess.run([sys.executable, str(SCRIPT), "--repo", str(self.repo),
+                                  "--tasks", str(file)], capture_output=True, text=True, env=env)
+        return process, json.loads(process.stdout)["tasks"][0]
+
+    def commit_added_oracle(self, fixable):
+        """Base with `mod.py` at VALUE = 1; the candidate fixes it (or not) and adds the test."""
+        tests = self.repo / "experiments/v1.2/tests"
+        tests.mkdir(parents=True)
+        (self.repo / "mod.py").write_text("VALUE = 1\n")
+        self.git("add", "mod.py")
+        self.git("commit", "-qm", "add module")
+        base = self.git("rev-parse", "HEAD")
+        if not fixable:
+            # The delta creates the module under test; nothing of it exists at the base.
+            (tests / "test_added.py").write_text(
+                "import sys, unittest\nfrom pathlib import Path\n"
+                "sys.path.insert(0, str(Path(__file__).resolve().parents[3]))\n"
+                "import newmod\n"
+                "class Added(unittest.TestCase):\n"
+                "    def test_value(self):\n        self.assertEqual(newmod.VALUE, 2)\n")
+            (self.repo / "newmod.py").write_text("VALUE = 2\n")
+            self.git("add", ".")
+            self.git("commit", "-qm", "add the module under test and its test")
+        else:
+            (tests / "test_added.py").write_text(
+                "import importlib, sys, unittest\nfrom pathlib import Path\n"
+                "sys.path.insert(0, str(Path(__file__).resolve().parents[3]))\n"
+                "mod = importlib.import_module('mod')\n"
+                "class Added(unittest.TestCase):\n"
+                "    def test_value(self):\n        self.assertEqual(mod.VALUE, 2)\n")
+            (self.repo / "mod.py").write_text("VALUE = 2\n")
+            self.git("add", ".")
+            self.git("commit", "-qm", "fix the module and add its test")
+        return base, self.git("rev-parse", "HEAD")
+
+    def test_added_test_oracle_transitions_from_clean_failure(self):
+        base, candidate = self.commit_added_oracle(True)
+        process, result = self.check_task(
+            base=base, candidate=candidate,
+            oracle="experiments/v1.2/tests/test_added.py", kind="added_experiment")
+        self.assertNotEqual(result["verdict"], "PROBE_ERROR", result.get("error"))
+        self.assertEqual("DELTA_ADDED", result["oracle_provenance"])
+        self.assertEqual("FAIL_TO_PASS", result["oracle_transition"])
+        self.assertEqual(1, result["base_oracle"]["failures"])
+        self.assertEqual(0, result["candidate_oracle"]["rc"])
+
+    def test_added_test_that_cannot_import_at_base_is_not_a_transition(self):
+        base, candidate = self.commit_added_oracle(False)
+        process, result = self.check_task(
+            base=base, candidate=candidate,
+            oracle="experiments/v1.2/tests/test_added.py", kind="added_experiment")
+        self.assertNotEqual(result["verdict"], "PROBE_ERROR", result.get("error"))
+        self.assertEqual("NOT_TRANSITIONING", result["oracle_transition"])
+        self.assertEqual("ORACLE_BASE_NO_LOAD", result["ineligible_reasons"][0])
+        self.assertEqual("INELIGIBLE", result["verdict"])
+
+    def test_added_oracle_must_be_absent_at_base(self):
+        # F3: the oracle must actually exist at the base, or the guard is not exercised:
+        # a candidate-only blob would make `git rev-parse candidate:path` fail instead.
+        body = ("import unittest\nfrom pathlib import Path\n"
+                "class Added(unittest.TestCase):\n"
+                "    def test_marker(self):\n"
+                "        self.assertEqual(Path('marker').read_text(), 'fixed')\n")
+        self.git("checkout", "-q", self.base)
+        tests = self.repo / "experiments/v1.2/tests"
+        tests.mkdir(parents=True)
+        (tests / "test_added.py").write_text(body)
+        self.git("add", "experiments")
+        self.git("commit", "-qm", "oracle already exists at the base")
+        base = self.git("rev-parse", "HEAD")
+        self.git("checkout", "-q", self.candidate)
+        tests.mkdir(parents=True)
+        (tests / "test_added.py").write_text(body)
+        self.git("add", "experiments")
+        self.git("commit", "-qm", "candidate keeps the same oracle")
+        candidate = self.git("rev-parse", "HEAD")
+        process, result = self.check_task(
+            base=base, candidate=candidate,
+            oracle="experiments/v1.2/tests/test_added.py", kind="added_experiment")
+        self.assertEqual("PROBE_ERROR", result["verdict"])
+        self.assertIn("exists at the base", result.get("error", ""))
+        self.assertNotEqual(process.returncode, 0)
+
+    def test_skipped_candidate_is_not_a_transition(self):
+        # F1: `OK (skipped=N)` is a clean exit with no executed assertion. A candidate that
+        # skips its own oracle must never be ELIGIBLE.
+        tests = self.repo / "experiments/v1.2/tests"
+        tests.mkdir(parents=True)
+        (tests / "test_skip.py").write_text(
+            "import unittest\nfrom pathlib import Path\n"
+            "class Oracle(unittest.TestCase):\n"
+            "    def test_marker(self):\n"
+            "        if Path('marker').read_text() == 'fixed':\n"
+            "            self.skipTest('candidate is never checked')\n"
+            "        self.fail('base fails')\n")
+        self.git("add", "experiments")
+        self.git("commit", "-qm", "added oracle that skips at the candidate")
+        candidate = self.git("rev-parse", "HEAD")
+        process, result = self.check_task(
+            base=self.base, candidate=candidate,
+            oracle="experiments/v1.2/tests/test_skip.py", kind="added_experiment")
+        self.assertNotEqual(result["verdict"], "PROBE_ERROR", result.get("error"))
+        self.assertEqual(1, result["candidate_oracle"]["skipped"])
+        self.assertEqual("NOT_TRANSITIONING", result["oracle_transition"])
+        self.assertEqual("INELIGIBLE", result["verdict"])
+        self.assertEqual(process.returncode, 0)
+
+    def test_base_accepted_is_ineligible(self):
+        process, result = self.check_task(base=self.candidate)
+        self.assertEqual(result["verdict"], "INELIGIBLE")
+        self.assertEqual(process.returncode, 0)
+
+    def test_freeze_v3_accept_path_rejects_base_that_passes(self):
+        spec = importlib.util.spec_from_file_location("h4_measure", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        task = {"id": "test", "base": self.base, "candidate": self.candidate,
+                "oracle": "scripts/tests/test_oracle.py", "oracle_kind": "freeze_v3",
+                "role": "outcome", "risk": "LOW"}
+        base = {"verdict": "REJECT", "reasons": ["BASE_NOT_FAILING:RESOLVED",
+                                                  "BASE_NOT_FAILING:SYMLINKED"]}
+        candidate = {"verdict": "ACCEPT", "reasons": []}
+        with mock.patch.object(module, "freeze_v3_measure", return_value=(base, candidate)):
+            result = module.evaluate(self.repo, task)
+        self.assertEqual("INELIGIBLE", result["verdict"])
+        self.assertEqual("REJECT", result["base_accept"]["verdict"])
+
+    def test_freeze_v3_accept_path_rejects_base_oracle_with_errors(self):
+        # F2: the acceptance verdict lists the base test as not_passing either way, so the
+        # strict clean-failure rule has to look at the base oracle run itself. A base that
+        # errors must not be recorded as a FAIL_TO_PASS transition.
+        (self.repo / "scripts/tests/test_error_oracle.py").write_text(
+            "import unittest\nfrom pathlib import Path\n"
+            "class Oracle(unittest.TestCase):\n"
+            "    def test_marker(self):\n"
+            "        self.assertEqual(Path('error_marker').read_text(), 'fixed')\n")
+        self.git("add", "scripts/tests/test_error_oracle.py")
+        self.git("commit", "-qm", "oracle errors at the base")
+        base = self.git("rev-parse", "HEAD")
+        (self.repo / "error_marker").write_text("fixed")
+        self.git("add", "error_marker")
+        self.git("commit", "-qm", "candidate fixes it")
+        candidate = self.git("rev-parse", "HEAD")
+        spec = importlib.util.spec_from_file_location("h4_measure", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        task = {"id": "test", "base": base, "candidate": candidate,
+                "oracle": "scripts/tests/test_error_oracle.py",
+                "oracle_kind": "freeze_v3", "role": "outcome", "risk": "LOW"}
+        reject = {"verdict": "REJECT", "reasons": ["WORKER_NOT_PASSING:RESOLVED",
+                                                    "WORKER_NOT_PASSING:SYMLINKED"]}
+        accept = {"verdict": "ACCEPT", "reasons": []}
+        with mock.patch.object(module, "freeze_v3_measure", return_value=(reject, accept)):
+            result = module.evaluate(self.repo, task)
+        self.assertEqual(1, result["base_oracle"]["errors"], result.get("error"))
+        self.assertEqual("NOT_TRANSITIONING", result["oracle_transition"])
+        self.assertEqual("ORACLE_BASE_ERRORS", result["ineligible_reasons"][0])
+        self.assertEqual("INELIGIBLE", result["verdict"])
+
+    def test_missing_revision_is_error(self):
+        process, result = self.check_task(base="not-a-commit")
+        self.assertEqual(result["verdict"], "PROBE_ERROR")
+        self.assertNotEqual(process.returncode, 0)
+
+    def test_gate_cannot_detect_positive_control(self):
+        with (self.repo / "ruff.toml").open("a") as stream:
+            stream.write('[lint.per-file-ignores]\n"scripts/n7_control.py" = ["F841"]\n')
+        (self.repo / "marker").write_text("broken")
+        self.git("add", "ruff.toml", "marker")
+        self.git("commit", "-qm", "base ignores control")
+        base = self.git("rev-parse", "HEAD")
+        (self.repo / "marker").write_text("fixed")
+        self.git("add", "marker")
+        self.git("commit", "-qm", "fix marker")
+        process, result = self.check_task(base=base, candidate=self.git("rev-parse", "HEAD"))
+        self.assertIn(result["verdict"], ("INELIGIBLE", "PROBE_ERROR"))
+        self.assertNotEqual(result["verdict"], "ELIGIBLE")
+        if result["verdict"] == "PROBE_ERROR":
+            self.assertNotEqual(process.returncode, 0)
+
+    def test_task_ids_match_document(self):
+        tasks = json.loads((AREA / "task-candidates.json").read_text())["tasks"]
+        text = (AREA / "TASKS.md").read_text()
+        receipt = json.loads(re.search(r"```json\n(.*?)\n```", text, re.S).group(1))
+        measured = {item["id"]: item for item in receipt["tasks"]}
+        self.assertEqual(set(measured), {task["id"] for task in tasks})
+        for task in tasks:
+            self.assertIn(task["id"], text)
+            self.assertEqual(measured[task["id"]]["base_resolved"], task["base"])
+            self.assertEqual(measured[task["id"]]["candidate_resolved"], task["candidate"])
+        self.assertEqual(len({task["id"] for task in tasks}), len(tasks))
+        self.assertEqual(receipt["candidates_sha256"],
+                         hashlib.sha256((AREA / "task-candidates.json").read_bytes()).hexdigest())
+        self.assertEqual(receipt["measurement_sha256"],
+                         hashlib.sha256(SCRIPT.read_bytes()).hexdigest())
+        self.assertEqual(receipt["eligible_count"], sum(
+            item["verdict"] == "ELIGIBLE" for item in measured.values()))
+        funnel = receipt["funnel"]
+        self.assertEqual(len(measured), funnel["examined"])
+        self.assertEqual(len(measured), sum(funnel[key] for key in (
+            "not_a_candidate", "excluded_at_oracle", "excluded_at_risk",
+            "excluded_at_injection", "probe_error", "eligible_outcomes",
+            "qualifying_controls")))
+        self.assertEqual(funnel["eligible_outcomes"], receipt["eligible_count"])
+        self.assertEqual(funnel["qualifying_controls"],
+                         receipt["false_green_control_count"])
+        self.assertEqual("MET" if (funnel["eligible_outcomes"]
+                                   + funnel["qualifying_controls"] >= 4
+                                   and funnel["qualifying_controls"] >= 1)
+                         else "PROTOCOL_NOT_STARTABLE", receipt["task_count_gate"])
