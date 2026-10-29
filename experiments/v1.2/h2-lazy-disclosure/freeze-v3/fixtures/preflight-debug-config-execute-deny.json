@@ -1,0 +1,29 @@
+[
+  {
+    "type": "document",
+    "path": "<PROFILE_HOME>/.config/opencode/opencode.json",
+    "info": {
+      "$schema": "https://opencode.ai/config.json",
+      "update": "disable",
+      "share": "disabled",
+      "permissions": [
+        {
+          "action": "execute",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "question",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ],
+      "mcp": {},
+      "plugins": []
+    }
+  },
+  {
+    "type": "directory",
+    "path": "<PROFILE_HOME>/.config/opencode"
+  }
+]

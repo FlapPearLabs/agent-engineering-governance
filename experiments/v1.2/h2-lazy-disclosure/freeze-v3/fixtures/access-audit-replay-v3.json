@@ -1,0 +1,450 @@
+{
+  "program": "freeze-v3/access_audit.py",
+  "runs": [
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-0335de8",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-0716849m",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-12b1728",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 0,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no archived event stream",
+      "root": "pilot-4864655",
+      "run": "h2r2-f01-c",
+      "v2": "UNRECORDED",
+      "v3": "NO_STREAM"
+    },
+    {
+      "attempts": 0,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no archived event stream",
+      "root": "pilot-4864655b",
+      "run": "h2r2-f01-c",
+      "v2": "UNRECORDED",
+      "v3": "NO_STREAM"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-4864655c",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-6db87cf",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-8585ba2",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-9f8699d",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-dd786f2",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilot-efc46fc",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-4aa2e7b",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-4aa2e7b",
+      "run": "h2r2-f03-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 2,
+      "breach": 0,
+      "denied_attempts": 0,
+      "earlier": [
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-1",
+          "v3": "VALID"
+        }
+      ],
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-4aa2e7b",
+      "run": "h2r2-f04-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-8850187",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 1,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-bf2ca30",
+      "run": "h2r2-f01-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-bf2ca30",
+      "run": "h2r2-f02-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 1,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-bf2ca30",
+      "run": "h2r2-f03-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "pilotbatch-bf2ca30",
+      "run": "h2r2-f04-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f01-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f01-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 2,
+      "breach": 0,
+      "denied_attempts": 0,
+      "earlier": [
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-1",
+          "v3": "VALID"
+        }
+      ],
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f02-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f02-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f03-c",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 2,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f03-v",
+      "v2": "INVALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 2,
+      "breach": 0,
+      "denied_attempts": 0,
+      "earlier": [
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-1",
+          "v3": "VALID"
+        }
+      ],
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f04-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "TOOL_NOT_ALLOWED:1",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f04-v",
+      "v2": "INVALID",
+      "v3": "INVALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 1,
+      "reason": "TOOL_NOT_ALLOWED:1",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f05-c",
+      "v2": "INVALID",
+      "v3": "INVALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f05-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f06-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f06-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f07-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f07-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f08-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 3,
+      "breach": 0,
+      "denied_attempts": 0,
+      "earlier": [
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-1",
+          "v3": "VALID"
+        },
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-2",
+          "v3": "VALID"
+        }
+      ],
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f08-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 2,
+      "breach": 0,
+      "denied_attempts": 9,
+      "earlier": [
+        {
+          "breach": 0,
+          "denied_attempts": 0,
+          "reason": "no out-of-run access",
+          "stream": "attempt-1",
+          "v3": "VALID"
+        }
+      ],
+      "reason": "PATH_OUTSIDE_RUN:1",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f09-c",
+      "v2": "INVALID",
+      "v3": "INVALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f09-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f10-c",
+      "v2": "VALID",
+      "v3": "VALID"
+    },
+    {
+      "attempts": 1,
+      "breach": 0,
+      "denied_attempts": 0,
+      "reason": "no out-of-run access",
+      "root": "r2-4aa2e7b",
+      "run": "h2r2-f10-v",
+      "v2": "VALID",
+      "v3": "VALID"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Every archived worker-launch stream of a runs root: .driver/<run>/attempt-<n>/events.jsonl for each attempt, or the run's own events.jsonl when no attempt copy was kept. Probe, gate and audit streams are different launches with their own profiles and are not replayed.",
+  "v2_source": "the verdict the run's own access-audit.json recorded (read, never recomputed: this replay does not re-score the round)"
+}
