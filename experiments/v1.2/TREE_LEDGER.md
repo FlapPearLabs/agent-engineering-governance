@@ -28,6 +28,7 @@ N0  V1.2 ROOT
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
+│       DESIGN = 设计准备已入仓（PR #61）；不开跑
 │
 ├── N6  Mechanization Gap Analysis                                [CLOSED]
 │   ├── N6.1 Current Rule Inventory                               [CLOSED]
@@ -36,7 +37,8 @@ N0  V1.2 ROOT
 │   ├── N6.4 Rule Migration / Target Layer Matrix                 [CLOSED]
 │   └── N6.5 H2 / H4 / H5 Protocol Freeze                         [CLOSED]
 │
-├── N7  #45 Load-Bearing Gate Disposition                         [BACKLOG / E3]
+├── N7  #45 Load-Bearing Gate Disposition                         [CLOSED]
+│       STATUS = CLOSED / EXPERIMENTAL_MECHANISM_READY
 ├── N8  #46 Route Reachability Disposition                        [CLOSED]
 │
 ├── N9  V1.2 Architecture Synthesis                               [PLANNED]
@@ -48,7 +50,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = （无 ACTIVE 节点）N2 已 CLOSED，H2 harness v3 已入仓；下一节点待 owner 选定（N7 / N5，见 C 节）
+CURRENT_NODE     = （无 ACTIVE 节点）N7 已 CLOSED（实验级机制入仓），H5 设计准备已入仓；下一节点待 owner 选定（N5 / N4，见 C 节）
 ```
 
 ### A.1 节点详情
@@ -146,12 +148,13 @@ NOTE = 本轮（N6）**未**触碰 H3；detector 未改；不接 CI；不 block 
 ```text
 STATUS = PLANNED
 ENTRY_CRITERIA = ① #45 的"门是否承重"判定落地（H4 的判据依赖机械验收的判别力）
+                   —— 实验级已满足（N7 CLOSED，PR #60）；#45 本体 promotion 仍未做
                  ② N6.5 §0 的 P1–P7 全部满足
                  ③ 三臂设计（含 ARM_INJECT）可用
 EXIT_CRITERIA = ≥4 个真实 MICRO/LOW 任务 × 3 臂；结论 ∈ 预注册集合
 EVIDENCE = experiment-protocols.md §2
 DEPENDENCIES = N6（协议）+ N7（#45）
-BLOCKERS = #45 未落地
+BLOCKERS = ② §0 P1–P7 未逐项为 H4 闭合；③ 三臂设计未落地（#45 的实验级机制已就绪，见 N7）
 NEXT_NODE = N9
 ```
 
@@ -165,6 +168,15 @@ EVIDENCE = experiment-protocols.md §3；机制来源见 longhorizon-mechanism-m
   （M-02 Verified State / M-06 Fresh Episode / M-12 Completion Semantics，均 E1）
 DEPENDENCIES = N6（协议）
 BLOCKERS = （无硬阻塞；但 §0 P3/P4 必须先做）
+DESIGN = experiments/v1.2/h5-verified-state/design/（PR #61，merge
+         `1422892d49dbeb3f3e664ec501f5da38956cd3aa`，head 1b8d7d6；post-merge CI success（run 40830895531））
+         · PRECONDITIONS.md —— §0 P1–P7 逐项映射到 H5 与闭合证据；**全部仍 OPEN**
+         · LEDGER_SHAPE.md —— canonical-JSON 哈希链 + 外部链尾锚点、8 类记录、fold 规则、
+           stale-SHA / 错 worktree 拒收、closure 对齐 F-013、ledger 与快照的可测区分
+           ⇒ 入口条件“可重放 append-only ledger 形状被定义”在**设计层**满足
+             （无参考实现，未经运行验证）
+         · HARNESS_PLAN.md（T60–T67，未构建）· OPEN_QUESTIONS.md（7 项 owner 决策，未答）
+         独立评审（gpt-6.1-sol）PASS，1×P3 已修。P7 所需的门承重机制由 N7 提供。
 NEXT_NODE = N9
 NOTE = 本机有**可稳定触发**的执行通道故障（exit 137/139，已发生 3 轮）⇒ M4
        （runtime failure recovery）不需要模拟，真实故障会自己来
@@ -263,11 +275,28 @@ NEXT_NODE = N9
 
 #### N7 — #45 Load-Bearing Gate Disposition
 ```text
-STATUS = BACKLOG / E3
+STATUS = **CLOSED / EXPERIMENTAL_MECHANISM_READY**
+   已合并：PR #60，merge `bbcb455c69c71abdc7e828b35d1af4824f028216`
+   （parents=[9eb7a93, f996415]）；post-merge CI success（run 40830873983）。
+   评审：gpt-6.1-sol 在 `46fb9fb` 判 FAIL（P1×3：history 正控写出 scratch、子串信号把
+   F821/语法错当 F841、NO_POSITIVE_CONTROL 退出 0 —— 最后一条由监工的任务书造成；P3×1）
+   → 修复 `f996415`；按提速规则不再加轮，监工用评审自己的复现脚本逐条重跑验收。
 EVIDENCE = ISSUE #45；本地四步复现（含 ruff.toml 哈希级恢复）；failure-mechanism-map F-010
-TARGET_LAYER = C（MECHANICAL_GATE）
+   监工在 `f996415` 上的验收：完好副本 11/11 LOAD_BEARING（exit 0）；五种掏空副本
+   （select=[] / select=["E9"] / per-file-ignores 盖探针 / extend-exclude 盖探针 /
+   governance 检查恒真）各 exit 1、只点名被掏空的门，而 ruff / governance 本身在这些副本上
+   仍然绿 —— 即 #45 被复现且被抓住。全量门禁 26/26 通过。
+DELIVERABLES = experiments/v1.2/gate-load-bearing/{N7_PLAN.md, README.md, gates.json,
+               probe_gates.py, replay_issue_45.py, results.md}
+             + experiments/v1.2/tests/test_v1_2_gate_load_bearing.py
+TARGET_LAYER = C（MECHANICAL_GATE）；本轮**留在 experiments/v1.2/**（PROMOTION_NOT_YET_EARNED）
 DEPENDENCIES = （无）
-BLOCKERS = （无；可以随时立独立工具票）
+BLOCKERS = （无 —— #45 本体保持 OPEN / PROMOTION_PENDING；durable 评论需 owner 批准）
+KNOWN_LIMITS = N7-03（P3）：单个 selftest 项改成恒真仍报 LOAD_BEARING（正控只证明汇总器
+   传递 False，不证明每项谓词仍活）；不证明 CI 真的执行该步骤；不绑定 CI 命令传入的替代
+   config；不覆盖真实路径上的 exclude；不检测过期 ignore。
+P7_MAPPING = N6.5 §0 P7（"门承重"前置）：H4 直接依赖；H5 的 M3 FALSE_CLOSURE 依赖 ——
+   两者均可用本探针给各自用作质量判据的门出具正控证据；各自的复合门仍需自己的正负控。
 NOTE = 与 F-009/F-018（断言层/自检层空转）**共享同一目标机制**（正控/突变探针）
        ⇒ 按 PART 21 合并处置，不拆成多个 issue
 ```
@@ -377,8 +406,8 @@ NEXT_NODE = （无 —— 树终点）
 
 ```text
 DEFAULT_BRANCH      = main
-DEFAULT_BRANCH_SHA  = 5da7e885108410566f075783423035de51d5ef9a
-                      （= PR #58 的 merge；= 本闭环记录 PR 的 base；
+DEFAULT_BRANCH_SHA  = 1422892d49dbeb3f3e664ec501f5da38956cd3aa
+                      （= PR #61 的 merge；= 本闭环记录 PR 的 base；
                       `git ls-remote origin refs/heads/main` 复核一致）
 ```
 
@@ -386,7 +415,7 @@ DEFAULT_BRANCH_SHA  = 5da7e885108410566f075783423035de51d5ef9a
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  （无 —— H2 freeze-v2 与 harness v3 均已合并；本闭环记录 PR 合并后无进行中实验分支）
+  （无 —— N7 与 H5 设计准备均已合并；本闭环记录 PR 合并后无进行中实验分支）
   ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
      取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
@@ -425,6 +454,9 @@ fix/v1.2-h2-harness-read-boundary           @ 1b82a53   MERGED   （PR #55）
 experiment/v1.2-h2-freeze-v2                @ ed2b2bb   MERGED   （PR #56）
 closure/v1.2-h2-ledger                      @ 33aaee6   MERGED   （PR #57）
 experiment/v1.2-harness-v3                  @ 9384cc7   MERGED   （PR #58）
+closure/v1.2-harness-v3-ledger              @ 72159bc   MERGED   （PR #59）
+experiment/v1.2-n7-gate-load-bearing        @ f996415   MERGED   （PR #60）
+experiment/v1.2-h5-design                   @ 1b8d7d6   MERGED   （PR #61）
 ```
 
 ### B.3 STALE / PRUNABLE
@@ -469,9 +501,9 @@ UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支�
 ```text
 GIT_LOCATION =
   repo   = FlapPearLabs/agent-engineering-governance
-  branch = closure/v1.2-harness-v3-ledger（本闭环记录 PR；合并后即无进行中实验分支）
-  worktree = <WORKSPACE_ROOT>/v1.2-harness-v3-ledger
-  base   = 5da7e885108410566f075783423035de51d5ef9a（PR #58 的 merge = 本分支起点）
+  branch = closure/v1.2-n7-h5-ledger（本闭环记录 PR；合并后即无进行中实验分支）
+  worktree = <WORKSPACE_ROOT>/v1.2-n7-h5-ledger
+  base   = 1422892d49dbeb3f3e664ec501f5da38956cd3aa（PR #61 的 merge = 本分支起点）
   head   = （提交前为 base；提交后更新）
 ```
 
@@ -482,18 +514,18 @@ GIT_LOCATION =
 ```text
 TREE_NODES_TOTAL = 19
 CURRENT_NODE = （无 ACTIVE 节点）
-LAST_CLOSED = N2 — H2 Lazy Skill / Progressive Disclosure = CLOSED / INSUFFICIENT_EVIDENCE
-  （PR #56 merge 78696d7；闭环记录 PR #57）
-  · 其后入仓：H2 harness v3（PR #58，merge 5da7e88，post-merge CI 绿）——
-    试运行 20/20 VALID；不改 N2 结论
-NEXT_NODE = 待 owner 选定：N7（#45 门承重判定；解锁 N4，亦是 N5 的 §0 P7）
-            或 N5（H5；需先满足 §0 全部前置与可重放 ledger 形状）
+LAST_CLOSED = N7 — #45 Load-Bearing Gate Disposition = CLOSED / EXPERIMENTAL_MECHANISM_READY
+  （PR #60 merge bbcb455）
+  · 同期入仓：H5 设计准备（PR #61，merge 1422892）—— N5 仍 PLANNED，不开跑
+  · 此前：N2 = CLOSED / INSUFFICIENT_EVIDENCE（PR #56；harness v3 PR #58）
+NEXT_NODE = 待 owner 选定：N5（H5；先答 OPEN_QUESTIONS 7 项，再闭合 §0 P1–P7、构建 T60–T67）
+            或 N4（H4；#45 实验级机制已就绪，仍需 §0 与三臂设计）
   · N9 的入口仍未实质满足：H1、H2 均为 INSUFFICIENT_EVIDENCE
   · 旁路并行：N3 — H3 保持 COLLECTING，不阻塞任何节点
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  main     = 5da7e885108410566f075783423035de51d5ef9a（PR #58 的 merge）
-  branches = closure/v1.2-harness-v3-ledger（本闭环记录 PR）
+  main     = 1422892d49dbeb3f3e664ec501f5da38956cd3aa（PR #61 的 merge）
+  branches = closure/v1.2-n7-h5-ledger（本闭环记录 PR）
   head     = 取法 `git rev-parse origin/main` —— 不自写 SHA
 ```
 
@@ -578,4 +610,18 @@ REASON = PR #58 已合并（merge `5da7e885108410566f075783423035de51d5ef9a`，
          cd .. 进入共享 runs 根、命名管道阻塞、无补做审计入口、快照沿链接写出）；
          试运行 20/20 VALID。属现有 19 节点树内推进，非新增主节点；不重新计分 H2-R2。
          同时更正 A/B/C 节中仍写作 N2 ACTIVE 的过期状态行（PR #57 只更新了 N2 节点本身）。
+```
+
+```text
+[TREE_CHANGE 2026-10-29 · N7 闭环 + H5 设计准备] N7 从 BACKLOG / E3 转 CLOSED /
+EXPERIMENTAL_MECHANISM_READY；N5 保持 PLANNED，补记设计准备；CURRENT_NODE 仍为“无 ACTIVE 节点”。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #60 已合并（merge `bbcb455c69c71abdc7e828b35d1af4824f028216`，head f996415）；
+         post-merge CI success（run 40830873983）。PR #61 已合并（merge
+         `1422892d49dbeb3f3e664ec501f5da38956cd3aa`，head 1b8d7d6）；post-merge CI success（run 40830895531）。
+         N7 交付实验级门承重探针（11 个 CI 门各带正控，fail-closed），在五种掏空副本上
+         复现并抓住 #45；#45 本体保持 OPEN / PROMOTION_PENDING。H5 只做设计（无构建、无运行、
+         无 runs root），N5 入口的 ledger 形状在设计层满足，§0 P1–P7 仍未闭合。
+         属现有 19 节点树内推进，非新增主节点。
 ```
