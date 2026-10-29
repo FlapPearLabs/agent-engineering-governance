@@ -1,24 +1,35 @@
 # H4 task selection — draft, not a freeze
 
 **PROTOCOL_NOT_STARTABLE**: three rounds of search now cover every pool this repository has
-offered, and still only two tasks qualify for the MICRO/LOW pool (one of them the required
-false-green control). Round 3 widened the search past H2 admission's `5ab500e` ceiling into the
-149 experiment-only commits landed since, screened them cheaply, and executed the three
+offered, and still only three tasks qualify for the MICRO/LOW pool — two eligible outcomes
+(r27, p01) plus one required false-green control (t01), `2 + 1 = 3 < 4`. Round 3 widened the
+search past H2 admission's `5ab500e` ceiling into the 149 experiment-only commits landed since
+(up to the immutable upper bound `87d0414`), screened them cheaply, and executed the three
 survivors. The shortfall is a property of this repository's history, not of the probe's scope.
 
-All risk classifications are **ASSUMED** pending independent review. The rule text is
-`AGENTS.md` section 3 (risk table, line 85-87, and the ESCALATION list, line 89-92) and
-`experiments/v1.2/mechanization-gap/rule-inventory.md` R-V12-042: “LOW：非生产/机械票可
-L0-only（仓政策允许时）；生产代码必须 L1”. Section 3 puts documentation/fixture/glue/mechanical
-configuration in LOW but escalates “Approved Spec / governance 变更”; R-V12-042 keeps any
-production code at L1 or above. Canonical references, canonical contracts, governance
-validators and production scripts are therefore not LOW.
+All risk classifications remain **ASSUMED**; the independent review of `bbca663` accepted the
+current per-row upgrades but rejected the earlier production-code generalization (F6, restated
+here). Risk level and review strength are separate axes. `AGENTS.md` section 3 (risk table, line 85-87, and the ESCALATION
+list, line 89-92) puts documentation, fixture, deterministic glue, mechanical configuration and
+**micro production fixes** in LOW, and its review column requires L1 for production code: “生产
+代码：**必须 L1**”. A required L1 review therefore does **not** by itself raise a task above LOW
+— section 3 says LOW may take “非生产/机械票：可 L0-only（仓政策允许时）”, so L0-only is an
+allowance for some LOW tickets, not the definition of LOW. The only thing that moves a task
+above LOW here is the ESCALATION list: “Approved Spec / governance 变更”, “安全/凭据边界”, and
+the rest of its items. `experiments/v1.2/mechanization-gap/rule-inventory.md` R-V12-042 keeps
+production code at L1 or above (review strength) and does not classify any production change as
+non-LOW. Canonical references, canonical contracts and governance validators escalate because
+they are governance changes on the ESCALATION list, not because they are production code; a
+production script with no canonical or security surface would stay LOW with a mandatory L1.
 
 ## Round 3: the post-admission experiment pool
 
 Round 2 examined the freeze-v3 registry plus three admission rows; its search stopped where H2
-admission stopped. `git log --no-merges --format='%H %s' 5ab500e..origin/main -- experiments/`
-lists **149** further commits, all of them confined to `experiments/`. The cheap screen ran
+admission stopped. `git log --no-merges --format='%H %s' 5ab500e..87d0414 -- experiments/`
+lists **149** further commits, all of them confined to `experiments/`. The upper bound is the
+immutable round-3 baseline `87d041453cf6e1b034225a561008d483cf8a014e`, not the moving
+`origin/main` ref (which this clone resolves elsewhere and which answered 0 for the same
+command); the screen is reproducible against the recorded commit. The cheap screen ran
 before any oracle was executed (`git diff --numstat <c>^ <c>` over the whole commit, not just
 the `experiments/` paths, so a commit that also touched a canonical file would have shown up):
 
@@ -56,18 +67,28 @@ The text relied on, in order of precedence:
 * `AGENTS.md` section 3 LOW row: “LOW | 文档、fixture、确定性胶水、机械配置；**微型生产修复** |
   非生产/机械票：**可 L0-only 闭合（仓政策允许时）**；生产代码：**必须 L1**”.
 * R-V12-042 (`rule-inventory.md` 358-366): “REQ = LOW：非生产/机械票可 L0-only（仓政策允许时）；
-  生产代码必须 L1。” — the discriminating axis is *production vs non-production*, not line count.
+  生产代码必须 L1。” — the *review-strength* axis is production vs non-production (production
+  mandates L1); it does not say production code is non-LOW.
 * R-V12-043/R-V12-044: the escalation list still binds a LOW ticket — “LOW 票不得触发 ESCALATION
   清单，除非命中清单本身” — with “安全与凭据边界” and “Approved Spec 或 governance 变更” as
   list items.
 
-So: an `experiments/`-only delta is LOW by **kind** (non-production), and the escalation list is
-then applied *on top* of that kind, not replaced by it. A delta that itself decides what a
-sandbox allows, what the access audit convicts, or what the acceptance program returns is a
-mechanism whose correctness carries the escalation trigger even though the code is experimental —
-which is why the two sandbox/verdict rows above were screened out before execution rather than
-argued down to LOW for being under `experiments/`. Size is recorded separately (`MICRO`/`LOW`
-by the ≤ 200-line bound) and never used to argue a security-boundary delta downward.
+So: an `experiments/`-only delta is LOW because it is neither a governance change nor a security
+boundary, **not** because “non-production” is the definition of LOW; production code is
+compatible with LOW and only adds a mandatory L1 review. The escalation list is then applied
+*on top*, not replaced by the risk kind. A delta that itself decides what a sandbox allows, what
+the access audit convicts, or what the acceptance program returns is a mechanism whose
+correctness carries the escalation trigger even though the code is experimental — which is why
+the two sandbox/verdict rows above were screened out before execution rather than argued down to
+LOW for being under `experiments/`. Size is recorded separately (`MICRO`/`LOW` by the ≤ 200-line
+bound) and never used to argue a security-boundary delta downward.
+
+Re-checked under the separated rule (F6): every one of f01–f10 also touches a canonical
+document (`references/`, `deployment/`, `audit/` or `schemas/`), so each still hits “Approved
+Spec / governance 变更” on the ESCALATION list and keeps `ESCALATION_REQUIRED` even though its
+production-code content alone would not change its risk. r24 is the same canonical-contract
+delta as f08. No excluded candidate changes class under the corrected rule, and none was
+excluded on production-code status alone.
 
 ## Examined rows and ASSUMED classification
 
@@ -120,14 +141,21 @@ whose oracle already exists at the base (that would be `DELTA_MODIFIED`, the r03
 runs the carried test with `unittest discover -s experiments/v1.2/tests` at the base and at the
 candidate.
 
-Strictness, unchanged from round 2: the candidate must be a clean `OK` with at least one test
-run and no errors or skips, and the **base must be a clean unittest FAILURE** — at least one
-test run, `failures=`, no `errors=`, no skips. A base run whose module never imports is
+Strictness, applied on **every** oracle path: the candidate must be a clean `OK` with at least
+one test run and no errors or skips, and the **base must be a clean unittest FAILURE** — at least
+one test run, `failures=`, no `errors=`, no skips. A base run whose module never imports is
 `ORACLE_BASE_NO_LOAD`; a base run that reports any `errors=` is `ORACLE_BASE_ERRORS`, because a
-clean assertion failure must not be mixed with errors (round 2's `run_oracle` refused `errors=`
-for the frozen path for the same reason). Both are recorded as `NOT_TRANSITIONING`: a surface
-that cannot run reports no verdict to disagree with — schema §3.1, “A missing, unrunnable,
-timed-out or uncomputable acceptance is never a pass”.
+clean assertion failure must not be mixed with errors. Both are recorded as
+`NOT_TRANSITIONING`: a surface that cannot run reports no verdict to disagree with — schema
+§3.1, “A missing, unrunnable, timed-out or uncomputable acceptance is never a pass”.
+
+This rule is now identical on the freeze-v3 path (F2). `accept` records per-test names in
+`not_passing` but not whether unittest counted a failure or an error, so after the acceptance
+reports `REJECT`/`ACCEPT` the measurement also runs the task's frozen oracle at the base and
+requires a pure assertion failure; f10's base reports `FAILED (failures=4, errors=1)` and is
+therefore `ORACLE_BASE_ERRORS`, not `FAIL_TO_PASS`. The skip rule also bites the candidate side
+(F1): a summary such as `OK (skipped=1)` is parsed as one skip, so a candidate that skips its own
+oracle never counts as a clean pass.
 
 This is the decisive rule for p02/p03, and it is deliberately the conservative one. Their tests
 produce no assertion failure at the base: p03 cannot import at all, and p02 errors on the symbol
@@ -156,9 +184,10 @@ has to catch a defect in, and the N7 load-bearing probe grades it:
 
 ## Measurement
 
-**MEASURED:** at source checkout `7de9a18b1b05501a2bd134c022f13f93474cc09b` with these
-deliverables uncommitted, using Python 3.13.12, `PYTHONPATH` unset, physical `TMPDIR`, and the
-Python environment's bin directory first on `PATH`:
+**MEASURED (re-run for the review fixes):** at source checkout
+`bbca6634f54364ec047555af0709ba9d0bed39d8` with the review-fix deliverables uncommitted, using
+Python 3.13.12, `PYTHONPATH` unset, physical `TMPDIR`, and the Python environment's bin
+directory first on `PATH`:
 
 `<PY> experiments/v1.2/h4-micro-low-ablation/measure_eligibility.py`
 
@@ -166,8 +195,8 @@ exit 0. Verbatim JSON:
 
 ```json
 {
-  "source_sha": "7de9a18b1b05501a2bd134c022f13f93474cc09b",
-  "measurement_sha256": "5cd19636850ed6f7c0740834954572588411a06f71e451f34687246e0bf48c82",
+  "source_sha": "bbca6634f54364ec047555af0709ba9d0bed39d8",
+  "measurement_sha256": "bb5c1dfc86e4365a76f567058b1ce9f972c62401c1d82ff747330c49314749eb",
   "candidates_sha256": "45c1c75c2584f4df40864dee4f6f5d719dedd4b9c69bb4153e9bb1323624cd27",
   "eligible_count": 2,
   "false_green_control_count": 1,
@@ -175,8 +204,8 @@ exit 0. Verbatim JSON:
   "funnel": {
     "examined": 16,
     "not_a_candidate": 1,
-    "excluded_at_oracle": 2,
-    "excluded_at_risk": 10,
+    "excluded_at_oracle": 3,
+    "excluded_at_risk": 9,
     "excluded_at_injection": 0,
     "probe_error": 0,
     "eligible_outcomes": 2,
@@ -201,6 +230,14 @@ exit 0. Verbatim JSON:
       "candidate_accept": {
         "verdict": "ACCEPT",
         "reasons": []
+      },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 46,
+        "failures": 17,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
       },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
@@ -236,6 +273,14 @@ exit 0. Verbatim JSON:
         "verdict": "ACCEPT",
         "reasons": []
       },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 11,
+        "failures": 3,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
       "injection": {
@@ -269,6 +314,14 @@ exit 0. Verbatim JSON:
       "candidate_accept": {
         "verdict": "ACCEPT",
         "reasons": []
+      },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 26,
+        "failures": 12,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
       },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
@@ -304,6 +357,14 @@ exit 0. Verbatim JSON:
         "verdict": "ACCEPT",
         "reasons": []
       },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 39,
+        "failures": 25,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
       "injection": {
@@ -337,6 +398,14 @@ exit 0. Verbatim JSON:
       "candidate_accept": {
         "verdict": "ACCEPT",
         "reasons": []
+      },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 38,
+        "failures": 17,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
       },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
@@ -372,6 +441,14 @@ exit 0. Verbatim JSON:
         "verdict": "ACCEPT",
         "reasons": []
       },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 21,
+        "failures": 2,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
       "injection": {
@@ -405,6 +482,14 @@ exit 0. Verbatim JSON:
       "candidate_accept": {
         "verdict": "ACCEPT",
         "reasons": []
+      },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 25,
+        "failures": 10,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
       },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
@@ -440,6 +525,14 @@ exit 0. Verbatim JSON:
         "verdict": "ACCEPT",
         "reasons": []
       },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 24,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
+      },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
       "injection": {
@@ -473,6 +566,14 @@ exit 0. Verbatim JSON:
       "candidate_accept": {
         "verdict": "ACCEPT",
         "reasons": []
+      },
+      "base_oracle": {
+        "rc": 1,
+        "ran": 71,
+        "failures": 5,
+        "errors": 0,
+        "skipped": 0,
+        "loaded": true
       },
       "oracle_transition": "FAIL_TO_PASS",
       "base_passing": false,
@@ -509,7 +610,15 @@ exit 0. Verbatim JSON:
         "verdict": "ACCEPT",
         "reasons": []
       },
-      "oracle_transition": "FAIL_TO_PASS",
+      "base_oracle": {
+        "rc": 1,
+        "ran": 28,
+        "failures": 4,
+        "errors": 1,
+        "skipped": 0,
+        "loaded": true
+      },
+      "oracle_transition": "NOT_TRANSITIONING",
       "base_passing": false,
       "injection": {
         "kind": "ruff",
@@ -522,6 +631,7 @@ exit 0. Verbatim JSON:
         "status": "DETECTED"
       },
       "ineligible_reasons": [
+        "ORACLE_BASE_ERRORS",
         "RISK_ABOVE_LOW"
       ]
     },
@@ -729,12 +839,16 @@ exit 0. Verbatim JSON:
 Sixteen rows examined; each excluded row is charged to the first step it fails.
 
 1. not a candidate: 1 (r24, canonical contract, duplicate of f08);
-2. oracle does not transition: 2 — p02 (`ORACLE_BASE_ERRORS`: its test loads but errors on the
-   symbol the delta creates) and p03 (`ORACLE_BASE_NO_LOAD`: its test module cannot import at
-   all). All ten freeze-v3 oracles reject their base and accept their reference candidate, p01
-   transitions, and both frozen-test rows behave as designed;
-3. risk above LOW: 10 — every freeze-v3 task is a canonical-reference, canonical-contract or
-   production-code change, so section 3 escalates it and R-V12-042 keeps production code at L1;
+2. oracle does not transition: 3 — p02 (`ORACLE_BASE_ERRORS`: its test loads but errors on the
+   symbol the delta creates), p03 (`ORACLE_BASE_NO_LOAD`: its test module cannot import at all)
+   and f10 (`ORACLE_BASE_ERRORS`: its base reports `FAILED (failures=4, errors=1)`, so the base
+   run is not a clean assertion failure). Nine of the ten freeze-v3 oracles reject their base
+   and accept their reference candidate; p01 transitions; both frozen-test rows behave as
+   designed. f10 remains ineligible for risk as well; under the strict rule it is now charged
+   to the oracle step first, which is why the risk bucket drops from 10 to 9 without any
+   verdict changing;
+3. risk above LOW: 9 — every remaining freeze-v3 task is a canonical-reference or
+   canonical-contract change, so the ESCALATION list applies (not its production-code status);
 4. injection not detected: 0 — every base had a gate that exists there, and p01-p03's bases
    carry the exact E9,F ruff select line;
 5. probe errors: 0;
@@ -750,10 +864,80 @@ exactly one is a repair a base-held worker could actually be asked to make. The 
 is either a security/verdict mechanism (escalated on the list, not on size) or a test that only
 exists to check a module the same commit creates.
 
+## Review fixes (bbca663)
+
+The independent review of `bbca663` (its report is outside this repository) reported P2×2 and
+P3×4. All six are fixed below; the measurement was re-run afterwards. “Before” outputs are the
+review's own reproduction logs; “after” outputs were produced by the same probes pointed at this
+tree. After commands: the measurement command in “Measurement” above; the review's
+`skip_probe.py`, `f10_strict.py` and `absent_test_probe.py` re-pointed at this tree; and
+`python -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h4_material.py`. Each
+regression test was also checked against a one-line mutation of the guard it covers (the file
+was restored and its SHA256 re-verified after every mutant).
+
+**F1 / P2 — a candidate that only skips was accepted.** Before: `skip_probe.py` printed
+`"verdict": "ELIGIBLE"`, `"candidate_oracle": {... "skipped": 0 ...}` while the raw run said
+`Ran 1 test ... OK (skipped=1)`. Cause: only `FAILED (...)` summaries were parsed, so `OK
+(skipped=N)` yielded no summary and zero skips (`measure_eligibility.py:143`). After: one parser
+reads both `FAILED (...)` and `OK (...)`; the same probe prints `"skipped": 1`,
+`"oracle_transition": "NOT_TRANSITIONING"`, `"verdict": "INELIGIBLE"`, reasons
+`["ORACLE_NOT_TRANSITIONING"]`. Regression test:
+`test_skipped_candidate_is_not_a_transition`; restoring the old `FAILED`-only parser makes that
+test red (mutant rc=1).
+
+**F2 / P2 — freeze-v3 accepted a base whose oracle errors.** Before: `f10_strict.py` showed
+`"oracle_transition": "FAIL_TO_PASS"` with `base_accept` = `REJECT` / only
+`WORKER_NOT_PASSING:RESOLVED`,`:SYMLINKED`, while the base oracle ran
+`FAILED (failures=4, errors=1)` (`AttributeError: ... 'SAFE_RETRIEVAL_AVAILABLE'`). Cause: the
+acceptance records test names in `not_passing` but not whether unittest counted a failure or an
+error. After: the freeze-v3 path re-runs the frozen oracle at the base (`strict_base_oracle`) and
+applies the same `base_failure_reason` rule as the added-oracle path. Re-running
+`f10_strict.py`: `"base_oracle": {"rc": 1, "ran": 28, "failures": 4, "errors": 1, ...}`,
+`"oracle_transition": "NOT_TRANSITIONING"`, `"ineligible_reasons":
+["ORACLE_BASE_ERRORS", "RISK_ABOVE_LOW"]`. Regression test:
+`test_freeze_v3_accept_path_rejects_base_oracle_with_errors`; removing the strict check makes it
+red (mutant rc=1). Funnel: `excluded_at_oracle` 2 → 3, `excluded_at_risk` 10 → 9, f10 moves
+buckets; `eligible_count` 2 and `false_green_control_count` 1 are unchanged, so the count
+statements in `MEASUREMENT.md` and `OPEN_QUESTIONS.md` (3 < 4) still hold.
+
+**F3 / P3 — the absence test did not create the oracle at the base.** Before: after deleting the
+base-existence guard the named test stayed green (`shipped_test_mutant_rc=0`) because the
+candidate blob did not exist at either end and the measurement failed later. After: the test
+commits `test_added.py` at the base and keeps it in the candidate, so the guard is the branch
+being exercised; the error is `added oracle exists at the base: not a DELTA_ADDED surface`.
+Deleting the guard now makes the test red (mutant rc=1).
+
+**F4 / P3 — header count contradicted the tail.** The opening paragraph said “only two tasks
+qualify ... (one of them the required false-green control)” while the funnel and
+`MEASUREMENT.md`/`OPEN_QUESTIONS.md` say 2 outcomes + 1 control = 3 < 4. The header now states
+“two eligible outcomes (r27, p01) plus one required false-green control (t01), `2 + 1 = 3 < 4`”.
+No other count in this directory used the old phrasing.
+
+**F5 / P3 — the round-3 search used a mutable ref.** Before: `git log ... 5ab500e..origin/main`
+answered 0 in the review clone (`origin/main` = `1a020733...`). After: the bound is the immutable
+round-3 baseline `87d041453cf6e1b034225a561008d483cf8a014e`:
+`git log --no-merges --format=%H 5ab500e..87d0414 -- experiments/ | wc -l` → `149`, matching
+the recorded pool. The command and the bound are now recorded in the round-3 section.
+
+**F6 / P3 — review strength was used as risk level.** The old text inferred “production scripts
+are therefore not LOW” from the L1 requirement. Restated: section 3 puts micro production fixes
+in LOW; production code requires L1 review, which does not by itself make a task non-LOW; only
+the ESCALATION list (governance/Approved Spec changes, security boundaries, …) moves a task
+above LOW. Re-checked every excluded candidate: f01–f10 each also touch a canonical document
+(`references/`, `deployment/`, `audit/` or `schemas/`), so all keep `ESCALATION_REQUIRED` on the
+list itself, r24 is the f08 pair, and no candidate changes class. No row was excluded on
+production-code status alone.
+
+Gates re-run for this round: `ruff check .`, `scripts/validate_governance.py` (35/35),
+`scripts/validate_public_release.py` (VIOLATIONS=0), and
+`python -m unittest discover -s experiments/v1.2/tests -p test_v1_2_h4_material.py` (10 tests OK).
+
 ## What this does not establish
 
-No H4 protocol, no harness, no model run, no independent review. The risk column is ASSUMED.
-The 200-line size bound is a stated judgement, not a measured threshold. N7's limits
+No H4 protocol, no harness, no model run. The draft was independently reviewed and failed on
+F1–F6; those fixes are recorded above but have not themselves been independently re-reviewed.
+The risk column is ASSUMED. The 200-line size bound is a stated judgement, not a measured
+threshold. N7's limits
 (`experiments/v1.2/gate-load-bearing/README.md`) still apply: one probe per gate, no
 CI-execution claim, no real-path exclusion coverage. The measurement reads committed objects
 through `git archive` and `git clone --shared`; the working-tree bytes are covered only by the

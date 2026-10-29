@@ -64,6 +64,27 @@ def load_acceptance():
     return module
 
 
+def oracle_counts(output):
+    """Parse a unittest summary: `FAILED (failures=.., errors=..)` or `OK (skipped=..)`.
+
+    A clean success reports its skips only in the parenthesised summary, so matching just
+    `FAILED (...)` would read `OK (skipped=1)` as zero skips and let a candidate that never
+    runs its assertion count as a pass (F1).
+    """
+    ran = re.search(r"(?m)^Ran (\d+) tests? in ", output)
+    summary = re.search(r"(?m)^(?:FAILED|OK)(?: \((.*)\))?$", output)
+    counts = summary.group(1) if summary else None
+
+    def count(name):
+        found = re.search(name + r"=(\d+)", counts) if counts else None
+        return int(found.group(1)) if found else 0
+
+    return {"ran": int(ran.group(1)) if ran else 0,
+            "failures": count("failures"), "errors": count("errors"),
+            "skipped": count("skipped"),
+            "loaded": "unittest.loader._FailedTest" not in output}
+
+
 def acceptance_transition(base, candidate):
     """True only for a base the oracle rejects on its own and a candidate it accepts."""
     if base["verdict"] == "INVALID" or candidate["verdict"] == "INVALID":
@@ -131,27 +152,45 @@ def run_oracle(root, path):
     return result.returncode
 
 
+def run_unittest(root, command):
+    with measure.ctc.acceptance_env() as env:
+        result = subprocess.run(command, cwd=root, env=env, capture_output=True,
+                                text=True, timeout=measure.ctc.ACCEPTANCE_TIMEOUT)
+    return {"rc": result.returncode, **oracle_counts(result.stdout + result.stderr)}
+
+
 def run_experiment_test(root, path):
     """Run one experiment test file; report what unittest actually did."""
     command = [sys.executable, "-s", "-m", "unittest", "discover",
                "-s", EXPERIMENT_TESTS, "-p", Path(path).name]
-    with measure.ctc.acceptance_env() as env:
-        result = subprocess.run(command, cwd=root, env=env, capture_output=True,
-                                text=True, timeout=measure.ctc.ACCEPTANCE_TIMEOUT)
-    output = result.stdout + result.stderr
-    ran = re.search(r"(?m)^Ran (\d+) tests? in ", output)
-    summary = re.search(r"(?m)^FAILED \((.*)\)$", output)
+    return run_unittest(root, command)
 
-    def count(name):
-        if not summary:
-            return 0
-        found = re.search(name + r"=(\d+)", summary.group(1))
-        return int(found.group(1)) if found else 0
 
-    return {"rc": result.returncode, "ran": int(ran.group(1)) if ran else 0,
-            "failures": count("failures"), "errors": count("errors"),
-            "skipped": count("skipped"),
-            "loaded": "unittest.loader._FailedTest" not in output}
+def strict_base_oracle(repo, task, directory):
+    """Run the frozen oracle at the task's base and report what unittest actually did.
+
+    freeze-v3's `accept` records per-test names in `not_passing` but not whether unittest
+    counted a failure or an error, so its verdict alone cannot tell a clean assertion failure
+    from a base that also errors (F2). This re-runs the oracle at the base with the same
+    command `run_oracle` uses for the frozen path.
+    """
+    tree = base_tree(repo, task["base"], Path(directory) / "oracle-base")
+    command = measure.ctc.acceptance_command(task["oracle"], "TEST", sys.executable)
+    return run_unittest(tree, command)
+
+
+def base_failure_reason(base_run):
+    """(ok, reason): the base must fail on its own assertions alone, nothing else."""
+    clean = (base_run["rc"] != 0 and base_run["loaded"] and base_run["ran"] > 0
+             and base_run["failures"] > 0 and base_run["errors"] == 0
+             and base_run["skipped"] == 0)
+    if clean:
+        return True, ""
+    if not base_run["loaded"]:
+        return False, "ORACLE_BASE_NO_LOAD"
+    if base_run["errors"]:
+        return False, "ORACLE_BASE_ERRORS"
+    return False, "ORACLE_NOT_TRANSITIONING"
 
 
 def added_oracle_measure(root, task, result):
@@ -184,16 +223,10 @@ def added_oracle_verdict(base_run, candidate_run):
     candidate_clean = (candidate_run["rc"] == 0 and candidate_run["loaded"]
                        and candidate_run["ran"] > 0 and candidate_run["failures"] == 0
                        and candidate_run["errors"] == 0 and candidate_run["skipped"] == 0)
-    base_clean_failure = (base_run["rc"] != 0 and base_run["loaded"]
-                          and base_run["ran"] > 0 and base_run["failures"] > 0
-                          and base_run["errors"] == 0 and base_run["skipped"] == 0)
-    if base_clean_failure and candidate_clean:
+    base_ok, reason = base_failure_reason(base_run)
+    if base_ok and candidate_clean:
         return True, ""
-    if not base_run["loaded"]:
-        return False, "ORACLE_BASE_NO_LOAD"
-    if base_run["errors"]:
-        return False, "ORACLE_BASE_ERRORS"
-    return False, "ORACLE_NOT_TRANSITIONING"
+    return False, reason or "ORACLE_NOT_TRANSITIONING"
 
 
 def injected(status, **fields):
@@ -297,10 +330,16 @@ def evaluate(repo, task):
                 before, after = freeze_v3_measure(root, task, directory)
                 result["base_accept"] = {key: before[key] for key in ("verdict", "reasons")}
                 result["candidate_accept"] = {key: after[key] for key in ("verdict", "reasons")}
+                result["base_oracle"] = strict_base_oracle(root, task, directory)
                 oracle_ok = acceptance_transition(before, after)
                 base_passing = any(reason.startswith("BASE_NOT_FAILING:")
                                    for reason in before["reasons"])
                 oracle_reason = "ORACLE_NOT_TRANSITIONING"
+                if oracle_ok:
+                    # F2: the acceptance verdict alone lets a base that errors through; the
+                    # strict rule requires a pure assertion failure at the base on every path.
+                    oracle_ok, strict_reason = base_failure_reason(result["base_oracle"])
+                    oracle_reason = strict_reason or oracle_reason
             elif task.get("oracle_kind") == "added_experiment":
                 base_run, candidate_run = added_oracle_measure(root, task, result)
                 result["base_oracle"], result["candidate_oracle"] = base_run, candidate_run
