@@ -20,6 +20,7 @@ settings and traversal require separate evidence; one control is not coverage.
 The probe uses a local clone with real history, and injects controls only in the
 scratch copy. `--worktree` copies the current tracked and untracked candidate
 files; `--ref` tests a committed tree. A gate without a control is listed as
-`NO_POSITIVE_CONTROL`: default mode does not fail for that status, while `--strict`
-does. Other failure statuses always return nonzero. This experiment does not
+`NO_POSITIVE_CONTROL`. Every status other than `LOAD_BEARING` returns nonzero.
+The selftest control proves that the aggregator propagates a False item; it does
+not prove that every selftest item retains a live predicate. This experiment does not
 change canonical policy or CI and does not close issue #45.

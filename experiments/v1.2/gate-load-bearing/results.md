@@ -182,3 +182,30 @@ $ python experiments/v1.2/gate-load-bearing/probe_gates.py --ref HEAD
 }
 exit=0
 ```
+
+## N7 review-fix replay
+
+Reviewer baseline: `46fb9fb39ee2b9b8894aef8569a090e72198a2b7`. The reviewer scripts were copied into a temporary clone and replayed offline against the updated probe; the obsolete `exit_status(results, True)` invocation was adapted to the removed strict argument.
+
+| Case | Before | After |
+| --- | --- | --- |
+| Absolute history path | `PROBE_ERROR`, caller file created (34 bytes) | `PROBE_ERROR`, exit 1, caller file absent |
+| Ruff undefined `F841` (F821) | `LOAD_BEARING`, exit 0 | `PROBE_ERROR`, exit 1 |
+| Ruff syntax error containing `F841` | `LOAD_BEARING`, exit 0 | `PROBE_ERROR`, exit 1 |
+| Missing control with reason | `NO_POSITIVE_CONTROL`, exit 0 | `NO_POSITIVE_CONTROL`, exit 1 |
+| Selftest item 02 replaced by True | `LOAD_BEARING`, exit 0 | `LOAD_BEARING`, exit 0; explicitly documented as a coverage limitation |
+
+Both copied reproduction scripts exited 0. The plan change is confined to its exit-semantics sentence; no other plan semantics were edited. No independent review or real CI is claimed for this repair.
+
+Local verification with `PYTHONPATH` unset and `TMPDIR` set to the physical `/tmp`:
+
+- `python -m ruff check .`: `All checks passed!`
+- `python scripts/validate_governance.py`: `35/35 checks passed`.
+- `python scripts/validate_public_release.py`: `VIOLATIONS=0`.
+- `python -m unittest discover -s scripts/tests`: `Ran 602 tests`, `OK`.
+- `python -m unittest discover -s experiments/v1.2/tests -p test_v1_2_gate_load_bearing.py`: `Ran 10 tests`, `OK`.
+- `python experiments/v1.2/gate-load-bearing/probe_gates.py --worktree`: exit 0, all 11 gates `LOAD_BEARING`.
+
+Two earlier module runs failed their checkout-preservation snapshot because files were edited while the tests were running; the 10-test run above was repeated with a stable worktree.
+
+Post-commit `--ref HEAD` at `ac71b9dd0af7c0c5e89477cf4a72cc99408b80b3`: exit 0, all 11 gates `LOAD_BEARING`. This sentence is recorded in a results-only amend; it is not a claim that the amended commit itself was probed.

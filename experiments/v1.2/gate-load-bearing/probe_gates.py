@@ -65,8 +65,6 @@ def commit_control(root, control):
 
 def inject(root, control):
     path = root / control["path"]
-    if not path.resolve().is_relative_to(root.resolve()):
-        raise ValueError("control path escapes scratch")
     kind = control["kind"]
     if kind == "file":
         if path.exists():
@@ -98,10 +96,64 @@ def rules(root, filename, isolated=False):
     return set(re.findall(r"\(([A-Z]+\d+)\)", match.group(1)))
 
 
+def control_path(root, value):
+    path = Path(value)
+    if not value or path.is_absolute() or ".." in path.parts or not path.parts:
+        raise ValueError("invalid control path")
+    current = root
+    for part in path.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("symlink in control path")
+    if not current.resolve().is_relative_to(root.resolve()):
+        raise ValueError("control path escapes scratch")
+    return current
+
+
+def has_signal(root, gate, output):
+    control = gate["control"]
+    path = re.escape(control["path"])
+    signal = re.escape(control["signal"])
+    gate_id = gate["id"]
+    if gate_id == "ruff":
+        diagnostics = run(gate["command"] + " --output-format=json", root)
+        if diagnostics.returncode != 1:
+            return False
+        try:
+            items = json.loads(diagnostics.stdout)
+            return any(item.get("code") == control["signal"] and
+                       Path(item.get("filename", "")).resolve() == (root / control["path"]).resolve()
+                       for item in items)
+        except (ValueError, TypeError, AttributeError):
+            return False
+    if gate_id == "compile":
+        pattern = rf"(?ms)^\*\*\* Error compiling ['\"]{path}['\"]\.\.\.\n(?:(?!^\*\*\* Error compiling).)*?^SyntaxError:"
+    elif gate_id.endswith("-tests"):
+        pattern = r"(?m)^FAIL: test_n7_control \(.*N7Control\.test_n7_control\)$"
+    elif gate_id == "governance":
+        pattern = rf"(?m)^FAIL  markdown-links-resolve  \[broken=\[.*{path} -> "
+    elif gate_id in ("public-release", "history"):
+        prefix = r"history:[0-9a-f]+:" if gate_id == "history" else r"(?:worktree:|index:)?"
+        pattern = rf"(?m)^  \[[A-Z_]+/{signal}\] {prefix}{path}:\d+ ::"
+    elif gate_id == "metadata":
+        pattern = r"(?m)^  \[PUBLIC_ACCOUNT_IDENTITY\] (?:author|committer)_(?:name|email) "
+    elif gate_id == "selftest":
+        pattern = rf"(?m)^{signal}(?:  \[|$)"
+    else:
+        return False
+    return re.search(pattern, output) is not None
+
+
 def probe_tree(root, manifest):
     gates = manifest["gates"]
     if not gates or len({gate["id"] for gate in gates}) != len(gates):
         raise ValueError("empty or duplicate gates")
+    for gate in gates:
+        if gate.get("control") is not None:
+            try:
+                control_path(root, gate["control"]["path"])
+            except (KeyError, OSError, TypeError, ValueError) as exc:
+                return [{"id": gate.get("id"), "status": "PROBE_ERROR", "detail": str(exc)}]
     workflows = "\n".join(path.read_text(encoding="utf-8") for path in
                           (root / ".github/workflows").glob("*.yml"))
     results = []
@@ -136,7 +188,7 @@ def probe_tree(root, manifest):
                     result.update(status="GATE_NOT_LOAD_BEARING", detail="effective rules differ from E9,F")
                 elif observed.returncode == 0:
                     result.update(status="GATE_NOT_LOAD_BEARING", detail=observed.stdout)
-                elif observed.returncode == 1 and control["signal"] in observed.stdout:
+                elif observed.returncode == 1 and has_signal(root, gate, observed.stdout):
                     result.update(status="LOAD_BEARING", detail=control["signal"])
                 else:
                     result.update(detail="unexpected failure: " + observed.stdout)
@@ -154,11 +206,8 @@ def probe_tree(root, manifest):
     return results
 
 
-def exit_status(results, strict=False):
-    failures = {"GATE_NOT_LOAD_BEARING", "BASELINE_FAILING", "PROBE_ERROR"}
-    if strict:
-        failures.add("NO_POSITIVE_CONTROL")
-    return int(any(item["status"] in failures for item in results))
+def exit_status(results):
+    return int(any(item["status"] != "LOAD_BEARING" for item in results))
 
 
 def main():
@@ -166,7 +215,6 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--ref")
     group.add_argument("--worktree", action="store_true")
-    parser.add_argument("--strict", action="store_true")
     parser.add_argument("--repo", default=".")
     args = parser.parse_args()
     try:
@@ -178,7 +226,7 @@ def main():
         missing = [item["id"] for item in results if item["status"] == "NO_POSITIVE_CONTROL"]
         print(json.dumps({"ref": args.ref, "worktree": args.worktree, "gates": results,
                           "no_positive_control": missing}, indent=2))
-        return exit_status(results, args.strict)
+        return exit_status(results)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
         print(json.dumps({"status": "PROBE_ERROR", "detail": str(exc)}))
         return 1

@@ -68,7 +68,7 @@ GATE_GREEN != GATE_STILL_ENFORCES_ITS_CLAIM      (EXECUTED != LOAD-BEARING)
      file, or an equivalent supported command; never parse `ruff.toml` by hand as the only
      source.
    - **Fail closed:** any error is a failure, never a PASS.
-   - **Output:** JSON on stdout, and a non-zero exit when any gate is not `LOAD_BEARING`.
+   - **Output:** JSON on stdout, and a non-zero exit when any gate is not `LOAD_BEARING`, including `NO_POSITIVE_CONTROL`.
 4. **The probe's own positive controls** (#45 promotion item 2, "must not create an empty PASS of
    its own").
    - The test module builds deliberately hollowed copies:
