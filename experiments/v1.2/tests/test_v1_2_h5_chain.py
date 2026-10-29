@@ -121,7 +121,10 @@ class ChainFixtures(unittest.TestCase):
             result = measure.measure_pair(repo, first, second, gate(calls=calls))
             self.assertTrue(result['chainable'], result['reason'])
             self.assertEqual('LINK', result['reason'])
-            self.assertEqual([('t1', second['base'])], calls)   # measured at base_j, once
+            self.assertIn(('t1', second['base']), calls)
+            self.assertIn(('t1', first['candidate']), calls)
+            self.assertIn(('t2', second['candidate']), calls)
+            self.assertIn(('t1', second['candidate']), calls)
 
     def test_f2_a_candidate_outside_the_next_base_is_a_broken_link(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -180,7 +183,10 @@ class FailClosed(unittest.TestCase):
                          measure.judge(relation, {'verdict': 'INVALID'}))
         self.assertEqual((False, 'MEASUREMENT_ERROR:KeyError'),
                          measure.judge(relation, {'error': 'KeyError'}))
-        self.assertEqual((True, 'LINK'), measure.judge(relation, {'verdict': 'ACCEPT'}))
+        self.assertEqual((False, 'BASE_OBSERVATION_UNKNOWN'),
+                         measure.judge(relation, {'verdict': 'ACCEPT'}))
+        self.assertEqual((True, 'LINK'), measure.judge(
+            relation, {'verdict': 'ACCEPT', 'base_passing': False}))
 
     def test_a_measurement_error_makes_the_verdict_inconclusive_not_b(self):
         pairs = [{'from': 't1', 'to': 't2', 'chainable': False,
@@ -211,6 +217,57 @@ class IntermediateCensus(unittest.TestCase):
             census = measure.intermediate_census(repo, first, dict(second, base=rewrite))
             self.assertEqual(1, census['touching_fix_paths'])
             self.assertEqual('ENDPOINT_ONLY', census['stability'])
+
+
+class ReviewRegressions(unittest.TestCase):
+    def test_next_candidate_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, first, second = build(tmp)
+            def oracle(task, _sha):
+                return {'verdict': 'REJECT' if task['id'] == 't2' else 'ACCEPT',
+                        'base_passing': False}
+            self.assertFalse(measure.measure_pair(repo, first, second, oracle)['chainable'])
+
+    def test_first_regresses_in_second_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, first, second = build(tmp)
+            write(repo, 'src/one.py', 'VALUE = 0\n')
+            second = dict(second, candidate=commit(repo, 'regress first'))
+            def oracle(task, sha):
+                value = run(repo, 'show', sha + ':src/one.py').decode()
+                return {'verdict': 'ACCEPT' if task['id'] == 't2' or 'VALUE = 1' in value
+                        else 'REJECT',
+                        'base_passing': False}
+            result = measure.measure_pair(repo, first, second, oracle)
+            self.assertFalse(result['chainable'])
+            self.assertEqual('FINAL_FIRST:ORACLE_NOT_PRESERVED:REJECT', result['reason'])
+
+    def test_dependency_regression_in_interval(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, first, second = build(tmp)
+            write(repo, 'src/dependency.py', 'bad')
+            commit(repo, 'break dependency')
+            write(repo, 'src/dependency.py', 'good')
+            second = dict(second, base=commit(repo, 'restore dependency'))
+            def oracle(_task, sha):
+                files = run(repo, 'ls-tree', '-r', '--name-only', sha).decode()
+                good = ('src/dependency.py' not in files or
+                        run(repo, 'show', sha + ':src/dependency.py') == b'good')
+                return {'verdict': 'ACCEPT' if good else 'REJECT', 'base_passing': False}
+            self.assertFalse(measure.measure_pair(repo, first, second, oracle)['chainable'])
+
+    def test_source_program_exists_at_head_and_dirty_source_is_detectable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            run(repo, 'init', '-q', '-b', 'main')
+            write(repo, 'other', 'baseline\n')
+            old = commit(repo, 'before program')
+            write(repo, 'measure.py', 'original\n')
+            sha = commit(repo, 'measurement source')
+            self.assertFalse(measure.source_matches(repo, old, 'measure.py', ['measure.py']))
+            self.assertTrue(measure.source_matches(repo, sha, 'measure.py', ['measure.py']))
+            write(repo, 'measure.py', 'changed\n')
+            self.assertFalse(measure.source_matches(repo, sha, 'measure.py', ['measure.py']))
 
 
 class FrozenLoader(unittest.TestCase):
