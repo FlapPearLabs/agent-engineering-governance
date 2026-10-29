@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -6,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 AREA = ROOT / "experiments/v1.2/h4-micro-low-ablation"
@@ -60,6 +62,21 @@ class EligibilityTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "INELIGIBLE")
         self.assertEqual(process.returncode, 0)
 
+    def test_freeze_v3_accept_path_rejects_base_that_passes(self):
+        spec = importlib.util.spec_from_file_location("h4_measure", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        task = {"id": "test", "base": self.base, "candidate": self.candidate,
+                "oracle": "scripts/tests/test_oracle.py", "oracle_kind": "freeze_v3",
+                "role": "outcome", "risk": "LOW"}
+        base = {"verdict": "REJECT", "reasons": ["BASE_NOT_FAILING:RESOLVED",
+                                                  "BASE_NOT_FAILING:SYMLINKED"]}
+        candidate = {"verdict": "ACCEPT", "reasons": []}
+        with mock.patch.object(module, "freeze_v3_measure", return_value=(base, candidate)):
+            result = module.evaluate(self.repo, task)
+        self.assertEqual("INELIGIBLE", result["verdict"])
+        self.assertEqual("REJECT", result["base_accept"]["verdict"])
+
     def test_missing_revision_is_error(self):
         process, result = self.check_task(base="not-a-commit")
         self.assertEqual(result["verdict"], "PROBE_ERROR")
@@ -68,9 +85,14 @@ class EligibilityTests(unittest.TestCase):
     def test_gate_cannot_detect_positive_control(self):
         with (self.repo / "ruff.toml").open("a") as stream:
             stream.write('[lint.per-file-ignores]\n"scripts/n7_control.py" = ["F841"]\n')
-        self.git("add", "ruff.toml")
-        self.git("commit", "-qm", "ignore control")
-        process, result = self.check_task(candidate=self.git("rev-parse", "HEAD"))
+        (self.repo / "marker").write_text("broken")
+        self.git("add", "ruff.toml", "marker")
+        self.git("commit", "-qm", "base ignores control")
+        base = self.git("rev-parse", "HEAD")
+        (self.repo / "marker").write_text("fixed")
+        self.git("add", "marker")
+        self.git("commit", "-qm", "fix marker")
+        process, result = self.check_task(base=base, candidate=self.git("rev-parse", "HEAD"))
         self.assertIn(result["verdict"], ("INELIGIBLE", "PROBE_ERROR"))
         self.assertNotEqual(result["verdict"], "ELIGIBLE")
         if result["verdict"] == "PROBE_ERROR":
@@ -89,3 +111,16 @@ class EligibilityTests(unittest.TestCase):
         self.assertEqual(len({task["id"] for task in tasks}), len(tasks))
         self.assertEqual(receipt["eligible_count"], sum(
             item["verdict"] == "ELIGIBLE" for item in measured.values()))
+        funnel = receipt["funnel"]
+        self.assertEqual(len(measured), funnel["examined"])
+        self.assertEqual(len(measured), sum(funnel[key] for key in (
+            "not_a_candidate", "excluded_at_oracle", "excluded_at_risk",
+            "excluded_at_injection", "probe_error", "eligible_outcomes",
+            "qualifying_controls")))
+        self.assertEqual(funnel["eligible_outcomes"], receipt["eligible_count"])
+        self.assertEqual(funnel["qualifying_controls"],
+                         receipt["false_green_control_count"])
+        self.assertEqual("MET" if (funnel["eligible_outcomes"]
+                                   + funnel["qualifying_controls"] >= 4
+                                   and funnel["qualifying_controls"] >= 1)
+                         else "PROTOCOL_NOT_STARTABLE", receipt["task_count_gate"])
