@@ -48,7 +48,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = N2 — H2 Lazy Skill / Progressive Disclosure（ACTIVE）
+CURRENT_NODE     = （无 ACTIVE 节点）N2 已 CLOSED，H2 harness v3 已入仓；下一节点待 owner 选定（N7 / N5，见 C 节）
 ```
 
 ### A.1 节点详情
@@ -99,6 +99,13 @@ FREEZE_SHA = 4aa2e7b
 CLOSURE_REPORT = experiments/v1.2/h2-lazy-disclosure/freeze-v2-closure-report.md
 MERGE_SHA = 78696d74f68991c2646195d4ef7bf0ac85513781（PR #56，2026-10-28T07:31:17Z）
 POST_MERGE_CI = governance-ci success @ 78696d74f68991c2646195d4ef7bf0ac85513781
+HARNESS_V3 = experiments/v1.2/h2-lazy-disclosure/freeze-v3/（计划 HARNESS_V3_PLAN.md，T50–T56）
+  MERGE_SHA = 5da7e885108410566f075783423035de51d5ef9a（PR #58，2026-10-29T03:06:07Z）
+  POST_MERGE_CI = governance-ci success @ 5da7e885108410566f075783423035de51d5ef9a（run 40810212739）
+  PILOT = 20/20 VALID（14 ACCEPT / 6 REJECT / 0 INVALID / 0 BLOCKED；harness 测量，非计数轮）
+  REVIEW = 独立评审（gpt-6.1-sol）两轮：R1 P0=1 P1=4 → 已修；R2 P1=2 P2=1 → T56 已修，
+           按提速规则不再开第三轮，supervisor 以评审自带复现脚本 + exact-SHA 全量门禁验收
+  NOTE = 不改 N2 结论（RESULT 仍为 INSUFFICIENT_EVIDENCE）；任何 H2 重跑须先在 protocol-v3 预注册
 ENTRY_CRITERIA = ① #46 的机械映射落地 —— N8 已交付实验机制；H2 轮复验：
                     6 个不同 base（H2 base = n02 base）上 S3 载体行 11/11 VALID，
                     N8 冻结面 22/22 ✅
@@ -370,8 +377,8 @@ NEXT_NODE = （无 —— 树终点）
 
 ```text
 DEFAULT_BRANCH      = main
-DEFAULT_BRANCH_SHA  = 9494de8e2d3bbc5c38b311e8cce29230e7574dce
-                      （= PR #51 的 merge；= H2 轮的 fork base；
+DEFAULT_BRANCH_SHA  = 5da7e885108410566f075783423035de51d5ef9a
+                      （= PR #58 的 merge；= 本闭环记录 PR 的 base；
                       `git ls-remote origin refs/heads/main` 复核一致）
 ```
 
@@ -379,11 +386,11 @@ DEFAULT_BRANCH_SHA  = 9494de8e2d3bbc5c38b311e8cce29230e7574dce
 
 ```text
 ACTIVE_EXPERIMENT_BRANCHES =
-  experiment/v1.2-h2-lazy-disclosure（H2 freeze PR；runs 未开始）
+  （无 —— H2 freeze-v2 与 harness v3 均已合并；本闭环记录 PR 合并后无进行中实验分支）
   ⚠️ **本文件不写死自身 SHA** —— 自引用无法收敛（写进去的那一刻就变了）。
      取当前 head 请用：`git rev-parse HEAD`（或对该分支 `git ls-remote origin`）。
 
-ACTIVE_WORKTREES =
+ACTIVE_WORKTREES =（下列为 H2 freeze 轮的快照，未随本轮逐一复核；以 `git worktree list` 为准）
   <WORKSPACE_ROOT>/v1.2-h2-lazy-disclosure   [experiment/v1.2-h2-lazy-disclosure]
   <WORKSPACE_ROOT>/v1.2-route-reachability    [experiment/v1.2-route-reachability，
                                                已合并；worktree 保留，树干净]
@@ -412,6 +419,12 @@ experiment/v1.2-h1-closure-ledger           @ 639d199   MERGED   （PR #48）
 experiment/v1.2-mechanization-gap-analysis  @ 5c12d5a   MERGED   （PR #49）
 experiment/v1.2-route-reachability           @ 0a180fe   MERGED   （PR #50）
 experiment/v1.2-n8-postmerge-fixes          @ faacd04   MERGED   （PR #52）
+experiment/v1.2-n8-closure-ledger           @ e0f6343   MERGED   （PR #51）
+experiment/v1.2-h2-lazy-disclosure          @ f551e92   MERGED   （PR #53）
+fix/v1.2-h2-harness-read-boundary           @ 1b82a53   MERGED   （PR #55）
+experiment/v1.2-h2-freeze-v2                @ ed2b2bb   MERGED   （PR #56）
+closure/v1.2-h2-ledger                      @ 33aaee6   MERGED   （PR #57）
+experiment/v1.2-harness-v3                  @ 9384cc7   MERGED   （PR #58）
 ```
 
 ### B.3 STALE / PRUNABLE
@@ -456,9 +469,9 @@ UNMERGED_LOCAL_COMMITS（`git rev-list --count origin/main..<branch>` 逐分支�
 ```text
 GIT_LOCATION =
   repo   = FlapPearLabs/agent-engineering-governance
-  branch = experiment/v1.2-n8-closure-ledger（本闭环记录 PR；合并后即无进行中实验分支）
-  worktree = <WORKSPACE_ROOT>/v1.2-route-reachability
-  base   = 8b6b15d7553b6d59a5c1355c6fc88192a9251c65（N8 的 merge = 本分支起点）
+  branch = closure/v1.2-harness-v3-ledger（本闭环记录 PR；合并后即无进行中实验分支）
+  worktree = <WORKSPACE_ROOT>/v1.2-harness-v3-ledger
+  base   = 5da7e885108410566f075783423035de51d5ef9a（PR #58 的 merge = 本分支起点）
   head   = （提交前为 base；提交后更新）
 ```
 
@@ -468,22 +481,19 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = N2 — H2 Lazy Skill / Progressive Disclosure
-CURRENT_NODE_STATUS = ACTIVE / ROUND_2_FROZEN_PENDING_REVIEW（freeze 已产出并已 merge 进默认分支；
-                     Round 1 已关闭为 INVALID，harness 读边界缺陷已修并独立评审，
-                     Round 2 已重新冻结待运行；**本轮未执行任何 Round 2 实跑**）
-  子状态：H2_ROUND_1 = CLOSED / INVALID（GLOBAL_HARNESS_CONTRACT_DEFECT；VALID_RUNS=0）
-          H2_HARNESS_REPAIR = CLOSED（读边界已修；treatment 未变；对抗评审的 B1/B2/B3 已修，
-                              新 SHA 待新一轮独立评审）
-          H2_ROUND_2 = FROZEN / PENDING_FRESH_REVIEW（身份 H2-R2-R01..R20，实跑 0）
-  · N2 的入口前置：① #46 机械映射 = N8 已交付 ✅（6 个不同 base 复验：S3 11/11 VALID；
-    N8 冻结面 22/22）；② N6.5 §0 的 P1–P7 = 已落实 ✅（precondition/ 证据）
-NEXT_NODE = （N2 之后）N9 — V1.2 Architecture Synthesis（需要 N6 闭环 + 至少一个实验有结论）
-  · 旁路并行：N3 — H3 保持 COLLECTING，**不阻塞** N2
+CURRENT_NODE = （无 ACTIVE 节点）
+LAST_CLOSED = N2 — H2 Lazy Skill / Progressive Disclosure = CLOSED / INSUFFICIENT_EVIDENCE
+  （PR #56 merge 78696d7；闭环记录 PR #57）
+  · 其后入仓：H2 harness v3（PR #58，merge 5da7e88，post-merge CI 绿）——
+    试运行 20/20 VALID；不改 N2 结论
+NEXT_NODE = 待 owner 选定：N7（#45 门承重判定；解锁 N4，亦是 N5 的 §0 P7）
+            或 N5（H5；需先满足 §0 全部前置与可重放 ledger 形状）
+  · N9 的入口仍未实质满足：H1、H2 均为 INSUFFICIENT_EVIDENCE
+  · 旁路并行：N3 — H3 保持 COLLECTING，不阻塞任何节点
 GIT_LOCATION =
   repo     = FlapPearLabs/agent-engineering-governance
-  main     = 9494de8e2d3bbc5c38b311e8cce29230e7574dce（PR #51 的 merge；= H2 fork base）
-  branches = experiment/v1.2-h2-lazy-disclosure（H2 freeze PR，进行中）
+  main     = 5da7e885108410566f075783423035de51d5ef9a（PR #58 的 merge）
+  branches = closure/v1.2-harness-v3-ledger（本闭环记录 PR）
   head     = 取法 `git rev-parse origin/main` —— 不自写 SHA
 ```
 
@@ -556,3 +566,16 @@ REASON = H2 轮启动：在 experiment/v1.2-h2-lazy-disclosure 上冻结协议 /
 ```
 
 > **未发生**：本轮**没有**新增 H6/H7 等主研究节点 —— 无 finding 使现有架构假设失效。
+
+```text
+[TREE_CHANGE 2026-10-29 · H2 harness v3 入仓] N2 保持 CLOSED / INSUFFICIENT_EVIDENCE；
+补记 harness v3；CURRENT_NODE 转为“无 ACTIVE 节点，下一节点待 owner 选定”。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #58 已合并（merge `5da7e885108410566f075783423035de51d5ef9a`，
+         head 9384cc7）；post-merge CI success（run 40810212739）。harness v3 修复
+         H2-R2 暴露的 harness 缺陷（解释器标准库误判、不存在路径误判、execute 工具、
+         cd .. 进入共享 runs 根、命名管道阻塞、无补做审计入口、快照沿链接写出）；
+         试运行 20/20 VALID。属现有 19 节点树内推进，非新增主节点；不重新计分 H2-R2。
+         同时更正 A/B/C 节中仍写作 N2 ACTIVE 的过期状态行（PR #57 只更新了 N2 节点本身）。
+```
