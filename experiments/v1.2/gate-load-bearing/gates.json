@@ -1,0 +1,124 @@
+{
+  "gates": [
+    {
+      "id": "compile",
+      "command": "python3 -m compileall -q scripts adapters",
+      "intent": "Python sources compile",
+      "control": {
+        "kind": "file",
+        "path": "scripts/n7_control.py",
+        "content": "def broken(:\n",
+        "signal": "SyntaxError"
+      }
+    },
+    {
+      "id": "ruff",
+      "command": "python3 -m ruff check .",
+      "intent": "E9 and F correctness rules",
+      "control": {
+        "kind": "file",
+        "path": "scripts/n7_control.py",
+        "content": "def example():\n    unused = 1\n",
+        "signal": "F841"
+      }
+    },
+    {
+      "id": "governance",
+      "command": "python3 scripts/validate_governance.py",
+      "intent": "markdown links resolve",
+      "control": {
+        "kind": "file",
+        "path": "n7_control.md",
+        "content": "[broken](n7_missing.md)\n",
+        "signal": "FAIL  markdown-links-resolve"
+      }
+    },
+    {
+      "id": "scripts-tests",
+      "command": "python3 -m unittest discover -s scripts/tests",
+      "intent": "governance tests execute",
+      "control": {
+        "kind": "file",
+        "path": "scripts/tests/test_n7_control.py",
+        "content": "\nimport unittest\n\nclass N7Control(unittest.TestCase):\n    def test_n7_control(self):\n        self.fail(\"n7 control\")\n",
+        "signal": "FAILED (failures=1"
+      }
+    },
+    {
+      "id": "cli-tests",
+      "command": "python3 -m unittest scripts.tests.test_p1_t16_gate_cli_entrypoint",
+      "intent": "CLI tests execute",
+      "control": {
+        "kind": "append",
+        "path": "scripts/tests/test_p1_t16_gate_cli_entrypoint.py",
+        "content": "\nimport unittest\n\nclass N7Control(unittest.TestCase):\n    def test_n7_control(self):\n        self.fail(\"n7 control\")\n",
+        "signal": "FAILED (failures=1"
+      }
+    },
+    {
+      "id": "continuity-tests",
+      "command": "python3 -m unittest discover -s adapters/zcode/tests",
+      "intent": "continuity tests execute",
+      "control": {
+        "kind": "file",
+        "path": "adapters/zcode/tests/test_n7_control.py",
+        "content": "\nimport unittest\n\nclass N7Control(unittest.TestCase):\n    def test_n7_control(self):\n        self.fail(\"n7 control\")\n",
+        "signal": "FAILED (failures=1"
+      }
+    },
+    {
+      "id": "workbuddy-tests",
+      "command": "python3 -m unittest discover -s adapters/workbuddy/tests",
+      "intent": "adapter tests execute",
+      "control": {
+        "kind": "file",
+        "path": "adapters/workbuddy/tests/test_n7_control.py",
+        "content": "\nimport unittest\n\nclass N7Control(unittest.TestCase):\n    def test_n7_control(self):\n        self.fail(\"n7 control\")\n",
+        "signal": "FAILED (failures=1"
+      }
+    },
+    {
+      "id": "public-release",
+      "command": "python3 scripts/validate_public_release.py",
+      "intent": "reject private local paths",
+      "control": {
+        "kind": "file",
+        "path": "n7_control.md",
+        "content": "\u002fUsers\u002fexample\u002fprivate\n",
+        "signal": "UNIX_USER_HOME"
+      }
+    },
+    {
+      "id": "metadata",
+      "command": "python3 scripts/validate_public_release.py --commit-metadata",
+      "intent": "public commit identity",
+      "control": {
+        "kind": "metadata",
+        "path": "README.md",
+        "signal": "PUBLIC_ACCOUNT_IDENTITY"
+      }
+    },
+    {
+      "id": "selftest",
+      "command": "python3 scripts/validate_public_release.py --selftest",
+      "intent": "first selftest item rejects false",
+      "control": {
+        "kind": "replace",
+        "path": "scripts/validate_public_release.py",
+        "before": "t(\"01-public-rejects-unix-user-home\",\n      any(x.rule == \"UNIX_USER_HOME\" for x in v), str([x.rule for x in v]))",
+        "after": "t(\"01-public-rejects-unix-user-home\",\n      False, str([x.rule for x in v]))",
+        "signal": "FAIL  01-public-rejects-unix-user-home"
+      }
+    },
+    {
+      "id": "history",
+      "command": "python3 scripts/validate_public_release.py --history",
+      "intent": "public history scan",
+      "control": {
+        "kind": "history",
+        "path": "n7_history_control.txt",
+        "signal": "PASSWORD_ASSIGNMENT"
+      }
+    }
+  ]
+}
