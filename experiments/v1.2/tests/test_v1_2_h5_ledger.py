@@ -1,5 +1,8 @@
 import hashlib
 import importlib.util
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,7 +25,7 @@ class LedgerTests(unittest.TestCase):
         (self.root / 'evidence').write_bytes(b'proof')
         self.digest = hashlib.sha256(b'proof').hexdigest()
         self.target = {'repo_id': 'r', 'worktree_id': 'w', 'sha': SHA}
-        self.add('goal', {'goal_id': 'g', 'text_hash': 'h', 'authority_ref': 'a', 'repo_id': 'r', 'base_sha': SHA, 'predicate_specs': ['p']})
+        self.add('goal', {'goal_id': 'g', 'text_hash': 'h', 'authority_ref': 'a', 'repo_id': 'r', 'base_sha': SHA, 'predicate_specs': [{'id': 'p', 'version': '1', 'inputs': {}, 'hash': self.digest}]})
         self.add('episode_start', {'episode_id': 'ep', 'arm': 'a', 'repo_id': 'r', 'worktree_id': 'w', 'head_sha': SHA, 'seed_head_hash': 'h', 'context_id': 'c'})
         self.claim()
         self.verify()
@@ -142,13 +145,11 @@ class LedgerTests(unittest.TestCase):
         stale = self.fold()
         self.assertEqual({x['event']['payload']['claim_id'] for x in stale['unverified']}, {'c', 'c2'})
         snapshot = {'verified_facts': s['verified_facts']}
+        self.assertEqual(len(snapshot['verified_facts']), 1)
+        self.assertEqual(snapshot['verified_facts'][0]['event']['payload']['value'], 'new')
         self.assertNotIn('events', snapshot)
         self.assertNotIn('failures', snapshot)
         self.assertNotIn('supersession', snapshot)
-
-
-if __name__ == '__main__':
-    unittest.main()
 
 class ClosureControls(LedgerTests):
     def test_each_missing_closure_predicate(self):
@@ -168,3 +169,97 @@ class ClosureControls(LedgerTests):
     def test_verification_mismatch(self):
         self.target['repo_id'] = 'other'
         self.assertFalse(self.fold()['verified_facts'])
+
+
+class ReviewFixControls(LedgerTests):
+    def rewrite(self, change):
+        events = ledger._read(self.path)
+        change(events)
+        prev = ledger.ZERO
+        for event in events:
+            event['prev_hash'] = prev
+            event['hash'] = ledger._hash({k: v for k, v in event.items() if k != 'hash'})
+            prev = event['hash']
+        self.path.write_bytes(b''.join(ledger._json(e) + b'\n' for e in events))
+        self.anchor.write_text(prev + '\n')
+
+    def test_frozen_predicate_set_and_version(self):
+        spec = {'id': 'q', 'version': '1', 'inputs': {}, 'hash': self.digest}
+        self.rewrite(lambda ev: ev[0]['payload']['predicate_specs'].append(spec))
+        self.assertIn('required_verifications', ledger.closure(self.fold(), self.predicates())['missing'])
+        self.rewrite(lambda ev: ev[0]['payload'].update(predicate_specs=[{'id': 'p', 'version': '2', 'inputs': {}, 'hash': self.digest}]))
+        self.assertIn('required_verifications', ledger.closure(self.fold(), self.predicates())['missing'])
+        self.rewrite(lambda ev: ev[0]['payload'].update(predicate_specs=[False, 17, {}]))
+        self.assertEqual(self.fold()['status'], 'INVALID_LEDGER')
+
+    def test_target_alias_and_live_provider(self):
+        state = self.fold()
+        self.target['sha'] = OTHER
+        self.assertEqual(state['target']['sha'], SHA)
+        self.assertEqual(ledger.seed(state)['status'], 'STALE_OR_UNKNOWN_TARGET')
+        self.assertIn('stale_or_unknown_target', ledger.closure(state, self.predicates())['missing'])
+        self.target['sha'] = SHA
+        state = ledger.fold(self.path, self.anchor, lambda: dict(self.target), self.root)
+        self.target['sha'] = OTHER
+        self.assertEqual(ledger.seed(state)['status'], 'STALE_OR_UNKNOWN_TARGET')
+
+    def test_done_claim_requires_independent_verification(self):
+        self.add('remaining_work', {'item_id': 'i', 'episode_id': 'ep', 'description': 'done', 'status': 'DONE_CLAIM', 'blocker_refs': [], 'evidence_refs': ['evidence']})
+        self.claim(claim_id='done', subject='i', value='DONE')
+        self.seal()
+        self.assertIn('open_blockers', ledger.closure(self.fold(), self.predicates())['missing'])
+        self.verify(claim_id='done', verification_id='vdone')
+        self.seal()
+        self.assertTrue(ledger.closure(self.fold(), self.predicates())['accepted'])
+
+    def test_nested_bool_number_conflict(self):
+        self.rewrite(lambda ev: ev[2]['payload'].update(value={'v': [1]}))
+        self.claim(claim_id='bool', value={'v': [True]})
+        self.verify(claim_id='bool', verification_id='vbool')
+        self.seal()
+        self.assertTrue(self.fold()['conflicts'])
+        self.assertIn('conflicts', ledger.closure(self.fold(), self.predicates())['missing'])
+
+    def test_utf16_key_order(self):
+        self.assertEqual(ledger._json({'😀': 1, '�': 2}).decode(), '{"😀":1,"�":2}')
+
+    def test_same_snapshot_different_history(self):
+        self.add('failure_evidence', {'failure_id': 'f', 'episode_id': 'ep', 'kind': 'test', 'observed_exit': 1, 'evidence_refs': ['evidence'], 'evidence_hashes': [self.digest], 'impact': 'blocked', 'recovery_status': 'OPEN'})
+        self.claim(claim_id='c2', value='new')
+        self.verify(claim_id='c2', verification_id='v2')
+        self.add('supersession', {'target_event_id': 'e2', 'replacement_event_id': 'e5', 'reason': 'corrected', 'evidence_refs': ['evidence']})
+        self.seal()
+        first = self.fold()
+        # Same final facts, different timestamp and supersession reason.
+        self.rewrite(lambda ev: [e.update(timestamp='2026-02-01T00:00:00Z') if e['type'] == 'failure_evidence' else e['payload'].update(reason='revised') if e['type'] == 'supersession' else None for e in ev])
+        second = self.fold()
+        snapshot = lambda s: [(x['event']['payload']['claim_id'], x['event']['payload']['value']) for x in s['verified_facts']]
+        self.assertEqual(snapshot(first), [('c2', 'new')])
+        self.assertEqual(snapshot(first), snapshot(second))
+        for typ, field in [('failure_evidence', 'timestamp'), ('supersession', 'reason')]:
+            def answer(s):
+                e = next(e for e in s['events'] if e['type'] == typ)
+                return e[field] if field == 'timestamp' else e['payload'][field]
+            self.assertNotEqual(answer(first), answer(second))
+        self.rewrite(lambda ev: [e['payload'].update(candidate_sha=OTHER) if e['type'] == 'state_claim' and e['payload']['claim_id'] == 'c' else e['payload'].update(sha=OTHER) if e['type'] == 'verification' and e['payload']['claim_id'] == 'c' else None for e in ev])
+        third = self.fold()
+        self.assertEqual(snapshot(first), snapshot(third))
+        self.target['sha'] = OTHER
+        stale = self.fold()
+        self.assertEqual({x['event']['payload']['claim_id'] for x in stale['unverified']}, {'c2'})
+        self.rewrite(lambda ev: [e['payload'].update(candidate_sha=SHA) if e['type'] == 'state_claim' and e['payload']['claim_id'] == 'c' else e['payload'].update(sha=SHA) if e['type'] == 'verification' and e['payload']['claim_id'] == 'c' else None for e in ev])
+        self.assertEqual({x['event']['payload']['claim_id'] for x in self.fold()['unverified']}, {'c', 'c2'})
+        self.assertEqual(len(snapshot(first)), 1)
+
+    def test_direct_entry_runs_all_controls(self):
+        if os.environ.get('H5_DIRECT_CHILD'):
+            return
+        env = dict(os.environ, H5_DIRECT_CHILD='1')
+        env.pop('PYTHONPATH', None)
+        result = subprocess.run([sys.executable, __file__], env=env, capture_output=True, text=True, check=True)
+        expected = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).countTestCases()
+        self.assertIn(f'Ran {expected} tests', result.stderr)
+
+
+if __name__ == '__main__':
+    unittest.main()

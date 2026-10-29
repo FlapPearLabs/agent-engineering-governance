@@ -4,6 +4,7 @@ Evidence references are relative paths under an independently supplied evidence 
 Git object IDs use the form ``sha1:<40 hex>`` or ``sha256:<64 hex>``.
 """
 import fcntl
+import copy
 import hashlib
 import json
 import os
@@ -43,7 +44,13 @@ def _json(value):
         elif not isinstance(v, (str, int, bool)):
             raise InvalidLedger('unsupported JSON value')
     check(value)
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
+    def ordered(v):
+        if isinstance(v, dict):
+            return {k: ordered(v[k]) for k in sorted(v, key=lambda k: k.encode('utf-16-be'))}
+        if isinstance(v, list):
+            return [ordered(x) for x in v]
+        return v
+    return json.dumps(ordered(value), ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
 
 
 def _hash(value):
@@ -84,6 +91,16 @@ def _read(path):
             raise InvalidLedger('identity mismatch')
         if (not events and typ != 'goal') or (events and typ == 'goal'):
             raise InvalidLedger('invalid genesis')
+        if typ == 'goal':
+            specs = p['predicate_specs']
+            if (not isinstance(specs, list) or not specs or any(
+                not isinstance(s, dict) or set(s) != {'id', 'version', 'inputs', 'hash'}
+                or not isinstance(s['id'], str) or not s['id']
+                or not isinstance(s['version'], str) or not s['version']
+                or not isinstance(s['inputs'], dict)
+                or not isinstance(s['hash'], str) or not re.fullmatch('[0-9a-f]{64}', s['hash'])
+                for s in specs) or len({s['id'] for s in specs}) != len(specs)):
+                raise InvalidLedger('invalid predicate_specs')
         lists = {'predicate_specs', 'evidence_refs', 'evidence_hashes', 'blocker_refs'}
         for k, v in p.items():
             if k in lists:
@@ -199,6 +216,9 @@ def _evidence(root, refs, hashes):
 
 def fold(ledger, anchor_path, actual_target, evidence_root):
     try:
+        source = actual_target
+        target_source = source if callable(source) else lambda: source
+        actual_target = copy.deepcopy(target_source())
         events = _read(ledger)
         if Path(anchor_path).resolve() == Path(ledger).resolve() or Path(anchor_path).read_text(encoding='utf-8') != events[-1]['hash'] + '\n':
             raise InvalidLedger('anchor mismatch')
@@ -227,14 +247,21 @@ def fold(ledger, anchor_path, actual_target, evidence_root):
         for i, a in enumerate(active):
             for b in active[i + 1:]:
                 pa, pb = a['event']['payload'], b['event']['payload']
-                if pa['subject'] == pb['subject'] and pa['value'] != pb['value']:
+                if pa['subject'] == pb['subject'] and _json(pa['value']) != _json(pb['value']):
                     conflicts.append([a['event']['event_id'], b['event']['event_id']])
         return {'status': 'VALID', 'goal': events[0], 'events': events, 'tail': events[-1]['hash'],
-                'target': actual_target, 'verified_facts': active, 'unverified': unverified,
+                'target': actual_target, '_target_source': target_source, 'verified_facts': active, 'unverified': unverified,
                 'conflicts': conflicts, 'failures': [e for e in events if e['type'] == 'failure_evidence'],
                 'remaining_work': [e for e in events if e['type'] == 'remaining_work']}
-    except (OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
-        return {'status': 'INVALID_LEDGER'}
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError) as exc:
+        return {'status': 'INVALID_LEDGER', 'reason': str(exc)}
+
+
+def _target_current(state):
+    try:
+        return state['_target_source']() == state['target']
+    except Exception:
+        return False
 
 
 def closure(state, predicates):
@@ -243,6 +270,9 @@ def closure(state, predicates):
     if state.get('status') != 'VALID' or not isinstance(predicates, dict):
         result['missing'].append('valid_ledger')
         return result
+    if not _target_current(state):
+        result['missing'].append('stale_or_unknown_target')
+        return result
     sha = state['target']['sha']
     for key in ('artefact_in_merge', 'ancestry_matches'):
         if predicates.get(key) is not True:
@@ -250,12 +280,19 @@ def closure(state, predicates):
     if predicates.get('merge_sha') != sha or predicates.get('ci_sha') != sha or predicates.get('ci_success') is not True or predicates.get('ci_post_merge') is not True:
         result['missing'].append('post_merge_ci_same_sha')
     required = predicates.get('required_predicates')
-    facts = {x['event']['payload']['predicate_id'] for x in state['verified_facts']}
-    if not isinstance(required, list) or not required or any(not isinstance(x, str) or x not in facts for x in required):
+    specs = state['goal']['payload']['predicate_specs']
+    facts = {(x['event']['payload']['predicate_id'], x['event']['payload']['predicate_version']) for x in state['verified_facts']}
+    if (not isinstance(required, list) or any(not isinstance(x, str) for x in required)
+        or set(required) != {s['id'] for s in specs}
+        or any((s['id'], s['version']) not in facts for s in specs)):
         result['missing'].append('required_verifications')
+        result['missing'].extend(f"predicate:{s['id']}@{s['version']}" for s in specs
+                                 if (s['id'], s['version']) not in facts)
     if state['conflicts']:
         result['missing'].append('conflicts')
-    if any(e['payload']['status'] in ('OPEN', 'BLOCKED', 'DONE_CLAIM') for e in state['remaining_work']) or predicates.get('open_blockers') != []:
+    done = {x['event']['payload']['subject'] for x in state['verified_facts']
+            if x['event']['payload']['value'] == 'DONE'}
+    if any(e['payload']['status'] != 'DONE_CLAIM' or e['payload']['item_id'] not in done for e in state['remaining_work']) or predicates.get('open_blockers') != []:
         result['missing'].append('open_blockers')
     result['accepted'] = not result['missing']
     return result
@@ -264,6 +301,8 @@ def closure(state, predicates):
 def seed(state):
     if state.get('status') != 'VALID':
         return {'status': state.get('status', 'INVALID_LEDGER')}
+    if not _target_current(state):
+        return {'status': 'STALE_OR_UNKNOWN_TARGET'}
     return {'status': 'VALID', 'goal': state['goal'], 'verified_facts': state['verified_facts'],
             'unverified': state['unverified'], 'failures': [e for e in state['failures'] if e['payload']['recovery_status'] != 'RESOLVED'],
             'remaining_work': state['remaining_work'], 'conflicts': state['conflicts'],
