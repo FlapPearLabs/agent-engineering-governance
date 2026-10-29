@@ -1,0 +1,7 @@
+{
+  "tasks": [
+    {"id":"r24-governance-bootstrap-budget-repair-round-2", "base":"825d3902597655c90393100281260cbba8697c07", "candidate":"4505faeaaa7a4a89a94c8751efc1f7cc0738ffe0", "oracle":"scripts/tests/test_p1_t09_bootstrap_byte_budget.py", "role":"excluded", "risk":"ESCALATION_REQUIRED"},
+    {"id":"r27-governance-memory-preset-budget-restore", "base":"3e92751a6e5490e826a130835598e5069d8fe8ce", "candidate":"7cadc9c445180395bf8494644ab91a4d55717438", "oracle":"scripts/tests/test_p1_t09_bootstrap_byte_budget.py", "role":"outcome", "risk":"LOW"},
+    {"id":"t01-low-doc-accuracy", "base":"c08f6f8b3bbe57853a56adf3c2847e806bbb60a3", "candidate":"6d841d56fe8ccfc5ae3a0590fb73e15a57d38a48", "oracle":"scripts/tests/test_p1_t09_bootstrap_byte_budget.py", "role":"false-green-control", "risk":"LOW"}
+  ]
+}
