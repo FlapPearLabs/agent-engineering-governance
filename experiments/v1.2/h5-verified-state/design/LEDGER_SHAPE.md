@@ -4,7 +4,7 @@
 
 ## 编码与完整性
 
-每条为一行 UTF-8 JSON，禁止重复 key；采用 RFC 8785 canonical JSON 字节、SHA-256。共同字段：`version`、`ledger_id`、从 0 连续的 `seq`、`prev_hash`、`type`、`event_id`、`timestamp`、`actor_id`、`payload`、`hash`；hash = SHA-256(canonical JSON of all fields except `hash`)；首条 `prev_hash` 为 64 个零。每一事件 ID 唯一，严格先引用后出现；未知版本、缺字段、错误类型、重复 ID/序号、缺序、乱序、链不匹配均 fail closed。写入必须单 writer 或经锁的 compare-and-append，持久化数据后再更新可信外部链尾锚点；断电恢复发现残行或锚点不一致则隔离、报告，不自动裁掉。hash 链自身不能阻止整体重写或截尾，外部不可由 worker 改写的持久锚点才检测这些攻击；签名、锚点存放与权限需预先指定。
+每条为一行 UTF-8 JSON，禁止重复 key；采用 RFC 8785 canonical JSON 字节、SHA-256。共同字段：`version`、`ledger_id`、从 0 连续的 `seq`、`prev_hash`、`type`、`event_id`、`timestamp`、`actor_id`、`payload`、`hash`；hash = SHA-256(canonical JSON of all fields except `hash`)；首条 `prev_hash` 为 64 个零。每一事件 ID 唯一，被引用事件必须先出现、后被引用；未知版本、缺字段、错误类型、重复 ID/序号、缺序、乱序、链不匹配均 fail closed。写入必须单 writer 或经锁的 compare-and-append，持久化数据后再更新可信外部链尾锚点；断电恢复发现残行或锚点不一致则隔离、报告，不自动裁掉。hash 链自身不能阻止整体重写或截尾，外部不可由 worker 改写的持久锚点才检测这些攻击；签名、锚点存放与权限需预先指定。
 
 ## 记录及字段
 
