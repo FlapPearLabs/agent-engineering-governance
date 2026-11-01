@@ -5,16 +5,14 @@ of frozen tasks (i, j) it asks
 
   1. git: is `candidate_i` exactly `base_j`, or an ancestor of it?
   2. git: does task j's delta touch task i's oracle surface? (oracle dependence)
-  3. the frozen gate: does `run_acceptance_v2.accept` still say ACCEPT for task i on the tree
-     at `base_j`, with the base itself still failing?
+  3. the frozen gate checks each task's candidate and failing base, preserves task i at
+     base_j and candidate_j, and checks the intervening commits.
 
 A pair is a chain link only when (1) holds, (2) does not, and (3) does. Everything else is
 unchainable, and a measurement error is never a link (fail closed).
 
-The intermediate commits between `candidate_i` and `base_j` are counted and classified with
-git but are not re-run individually: the prescribed measurement is the endpoint `base_j`.
-Pairs whose interval touches neither task i's fix paths nor its oracle path are reported as
-`NO_INTERMEDIATE_CHANGE`, the rest as `ENDPOINT_ONLY`.
+The intermediate census is descriptive only: untouched fix and oracle paths do not prove
+that a gate's other dependencies remained stable.
 """
 
 from __future__ import annotations
@@ -76,6 +74,13 @@ def git(repo: Path, *args: str, input_data: bytes | None = None, check: bool = T
 
 def head_of(repo: Path) -> str:
     return git(repo, "rev-parse", "HEAD").stdout.decode().strip()
+
+
+def source_matches(repo: Path, source: str, program: str, paths: list[str]) -> bool:
+    """Bind the executed tracked source bytes to an existing commit, not just HEAD."""
+    return (git(repo, "cat-file", "-e", f"{source}:{program}", check=False).returncode == 0
+            and git(repo, "diff", "--quiet", source, "--", *paths,
+                    check=False).returncode == 0)
 
 
 def commit_exists(repo: Path, oid: str) -> bool:
@@ -148,9 +153,11 @@ def judge(relation: dict, measurement: dict | None) -> tuple[bool, str]:
         return False, f"MEASUREMENT_ERROR:{measurement['error']}"
     if measurement.get("verdict") != "ACCEPT":
         return False, f"ORACLE_NOT_PRESERVED:{measurement.get('verdict')}"
-    if measurement.get("base_passing"):
+    if measurement.get("base_passing") is True:
         # The oracle already passes on the untouched base, so "unchanged" proves nothing.
         return False, "ORACLE_ACCEPTS_THE_BASE"
+    if measurement.get("base_passing") is not False:
+        return False, "BASE_OBSERVATION_UNKNOWN"
     return True, "LINK"
 
 
@@ -194,8 +201,8 @@ def make_accept_fn(materials: str):
             (run / ".h2-telemetry.log").write_text("READ FULL repo/RULES.md\n", encoding="utf-8")
             verdict = acceptance.accept(ROOT, run)
             base = verdict.get("oracle", {}).get("base", {})
-            base_passing = bool(base) and any(
-                style.get("rc") == 0 and not style.get("not_passing") for style in base.values())
+            base_passing = (any(style.get("rc") == 0 and not style.get("not_passing")
+                                for style in base.values()) if base else None)
             return {"verdict": verdict["verdict"], "base_passing": base_passing,
                     "reasons": verdict["reasons"][:6]}
         finally:
@@ -213,7 +220,8 @@ def measure_pair(repo: Path, first: dict, second: dict, accept_fn) -> dict:
     except Exception as exc:                                  # noqa: BLE001 - fail closed
         return {"from": first["id"], "to": second["id"], "chainable": False,
                 "reason": f"MEASUREMENT_ERROR:{type(exc).__name__}", "error": str(exc)[:200]}
-    result = dict(relation, chainable=False, reason=None, endpoint=None, intermediates=None)
+    result = dict(relation, chainable=False, reason=None, endpoint=None, intermediates=None,
+                  checks=[])
     if relation["oracle_overlap"]:
         result["reason"] = "ORACLE_DEPENDENCE"
         return result
@@ -227,6 +235,27 @@ def measure_pair(repo: Path, first: dict, second: dict, accept_fn) -> dict:
         measurement = {"error": f"{type(exc).__name__}", "detail": str(exc)[:200]}
     result["endpoint"] = {key: value for key, value in measurement.items() if key != "detail"}
     chainable, reason = judge(relation, measurement)
+    if chainable:
+        checks = [(first, first["candidate"], "first_candidate"),
+                  (second, second["candidate"], "second_candidate"),
+                  (first, second["candidate"], "final_first")]
+        checks += [(first, sha, "intermediate") for sha in
+                   commits_between(repo, first["candidate"], second["base"])
+                   if sha != second["base"]]
+        for task, sha, label in checks:
+            try:
+                observed = accept_fn(task, sha)
+            except Exception as exc:  # noqa: BLE001 - fail closed
+                observed = {"error": type(exc).__name__}
+            result["checks"].append({"step": label, "commit": sha, "result": observed})
+            chainable, reason = judge(relation, observed)
+            if not chainable:
+                reason = reason if reason.startswith("MEASUREMENT_ERROR") else f"{label.upper()}:{reason}"
+                break
+        result["intermediates"]["measured"] = all(
+            any(c["step"] == "intermediate" and c["commit"] == sha for c in result["checks"])
+            for sha in commits_between(repo, first["candidate"], second["base"])
+            if sha != second["base"])
     result["chainable"], result["reason"] = chainable, reason
     return result
 
@@ -338,7 +367,19 @@ def main() -> int:
                                                                  task["candidate"]),
                           "candidate_ancestor_base": is_ancestor(repo, task["candidate"],
                                                                  task["base"])})
-    accept_fn = make_accept_fn(source)
+    tracked = [PROGRAM_REL, "experiments/v1.2/h2-lazy-disclosure/freeze-v3",
+               "experiments/v1.2/h2-lazy-disclosure/freeze-v2"]
+    if not source_matches(ROOT, source, PROGRAM_REL, tracked):
+        print(json.dumps({"error": "MEASUREMENT_SOURCE_DIRTY"}))
+        return 4
+    uncached_accept = make_accept_fn(source)
+    cache = {}
+
+    def accept_fn(task, sha):
+        key = (task["id"], sha)
+        if key not in cache:
+            cache[key] = uncached_accept(task, sha)
+        return cache[key]
     pairs = [measure_pair(repo, first, second, accept_fn)
              for first in tasks for second in tasks if first["id"] != second["id"]]
     report = {
