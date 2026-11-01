@@ -13,7 +13,8 @@ Three arms, one frame:
     delivered carrier, the anchor text, and the sha256 of the bytes the range covers.
   * MIN — the same frame with the canonical block REMOVED: `a_layer_min.md` (flagged ASSUMED, not a
     canonical A-layer source) plus the identical gate commands and task contract. It is checked,
-    not assumed, to carry none of the eleven process instructions.
+    not assumed, to carry none of the eleven process instructions: the boundary anchors/sentinels
+    AND a ten-word verbatim window of every rule byte-range.
   * INJECT — the MIN carrier, byte identical. The defect is injected after the worker finishes
     (`pilot_accept.inject_n7`), so the carrier side of INJECT is MIN by construction.
 
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -68,6 +70,13 @@ PROCESS_RULE_IDS = tuple(rule[0] for rule in RULE_TABLE)
 # A MIN carrier that names a governance file re-admits process by reference even without the eleven
 # instructions, so the delivery check refuses those tokens outright.
 MIN_FORBIDDEN_REFERENCES = ("AGENTS.md", "RULES.md", "references/")
+
+# The anchor/sentinel check only sees the exact boundary text of a rule, so a MIN carrier could carry
+# a verbatim slice from the MIDDLE of a rule range and still look clean. The overlap check closes
+# that: whitespace and case are normalised, both sides are cut into windows of WINDOW_WORDS words,
+# and one shared window means the process text is present. Ten words is about 60-70 characters of
+# English prose — far above the accidental overlap of two unrelated sentences, far below a copy.
+WINDOW_WORDS = 10
 
 HEADER = b"# Project carrier\n\nThis file is the project's standing guidance for this task.\n\n"
 FULL_BLOCK_TITLE = b"## Canonical governance (verbatim, AGENTS.md sections 2-4)\n\n"
@@ -175,6 +184,50 @@ def leaked_rules(text: bytes) -> list[str]:
     return sorted(found)
 
 
+def _normalised_words(data: bytes) -> list[str]:
+    """Words of `data` with case folded and every whitespace run collapsed to one separator."""
+    return re.split(r"\s+", data.decode("utf-8", "replace").lower().strip())
+
+
+def _word_windows(words: list[str], size: int = WINDOW_WORDS) -> set[str]:
+    return {" ".join(words[index:index + size]) for index in range(len(words) - size + 1)}
+
+
+def rule_windows(section: bytes, rules: list[dict]) -> dict[str, set[str]]:
+    """Every WINDOW_WORDS-word window of each rule range's extracted text, normalised."""
+    return {rule["id"]: _word_windows(
+        _normalised_words(section[rule["source_start"]:rule["source_end"]]))
+        for rule in rules}
+
+
+def leaked_windows(text: bytes, section: bytes, rules: list[dict]) -> list[str]:
+    """The rule IDs whose canonical text shares a WINDOW_WORDS-word window with `text`."""
+    windows = _word_windows(_normalised_words(text))
+    return sorted(rule_id for rule_id, rule_windows_ in rule_windows(section, rules).items()
+                  if windows & rule_windows_)
+
+
+def rule_text(root: Path, materials: str) -> tuple[bytes, list[dict]]:
+    """The extracted §2-§4 block and its eleven rule ranges at `materials` (fail closed)."""
+    section = extract_section(git_show(Path(root), materials, SECTION_SOURCE))
+    return section["bytes"], extract_rules(section["bytes"])
+
+
+def carrier_leaks(carrier: dict, text: bytes, root: Path) -> list[str]:
+    """Every process-rule leak of one carrier: legacy anchors plus the verbatim window overlap.
+
+    Both checks are kept. Anchors and sentinels catch a rule pasted with its own heading or blocking
+    token; the window overlap catches a slice lifted from the middle of a rule range, which carries
+    neither. The gate commands and the task contract are shared by every arm on purpose and are not
+    inside the eleven ranges, so they never trip this.
+    """
+    materials = carrier.get("materials")
+    if not materials:
+        raise CarrierError("CARRIER_MATERIALS_UNKNOWN")
+    section, rules = rule_text(Path(root), str(materials))
+    return sorted(set(leaked_rules(text)) | set(leaked_windows(text, section, rules)))
+
+
 def leaked_references(text: bytes) -> list[str]:
     return sorted(token for token in MIN_FORBIDDEN_REFERENCES if token.encode("utf-8") in text)
 
@@ -221,10 +274,12 @@ def build(arm: str, root: Path | None = None, materials: str | None = None) -> d
         excluded = list(PROCESS_RULE_IDS)
 
     leaks = leaked_rules(carrier)
+    window_leaks = [] if arm == ARM_FULL else leaked_windows(carrier, section["bytes"], rules)
     references = leaked_references(carrier)
     if arm != ARM_FULL:
-        if leaks:
-            raise CarrierError("MIN_CARRIER_LEAKS_PROCESS_RULES:" + ",".join(leaks))
+        if leaks or window_leaks:
+            raise CarrierError("MIN_CARRIER_LEAKS_PROCESS_RULES:"
+                               + ",".join(sorted(set(leaks) | set(window_leaks))))
         if references:
             raise CarrierError("MIN_CARRIER_LEAKS_GOVERNANCE_REFERENCE:" + ",".join(references))
 
@@ -244,6 +299,7 @@ def build(arm: str, root: Path | None = None, materials: str | None = None) -> d
         "excluded_rules": excluded,
         "process_rule_ids": list(PROCESS_RULE_IDS),
         "process_rule_leaks": leaks,
+        "process_rule_window_leaks": window_leaks,
         "governance_reference_leaks": references,
         "files": {CARRIER_NAME: sha256(carrier)},
     }
@@ -282,17 +338,24 @@ def deliver(carrier: dict, dest: Path, root: Path | None = None) -> dict:
     marker = inherited_marker(dest)
     if marker is not None:
         raise CarrierError(f"INHERITED_GUIDANCE:{marker}")
+    if carrier["arm"] != ARM_FULL:
+        leaks = carrier_leaks(carrier, carrier["files"][CARRIER_NAME], root)
+        if leaks:
+            raise CarrierError("MIN_CARRIER_LEAKS_PROCESS_RULES:" + ",".join(leaks))
+        references = leaked_references(carrier["files"][CARRIER_NAME])
+        if references:
+            raise CarrierError("MIN_CARRIER_LEAKS_GOVERNANCE_REFERENCE:" + ",".join(references))
     if dest.exists() and any(dest.iterdir()):
         raise CarrierError("DELIVERY_DIR_NOT_EMPTY")
     dest.mkdir(parents=True, exist_ok=True)
     for name, data in carrier["files"].items():
         (dest / name).write_bytes(data)
-    readback = verify_readback(carrier, dest)
+    readback = verify_readback(carrier, dest, root)
     return {"path": str(dest), "files": readback["files"], "verdict": readback["verdict"],
             "inherited_marker": None}
 
 
-def verify_readback(carrier: dict, dest: Path) -> dict:
+def verify_readback(carrier: dict, dest: Path, root: Path | None = None) -> dict:
     """Re-derive everything from the delivered bytes; reject missing, extra or substituted files."""
     dest = Path(dest)
     if not dest.is_dir():
@@ -323,14 +386,17 @@ def verify_readback(carrier: dict, dest: Path) -> dict:
     if delivered_manifest.get("files", {}).get(CARRIER_NAME) != carrier["hashes"][CARRIER_NAME]:
         raise CarrierError("CARRIER_MANIFEST_DESYNC")
     carrier_bytes = present[CARRIER_NAME].read_bytes()
+    window_leaks: list[str] = []
     if carrier["arm"] != ARM_FULL:
-        leaks = leaked_rules(carrier_bytes)
+        leaks = carrier_leaks(carrier, carrier_bytes, Path(root or ROOT).resolve())
         if leaks:
             raise CarrierError("DELIVERED_CARRIER_LEAKS_PROCESS_RULES:" + ",".join(leaks))
         references = leaked_references(carrier_bytes)
         if references:
             raise CarrierError("DELIVERED_CARRIER_LEAKS_GOVERNANCE_REFERENCE:"
                                + ",".join(references))
+        section, rules = rule_text(Path(root or ROOT).resolve(), str(carrier["materials"]))
+        window_leaks = leaked_windows(carrier_bytes, section, rules)
     for rule in delivered_manifest.get("rules", []):
         start, end = rule["carrier_start"], rule["carrier_end"]
         if sha256(carrier_bytes[start:end]) != rule["bytes_sha256"]:
@@ -338,4 +404,5 @@ def verify_readback(carrier: dict, dest: Path) -> dict:
     return {"files": digests, "verdict": "PASS",
             "carrier_sha256": digests[CARRIER_NAME], "manifest_sha256": digests[MANIFEST_NAME],
             "process_rule_leaks": leaked_rules(carrier_bytes),
+            "process_rule_window_leaks": window_leaks,
             "assumed": delivered_manifest.get("assumed") is True}

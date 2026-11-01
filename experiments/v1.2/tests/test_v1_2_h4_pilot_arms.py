@@ -5,11 +5,13 @@ Standard library only, no model, no network. The canonical AGENTS section is rea
 against the builder's own output.
 """
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 PILOT = ROOT / "experiments/v1.2/h4-micro-low-ablation/pilot"
@@ -35,6 +37,29 @@ def canonical_section() -> bytes:
     start = source.index("## 2. EXECUTION STAGE".encode("utf-8"))
     end = source.index("## 5. CODEGRAPH GROUNDING".encode("utf-8"))
     return source[start:end]
+
+
+def process_slice() -> tuple[str, bytes]:
+    """A 200-byte slice from the middle of a rule range that no anchor or sentinel covers.
+
+    This is the acceptance report's D2 payload (`attacks/c_carriers.py` §4): verbatim process text
+    with no rule ID, no heading and no blocking token, so the legacy anchor check cannot see it.
+    """
+    section = canonical_section()
+    blockers: list[bytes] = []
+    for _rule_id, start_anchor, end_anchor, sentinel in arms.RULE_TABLE:
+        blockers.append(start_anchor.encode("utf-8"))
+        blockers.append(sentinel.encode("utf-8"))
+        if end_anchor:
+            blockers.append(end_anchor.encode("utf-8"))
+    for rule_id, start_anchor, end_anchor, sentinel in arms.RULE_TABLE:
+        start = section.find(start_anchor.encode("utf-8"))
+        end = section.find(end_anchor.encode("utf-8")) if end_anchor else len(section)
+        for offset in range(start + 20, max(start + 20, end - 200), 10):
+            window = section[offset:offset + 200]
+            if len(window) == 200 and not any(token in window for token in blockers):
+                return rule_id, window
+    raise AssertionError("no unanchored 200-byte rule slice in the canonical section")
 
 
 class CarrierTests(unittest.TestCase):
@@ -172,6 +197,84 @@ class CarrierTests(unittest.TestCase):
         self.assertIn("MATERIALS_UNAVAILABLE", str(caught.exception))
         with self.assertRaises(arms.CarrierError):
             arms.build("PARTIAL", ROOT, "HEAD")
+
+    # -- D2: the verbatim window overlap, not only anchors and sentinels -------------------
+
+    def test_a_min_carrier_that_copies_a_rule_verbatim_without_anchors_is_refused_at_build(self):
+        """D4(a): removing the `raise` in `arms.build` makes this test red, not green."""
+        rule_id, window = process_slice()
+        self.assertEqual([], arms.leaked_rules(window),
+                         "the legacy anchor/sentinel check must not see this slice")
+        with self.assertRaises(arms.CarrierError) as caught:
+            self.build_min_from_leaky_a_layer(window)
+        self.assertIn("MIN_CARRIER_LEAKS_PROCESS_RULES", str(caught.exception))
+        self.assertIn(rule_id, str(caught.exception))
+
+    def test_a_verbatim_rule_slice_is_refused_at_deliver_and_at_verify_readback(self):
+        _rule_id, window = process_slice()
+        carrier = self.smuggled_min_carrier(window)
+        dest = self.root / "smuggled"
+        with self.assertRaises(arms.CarrierError) as caught:
+            arms.deliver(carrier, dest, ROOT)
+        self.assertIn("MIN_CARRIER_LEAKS_PROCESS_RULES", str(caught.exception))
+        self.assertFalse(dest.exists(), "a leaking carrier is never written to disk")
+        dest.mkdir()
+        for name, data in carrier["files"].items():
+            (dest / name).write_bytes(data)
+        with self.assertRaises(arms.CarrierError) as caught:
+            arms.verify_readback(carrier, dest, ROOT)
+        self.assertIn("DELIVERED_CARRIER_LEAKS_PROCESS_RULES", str(caught.exception))
+
+    def test_the_clean_min_carrier_and_the_shared_frame_still_pass_the_window_check(self):
+        section = canonical_section()
+        rules = arms.extract_rules(section)
+        self.assertEqual([], arms.leaked_windows(self.min_bytes, section, rules))
+        # the gate commands and task contract are shared by every arm and are not rule text
+        self.assertEqual([], arms.leaked_windows(arms.GATE_TEXT + arms.CONTRACT_TEXT, section, rules))
+        record = arms.deliver(self.min, self.root / "delivery", ROOT)
+        self.assertEqual("PASS", record["verdict"])
+        readback = arms.verify_readback(self.min, self.root / "delivery", ROOT)
+        self.assertEqual([], readback["process_rule_leaks"])
+        self.assertEqual([], readback["process_rule_window_leaks"])
+
+    def test_the_full_carrier_is_not_leak_checked_for_the_process_text_it_must_carry(self):
+        section = canonical_section()
+        rules = arms.extract_rules(section)
+        detected = arms.leaked_windows(self.full_bytes, section, rules)
+        self.assertTrue(detected, "at least one rule range is long enough for a 10-word window")
+        self.assertTrue(set(detected) <= set(arms.PROCESS_RULE_IDS))
+        self.assertEqual([], self.full["manifest"]["process_rule_window_leaks"])
+        self.assertEqual("PASS", arms.deliver(self.full, self.root / "full-delivery", ROOT)["verdict"])
+
+    # -- helpers for the two tests above --------------------------------------------------
+
+    def build_min_from_leaky_a_layer(self, payload: bytes):
+        """Build MIN against a materials root whose hand-written base text carries `payload`."""
+        leaky_root = self.root / "leaky-root"
+        target = leaky_root / arms.A_LAYER_REL
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / arms.A_LAYER_REL).read_bytes() + b"\n" + payload + b"\n")
+        source = subprocess.run(["git", "-C", str(ROOT), "show", "HEAD:AGENTS.md"], check=True,
+                                capture_output=True).stdout
+        with mock.patch.object(arms, "resolve_materials",
+                               lambda _root, _materials: "0" * 40), \
+                mock.patch.object(arms, "git_show",
+                                  lambda _root, _materials, _rel: source):
+            return arms.build(arms.ARM_MIN, leaky_root, "HEAD")
+
+    def smuggled_min_carrier(self, window: bytes) -> dict:
+        """The clean MIN carrier with one verbatim rule slice appended, hashes made consistent."""
+        carrier_text = self.min_bytes + b"\n<!-- " + window + b" -->\n"
+        manifest = dict(self.min["manifest"])
+        manifest["files"] = {arms.CARRIER_NAME: arms.sha256(carrier_text)}
+        files = {arms.CARRIER_NAME: carrier_text,
+                 arms.MANIFEST_NAME: (json.dumps(manifest, indent=2, sort_keys=True,
+                                                ensure_ascii=False) + "\n").encode("utf-8")}
+        return {"arm": arms.ARM_MIN, "label": arms.LABEL, "assumed": True,
+                "materials": self.min["materials"], "rules": [],
+                "excluded_rules": list(arms.PROCESS_RULE_IDS),
+                "files": files,
+                "hashes": {name: arms.sha256(data) for name, data in files.items()}}
 
 
 if __name__ == "__main__":

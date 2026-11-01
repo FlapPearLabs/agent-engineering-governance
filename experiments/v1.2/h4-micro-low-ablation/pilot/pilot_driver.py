@@ -10,11 +10,14 @@ Two launch paths, deliberately separated:
     no network, no sandbox; this is the path every test uses, and it is labelled
     `NOT_A_MEASUREMENT` in every record it produces.
   * the real launch — `real_launch()` imports the frozen `freeze-v3/sandbox_v2.py` and
-    `freeze-v3/wrapper_delivery.py` (never copies or edits them), renders a per-launch profile,
-    runs the model-free confinement self-test, and only then starts the worker inside the sandbox
-    with a fresh isolated home. **No test executes it.** It also requires authorization:
-    `H4_PILOT_RUN_AUTH` must point at a JSON file carrying a numeric `budget_cap` and `max_runs`,
-    and without it the driver exits non-zero before any process starts.
+    `freeze-v3/wrapper_delivery.py` (never copies or edits them), puts the driver root at the frozen
+    `wrapper_delivery.driver_root(run_dir)` (a sibling of the launch, so the plant, the profile and
+    the fresh home are outside the tree the worker owns), renders a per-launch profile, runs the
+    model-free confinement self-test, and only then starts the worker inside the sandbox with a
+    fresh isolated home. **No test executes it.** It also requires authorization:
+    `H4_PILOT_RUN_AUTH` must point at an absolute, non-symlink, non-temporary JSON file carrying a
+    numeric `budget_cap` (at most `MAX_BUDGET_CAP`) and `max_runs`, and without it the driver exits
+    non-zero before any process starts.
 
 Every run writes one record to the caller-given durable results directory (never a temporary
 directory for a real run): task, arm, model, base SHA, seal SHA, carrier hashes, worker exit status,
@@ -29,6 +32,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -55,6 +59,12 @@ RECORD_NAME = "record.json"
 CANDIDATE_MANIFEST = "candidate-manifest.json"
 TEMP_ROOT_PREFIXES = ("/tmp", "/private/tmp", "/var/folders", "/private/var/folders")
 REQUIRED_AUTHORIZATION_KEYS = ("budget_cap", "max_runs")
+ALLOWED_AUTHORIZATION_KEYS = REQUIRED_AUTHORIZATION_KEYS
+# The authorization file may cap the run cost, but no run cost was ever observed, so `budget_cap` is
+# only ever *recorded* (MAX_RUNS_ONLY;RUN_COST_UNOBSERVED). An unbounded or absurd cap would make
+# that record look like a real spend limit, so a cap above this ceiling is refused at read time.
+MAX_BUDGET_CAP = 100.0
+SANDBOX_PROBE_ARGV = ("-p", "(version 1)(allow default)", "/usr/bin/true")
 
 GIT_IDENTITY = {"GIT_AUTHOR_NAME": "H4 Pilot", "GIT_AUTHOR_EMAIL": "h4@pilot.invalid",
                 "GIT_COMMITTER_NAME": "H4 Pilot", "GIT_COMMITTER_EMAIL": "h4@pilot.invalid",
@@ -82,21 +92,59 @@ def _is_number(value) -> bool:
     return value == value and value not in (float("inf"), float("-inf"))     # NaN / inf refused
 
 
+def _is_file_symlink(path: Path) -> bool:
+    """True when the given path is itself a symlink (whatever it points at).
+
+    Ancestor directories are not checked: on macOS `/var` and `/tmp` are symlinks themselves, so a
+    component walk would refuse ordinary absolute paths for no reason. The file-level symlink is
+    what the gate is about — it can be re-pointed between the check and the read.
+    """
+    return Path(path).is_symlink()
+
+
+def _under_temp_root(path: Path) -> bool:
+    """Whether `path` resolves inside a temporary root (where anyone could have written it)."""
+    resolved = Path(path).resolve()
+    prefixes = {prefix.rstrip(os.sep) or os.sep for prefix in TEMP_ROOT_PREFIXES}
+    prefixes.add(os.path.realpath(tempfile.gettempdir()).rstrip(os.sep) or os.sep)
+    text = str(resolved)
+    return any(text == prefix or text.startswith(prefix + os.sep) for prefix in prefixes)
+
+
+def is_temporary_path(path) -> bool:
+    """Public form of the durability predicate, so callers and tests use one definition."""
+    return _under_temp_root(Path(path))
+
+
 def read_authorization(environ=None) -> dict:
-    """`H4_PILOT_RUN_AUTH` -> a file with numeric `budget_cap` and `max_runs`. Fail closed."""
+    """`H4_PILOT_RUN_AUTH` -> a file with numeric `budget_cap` and `max_runs`. Fail closed.
+
+    The file must be an absolute path to a regular, non-symlink file outside every temporary root:
+    a relative path is resolved against the caller's cwd, a symlink can be re-pointed between the
+    check and the read, and a world-writable temporary directory is not an authorization store.
+    """
     environ = os.environ if environ is None else environ
     value = environ.get(AUTH_ENV)
     if not value:
         raise AuthorizationError(f"{AUTH_ENV}_NOT_SET")
     path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise AuthorizationError("AUTHORIZATION_FILE_NOT_ABSOLUTE")
+    if _is_file_symlink(path):
+        raise AuthorizationError("AUTHORIZATION_FILE_SYMLINK")
     if not path.is_file():
         raise AuthorizationError("AUTHORIZATION_FILE_MISSING")
+    if _under_temp_root(path):
+        raise AuthorizationError("AUTHORIZATION_FILE_UNDER_TEMP")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise AuthorizationError("AUTHORIZATION_FILE_UNREADABLE") from exc
     if not isinstance(data, dict):
         raise AuthorizationError("AUTHORIZATION_FILE_NOT_AN_OBJECT")
+    unknown = sorted(set(data) - set(ALLOWED_AUTHORIZATION_KEYS))
+    if unknown:
+        raise AuthorizationError("AUTHORIZATION_UNKNOWN_KEYS:" + ",".join(unknown))
     for key in REQUIRED_AUTHORIZATION_KEYS:
         if key not in data:
             raise AuthorizationError(f"AUTHORIZATION_{key.upper()}_MISSING")
@@ -104,6 +152,9 @@ def read_authorization(environ=None) -> dict:
             raise AuthorizationError(f"AUTHORIZATION_{key.upper()}_NOT_POSITIVE_NUMERIC")
     if float(data["max_runs"]) != int(data["max_runs"]):
         raise AuthorizationError("AUTHORIZATION_MAX_RUNS_NOT_INTEGER")
+    if data["budget_cap"] > MAX_BUDGET_CAP:
+        raise AuthorizationError(
+            f"AUTHORIZATION_BUDGET_CAP_ABOVE_MAX:{MAX_BUDGET_CAP}")
     return {"path": str(path), "budget_cap": data["budget_cap"], "max_runs": int(data["max_runs"])}
 
 
@@ -211,6 +262,48 @@ def frozen_modules():
     return sandbox_v2, wrapper_delivery
 
 
+def driver_layout(run_dir) -> dict:
+    """The frozen layout for a launch: `<runs_root>/.driver/<run_id>`, OUTSIDE the launch.
+
+    The worker owns the launch directory (it is its project plus its written tree), so the driver
+    root that holds the confinement plant, the rendered profile, the fresh home and the driver-held
+    streams must be a sibling, not a child. `wrapper_delivery.driver_root` is the frozen definition
+    of that location; this function only applies it and reports whether the result is outside.
+    """
+    _sandbox, delivery = frozen_modules()
+    run_dir = Path(run_dir)
+    driver_dir = Path(delivery.driver_root(run_dir))
+    inside = driver_dir == run_dir or run_dir in driver_dir.parents
+    return {"run_dir": str(run_dir), "driver_dir": str(driver_dir),
+            "runs_root": str(Path(delivery.runs_root_of(run_dir))),
+            "inside_launch": inside,
+            "directly_under_runs_root": run_dir.parent
+            == Path(delivery.runs_root_of(run_dir))}
+
+
+def sandbox_probe(binary_path=None) -> tuple[bool, str]:
+    """Does `sandbox-exec` really apply a profile here? A `which` hit is not a proof (D5).
+
+    `sandbox-exec -p '(version 1)(allow default)' /usr/bin/true` must exit 0. Under an outer sandbox
+    (the usual case for a CI wrapper) it exits non-zero with `sandbox_apply: Operation not
+    permitted`; that message becomes the skip reason instead of a red isolation test.
+    """
+    executable = binary_path or shutil.which("sandbox-exec")
+    if sys.platform != "darwin" or not executable:
+        return False, "sandbox-exec is not installed on this platform"
+    try:
+        completed = subprocess.run([str(executable), *SANDBOX_PROBE_ARGV],
+                                   capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"sandbox-exec could not be run ({type(exc).__name__})"
+    if completed.returncode != 0:
+        message = (completed.stderr or completed.stdout or "no output").strip()
+        last = message.splitlines()[-1] if message else "no output"
+        return False, (f"sandbox-exec cannot apply a profile here "
+                       f"(rc={completed.returncode}): {last}")
+    return True, "sandbox-exec applied a throwaway profile (rc=0)"
+
+
 def render_profile(stream_dir, run_dir, home) -> dict:
     """The rendered per-launch confinement profile (no worker, no model, import only)."""
     sandbox, _delivery = frozen_modules()
@@ -221,10 +314,11 @@ def real_launch(run_dir: Path, model: str, timeout: int = WALL_CLOCK_SECONDS) ->
     """REAL LAUNCH — imports the frozen sandbox and delivery modules; no test executes this.
 
     Order is refuse-first: an unavailable sandbox, a run root below a home or a discoverable
-    guidance ancestor, or a confinement self-test that does not deny all of its probes returns
-    BLOCKED and starts no worker.
+    guidance ancestor, a driver root inside the launch, or a confinement self-test that does not
+    deny all of its probes returns BLOCKED and starts no worker.
     """
     sandbox, delivery = frozen_modules()
+    run_dir = Path(run_dir)
     if not sandbox.available():
         return {"kind": "real", "exit_status": UNKNOWN, "seconds": UNKNOWN,
                 "blocked": "BLOCKED:SANDBOX_UNAVAILABLE"}
@@ -235,7 +329,10 @@ def real_launch(run_dir: Path, model: str, timeout: int = WALL_CLOCK_SECONDS) ->
     if reason is not None:
         return {"kind": "real", "exit_status": UNKNOWN, "seconds": UNKNOWN,
                 "blocked": f"BLOCKED:{reason}"}
-    driver_dir = run_dir / ".driver"
+    driver_dir = Path(delivery.driver_root(run_dir))
+    if driver_dir == run_dir or run_dir in driver_dir.parents:
+        return {"kind": "real", "exit_status": UNKNOWN, "seconds": UNKNOWN,
+                "blocked": "BLOCKED:DRIVER_ROOT_INSIDE_LAUNCH"}
     home = sandbox.fresh_home(driver_dir, "home-1", run_dir)
     profile = sandbox.profile(driver_dir, run_dir, home, sys.executable)
     planted, token = sandbox.plant(driver_dir)
@@ -308,9 +405,7 @@ def run_one(pkg_dir, arm: str, results_dir: Path, *, fake_worker_mode: bool, mat
 
     phase = time.monotonic()
     candidate = capture_candidate(workspace["repo"], run_dir / "candidate")
-    acceptance_tree = run_dir / "acceptance"
-    pilot_accept.copy_tree(run_dir / "candidate", acceptance_tree)
-    acceptance = pilot_accept.accept(acceptance_tree, pkg)
+    acceptance = pilot_accept.accept(run_dir / "candidate", pkg, run_dir / "acceptance")
     timings["acceptance_seconds"] = round(time.monotonic() - phase, 3)
 
     inject = None

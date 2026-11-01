@@ -12,6 +12,12 @@ green with the defect verifiably retained the finding
 `MECHANICAL_ACCEPTANCE_HAS_NO_TEETH` is recorded next to that `INVALID` verdict — an adverse
 finding must never be reported as a green run.
 
+Acceptance never runs inside the worker's tree. `prepare_acceptance_tree` copies only the candidate's
+files outside `tests/`, restores `tests/` from the sealed package base and adds the hidden test; every
+run also executes a four-test canary that must fail, so a worker that patches `unittest` (from its
+`tests/__init__.py` or from `src/__init__.py`) makes the verdict `INVALID`/`ACCEPTANCE_NEUTERED`
+instead of green.
+
 `taskpack.py` is another implementer's file in a parallel worktree, so it is imported lazily through
 `taskpack_module()`; tests replace that function with a stand-in. The agreed interface is
 `verify_seal(pkg_dir) -> None`, raising `taskpack.SealError` on a mismatch, over a `SEAL.json` of
@@ -48,6 +54,47 @@ RUFF_CONFIG = "ruff.toml"
 DEFAULT_TIMEOUT = 600
 PROBE_TIMEOUT = 900
 STDOUT_TAIL = 4000
+
+# A fresh acceptance directory is what makes a worker unable to neuter its own hidden test. The
+# worker's `tests/` never enters it: the sealed base tests are restored instead, the hidden test is
+# added at its registered destination, and one canary test proves the interpreter still fails an
+# assertion inside that directory. Only files outside `tests/` are copied from the candidate.
+ACCEPTANCE_TESTS = "tests"
+CANARY_NAME = "test_h4_acceptance_canary.py"
+CANARY_MODULE = ACCEPTANCE_TESTS + "." + CANARY_NAME[:-3]
+CANARY_TESTS = 4
+# A candidate file with one of these names would be imported instead of the interpreter's own module
+# when `python -m unittest` starts in the acceptance directory, so acceptance refuses it rather than
+# letting the worker's tree decide what `unittest` is.
+INTERPRETER_SHADOWS = ("unittest.py", "unittest/__init__.py",
+                       "sitecustomize.py", "usercustomize.py")
+CANARY_SOURCE = '''"""Acceptance negative control: every test here MUST fail.
+
+`pilot_accept` runs this in the fresh acceptance directory with the same interpreter as the hidden
+test and requires all four tests to fail. A worker that patches `unittest` (for example from
+`src/__init__.py`, which the hidden test imports) would make one of these pass, and the run is then
+INVALID with ACCEPTANCE_NEUTERED instead of green.
+"""
+import unittest
+
+
+class AcceptanceCanary(unittest.TestCase):
+    def test_bare_assert(self):
+        import src  # noqa: F401  (the worker's package initialiser, exactly as the hidden test sees it)
+        assert False, "acceptance canary: a bare assert must fail"
+
+    def test_assert_equal(self):
+        import src  # noqa: F401
+        self.assertEqual(1, 2, "acceptance canary: assertEqual must fail")
+
+    def test_assert_true(self):
+        import src  # noqa: F401
+        self.assertTrue(False, "acceptance canary: assertTrue must fail")
+
+    def test_assert_is_none(self):
+        import src  # noqa: F401
+        self.assertIsNone(object(), "acceptance canary: assertIsNone must fail")
+'''
 
 REQUIRED_PACKAGE_FIELDS = ("task_id", "title", "label", "risk", "language", "statement",
                           "hidden_test", "hidden_test_dest", "reference_patch", "test_command",
@@ -248,8 +295,85 @@ def load_package(pkg_dir) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Acceptance: visible tests -> ruff -> hidden test
+# Acceptance: visible tests -> ruff -> hidden test, in a FRESH directory
 # ---------------------------------------------------------------------------
+
+RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.MULTILINE)
+SUMMARY_RE = re.compile(r"^(?:FAILED|OK)(?: \(([^)]*)\))?", re.MULTILINE)
+
+
+def unittest_outcome(output: str) -> dict:
+    """`Ran N` and the failure/error counts of one unittest run; zero when unparseable."""
+    ran = RAN_RE.search(output)
+    summary = SUMMARY_RE.search(output)
+    counts = {"failures": 0, "errors": 0}
+    if summary and summary.group(1):
+        for item in summary.group(1).split(","):
+            key, _, number = item.strip().partition("=")
+            if key in counts and number.isdigit():
+                counts[key] = int(number)
+    return {"ran": int(ran.group(1)) if ran else 0, **counts,
+            "ok": bool(summary and summary.group(0).startswith("OK"))}
+
+
+def prepare_acceptance_tree(pkg, candidate, dest) -> dict:
+    """A fresh acceptance directory: the worker's source, the SEALED base tests, no worker tests.
+
+    `tests/` is not copied from the candidate at all: it is restored from the sealed package base,
+    so a worker-authored `tests/__init__.py` cannot run before the hidden test. Everything outside
+    `tests/` is the worker's (that is the code under test) and is copied unchanged. A file that
+    would shadow the interpreter's own `unittest`/`sitecustomize` module is refused, not copied.
+    """
+    candidate, dest = Path(candidate), Path(dest)
+    if dest.exists():
+        raise PackageError("ACCEPTANCE_TREE_EXISTS:" + dest.name)
+    base_tests = Path(pkg["base"]) / ACCEPTANCE_TESTS
+    if not base_tests.is_dir():
+        raise PackageError("PACKAGE_BASE_TESTS_MISSING")
+    worker_files: dict[str, str] = {}
+    skipped_tests: list[str] = []
+    for path in sorted(candidate.rglob("*")):
+        rel = path.relative_to(candidate).as_posix()
+        if path.is_symlink():
+            raise PackageError("ACCEPTANCE_SYMLINK:" + rel)
+        if rel == ACCEPTANCE_TESTS or rel.startswith(ACCEPTANCE_TESTS + "/"):
+            if path.is_file():
+                skipped_tests.append(rel)
+            continue
+        if rel in INTERPRETER_SHADOWS or rel.endswith(".pth"):
+            raise PackageError("ACCEPTANCE_TREE_SHADOWS_PYTHON:" + rel)
+        target = dest / rel
+        if path.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        worker_files[rel] = sha256(path.read_bytes())
+    if not dest.exists():
+        dest.mkdir(parents=True, exist_ok=True)
+    restored = copy_tree(base_tests, dest / ACCEPTANCE_TESTS)
+    return {"path": str(dest), "worker_files": len(worker_files),
+            "worker_files_digest": sha256("\n".join(
+                f"{rel} {digest}" for rel, digest in sorted(worker_files.items())).encode()),
+            "restored_tests": len(restored["files"]),
+            "worker_test_files_skipped": skipped_tests}
+
+
+def canary_control(tree) -> dict:
+    """Run the negative control: every canary test MUST fail in the acceptance directory."""
+    tree = Path(tree)
+    path = tree / ACCEPTANCE_TESTS / CANARY_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(CANARY_SOURCE, encoding="utf-8")
+    raw = run([PYTHON, "-m", "unittest", CANARY_MODULE], tree)
+    outcome = unittest_outcome(raw.get("_stdout", ""))
+    failed = (raw["verdict"] == FAIL and outcome["ran"] == CANARY_TESTS
+              and outcome["failures"] + outcome["errors"] == CANARY_TESTS)
+    return {"name": "canary", **recorded(raw), "ran": outcome["ran"],
+            "failures": outcome["failures"], "errors": outcome["errors"],
+            "expected_tests": CANARY_TESTS, "failed": failed,
+            "reason": "CANARY_FAILS_AS_REQUIRED" if failed else "CANARY_DID_NOT_FAIL"}
+
 
 def _gate(name: str, argv, tree) -> dict:
     result = run(argv, tree)
@@ -261,7 +385,9 @@ def visible_tests(tree, pkg) -> dict:
 
 
 def ruff_gate(tree, pkg) -> dict:
-    return _gate("ruff", [PYTHON, "-m", "ruff", "check", "."], tree)
+    # `--no-cache`: the candidate is the captured artifact, and a gate that leaves `.ruff_cache`
+    # behind changes the thing it is judging (the acceptance report compares candidate digests).
+    return _gate("ruff", [PYTHON, "-m", "ruff", "check", "--no-cache", "."], tree)
 
 
 def hidden_test(tree, pkg) -> dict:
@@ -278,18 +404,36 @@ ACCEPTANCE_ORDER = (("visible_tests", visible_tests), ("ruff", ruff_gate),
                     ("hidden_test", hidden_test))
 
 
-def accept(tree, pkg) -> dict:
-    """Run the acceptance gates in their registered order; stop at the first non-PASS."""
-    gates = []
-    skipped = []
+def accept(candidate, pkg, acceptance_dir) -> dict:
+    """Run the acceptance gates in their registered order; stop at the first non-PASS.
+
+    Visible tests and the hidden test run in `acceptance_dir`, built by `prepare_acceptance_tree`
+    from the candidate's source plus the sealed base tests — never in the worker's own tree. The
+    canary runs before the hidden test: if it does not fail, the interpreter's assertions have been
+    neutered, the verdict is INVALID with `ACCEPTANCE_NEUTERED`, and the hidden test is not trusted
+    at all. `ruff` needs no execution of package code, so it checks the candidate tree as it is.
+    """
+    tree = prepare_acceptance_tree(pkg, candidate, acceptance_dir)
+    gates: list[dict] = []
+    skipped: list[str] = []
+    canary = None
+    reasons: list[str] = []
     for index, (name, function) in enumerate(ACCEPTANCE_ORDER):
-        result = function(tree, pkg)
+        if name == "hidden_test":
+            canary = canary_control(tree["path"])
+            if not canary["failed"]:
+                reasons.append("ACCEPTANCE_NEUTERED")
+                skipped = [later for later, _ in ACCEPTANCE_ORDER[index:]]
+                break
+        result = function(Path(candidate) if name == "ruff" else tree["path"], pkg)
         gates.append(result)
         if result["verdict"] != PASS:
             skipped = [later for later, _ in ACCEPTANCE_ORDER[index + 1:]]
             break
     verdicts = [gate["verdict"] for gate in gates]
-    if INVALID in verdicts:
+    if reasons:
+        verdict = INVALID
+    elif INVALID in verdicts:
         verdict = INVALID
     elif FAIL in verdicts:
         verdict = FAIL
@@ -298,7 +442,9 @@ def accept(tree, pkg) -> dict:
     else:
         verdict = INVALID
     return {"verdict": verdict, "order": [gate["name"] for gate in gates],
-            "gates": {gate["name"]: gate for gate in gates}, "skipped": skipped}
+            "gates": {gate["name"]: gate for gate in gates}, "skipped": skipped,
+            "canary": canary, "fresh_tree": tree, "reasons": reasons}
+
 
 
 # ---------------------------------------------------------------------------
