@@ -27,8 +27,9 @@ N0  V1.2 ROOT
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
 ├── N4  H4 — MICRO/LOW Governance Ablation                        [PROTOCOL_NOT_STARTABLE]
-├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
+├── N5  H5 — Verified State + Fresh Episode Recovery              [BUILD_ROUND_1_DONE]
 │       DESIGN = 设计准备已入仓（PR #61）；不开跑
+│       BUILD = 第一轮构建已入仓（PR #65，merge 64dcdf2）；未开跑，探索实验尚无授权
 │
 ├── N6  Mechanization Gap Analysis                                [CLOSED]
 │   ├── N6.1 Current Rule Inventory                               [CLOSED]
@@ -50,7 +51,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = （无 ACTIVE 节点）N4 PROTOCOL_NOT_STARTABLE；N5 保持 PLANNED（见 C 节）
+CURRENT_NODE     = （无 ACTIVE 节点）N4 PROTOCOL_NOT_STARTABLE；N5 = BUILD_ROUND_1_DONE（未开跑，见 C 节）
 ```
 
 ### A.1 节点详情
@@ -162,14 +163,25 @@ NEXT_NODE = N9
 
 #### N5 — H5 Verified State + Fresh Episode Recovery
 ```text
-STATUS = PLANNED
+STATUS = BUILD_ROUND_1_DONE（第一轮构建已入仓；**未开跑**，非协议冻结，非运行授权）
 ENTRY_CRITERIA = N6.5 §0 全部满足 + 一个可重放的 append-only ledger 形状被定义
 EXIT_CRITERIA = M1–M3（wrong-state / stale-SHA / false closure）机械可测且变体臂更低，
                 或明确判 NO_ADVANTAGE / HAS_COST
 EVIDENCE = experiment-protocols.md §3；机制来源见 longhorizon-mechanism-map.md
   （M-02 Verified State / M-06 Fresh Episode / M-12 Completion Semantics，均 E1）
+  + 构建轮（PR #65，merge `64dcdf21b09793df3feee0da9a0e49a78ae5879e`）：
+    · ledger 参考实现 experiments/v1.2/h5-verified-state/ledger/（哈希链 + fold +
+      closure 带 `CLOSURE_SOURCE = STAND_IN` + seed；55 tests）
+    · 任务可链接性测量 tasks/CHAINABILITY.md + measure_chain.py（18 tests）
+  + Q1 只读测量 verdict A：10 个冻结 H2 任务的 90 个有序对中 37 links，45 对到达
+    frozen gate，最长链 f01..f07（长度 7）；sha256
+    `c16c94222f266c6b9576a3897b32d7b9f6ec73d900dd25ffb487fc05c0d63c60`（source 6dcfcea）
+  + 独立评审 rev-h5b（9634a0b）findings 已修并复验：ledger R01 R02 R03 R05 R07 R08 R10
+    （`7f0dca1`）；chain R04 R06 R09（`6dcfcea`）
 DEPENDENCIES = N6（协议）
-BLOCKERS = （无硬阻塞；但 §0 P3/P4 必须先做）
+BLOCKERS = ① H5 **正式实验**：§0 P1–P7 仍未为 H5 闭合（PRECONDITIONS.md 全部 OPEN）；
+           ② **探索实验**（owner 决策 Q5）需要单独的 execution authorization —— **本轮未给**；
+           ③ 无 model run、无 runs root、协议未冻结 ⇒ M1–M3 未测
 DESIGN = experiments/v1.2/h5-verified-state/design/（PR #61，merge
          `1422892d49dbeb3f3e664ec501f5da38956cd3aa`，head 1b8d7d6；post-merge CI success（run 40830895531））
          · PRECONDITIONS.md —— §0 P1–P7 逐项映射到 H5 与闭合证据；**全部仍 OPEN**
@@ -179,6 +191,14 @@ DESIGN = experiments/v1.2/h5-verified-state/design/（PR #61，merge
              （无参考实现，未经运行验证）
          · HARNESS_PLAN.md（T60–T67，未构建）· OPEN_QUESTIONS.md（7 项 owner 决策，未答）
          独立评审（gpt-6.1-sol）PASS，1×P3 已修。P7 所需的门承重机制由 N7 提供。
+BUILD = 第一轮构建已入仓（PR #65，merge `64dcdf21b09793df3feee0da9a0e49a78ae5879e`）
+        ⇒ 设计层的“形状”已有参考实现与测试；harness（T60–T67）仍未构建，
+          `CLOSURE_SOURCE = STAND_IN` 只代表 stand-in 闭包，不声称真实 merge 或真实
+          post-merge CI；Q1 的链测量是只读测量，不是 episode / model / ledger 实验。
+KNOWN_LIMITS = 已知、**未修**（review rev-h5b 记录，9634a0b）：
+        claim_evidence_not_content_bound / old_anchor_replacement（需 anchor 写入）/
+        verifier_alias（无 identity registry）/ unresolved_blocking_failure /
+        bad_goal_hash_and_seed_hash / claim_after_episode_end
 NEXT_NODE = N9
 NOTE = 本机有**可稳定触发**的执行通道故障（exit 137/139，已发生 3 轮）⇒ M4
        （runtime failure recovery）不需要模拟，真实故障会自己来
@@ -515,12 +535,15 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = （无 ACTIVE 节点）；N4 PROTOCOL_NOT_STARTABLE，N5 保持 PLANNED
+CURRENT_NODE = （无 ACTIVE 节点）；N4 PROTOCOL_NOT_STARTABLE，N5 = BUILD_ROUND_1_DONE（未开跑）
 LAST_CLOSED = N7 — #45 Load-Bearing Gate Disposition = CLOSED / EXPERIMENTAL_MECHANISM_READY
   （PR #60 merge bbcb455）
-  · 同期入仓：H5 设计准备（PR #61，merge 1422892）—— N5 仍 PLANNED，不开跑
+  · 同期入仓：H5 设计准备（PR #61，merge 1422892）—— 当时 N5 仍 PLANNED，不开跑
+  · H5 第一轮构建已入仓（PR #65，merge 64dcdf2）—— N5 转 BUILD_ROUND_1_DONE；仍未开跑
   · 此前：N2 = CLOSED / INSUFFICIENT_EVIDENCE（PR #56；harness v3 PR #58）
-NEXT_NODE = N5 待 owner 选定；N4 等待更多真实合格任务，仍需闭合 §0 与三臂设计
+NEXT_NODE = N5（BUILD_ROUND_1_DONE）待 owner 决定是否做探索实验；H5 正式实验需先闭合
+  §0 P1–P7，探索实验（Q5）需单独的 execution authorization。N4 等待更多真实合格任务，
+  仍需闭合 §0 与三臂设计
   · N9 的入口仍未实质满足：H1、H2 均为 INSUFFICIENT_EVIDENCE
   · 旁路并行：N3 — H3 保持 COLLECTING，不阻塞任何节点
 GIT_LOCATION =
@@ -632,4 +655,21 @@ ADDED_NODES = 无
 REMOVED_NODES = 无
 REASON = PR #63（merge 250c867）后，owner 保留严格规则；合格任务 3 < 4，
          继续收集真实 LOW 历史。协议未冻结，未授权实验运行。
+```
+
+```text
+[TREE_CHANGE 2026-11-01 · H5 第一轮构建] N5 从 PLANNED 转 BUILD_ROUND_1_DONE；
+CURRENT_NODE 仍无 ACTIVE 节点，N4 保持 PROTOCOL_NOT_STARTABLE。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #65 已合并（merge `64dcdf21b09793df3feee0da9a0e49a78ae5879e`，branch head a7ec9e3）。
+         第一轮构建入仓：ledger 参考实现（哈希链 + fold + closure 带 CLOSURE_SOURCE = STAND_IN
+         + seed；55 tests）与任务可链接性测量（tasks/CHAINABILITY.md + measure_chain.py；18 tests）；
+         独立评审 rev-h5b（9634a0b）findings 已修并复验：ledger R01 R02 R03 R05 R07 R08 R10
+         （7f0dca1）、chain R04 R06 R09（6dcfcea）。Q1 只读测量 verdict A：10 个冻结 H2 任务的
+         90 个有序对中 37 links，45 对到达 frozen gate，最长链 f01..f07（长度 7）；measurement
+         sha256 `c16c94222f266c6b9576a3897b32d7b9f6ec73d900dd25ffb487fc05c0d63c60`（source 6dcfcea）。
+         **未开跑**：无 model run、无 runs root、无协议冻结；§0 P1–P7 仍未为 H5 闭合，
+         探索实验（Q5）需单独的 execution authorization，本轮未给。
+         属现有 19 节点树内推进，非新增主节点。
 ```
