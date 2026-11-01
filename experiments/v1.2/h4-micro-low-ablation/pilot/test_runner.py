@@ -21,39 +21,65 @@ So the verifier never parses unittest output any more. It starts *this* runner i
 A module that exits early, prints a fake summary, or writes a result without the nonce
 produces no acceptable result, which is a FAIL -- never a PASS.
 
-Handshake (parent -> runner)
-----------------------------
-The parent creates a one-time nonce and writes
-``{"nonce": "<hex>", "watch": {...}, "targets": {...}}`` into a pipe. The runner reads
-that pipe and closes it BEFORE it inserts the working directory into ``sys.path`` or
-imports any package code. The nonce is never passed in ``argv``, never in the
-environment, and never through a file inside the package. It is derived into a closure
-key and deleted from the runner's frame before any package code is imported.
+Two processes, and the judging code is not in the package's process (P1-2 round C1)
+-------------------------------------------------------------------------------
+Package code runs in a CHILD process. The child only emits raw per-test events
+(``{"event": "test", "id": ..., "outcome": ...}`` plus one final ``done`` event) on a
+pipe. The PARENT -- this process -- never imports package code: it reads the events,
+computes the counts and the pass/fail verdict, compares the observed ids with the static
+AST set, and signs the report with the nonce. An ordinary ``import __main__`` in the
+child therefore reaches the child's ``__main__`` (this module) but there is no
+module-level result class or integrity snapshot to replace; the report the parent signs
+is built from the events, not from the child's memory.
 
-``watch`` maps an absolute path to a list of line numbers; the runner records which of
+The child never receives the nonce. It also never receives the result fd: the parent
+holds the only write end. Events carry a per-run session token that is handed to the
+child on stdin before any package import; the parent ignores events without it, so a
+package that guesses the event fd still cannot inject a verdict.
+
+The hidden test is run under a randomised file name (see ``taskpack`` and
+``pilot_accept``), and ``pilot_accept`` keeps a must-fail canary in a second fresh child.
+A package that forges "pass" only when it sees ``test_hidden.py`` in ``sys.argv`` is
+therefore compared against the same test under a different name, and flips to FAIL.
+
+Handshake (parent -> child, on stdin)
+-------------------------------------
+``{"event_fd": <int>, "session": "<hex>", "watch": {...}, "targets": {...},
+"test_files": ["/abs/test_hidden_xxxx.py"]}``. The child reads and closes stdin BEFORE
+it inserts the working directory into ``sys.path`` or imports any package code. The nonce
+travels on a separate inherited pipe that only the parent reads; it is never passed to the
+child, never in ``argv``, never in the environment, and never through a file inside the
+package.
+
+``watch`` maps an absolute path to a list of line numbers; the child records which of
 those lines execute (``sys.settrace``) while the tests run, so the parent can require the
-reference patch to change something that actually runs (P1-2 b). ``targets`` maps an
-absolute path to ``[[first, last], ...]`` line ranges of the functions and methods defined
-in the patched files, so the parent can require the hidden test to call one of them
-(P1-1 c).
+reference patch to change something that actually runs (P1-2 b). Each record carries a
+``from_test`` flag: true when the line ran with the hidden test file as its immediate
+caller, so a function that only runs while the module is imported cannot satisfy the
+"hidden test calls the patched function" rule (P1-1 c).
 
-While the tests run the runner also wraps ``builtins.open``, ``io.open``,
-``pathlib.Path.open``/``read_text``/``read_bytes`` and ``os.open``. An open of the
-project's ``src/`` tree, ``reference.patch`` or a hidden test file made from test code is
-recorded as ``source_reads``; the import system's own file reads stay allowed because
-their caller frame is ``importlib``/``zipimport`` (P1-1 a).
+While the tests run the child also wraps ``builtins.open``, ``io.open``, ``io.FileIO``,
+``io.open_code``, ``pathlib.Path.open``/``read_text``/``read_bytes``, ``os.open``,
+``linecache.getlines``/``getline``/``updatecache``, ``inspect.getsource``/
+``getsourcelines``/``getsourcefile``, ``importlib`` loader ``get_source``/``get_data``,
+``os.popen`` and ``subprocess.Popen``. An open of the project's ``src/`` tree,
+``reference.patch`` or a hidden test file made from test code is recorded as
+``source_reads``; the import system's own file reads stay allowed because their caller is
+``importlib``/``zipimport`` (P1-1 a). The guard is a cheap secondary defence: the primary
+defence against a source-reading fake fix is the structural patch rule in ``taskpack``.
 
-Result (runner -> parent)
--------------------------
+Result (parent -> verifier)
+---------------------------
 Exactly one JSON line is written to the result fd::
 
     {"version": 1,
      "tests": [{"id": "Class.method", "outcome": "pass|failure|error|skip|..."}],
      "counts": {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0},
      "load_error": null, "load_detail": "",
-     "executed": [["/abs/path.py", 12]],
+     "executed": [["/abs/path.py", 12, 1]],
      "source_reads": ["src/example.py"],
-     "integrity_violation": ["_Result.addFailure"],
+     "integrity_violation": ["unittest.TestCase.assertEqual"],
+     "id_set_mismatch": false, "id_set_detail": "",
      "nonce_mac": "<64 hex characters>"}
 
 The MAC is computed over the canonical JSON of the payload without ``nonce_mac``
@@ -86,17 +112,24 @@ the size cap and is never parsed for a verdict.
 from __future__ import annotations
 
 import argparse
+import ast
 import builtins
 import hashlib
 import hmac
+import importlib.machinery
 import importlib.util
+import inspect
 import io
 import json
+import linecache
 import marshal
 import os
 import pathlib
 import re
+import shlex
+import subprocess
 import sys
+import types
 import unittest
 
 REPORT_VERSION = 1
@@ -105,6 +138,7 @@ HANDSHAKE_LIMIT = 1 << 20
 EXECUTED_LIMIT = 20000
 RESULT_LIMIT = 1 << 20
 SOURCE_READ_LIMIT = 200
+EVENT_LIMIT = 1 << 20
 
 
 def _canonical(payload):
@@ -119,11 +153,74 @@ def _test_id(test):
     return str(test)
 
 
+def _short_id(value):
+    """``module.Class.method`` and ``Class.method`` name the same test."""
+    parts = str(value).split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else str(value)
+
+
+# --- what the test file declares, from the AST only -----------------------------
+# The parent compares the events it received with this set, so a child that silently
+# skips, hides or invents a test cannot agree with both.
+
+def _static_test_ids(path):
+    """Every ``Class.method`` reachable as a unittest case, from ``ast`` alone."""
+    ids = set()
+    try:
+        tree = ast.parse(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return ids
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    cache = {}
+
+    def is_case(name, seen=()):
+        if name in cache:
+            return cache[name]
+        node = classes.get(name)
+        if node is None or name in seen:
+            return False
+        answer = False
+        for base in node.bases:
+            if isinstance(base, ast.Attribute) and base.attr.endswith("TestCase"):
+                answer = True
+            elif isinstance(base, ast.Name) and (
+                    base.id.endswith("TestCase")
+                    or (base.id in classes and is_case(base.id, seen + (name,)))):
+                answer = True
+        cache[name] = answer
+        return answer
+
+    for name, node in classes.items():
+        if not is_case(name):
+            continue
+        for item in node.body:
+            if (isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name.startswith("test")):
+                ids.add("%s.%s" % (name, item.name))
+    return ids
+
+
+def _static_expected_ids(args):
+    """The id set the parent expects, derived without importing any package code."""
+    if args.ids:
+        return {str(item) for item in args.ids}
+    paths = []
+    if args.tests:
+        paths = [pathlib.Path(item) for item in args.tests]
+    elif args.discover:
+        paths = sorted(pathlib.Path(args.discover).rglob(args.pattern))
+    ids = set()
+    for path in paths:
+        if path.is_file():
+            ids |= _static_test_ids(path)
+    return ids
+
+
 # --- integrity snapshot (P1-2) --------------------------------------------------
-# Cheap detection, not prevention: the runner records the identity and code-object hash
-# of every function it relies on BEFORE package code is imported and re-checks them after
-# the run. A package that swaps ``_Result.addFailure`` for a "record pass" function is
-# reported as an integrity violation instead of being believed.
+# Cheap detection, not prevention: the child records the identity and code-object hash
+# of every interpreter function it relies on BEFORE package code is imported and
+# re-checks them after the run. The result class itself is local to the child (never a
+# module global), so ``import __main__`` cannot reach it.
 
 def _fingerprint(obj):
     """``(id, sha256(code object))``; builtins have no code object, so id only."""
@@ -164,13 +261,6 @@ def _integrity_items():
         ("json.dumps", lambda: json.dumps),
         ("builtins.exec", lambda: builtins.exec),
         ("builtins.eval", lambda: builtins.eval),
-        ("_Result.addFailure", lambda: _Result.addFailure),
-        ("_Result.addError", lambda: _Result.addError),
-        ("_Result.addSkip", lambda: _Result.addSkip),
-        ("_Result.addExpectedFailure", lambda: _Result.addExpectedFailure),
-        ("_Result.addUnexpectedSuccess", lambda: _Result.addUnexpectedSuccess),
-        ("_Result.addSuccess", lambda: _Result.addSuccess),
-        ("_Result._record", lambda: _Result._record),
         ("_test_id", lambda: _test_id),
         ("_canonical", lambda: _canonical),
         ("_write_all", lambda: _write_all),
@@ -198,48 +288,6 @@ def _integrity_violations(snapshot):
         if snapshot.get(name) != current:
             changed.append(name)
     return changed
-
-
-class _Result(unittest.TestResult):
-    """unittest's result object, plus a per-test outcome the parent can check."""
-
-    def __init__(self):
-        super().__init__()
-        self.outcomes = {}
-
-    def _record(self, test, outcome):
-        self.outcomes[_test_id(test)] = outcome
-
-    def addSuccess(self, test):
-        super().addSuccess(test)
-        self._record(test, "pass")
-
-    def addFailure(self, test, err):
-        super().addFailure(test, err)
-        self._record(test, "failure")
-
-    def addError(self, test, err):
-        super().addError(test, err)
-        self._record(test, "error")
-
-    def addSkip(self, test, reason):
-        super().addSkip(test, reason)
-        self._record(test, "skip")
-
-    def addExpectedFailure(self, test, err):
-        super().addExpectedFailure(test, err)
-        self._record(test, "expected_failure")
-
-    def addUnexpectedSuccess(self, test):
-        super().addUnexpectedSuccess(test)
-        self._record(test, "unexpected_success")
-
-    def addSubTest(self, test, subtest, err):
-        super().addSubTest(test, subtest, err)
-        if err is not None:
-            failure = isinstance(test, unittest.TestCase) and issubclass(
-                err[0], test.failureException)
-            self._record(test, "failure" if failure else "error")
 
 
 def _read_handshake(fd):
@@ -290,17 +338,23 @@ def _read_target(path, repo_root):
     return None
 
 
-def _caller_is_import():
-    """True when this open is the import system reading a module it must read."""
-    frame = sys._getframe(1)
-    while frame is not None:
-        module = frame.f_globals.get("__name__", "")
-        filename = frame.f_code.co_filename or ""
-        if (module == "zipimport" or module.startswith("importlib")
-                or "importlib" in filename or "zipimport" in filename):
-            return True
-        frame = frame.f_back
-    return False
+_INTERNAL_MODULES = ("importlib", "zipimport", "linecache", "traceback", "inspect",
+                     "unittest", "pkgutil")
+
+
+def _caller_is_harness_internal():
+    """True when the *immediate* caller is an interpreter module, not test code.
+
+    Only the immediate caller is inspected: a test method always has ``unittest`` frames
+    higher up the stack, so walking the whole stack would exempt every test read.
+    """
+    frame = sys._getframe(2)
+    if frame is None:
+        return False
+    module = frame.f_globals.get("__name__", "")
+    filename = frame.f_code.co_filename or ""
+    return (module == "zipimport" or module.startswith(_INTERNAL_MODULES)
+            or "importlib" in filename or "zipimport" in filename)
 
 
 def _install_source_guard(repo_root):
@@ -308,66 +362,189 @@ def _install_source_guard(repo_root):
 
     The guard is installed only around the test load/run and removed afterwards. It never
     blocks a read; it records one, because the parent -- not this process -- decides what
-    a record means. The import system is exempt: its caller frame is ``importlib`` or
+    a record means. The import system is exempt: its caller is ``importlib`` or
     ``zipimport``, otherwise every module import would be recorded.
+
+    Round C1 broadened this from ``open``/``pathlib``/``os.open`` to the ordinary readers
+    the acceptance report listed: ``io.FileIO``, ``io.open_code``, ``linecache``,
+    ``inspect.getsource*``, the importlib loader ``get_source``/``get_data``, ``os.popen``
+    and ``subprocess``. Each route has a test; routes that cannot be hooked cheaply (a
+    raw ``os.read`` on an fd opened before the guard, ``mmap``, ``ctypes``) are stated as
+    known limits in ``PILOT_SPEC.md`` and are covered by the structural patch rule.
     """
     records = []
     original_open = builtins.open
     original_io_open = io.open
+    original_fileio = io.FileIO
+    original_open_code = io.open_code
     original_path_open = pathlib.Path.open
     original_read_text = pathlib.Path.read_text
     original_read_bytes = pathlib.Path.read_bytes
     original_os_open = os.open
+    original_os_popen = os.popen
+    original_getlines = linecache.getlines
+    original_getline = linecache.getline
+    original_updatecache = linecache.updatecache
+    original_getsource = inspect.getsource
+    original_getsourcelines = inspect.getsourcelines
+    original_getsourcefile = inspect.getsourcefile
+    original_loader_get_source = importlib.machinery.SourceFileLoader.get_source
+    original_loader_get_data = importlib.machinery.SourceFileLoader.get_data
+    original_popen = subprocess.Popen
 
     def record(path):
         marker = _read_target(path, repo_root)
         if marker and marker not in records and len(records) < SOURCE_READ_LIMIT:
             records.append(marker)
 
+    def record_command(command):
+        if isinstance(command, (str, bytes)):
+            text = command.decode("utf-8", "replace") if isinstance(command, bytes) else command
+            try:
+                tokens = shlex.split(text)
+            except ValueError:
+                tokens = text.split()
+        elif isinstance(command, (list, tuple)):
+            tokens = [str(item) for item in command]
+        else:
+            return
+        for token in tokens:
+            record(token)
+
     def guarded_open(file, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(file)
         return original_open(file, *args, **kwargs)
 
     def guarded_io_open(file, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(file)
         return original_io_open(file, *args, **kwargs)
 
+    class GuardedFileIO(original_fileio):
+        def __init__(self, file, *args, **kwargs):
+            if not _caller_is_harness_internal():
+                record(file)
+            super().__init__(file, *args, **kwargs)
+
+    def guarded_open_code(path, *args, **kwargs):
+        if not _caller_is_harness_internal():
+            record(path)
+        return original_open_code(path, *args, **kwargs)
+
     def guarded_path_open(self, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(self)
         return original_path_open(self, *args, **kwargs)
 
     def guarded_read_text(self, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(self)
         return original_read_text(self, *args, **kwargs)
 
     def guarded_read_bytes(self, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(self)
         return original_read_bytes(self, *args, **kwargs)
 
     def guarded_os_open(path, *args, **kwargs):
-        if not _caller_is_import():
+        if not _caller_is_harness_internal():
             record(path)
         return original_os_open(path, *args, **kwargs)
 
+    def guarded_os_popen(command, *args, **kwargs):
+        record_command(command)
+        return original_os_popen(command, *args, **kwargs)
+
+    def guarded_getlines(filename, *args, **kwargs):
+        if not _caller_is_harness_internal():
+            record(filename)
+        return original_getlines(filename, *args, **kwargs)
+
+    def guarded_getline(filename, *args, **kwargs):
+        if not _caller_is_harness_internal():
+            record(filename)
+        return original_getline(filename, *args, **kwargs)
+
+    def guarded_updatecache(filename, *args, **kwargs):
+        if not _caller_is_harness_internal():
+            record(filename)
+        return original_updatecache(filename, *args, **kwargs)
+
+    def _object_file(obj):
+        if isinstance(obj, types.ModuleType):
+            return getattr(obj, "__file__", None)
+        try:
+            return original_getsourcefile(obj)
+        except Exception:  # noqa: BLE001 - not source-backed; nothing to record
+            return None
+
+    def guarded_getsource(obj, *args, **kwargs):
+        record(_object_file(obj))
+        return original_getsource(obj, *args, **kwargs)
+
+    def guarded_getsourcelines(obj, *args, **kwargs):
+        record(_object_file(obj))
+        return original_getsourcelines(obj, *args, **kwargs)
+
+    def guarded_getsourcefile(obj, *args, **kwargs):
+        result = original_getsourcefile(obj, *args, **kwargs)
+        record(result)
+        return result
+
+    def guarded_loader_get_source(self, fullname):
+        if not _caller_is_harness_internal():
+            record(getattr(self, "path", None))
+        return original_loader_get_source(self, fullname)
+
+    def guarded_loader_get_data(self, path):
+        if not _caller_is_harness_internal():
+            record(path)
+        return original_loader_get_data(self, path)
+
+    class GuardedPopen(original_popen):
+        def __init__(self, args, *rest, **kwargs):
+            record_command(args)
+            super().__init__(args, *rest, **kwargs)
+
     builtins.open = guarded_open
     io.open = guarded_io_open
+    io.FileIO = GuardedFileIO
+    io.open_code = guarded_open_code
     pathlib.Path.open = guarded_path_open
     pathlib.Path.read_text = guarded_read_text
     pathlib.Path.read_bytes = guarded_read_bytes
     os.open = guarded_os_open
+    os.popen = guarded_os_popen
+    linecache.getlines = guarded_getlines
+    linecache.getline = guarded_getline
+    linecache.updatecache = guarded_updatecache
+    inspect.getsource = guarded_getsource
+    inspect.getsourcelines = guarded_getsourcelines
+    inspect.getsourcefile = guarded_getsourcefile
+    importlib.machinery.SourceFileLoader.get_source = guarded_loader_get_source
+    importlib.machinery.SourceFileLoader.get_data = guarded_loader_get_data
+    subprocess.Popen = GuardedPopen
 
     def stop():
         builtins.open = original_open
         io.open = original_io_open
+        io.FileIO = original_fileio
+        io.open_code = original_open_code
         pathlib.Path.open = original_path_open
         pathlib.Path.read_text = original_read_text
         pathlib.Path.read_bytes = original_read_bytes
         os.open = original_os_open
+        os.popen = original_os_popen
+        linecache.getlines = original_getlines
+        linecache.getline = original_getline
+        linecache.updatecache = original_updatecache
+        inspect.getsource = original_getsource
+        inspect.getsourcelines = original_getsourcelines
+        inspect.getsourcefile = original_getsourcefile
+        importlib.machinery.SourceFileLoader.get_source = original_loader_get_source
+        importlib.machinery.SourceFileLoader.get_data = original_loader_get_data
+        subprocess.Popen = original_popen
 
     return records, stop
 
@@ -383,11 +560,12 @@ def _make_signer(secret, hmac_new, sha256, dumps):
     return sign
 
 
-def _install_trace(watch, targets=None):
-    """Record executed ``(path, line)`` pairs for the watched files and target ranges."""
+def _install_trace(watch, targets=None, test_files=None):
+    """Record executed ``(path, line)`` pairs and whether the hidden test was the caller."""
     executed = set()
+    from_test = set()
     if not watch and not targets:
-        return executed, (lambda: None)
+        return executed, from_test, (lambda: None)
     wanted = {}
     ranges = {}
     for path, lines in (watch or {}).items():
@@ -396,6 +574,7 @@ def _install_trace(watch, targets=None):
     for path, spans in (targets or {}).items():
         ranges.setdefault(os.path.realpath(str(path)), []).extend(
             (int(start), int(end)) for start, end in spans)
+    test_real = {os.path.realpath(str(item)) for item in (test_files or [])}
     cache = {}
 
     def _real(filename):
@@ -418,6 +597,9 @@ def _install_trace(watch, targets=None):
                         break
             if hit and len(executed) < EXECUTED_LIMIT:
                 executed.add((filename, line))
+                caller = frame.f_back
+                if caller is not None and _real(caller.f_code.co_filename) in test_real:
+                    from_test.add((filename, line))
         return _local
 
     def _global(frame, event, arg):
@@ -429,7 +611,7 @@ def _install_trace(watch, targets=None):
     def stop():
         sys.settrace(None)
 
-    return executed, stop
+    return executed, from_test, stop
 
 
 def _package_chain(parts):
@@ -505,6 +687,262 @@ def _write_all(fd, data):
         view = view[written:]
 
 
+# --- child: the only process that imports package code --------------------------
+
+def _child_main(args):
+    """Run the tests and emit raw per-test events. This process never sees the nonce."""
+    handshake = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+    event_fd = int(handshake["event_fd"])
+    session = handshake["session"]
+    watch = dict(handshake.get("watch") or {})
+    targets = dict(handshake.get("targets") or {})
+    test_files = list(handshake.get("test_files") or [])
+    del handshake
+
+    dumps = json.dumps
+    write_all = _write_all
+    install_trace = _install_trace
+    install_guard = _install_source_guard
+    load_suite = _load_suite
+    integrity_snapshot = _integrity_snapshot
+    integrity_violations = _integrity_violations
+    test_id = _test_id
+
+    def emit(payload):
+        payload["session"] = session
+        line = dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+        write_all(event_fd, line.encode("utf-8"))
+
+    integrity = integrity_snapshot()
+
+    # Only now may package code be imported.
+    sys.path.insert(0, os.getcwd())
+
+    def record(test, outcome):
+        key = test_id(test)
+        emit({"event": "test", "id": key, "outcome": outcome})
+
+    class ChildResult(unittest.TestResult):
+        """unittest's result object, plus a per-test event the parent can count."""
+
+        def addSuccess(self, test):
+            super().addSuccess(test)
+            record(test, "pass")
+
+        def addFailure(self, test, err):
+            super().addFailure(test, err)
+            record(test, "failure")
+
+        def addError(self, test, err):
+            super().addError(test, err)
+            record(test, "error")
+
+        def addSkip(self, test, reason):
+            super().addSkip(test, reason)
+            record(test, "skip")
+
+        def addExpectedFailure(self, test, err):
+            super().addExpectedFailure(test, err)
+            record(test, "expected_failure")
+
+        def addUnexpectedSuccess(self, test):
+            super().addUnexpectedSuccess(test)
+            record(test, "unexpected_success")
+
+        def addSubTest(self, test, subtest, err):
+            super().addSubTest(test, subtest, err)
+            if err is not None:
+                failure = isinstance(test, unittest.TestCase) and issubclass(
+                    err[0], test.failureException)
+                record(test, "failure" if failure else "error")
+
+    result = ChildResult()
+    load_error, load_detail = None, ""
+    executed, from_test, reads = set(), set(), []
+    try:
+        executed, from_test, stop_trace = install_trace(watch, targets, test_files)
+        reads, stop_guard = install_guard(os.getcwd())
+        try:
+            try:
+                suite = load_suite(args)
+            except BaseException as error:  # noqa: BLE001 - an import error is a result
+                load_error = type(error).__name__
+                load_detail = str(error)[:500]
+                suite = None
+            if suite is not None:
+                suite.run(result)
+        finally:
+            stop_guard()
+            stop_trace()
+    finally:
+        violations = integrity_violations(integrity)
+        emit({
+            "event": "done",
+            "load_error": load_error,
+            "load_detail": load_detail,
+            "executed": [[path, line, 1 if (path, line) in from_test else 0]
+                         for path, line in sorted(executed)],
+            "source_reads": sorted(set(reads)),
+            "integrity_violation": sorted(violations),
+        })
+    # os._exit skips atexit handlers a test module may have installed.
+    os._exit(0)
+
+
+# --- parent: judges and signs; never imports package code -----------------------
+
+def _parse_events(raw):
+    """Every well-formed event line the child wrote, in order."""
+    events = []
+    for line in raw.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict) and isinstance(event.get("event"), str):
+            events.append(event)
+    return events
+
+
+def _parent_main(args):
+    handshake = _read_handshake(args.nonce_fd)
+    nonce_hex = handshake.get("nonce")
+    watch = dict(handshake.get("watch") or {})
+    targets = dict(handshake.get("targets") or {})
+    del handshake
+    nonce = bytes.fromhex(nonce_hex)
+    del nonce_hex
+    if len(nonce) < NONCE_MIN_BYTES:
+        raise ValueError("nonce is too short")
+
+    dumps = json.dumps
+    hmac_new = hmac.new
+    sha256 = hashlib.sha256
+    write_all = _write_all
+    sign = _make_signer(nonce, hmac_new, sha256, dumps)
+    del nonce
+
+    expected = _static_expected_ids(args)
+    test_files = [os.path.abspath(item) for item in args.tests]
+    session = os.urandom(16).hex()
+    event_read, event_write = os.pipe()
+    child = [sys.executable, os.path.abspath(__file__), "--child"]
+    for relative in args.tests:
+        child.extend(["--tests", relative])
+    for item in args.ids:
+        child.extend(["--ids", item])
+    if args.discover:
+        child.extend(["--discover", args.discover, "--top", args.top,
+                      "--pattern", args.pattern])
+    try:
+        process = subprocess.Popen(
+            child, cwd=os.getcwd(), stdin=subprocess.PIPE,
+            pass_fds=(event_write,), close_fds=True)
+    except OSError:
+        for fd in (event_read, event_write):
+            try:
+                os.close(fd)
+            except OSError:  # pragma: no cover
+                pass
+        os._exit(2)
+    try:
+        handshake_out = _canonical({"event_fd": event_write, "session": session,
+                                    "watch": watch, "targets": targets,
+                                    "test_files": test_files}).encode("utf-8")
+        process.stdin.write(handshake_out)
+        process.stdin.close()
+    except (OSError, ValueError):  # pragma: no cover - child died immediately
+        pass
+    os.close(event_write)
+
+    raw = bytearray()
+    overflow = False
+    try:
+        while True:
+            try:
+                chunk = os.read(event_read, 65536)
+            except OSError:  # pragma: no cover - pipe closed under us
+                break
+            if not chunk:
+                break
+            raw.extend(chunk)
+            if len(raw) > EVENT_LIMIT:
+                overflow = True
+                try:
+                    process.kill()
+                except OSError:  # pragma: no cover
+                    pass
+                break
+    finally:
+        os.close(event_read)
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:  # pragma: no cover - kill should have landed
+        try:
+            process.kill()
+            process.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+    if overflow:
+        os._exit(2)
+
+    events = [event for event in _parse_events(bytes(raw))
+              if event.get("session") == session]
+    done = None
+    outcomes = {}
+    for event in events:
+        if event.get("event") == "test":
+            test_id, outcome = event.get("id"), event.get("outcome")
+            if isinstance(test_id, str) and isinstance(outcome, str):
+                outcomes[test_id] = outcome
+        elif event.get("event") == "done" and done is None:
+            done = event
+    if done is None:
+        # No child result: the parent must not invent one.
+        os._exit(2)
+
+    tests = [{"id": key, "outcome": outcomes[key]} for key in sorted(outcomes)]
+    counts = {
+        "ran": len(tests),
+        "failures": sum(1 for item in tests if item["outcome"] == "failure"),
+        "errors": sum(1 for item in tests if item["outcome"] == "error"),
+        "skipped": sum(1 for item in tests if item["outcome"] == "skip"),
+        "unexpected": sum(1 for item in tests if item["outcome"] == "unexpected_success"),
+    }
+    observed = {_short_id(item["id"]) for item in tests}
+    wanted = {_short_id(item) for item in expected}
+    missing, extra = sorted(wanted - observed), sorted(observed - wanted)
+    id_mismatch = bool(missing or extra)
+    detail = ""
+    if id_mismatch:
+        detail = "missing=%s extra=%s" % (missing[:5], extra[:5])
+
+    payload = {
+        "version": REPORT_VERSION,
+        "tests": tests,
+        "counts": counts,
+        "load_error": done.get("load_error"),
+        "load_detail": done.get("load_detail", ""),
+        "executed": done.get("executed") or [],
+        "source_reads": done.get("source_reads") or [],
+        "integrity_violation": done.get("integrity_violation") or [],
+        "id_set_mismatch": id_mismatch,
+        "id_set_detail": detail,
+    }
+    mac = sign(payload)
+    line = dumps(dict(payload, nonce_mac=mac), sort_keys=True,
+                 separators=(",", ":")) + "\n"
+    write_all(args.result_fd, line.encode("utf-8"))
+    del sign
+    clean = (payload["load_error"] is None and counts["ran"] > 0
+             and not counts["failures"] and not counts["errors"])
+    os._exit(0 if clean else 1)
+
+
 def _parser():
     parser = argparse.ArgumentParser(
         prog="test_runner.py",
@@ -535,8 +973,9 @@ def _parser():
             "runner could not do its job and wrote no result -- the parent must treat\n"
             "that as unavailable, not pass."),
     )
-    parser.add_argument("--nonce-fd", type=int, required=True)
-    parser.add_argument("--result-fd", type=int, required=True)
+    parser.add_argument("--nonce-fd", type=int, default=None)
+    parser.add_argument("--result-fd", type=int, default=None)
+    parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--tests", action="append", default=[],
                         help="test file relative to the working directory (repeatable)")
     parser.add_argument("--ids", action="append", default=[],
@@ -549,77 +988,13 @@ def _parser():
 
 def main(argv=None):
     args = _parser().parse_args(argv)
-    handshake = _read_handshake(args.nonce_fd)
-    nonce_hex = handshake["nonce"]
-    watch = dict(handshake.get("watch") or {})
-    targets = dict(handshake.get("targets") or {})
-    del handshake
-    nonce = bytes.fromhex(nonce_hex)
-    del nonce_hex
-    if len(nonce) < NONCE_MIN_BYTES:
-        raise ValueError("nonce is too short")
-
-    # Everything the verdict depends on is captured BEFORE any package code is imported.
-    dumps = json.dumps
-    hmac_new = hmac.new
-    sha256 = hashlib.sha256
-    write_all = _write_all
-    check_integrity = _integrity_violations
-    integrity = _integrity_snapshot()
-    sign = _make_signer(nonce, hmac_new, sha256, dumps)
-    del nonce  # the key lives in the closure; this frame keeps no copy
-
-    # Only now may package code be imported.
-    sys.path.insert(0, os.getcwd())
-    result = _Result()
-    load_error, load_detail = None, ""
-    executed = set()
-    reads = []
-    violations = []
-    try:
-        suite = None
-        executed, stop_trace = _install_trace(watch, targets)
-        reads, stop_guard = _install_source_guard(os.getcwd())
-        try:
-            try:
-                suite = _load_suite(args)
-            except BaseException as error:  # noqa: BLE001 - an import error is a result
-                load_error = type(error).__name__
-                load_detail = str(error)[:500]
-            if suite is not None:
-                suite.run(result)
-        finally:
-            stop_guard()
-            stop_trace()
-    finally:
-        violations = check_integrity(integrity)
-        payload = {
-            "version": REPORT_VERSION,
-            "tests": [{"id": key, "outcome": result.outcomes[key]}
-                      for key in sorted(result.outcomes)],
-            "counts": {
-                "ran": result.testsRun,
-                "failures": len(result.failures),
-                "errors": len(result.errors),
-                "skipped": len(result.skipped),
-                "unexpected": len(result.unexpectedSuccesses),
-            },
-            "load_error": load_error,
-            "load_detail": load_detail,
-            "executed": [list(item) for item in sorted(executed)],
-            "source_reads": sorted(set(reads)),
-            "integrity_violation": sorted(violations),
-        }
-        mac = sign(payload)
-        line = dumps(dict(payload, nonce_mac=mac), sort_keys=True,
-                     separators=(",", ":")) + "\n"
-        write_all(args.result_fd, line.encode("utf-8"))
-        del sign
-    counts = payload["counts"]
-    clean = (not violations and load_error is None and counts["ran"] > 0
-             and not counts["failures"] and not counts["errors"])
-    # os._exit skips atexit handlers a test module may have installed.
-    os._exit(0 if clean else 1)
+    if args.child:
+        _child_main(args)
+        return 0
+    if args.nonce_fd is None or args.result_fd is None:
+        raise SystemExit("--nonce-fd and --result-fd are required")
+    _parent_main(args)
+    return 0
 
 
 if __name__ == "__main__":

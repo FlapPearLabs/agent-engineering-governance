@@ -669,6 +669,11 @@ def _accept_report(report, nonce, expected_ids, exit_code=None):
     violations = report.get("integrity_violation")
     if violations:
         return False, "INTEGRITY_VIOLATION " + ",".join(str(item) for item in violations[:8])
+    # Round C1: the runner's parent also compares the observed ids with the static AST
+    # set before signing. Reject its own report when that comparison failed, even though
+    # the check below repeats it on this side.
+    if report.get("id_set_mismatch"):
+        return False, "TEST_ID_SET_MISMATCH " + str(report.get("id_set_detail", ""))
     tests = report.get("tests")
     counts = report.get("counts")
     if not isinstance(tests, list) or not isinstance(counts, dict):
@@ -987,7 +992,8 @@ def _guard(check_id, run, label):
     return run
 
 
-def _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile, with_hidden, patch):
+def _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile, with_hidden, patch,
+                   hidden_rel=None):
     root = _reset_phase(work)
     repo = root / "repo"
     _copy_tree(Path(pkg) / "base", repo)
@@ -999,8 +1005,13 @@ def _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile, with_hidde
             if run.returncode != 0:
                 raise _Stop(4, [f"{failure} rc={run.returncode} {run.output.strip()[:200]}"])
     if with_hidden:
-        shutil.copyfile(Path(pkg) / "hidden" / "test_hidden.py",
-                        repo / manifest["hidden_test_dest"])
+        # P1-2 round C1: the hidden test runs under a randomised file name. A package
+        # initialiser that forges "pass" only when it sees ``test_hidden.py`` in
+        # ``sys.argv`` no longer recognises the run.
+        target = hidden_rel or manifest["hidden_test_dest"]
+        destination = repo / target
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(pkg) / "hidden" / "test_hidden.py", destination)
     return repo
 
 
@@ -1072,6 +1083,9 @@ def _imports_src(text):
 # --- which changed lines the patch adds, and which of them really run (P1-2 b) ---
 
 PATCH_HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+# The same hunk header with the OLD start captured too: the structural rule maps an
+# added line to the base line it is inserted at, so it needs the old-side cursor.
+PATCH_HUNK_FULL_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
 def _interesting_patch_line(text):
@@ -1122,6 +1136,184 @@ def _patch_changed_lines(patch_text):
         if line.startswith("diff --git"):
             current = None
     return {path: lines for path, lines in changed.items() if path}
+
+
+def _patch_added_lines(patch_text):
+    """``{path: [(new_line, base_line, text), ...]}`` for EVERY added line.
+
+    ``new_line`` is the line in the patched file (used by the structural rule against the
+    patched AST); ``base_line`` is the old-side cursor, the line in ``base/`` at which the
+    added block starts, kept for callers that need the insertion point.
+    """
+    added = {}
+    current = None
+    old_left = new_left = 0
+    old_line = new_line = 0
+    removal_start = None
+    removed_count = added_count = 0
+    for line in patch_text.splitlines():
+        if old_left > 0 or new_left > 0:
+            if line.startswith("+"):
+                # The first added lines replace the removed block position by position;
+                # anything beyond it is inserted after the block.
+                if removal_start is not None and added_count < removed_count:
+                    base_line = removal_start + added_count
+                else:
+                    base_line = old_line
+                added.setdefault(current, []).append((new_line, base_line, line[1:]))
+                added_count += 1
+                new_line += 1
+                new_left -= 1
+            elif line.startswith("-"):
+                if removal_start is None:
+                    removal_start = old_line
+                    removed_count = 0
+                old_line += 1
+                removed_count += 1
+                old_left -= 1
+            else:
+                removal_start = None
+                removed_count = added_count = 0
+                old_line += 1
+                new_line += 1
+                old_left -= 1
+                new_left -= 1
+            continue
+        match = PATCH_HUNK_FULL_RE.match(line)
+        if match:
+            old_line = int(match.group(1))
+            old_left = int(match.group(2) or 1)
+            new_line = int(match.group(3))
+            new_left = int(match.group(4) or 1)
+            removal_start = None
+            removed_count = added_count = 0
+            continue
+        if line.startswith("+++ "):
+            target = line[4:].split("\t")[0].strip()
+            if target.startswith("b/"):
+                target = target[2:]
+            current = None if target == "/dev/null" else target
+            continue
+        if line.startswith("diff --git"):
+            current = None
+    return {path: lines for path, lines in added.items() if path}
+
+
+def _top_level_names(tree):
+    """Every name a module binds at top level: defs, classes, assignments, imports."""
+    names = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names.add(target.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                names.add(alias.asname or alias.name.split(".")[0])
+    return names
+
+
+def _statement_api_names(statement_text):
+    """Names the statement asks the maker to add: backticked, or written as a call.
+
+    This is the narrow carve-out that keeps a legitimate feature task (the driver's
+    ``perimeter`` fixture) valid: a new top-level name is allowed only when the task
+    statement names it. An unrelated ``_extra`` the statement never mentions is refused.
+    """
+    names = set(re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", statement_text))
+    names.update(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(", statement_text))
+    return names
+
+
+def _function_spans(tree):
+    return [(node.lineno, node.end_lineno or node.lineno)
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+
+def _patch_structure_reasons(pkg, repo, patch_text):
+    """P1-1 round C1: the reference patch may only change existing function bodies.
+
+    * every added line must fall inside a function or method body that already exists in
+      ``base/`` (or inside a new top-level def/class the statement explicitly asks for);
+    * a new top-level def/class/name the statement does not name is ``PATCH_ADDS_NEW_API``;
+    * a module-level line outside any function is ``PATCH_OUTSIDE_EXISTING_FUNCTION``.
+
+    This is the primary defence against a "fix" that adds an unrelated helper and has the
+    hidden test assert on it; the source-read guard is the secondary defence.
+    """
+    reasons = []
+    statement_path = Path(pkg) / "statement.md"
+    try:
+        statement = statement_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        statement = ""
+    allowed_new = _statement_api_names(statement)
+    for path, entries in _patch_added_lines(patch_text).items():
+        base_path = Path(pkg) / "base" / path
+        new_path = Path(repo) / path
+        try:
+            base_tree = ast.parse(base_path.read_text(encoding="utf-8"))
+            new_tree = ast.parse(new_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue
+        base_top = _top_level_names(base_tree)
+        new_top = _top_level_names(new_tree)
+        new_functions = [node for node in ast.walk(new_tree)
+                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+        def enclosing(line):
+            candidates = [node for node in new_functions
+                          if node.lineno <= line <= (node.end_lineno or node.lineno)]
+            if not candidates:
+                return None
+            return min(candidates, key=lambda node: (node.end_lineno or node.lineno)
+                       - node.lineno)
+
+        # New top-level names: refused unless the task statement asks for them.
+        for name in sorted(new_top - base_top):
+            if name not in allowed_new:
+                reasons.append(f"PATCH_ADDS_NEW_API {path}:{name}")
+        new_names = new_top - base_top
+        for new_line, _base_line, text in entries:
+            stripped = text.strip()
+            if not stripped or stripped.startswith(("#", "@")):
+                continue
+            function = enclosing(new_line)
+            if function is not None:
+                # Inside any function of the patched file. An existing function is the
+                # legitimate case; a brand-new one was already judged by the new-name
+                # rule above (allowed when the statement asks for it, refused otherwise).
+                continue
+            match = re.match(r"^(?:async\s+)?(?:def|class)\s+([A-Za-z_][A-Za-z0-9_]*)",
+                             stripped)
+            if match:
+                # A def/class line for an existing function is a signature change; a new
+                # name was already reported above.
+                continue
+            match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=]+)?=", stripped)
+            if match:
+                if match.group(1) in new_names:
+                    # A new module-level binding; the new-name rule already reported it.
+                    continue
+                reasons.append(f"PATCH_OUTSIDE_EXISTING_FUNCTION {path}:{new_line} "
+                               f"{stripped[:60]}")
+                continue
+            reasons.append(f"PATCH_OUTSIDE_EXISTING_FUNCTION {path}:{new_line} "
+                           f"{stripped[:60]}")
+    # De-duplicate while keeping the first occurrence.
+    seen, unique = set(), []
+    for reason in reasons:
+        if reason not in seen:
+            seen.add(reason)
+            unique.append(reason)
+    return unique
 
 
 _UNKNOWN = object()
@@ -1267,9 +1459,15 @@ def _patch_watch(repo, patch_text):
 
 
 def _patch_targets(repo, patch_text):
-    """``{absolute path: [[first, last], ...]}`` for functions in the patched files."""
+    """``{absolute path: [[first, last], ...]}`` for the functions the patch changes.
+
+    Round C1: this is the *specific* function whose body contains an added line, not every
+    function in the patched file. The hidden test must call one of these (P1-1 c), so a
+    patch that changes ``slugify`` while the hidden test only calls ``word_count`` is
+    refused instead of being waved through by an unrelated function in the same file.
+    """
     targets = {}
-    for path in _patch_changed_lines(patch_text):
+    for path, entries in _patch_added_lines(patch_text).items():
         target = Path(repo) / path
         if not target.is_file():
             continue
@@ -1277,24 +1475,38 @@ def _patch_targets(repo, patch_text):
             tree = ast.parse(target.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, SyntaxError):
             continue
-        spans = sorted([node.lineno, node.end_lineno or node.lineno]
-                       for node in ast.walk(tree)
-                       if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)))
-        if spans:
-            targets[str(os.path.realpath(target))] = spans
+        spans = _function_spans(tree)
+        ranges = set()
+        for new_line, _base_line, _text in entries:
+            containing = [(start, end) for start, end in spans
+                          if start <= new_line <= end]
+            if containing:
+                ranges.add(min(containing, key=lambda span: span[1] - span[0]))
+        if ranges:
+            targets[str(os.path.realpath(target))] = sorted(ranges)
     return targets
 
 
 def _exercised_lines(evaluations):
-    executed = set()
+    """``(all_executed, test_executed)`` from the signed ``executed`` records.
+
+    A record is ``[path, line]`` (legacy: treated as executed from the test) or
+    ``[path, line, from_test]``. ``test_executed`` is the subset whose immediate caller was
+    the hidden test file, so a function that only ran at import time cannot satisfy the
+    "hidden test calls the patched function" rule.
+    """
+    executed, from_test = set(), set()
     for evaluation in evaluations:
         for item in evaluation.get("executed") or []:
-            if isinstance(item, (list, tuple)) and len(item) == 2:
+            if isinstance(item, (list, tuple)) and len(item) in (2, 3):
                 try:
-                    executed.add((os.path.realpath(str(item[0])), int(item[1])))
+                    key = (os.path.realpath(str(item[0])), int(item[1]))
                 except (TypeError, ValueError):  # pragma: no cover - practised runner
                     continue
-    return executed
+                executed.add(key)
+                if len(item) == 2 or item[2]:
+                    from_test.add(key)
+    return executed, from_test
 
 
 def _patch_exercise_reason(repo, patch_text, evaluations):
@@ -1303,7 +1515,7 @@ def _patch_exercise_reason(repo, patch_text, evaluations):
     if not watch:
         return ("PATCH_NOT_EXERCISED the patch adds no executable line "
                 "(comment, docstring, declaration or blank only)")
-    executed = _exercised_lines(evaluations)
+    executed, _from_test = _exercised_lines(evaluations)
     total = sum(len(lines) for lines in watch.values())
     for path, lines in watch.items():
         hit = [number for number in lines
@@ -1317,17 +1529,18 @@ def _patch_exercise_reason(repo, patch_text, evaluations):
 
 
 def _patch_target_reason(repo, patch_text, evaluations):
-    """None when the hidden test ran a function defined in a patched file (P1-1 c)."""
+    """None when the hidden test called a function the patch actually changed (P1-1 c)."""
     targets = _patch_targets(repo, patch_text)
     if not targets:
-        return "HIDDEN_TEST_NEVER_CALLS_TARGET the patched files define no function"
-    executed = _exercised_lines(evaluations)
+        return ("HIDDEN_TEST_NEVER_CALLS_TARGET the patch changes no function or method "
+                "body")
+    _executed, from_test = _exercised_lines(evaluations)
     for path, spans in targets.items():
         for start, end in spans:
-            if any((path, line) in executed for line in range(start, end + 1)):
+            if any((path, line) in from_test for line in range(start, end + 1)):
                 return None
-    return ("HIDDEN_TEST_NEVER_CALLS_TARGET no function or method defined in the "
-            "patched files ran during the hidden test")
+    return ("HIDDEN_TEST_NEVER_CALLS_TARGET no function or method the patch changed was "
+            "called by the hidden test")
 
 
 def _visible_argv():
@@ -1357,16 +1570,16 @@ def _run_visible(work, repo, sandbox, profile, check_id, label):
 
 
 def _hidden_runs(work, repo, manifest, sandbox, profile, check_id, label, watch=None,
-                 targets=None):
-    test_path = Path(repo) / manifest["hidden_test_dest"]
+                 targets=None, hidden_rel=None):
+    hidden_rel = hidden_rel or manifest["hidden_test_dest"]
+    test_path = Path(repo) / hidden_rel
     expected = _static_test_ids([test_path])
     evaluations = []
     for _attempt in range(HIDDEN_REPEATS):
         nonce = _new_nonce()
         report, run = _invoke_runner(
             work, repo, _phase_env(work), _sandbox_prefix(sandbox, profile),
-            ["--tests", manifest["hidden_test_dest"]], nonce, watch=watch,
-            targets=targets)
+            ["--tests", hidden_rel], nonce, watch=watch, targets=targets)
         run = _guard(check_id, run, label)
         evaluations.append(_evaluate_run(report, nonce, expected, run))
         # P2-1: stop at the first disagreement; more agreeing runs cannot repair it.
@@ -1403,12 +1616,13 @@ def _phase_base(work, pkg, manifest, patch_text, sandbox, profile):
     return _result(2, "PASS" if not reasons else "FAIL", reasons, data)
 
 
-def _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile):
+def _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile,
+                          hidden_rel=None):
     """Check 3: a clean, deterministic failure at base."""
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
-                          with_hidden=True, patch=False)
+                          with_hidden=True, patch=False, hidden_rel=hidden_rel)
     runs, expected = _hidden_runs(work, repo, manifest, sandbox, profile, 3,
-                                  "HIDDEN_TEST")
+                                  "HIDDEN_TEST", hidden_rel=hidden_rel)
     outcomes = [run["outcome"] for run in runs]
     counts = runs[0]["counts"]
     source_reads = sorted({item for run in runs for item in run.get("source_reads") or []})
@@ -1432,16 +1646,22 @@ def _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile):
     return _result(3, "PASS" if not reasons else "FAIL", reasons, data)
 
 
-def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
+def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile,
+                       hidden_rel=None):
     """Check 4: the reference makes the hidden test pass and keeps everything else green."""
     reasons, data = [], {}
     text = patch_text.decode("utf-8") if isinstance(patch_text, bytes) else patch_text
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
-                          with_hidden=True, patch=True)
+                          with_hidden=True, patch=True, hidden_rel=hidden_rel)
+    # P1-1 round C1: the structural rule runs on the patched tree, so it sees the base
+    # AST and the new AST at the same time. Its reasons are recorded even when the hidden
+    # test also fails, so the distinct code is always visible.
+    structural = _patch_structure_reasons(pkg, repo, text)
     watch = _patch_watch(repo, text)
     targets = _patch_targets(repo, text)
     runs, expected = _hidden_runs(work, repo, manifest, sandbox, profile, 4,
-                                  "HIDDEN_TEST_AFTER_PATCH", watch=watch, targets=targets)
+                                  "HIDDEN_TEST_AFTER_PATCH", watch=watch, targets=targets,
+                                  hidden_rel=hidden_rel)
     outcomes = [run["outcome"] for run in runs]
     counts = runs[0]["counts"]
     source_reads = sorted({item for run in runs for item in run.get("source_reads") or []})
@@ -1451,7 +1671,8 @@ def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
                  "watched_lines": {Path(path).name: len(lines)
                                    for path, lines in watch.items()},
                  "executed_by": RUNNER_NAME, "patch_exercised": False,
-                 "target_called": False})
+                 "target_called": False, "patch_structure": list(structural)})
+    reasons.extend(structural)
     if len(set(outcomes)) > 1:
         reasons.append(f"NONDETERMINISTIC after_patch outcomes={outcomes}")
         for evaluation in runs:
@@ -1504,13 +1725,15 @@ def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
     return _result(4, "PASS" if not reasons else "FAIL", reasons, data)
 
 
-def _dynamic_checks(work, pkg, manifest, patch_text, sandbox, profile):
+def _dynamic_checks(work, pkg, manifest, patch_text, sandbox, profile, hidden_rel=None):
     """Run checks 2-4 in order; a timeout or overflow stops everything that follows."""
     results = {}
     try:
         results[2] = _phase_base(work, pkg, manifest, patch_text, sandbox, profile)
-        results[3] = _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile)
-        results[4] = _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile)
+        results[3] = _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile,
+                                           hidden_rel=hidden_rel)
+        results[4] = _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile,
+                                        hidden_rel=hidden_rel)
     except _Stop as stop:
         results[stop.check_id] = _result(stop.check_id, "FAIL", stop.reasons, stop.data)
     except (OSError, SealError) as error:
@@ -1801,8 +2024,13 @@ def verify_package(pkg_dir, allow_unsandboxed=False, allow_reseal=False):
                 for check_id in (2, 3, 4, 5, 6):
                     checks.append(_result(check_id, "NOT_RUN", [f"STAGING_FAILED {error}"]))
             else:
+                # One randomised hidden-test name for every phase of this verification:
+                # both phases see the same path, so the hidden test still cannot tell
+                # which phase it is in, but a name-keyed forgery does not recognise it.
+                hidden_rel = "tests/test_%s.py" % os.urandom(6).hex()
                 checks.extend(_dynamic_checks(
-                    work, pkg, manifest, patch_text.encode("utf-8"), sandbox, profile))
+                    work, pkg, manifest, patch_text.encode("utf-8"), sandbox, profile,
+                    hidden_rel=hidden_rel))
                 checks.append(_safe(5, lambda: _check_statement(statement, hidden)))
                 checks.append(_safe(6, lambda: _check_risk(
                     patch_text, statement, str(manifest.get("title", "")))))

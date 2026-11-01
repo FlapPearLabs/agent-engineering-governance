@@ -1441,6 +1441,12 @@ class SignedReportTests(unittest.TestCase):
         self.assertIn("VISIBLE_TESTS_FAIL", reasons(verdict, 2))
 
     def test_n23_patch_that_forges_the_hidden_summary_is_rejected(self):
+        """The forge keys on `test_hidden`; the child runs a randomised `test_<hex>.py`.
+
+        The forge therefore does not fire, the real hidden test runs and fails, and the
+        package is refused for the honest failure plus the top-level module code the
+        structural rule forbids. A forged summary is never the verdict.
+        """
         forged = FORGING_HEADER + GOOD_SOURCE
         with tempfile.TemporaryDirectory() as temporary:
             pkg = build_package(temporary, patches=[
@@ -1448,19 +1454,28 @@ class SignedReportTests(unittest.TestCase):
             verdict = verify(pkg)
         self.assertEqual(verdict["overall"], "FAIL")
         self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
-        self.assertIn("HIDDEN_TEST_RESULT_REJECTED", reasons(verdict, 4))
-        self.assertIn("TEST_RESULT_UNAVAILABLE", reasons(verdict, 4))
+        self.assertIn("HIDDEN_TEST_FAILS_AFTER_PATCH", reasons(verdict, 4))
+        self.assertIn("PATCH_ADDS_NEW_API", reasons(verdict, 4))
+        self.assertEqual(check(verdict, 4)["data"]["hidden_after_patch"]["ran"], 2,
+                         "the real hidden test ran; the forge did not replace it")
 
     def test_forged_report_on_the_result_fd_is_rejected_without_the_nonce(self):
+        """Round C1: the child never receives `--result-fd`, so the forgery has no fd.
+
+        The old shape found the result fd in `sys.argv` and wrote a report with a made-up
+        MAC. Test execution now happens in a child that is not given the result fd (and
+        never sees the nonce); the forgery's `_forge()` returns, the visible test really
+        runs, and its genuine failure is the verdict. No report is believed either way.
+        """
         with tempfile.TemporaryDirectory() as temporary:
             pkg = build_package(temporary, visible_tests=FORGING_VISIBLE)
             (pkg / "base" / "src" / "__init__.py").write_text(RESULT_FD_FORGERY)
             verdict = verify(pkg)
         self.assertEqual(verdict["overall"], "FAIL")
-        self.assertNotEqual(check(verdict, 2)["status"], "PASS")
-        self.assertIn("VISIBLE_TESTS_RESULT_REJECTED", reasons(verdict, 2))
-        self.assertIn("TEST_RESULT_MAC_INVALID", reasons(verdict, 2),
-                      "a report the runner did not sign with this run's nonce is not a result")
+        self.assertEqual(check(verdict, 2)["status"], "FAIL", reasons(verdict, 2))
+        self.assertIn("VISIBLE_TESTS_FAIL", reasons(verdict, 2))
+        self.assertEqual(check(verdict, 2)["data"]["visible"]["failures"], 1,
+                         "the visible test really ran and really failed")
 
     def test_mac_check_is_load_bearing(self):
         # Mutation anchor: delete the MAC verification in _accept_report and the first
@@ -1600,6 +1615,64 @@ class PatchExerciseTests(unittest.TestCase):
         self.assertEqual(verdict["overall"], "FAIL")
         self.assertEqual(check(verdict, 3)["status"], "FAIL", reasons(verdict, 3))
         self.assertIn("HIDDEN_TEST_DOES_NOT_IMPORT_TARGET", reasons(verdict, 3))
+
+    def test_a_patch_exercised_only_at_import_does_not_count_as_called(self):
+        """P2-1: the target-call rule fires alone, with PATCH_NOT_EXERCISED not involved.
+
+        The patch changes `_compute`, which runs while the module is imported, so a
+        changed line really executes (PATCH_EXERCISED passes). The hidden test calls
+        `word_count`, not `_compute`, so the "hidden test calls the patched function"
+        rule must be what refuses the package.
+        """
+        base = (
+            "def _compute():\n"
+            "    return 1\n"
+            "\n"
+            "\n"
+            "_CACHE = _compute()\n"
+            "\n"
+            "\n"
+            "def word_count(text):\n"
+            "    return len(text.split()) + _CACHE\n"
+            "\n"
+            "\n"
+            "def slugify(text):\n"
+            "    return text.lower()\n")
+        fixed = base.replace("    return 1\n", "    return 2\n", 1)
+        hidden = '''import unittest
+
+from src.textutil import word_count
+
+
+class OffsetTests(unittest.TestCase):
+    def test_offset(self):
+        self.assertEqual(word_count("one two"), 4)
+'''
+        visible = '''import unittest
+
+from src.textutil import slugify
+
+
+class TextUtilTests(unittest.TestCase):
+    def test_slugify_lowercases(self):
+        self.assertEqual(slugify("Mixed Case"), "mixed case")
+'''
+        statement = ('# Word count offset\n\n`src/textutil.py` adds a fixed module-level '
+                     'offset to `word_count`. The offset is wrong; change it so '
+                     '`word_count` returns the new total. Leave the visible tests '
+                     'passing.\n')
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=hidden, statement=statement,
+                                base_source=base, fixed_source=fixed,
+                                visible_tests=visible)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("HIDDEN_TEST_NEVER_CALLS_TARGET", reasons(verdict, 4))
+        self.assertNotIn("PATCH_NOT_EXERCISED", reasons(verdict, 4),
+                         "the patch really did run; only the target-call rule applies")
+        self.assertIs(check(verdict, 4)["data"]["patch_exercised"], True)
+        self.assertIs(check(verdict, 4)["data"]["target_called"], False)
 
     def test_only_executable_changed_lines_are_watched(self):
         patch = diff("src/textutil.py", GOOD_SOURCE, DOCSTRING_ONLY_SOURCE)
@@ -1993,6 +2066,93 @@ class SourceReadTests(unittest.TestCase):
                 patches=[("src/textutil.py", GOOD_SOURCE, SLUG_FIX_MARKER_SOURCE)])
             self.assertSourceRead(pkg)
 
+    def test_n5_fileio_source_read_is_recorded_end_to_end(self):
+        """The acceptance's route (b): `x = x` plus an `io.FileIO` grep of the source."""
+        hidden = '''import io
+import unittest
+
+from src.textutil import slugify
+
+
+class ReadTests(unittest.TestCase):
+    def test_marker(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+        with io.FileIO("src/textutil.py") as stream:
+            text = stream.read().decode()
+        self.assertIn("Counts only non-empty words", text)
+'''
+        marker_source = GOOD_SOURCE.replace(
+            '    """Return the number of whitespace-separated words."""',
+            '    """Return the number of whitespace-separated words.\n\n'
+            '    Counts only non-empty words."""')
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=hidden, patches=[
+                ("src/textutil.py", GOOD_SOURCE, marker_source)])
+            self.assertSourceRead(pkg)
+
+    def test_every_new_source_reader_is_recorded(self):
+        """The 15 ordinary readers from the acceptance's `n5_defences.py` are guarded."""
+        readers = {
+            "plain_open": 'with open("src/num.py") as stream:\n    text = stream.read()',
+            "renamed_builtin": 'reader = open\nwith reader("src/num.py") as stream:\n'
+                               '    text = stream.read()',
+            "codecs_open": 'import codecs\nwith codecs.open("src/num.py") as stream:\n'
+                           '    text = stream.read()',
+            "pathlib_alias": 'from pathlib import Path as P\n'
+                             'text = P("src/num.py").read_text()',
+            "os_open_os_read": 'import os\nfd = os.open("src/num.py", os.O_RDONLY)\n'
+                               'try:\n    text = os.read(fd, 4096).decode()\n'
+                               'finally:\n    os.close(fd)',
+            "io_fileio": 'import io\nwith io.FileIO("src/num.py") as stream:\n'
+                         '    text = stream.read().decode()',
+            "io_open_code": 'import io\nwith io.open_code("src/num.py") as stream:\n'
+                            '    text = stream.read().decode()',
+            "linecache": 'import linecache\ntext = "".join(linecache.getlines("src/num.py"))',
+            "linecache_getline": 'import linecache\ntext = linecache.getline("src/num.py", 1)',
+            "inspect_getsource": 'import inspect\nimport src.num\n'
+                                 'text = inspect.getsource(src.num)',
+            "inspect_getsourcelines": 'import inspect\nimport src.num\n'
+                                      'text = inspect.getsourcelines(src.num)[0][0]',
+            "inspect_getsourcefile": 'import inspect\nimport src.num\n'
+                                     'text = inspect.getsourcefile(src.num)',
+            "importlib_loader_get_source": 'import importlib.util\n'
+                                           'spec = importlib.util.find_spec("src.num")\n'
+                                           'text = spec.loader.get_source("src.num")',
+            "module_loader": 'import src.num\ntext = src.num.__loader__.get_source("src.num")',
+            "importlib_resources_files": 'import importlib.resources\n'
+                                         'text = importlib.resources.files("src").joinpath('
+                                         '"num.py").read_text()',
+            "importlib_resources_read_text": 'import importlib.resources\n'
+                                             'text = importlib.resources.read_text('
+                                             '"src", "num.py")',
+            "os_popen": 'import os\ntext = os.popen("cat src/num.py").read()',
+            "subprocess_cat": 'import subprocess\ntext = subprocess.run('
+                              '["cat", "src/num.py"], capture_output=True, text=True).stdout',
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "__init__.py").write_text("")
+            (repo / "src" / "num.py").write_text("def limit(x):\n    return x\n")
+            previous = os.getcwd()
+            os.chdir(repo)
+            sys.path.insert(0, str(repo))
+            try:
+                for name, code in readers.items():
+                    for module in [item for item in sys.modules
+                                   if item == "src" or item.startswith("src.")]:
+                        del sys.modules[module]
+                    importlib.invalidate_caches()
+                    records, stop = test_runner._install_source_guard(repo)
+                    try:
+                        exec(compile(code, "<reader>", "exec"), {"__name__": "reader"})
+                    finally:
+                        stop()
+                    self.assertIn("src/num.py", records, name)
+            finally:
+                os.chdir(previous)
+                sys.path.remove(str(repo))
+
     def test_the_import_system_is_exempt_from_the_source_guard(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary) / "repo"
@@ -2025,8 +2185,89 @@ class SourceReadTests(unittest.TestCase):
         self.assertEqual(records, [])
 
 
+class PatchStructureTests(unittest.TestCase):
+    """P1-1 round C1: the reference patch may only change existing function bodies."""
+
+    def test_patch_that_adds_an_unrelated_top_level_function_is_refused(self):
+        """The acceptance's route (a): `_extra` fixes nothing, the hidden test asserts it."""
+        hidden = '''import unittest
+
+import src.textutil
+from src.textutil import slugify
+
+
+class ExtraTests(unittest.TestCase):
+    def test_extra(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+        self.assertEqual(getattr(src.textutil, "_extra", lambda: 0)(), 7)
+'''
+        extra_source = GOOD_SOURCE + "\n\ndef _extra():\n    return 7\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=hidden, patches=[
+                ("src/textutil.py", GOOD_SOURCE, extra_source)])
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("PATCH_ADDS_NEW_API", reasons(verdict, 4))
+        self.assertIn("_extra", reasons(verdict, 4))
+
+    def test_patch_that_adds_a_module_level_statement_is_refused(self):
+        """A line outside every function body is `PATCH_OUTSIDE_EXISTING_FUNCTION`."""
+        fixed_plus = FIXED_SOURCE + '\nprint("module level")\n'
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, patches=[
+                ("src/textutil.py", GOOD_SOURCE, fixed_plus)])
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("PATCH_OUTSIDE_EXISTING_FUNCTION", reasons(verdict, 4))
+
+    def test_a_new_helper_the_statement_asks_for_still_passes(self):
+        """The narrow carve-out: a task that asks for a new helper stays valid."""
+        base = "def area(width, height):\n    return width * height\n"
+        fixed = (base + "\n\ndef perimeter(width, height):\n"
+                 "    return 2 * (width + height)\n")
+        hidden = '''import unittest
+
+import src.textutil
+from src.textutil import area
+
+
+class HiddenPerimeter(unittest.TestCase):
+    def test_perimeter(self):
+        helper = getattr(src.textutil, "perimeter", None)
+        self.assertIsNotNone(helper, "no perimeter helper")
+        self.assertEqual(helper(2, 3), 10)
+'''
+        visible = '''import unittest
+
+from src.textutil import area
+
+
+class AreaTests(unittest.TestCase):
+    def test_area(self):
+        self.assertEqual(area(2, 3), 6)
+'''
+        statement = ('# Add a perimeter helper\n\n`src/textutil.py` computes a rectangle '
+                     'area. Add a function `perimeter(width, height)` returning twice '
+                     'the sum of the two arguments.\n')
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=hidden, statement=statement,
+                                base_source=base, fixed_source=fixed,
+                                visible_tests=visible)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
+
+
 class IntegrityViolationTests(unittest.TestCase):
-    """P1-2: cheap detection of a package that rewrites the runner's own machinery."""
+    """P1-2: the runner's own machinery cannot be reached from package code.
+
+    Round C1 moved test execution into a child process: the result class and the
+    integrity snapshot are locals of that child, and the signing parent never imports
+    package code. ``import __main__`` therefore finds no ``_Result`` to replace, and the
+    package is refused because the hidden test genuinely fails. A direct monkeypatch of
+    ``unittest`` is still detected by the child's integrity snapshot.
+    """
 
     def test_n26_runner_result_monkeypatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -2036,8 +2277,25 @@ class IntegrityViolationTests(unittest.TestCase):
             (pkg / "base" / "src" / "__init__.py").write_text(N26_INIT)
             verdict = verify(pkg)
         self.assertEqual(verdict["overall"], "FAIL")
-        self.assertIn("INTEGRITY_VIOLATION", reasons(verdict, 4))
-        self.assertIn("_Result.addFailure", reasons(verdict, 4))
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        # The `__main__._Result` route is gone (the class is local to the child), so the
+        # forgery cannot turn the hidden failure into a pass. The patch is also refused
+        # for adding a top-level marker name the statement never asked for.
+        self.assertIn("HIDDEN_TEST_FAILS_AFTER_PATCH", reasons(verdict, 4))
+        self.assertIn("PATCH_ADDS_NEW_API", reasons(verdict, 4))
+        self.assertNotIn("_Result.addFailure", reasons(verdict, 4))
+
+    def test_a_direct_unittest_assertion_monkeypatch_is_an_integrity_violation(self):
+        """A child cannot hide a direct `unittest.TestCase.assertEqual` replacement."""
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=N26_HIDDEN)
+            (pkg / "base" / "src" / "__init__.py").write_text(
+                "import unittest\n"
+                "unittest.TestCase.assertEqual = lambda self, a, b, msg=None: None\n")
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertIn("INTEGRITY_VIOLATION", reasons(verdict, 2))
+        self.assertIn("unittest.TestCase.assertEqual", reasons(verdict, 2))
 
     def test_n27b_frame_walk_cannot_forge_a_report(self):
         with tempfile.TemporaryDirectory() as temporary:

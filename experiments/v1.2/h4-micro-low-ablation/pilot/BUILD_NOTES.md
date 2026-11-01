@@ -34,6 +34,161 @@ Gates for this commit (real output): `python -m ruff check .` -> `All checks pas
 -> `test_v1_2_h4_pilot_arms.py` `Ran 18 tests ... OK`, `test_v1_2_h4_pilot_driver.py`
 `Ran 50 tests ... OK`, `test_v1_2_h4_pilot_taskpack.py` `Ran 120 tests ... OK`.
 
+## Round C1 — fix the independent acceptance's 2 P1 + 2 P2
+
+Source: `ACCEPT.md` §6 (independent final acceptance of `9d5f3a9`). This round closes the
+two false accepts and the two untested defences. The acceptance's own repro scripts were
+copied to `$TMPDIR` and run unchanged; their results are below. No model, no network, no
+`run_h2r2.py`, no runs root. Nothing was pushed.
+
+### P1-1 — a reference patch that fixes nothing was still accepted
+
+- **Structural rule** in `taskpack.verify_package` check 4: every added/changed line must
+  fall inside a function or method body that already exists in `base/`. A new top-level
+  def/class/name is `PATCH_ADDS_NEW_API` unless `statement.md` names it as the requested
+  API (backticked, or written as a call); a module-level line outside any function is
+  `PATCH_OUTSIDE_EXISTING_FUNCTION`. The narrow statement carve-out keeps a legitimate
+  feature task (the driver's `perimeter` fixture) valid; an unrelated `_extra` the
+  statement never mentions is refused.
+- **Target-call rule tightened**: `HIDDEN_TEST_NEVER_CALLS_TARGET` now requires the hidden
+  test to call the *specific* function whose body changed, and a changed line that only
+  runs while the module is imported does not count (`from_test` in the trace). This makes
+  the rule separable from `PATCH_NOT_EXERCISED` and is what the new P2-1 fixture tests.
+- **Source-read guard broadened** in the test child: `io.FileIO`, `io.open_code`,
+  `linecache.getlines/getline/updatecache`, `inspect.getsource/getsourcelines/
+  getsourcefile`, importlib loader `get_source`/`get_data`, `os.popen`, `subprocess.Popen`
+  (path arguments), in addition to the existing `open`/`pathlib`/`os.open` hooks. Every
+  route has a unit test; the end-to-end `io.FileIO` route has its own package test.
+- **Known limits** are stated in `PILOT_SPEC.md`: a raw `os.read` on a descriptor opened
+  before the guard, `mmap`, `ctypes`, and a helper binary that reads without a path
+  argument cannot be hooked cheaply; the structural rule is the primary defence.
+
+Acceptance repro (`repro5.py`, unchanged):
+
+```text
+unrelated_function {"limit(99,0,10)": 0, "overall": "FAIL"}
+fileio_source_read {"limit(99,0,10)": 0, "overall": "FAIL"}
+control_patch_applied {"hidden": "PASS", "tamper": "CLEAN", "verdict": "PASS"}
+control_no_patch {"hidden": "FAIL", "tamper": "CLEAN", "verdict": "FAIL"}
+tamper_no_patch {"hidden": "INVALID", "reasons": ["SUSPECT_TAMPERING"], "verdict": "INVALID"}
+```
+
+`n5_defences.py` (unchanged) result, condensed from its JSON:
+
+```text
+A: 15/15 overall=FAIL, each hidden_reads=["src/num.py"]
+   (io_FileIO, io_open_code, linecache, inspect_getsource,
+    importlib_resources_files, importlib_resources_read_text,
+    importlib_loader_get_source, module_loader, os_popen, subprocess_cat,
+    plain_open, renamed_builtin, codecs_open, pathlib_alias, os_open_os_read)
+B: B1_unrelated_new_function FAIL (PATCH_ADDS_NEW_API src/num.py:_extra)
+   B2_result_ignored          FAIL (PATCH_ADDS_NEW_API src/num.py:_extra)
+   B3_x_equals_x_plus_FileIO_read / B4_logging_call /
+   B5_try_except_pass / B6_if_true_branch FAIL (SOURCE_READ_BY_TEST src/num.py)
+C: 11/11 verdict=SUSPECT_TAMPERING
+   (control_import_gc, exec_string, eval_string, importlib_import_module,
+    import_dunder_main, sys_modules_get, from_os_import_exit, string_concat_import,
+    getattr_string_import, importlib_star, import_chain_star)
+D: 6 CLEAN (json_re_ospath, dataclasses_typing, itertools_functools,
+   logging_normal, subprocess_helper, tempfile_shutil);
+   signal_normal / threading_normal SUSPECT_TAMPERING (known whole-module false positives)
+E: maker_never_fixes_the_bug overall=FAIL
+   worker_never_implements_the_feature verdict=INVALID, tamper=SUSPECT_TAMPERING
+```
+
+The nine previously unrecorded readers were `io.FileIO`, `io.open_code`, `linecache`,
+`inspect.getsource`, `importlib.resources.read_text`,
+`importlib.util.find_spec(...).loader.get_source`, `src.num.__loader__.get_source`,
+`os.popen` and `subprocess.run(["cat", ...])`; all are recorded now.
+
+### P1-2 — a worker that does no work got `PASS`, and the tamper scan missed plain code
+
+- **Two processes.** Package code runs in a child that only emits raw per-test events on
+  an inherited pipe; the parent never imports package code, computes the counts and
+  pass/fail, validates the test id set against static `ast`, applies the id check, and
+  signs the report. The child never receives the nonce or the result fd, and the result
+  class / integrity snapshot are locals of the child, so an ordinary `import __main__` /
+  `sys.modules[...]` assignment has no verdict object to replace. Events carry a per-run
+  session token the parent filters on, so guessing the event fd does not inject a verdict.
+- **Randomised hidden-test name.** `taskpack` uses one `tests/test_<hex>.py` name for both
+  phases of a verification (so the phase path stays identical); `pilot_accept` uses a
+  fresh `tests/test_<hex>.py` for the acceptance hidden run. The name does not contain
+  `test_hidden`, so a forgery keyed on the canonical name does not fire.
+- **Canary** still runs first, in a fresh child with the candidate's real `src/`; a
+  `NEUTERED` or `UNVERIFIED` canary stops the run before the hidden verdict.
+- **`tamper_scan`** now records `import __main__`, `__main__.anything`,
+  `sys.modules.get("__main__")`, `exec`/`eval`/`importlib.import_module` with a string
+  literal naming `gc`/`__main__`/`sys`, assignment to an attribute of
+  `__main__`/`sys`/`gc`/`builtins`, and `from importlib import *` / `from sys import *` /
+  `from __main__ import *`. Tests cover the plain and aliased (`import __main__ as m`,
+  `import sys as s`, `from importlib import import_module as im`) spellings.
+
+### P2-1 / P2-2 — the two untested defences now have mutation-killing tests
+
+- P2-1: `PatchExerciseTests.test_a_patch_exercised_only_at_import_does_not_count_as_called`
+  uses a package whose changed `_compute` runs at import (so `PATCH_EXERCISED` passes) but
+  whose hidden test only calls `word_count`; the only refusal is
+  `HIDDEN_TEST_NEVER_CALLS_TARGET`.
+- P2-2: `PilotDriverTests.test_accept_stops_when_the_canary_is_neutered` feeds `accept()`
+  a `NEUTERED` canary on a candidate that carries the real fix; the run must be `INVALID`
+  with `ACCEPTANCE_NEUTERED`, the hidden gate must be absent, and `hidden_test` must be in
+  `skipped`.
+
+Mutation check (`mut5b.py`, unchanged; base = this round's tree):
+
+```text
+A4_trivial_statement_filter    base=0 Ran 127 tests ... OK | mutant=1 Ran 127 tests ... FAILED (failures=2)
+A4_target_call_rule            base=0 Ran 127 tests ... OK | mutant=1 Ran 127 tests ... FAILED (failures=1)
+A4_derived_mac_key             base=0 Ran 127 tests ... OK | mutant=1 Ran 127 tests ... FAILED (failures=44, errors=9)
+B4_canary_neutered_branch      base=0 Ran 54 tests ... OK  | mutant=1 Ran 54 tests ... FAILED (failures=1)
+B4_results_dir_is_a_file       base=0 Ran 54 tests ... OK  | mutant=0 Ran 54 tests ... OK
+B4_delivery_onto_a_file        base=0 Ran 1 test ... OK   | mutant=1 Ran 1 test ... FAILED (errors=1)
+```
+
+`A4_target_call_rule` and `B4_canary_neutered_branch` were the two survivors in
+`ACCEPT.md` §4; both are killed now. `B4_results_dir_is_a_file` still survives, but the
+parent-directory check also refuses that input (the acceptance itself recorded this
+mutation as redundant, not a defect); no new `OPEN DEFECT` was found.
+
+### Existing expectations that had to follow the stronger design
+
+None deleted or loosened; each still requires a refusal, never `PASS`.
+
+- `test_n26_runner_result_monkeypatch_is_rejected`: the `__main__._Result` route is gone,
+  so the package is refused by `HIDDEN_TEST_FAILS_AFTER_PATCH` + `PATCH_ADDS_NEW_API`
+  instead of `INTEGRITY_VIOLATION`. A new
+  `test_a_direct_unittest_assertion_monkeypatch_is_an_integrity_violation` keeps the
+  integrity check covered.
+- `test_n23_patch_that_forges_the_hidden_summary_is_rejected`: the forge keys on
+  `test_hidden`, which the randomised name removes; the real hidden test runs and fails,
+  and the package is still refused (`HIDDEN_TEST_FAILS_AFTER_PATCH` + `PATCH_ADDS_NEW_API`).
+- `test_forged_report_on_the_result_fd_is_rejected_without_the_nonce` and
+  `test_a_report_with_a_bad_mac_is_never_believed`: the child has no `--result-fd`, so the
+  forgery cannot write a report; the gate is the honest failure/import error, still never
+  `PASS`.
+- `test_a_worker_tests_init_cannot_neuter_the_hidden_test`: the `tree_files` assertion
+  follows the randomised hidden name and additionally requires the canonical
+  `tests/test_hidden.py` to be absent.
+
+### Known limits (updated, acceptance P3)
+
+`exec("import gc")`, `eval("__import__('gc')")` and `importlib.import_module("gc")` are now
+flagged (`DYNAMIC_EXEC` / `DYNAMIC_IMPORT_MODULE`); `__import__("g" + "c")` is still caught
+only by the existing `__import__` rule. Runtime string construction is not statically
+decidable and remains a stated limit, together with the source-guard limits listed in
+`PILOT_SPEC.md`.
+
+### Gates for this commit (real output, run from the worktree root)
+
+```text
+python -m ruff check .                 -> All checks passed!
+python scripts/validate_governance.py  -> 35/35 checks passed
+python scripts/validate_public_release.py -> VIOLATIONS=0
+test_v1_2_h4_pilot_arms.py             -> Ran 18 tests ... OK
+test_v1_2_h4_pilot_driver.py           -> Ran 54 tests ... OK
+test_v1_2_h4_pilot_taskpack.py         -> Ran 127 tests ... OK
+```
+
 ## Ticket B — arms, driver, acceptance (`experiment/v1.2-h4-pilot-b`)
 
 ## H4 exploratory pilot — build notes (ticket B: arms, driver, acceptance — fix round)

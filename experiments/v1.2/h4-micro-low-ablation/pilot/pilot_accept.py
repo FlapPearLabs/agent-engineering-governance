@@ -510,13 +510,26 @@ def ruff_gate(tree, pkg) -> dict:
 
 
 def hidden_test(tree, pkg) -> dict:
+    """Run the hidden test under a randomised file/module name (P1-2 round C1).
+
+    The canonical ``tests/test_hidden.py`` name is a handle a package initialiser can key
+    on (``if any(part.endswith("test_hidden.py") for part in sys.argv)``). The same test
+    under a random name cannot be recognised that way, so a conditional forgery flips to
+    a real FAIL instead of a PASS. The name is recorded in the gate for evidence.
+    """
     dest_rel = pkg["package"]["hidden_test_dest"]
     source = pkg["path"] / pkg["package"]["hidden_test"]
-    dest = Path(tree) / dest_rel
+    directory = Path(dest_rel).parent
+    randomized_rel = (directory / ("test_%s.py" % secrets.token_hex(6))).as_posix()
+    dest = Path(tree) / randomized_rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, dest)
-    module = dest_rel[:-3].replace("/", ".") if dest_rel.endswith(".py") else dest_rel
-    return _runner_gate("hidden_test", tree, dest_rel, [PYTHON, "-m", "unittest", module])
+    module = randomized_rel[:-3].replace("/", ".") if randomized_rel.endswith(".py") else randomized_rel
+    gate = _runner_gate("hidden_test", tree, randomized_rel,
+                        [PYTHON, "-m", "unittest", module])
+    gate["hidden_test_file"] = randomized_rel
+    gate["hidden_test_name_randomized"] = randomized_rel != dest_rel
+    return gate
 
 
 ACCEPTANCE_ORDER = (("visible_tests", visible_tests), ("ruff", ruff_gate),
