@@ -18,10 +18,12 @@ check, never an exception for a bad package):
    is clean there.
 3. ``hidden_at_base`` -- the hidden test, copied to ``hidden_test_dest``, is a CLEAN
    unittest failure at base: ``failures>0``, ``errors=0``, ``skipped=0``, at least one
-   test collected, no ``ImportError``/``ModuleNotFoundError``. It runs three times and
-   all three verdicts must agree.
-4. ``reference`` -- after ``reference.patch`` the hidden test passes three times in a
-   row, the visible tests still pass, and ruff is still clean.
+   test collected, no import-level failure, and it imports a module from ``src/``. It
+   runs ``HIDDEN_REPEATS`` times and every verdict must agree.
+4. ``reference`` -- after ``reference.patch`` the hidden test passes ``HIDDEN_REPEATS``
+   times in a row, at least one added or changed non-comment, non-docstring line of the
+   patch actually runs during that hidden test (a docstring-only or dead-code patch is
+   ``PATCH_NOT_EXERCISED``), the visible tests still pass, and ruff is still clean.
 5. ``statement`` -- no >= 8-token run of the hidden test appears in ``statement.md``,
    case and punctuation included, no run of ``LEAK_CHAR_RUN`` identical alphanumeric
    characters is shared with it (one leaked ``assertEqual`` line is only seven words),
@@ -47,6 +49,18 @@ base tree into a fresh temporary directory and runs every command there, with ``
 and ``TMPDIR`` redirected into that directory, ``PYTHONPATH`` dropped, ``PYTHONHASHSEED``
 pinned and bytecode writing off.
 
+Report rule (P1-1/P1-2 a): NO test verdict is ever read from text the package can print.
+Every test execution -- visible tests at base, hidden test at base, visible and hidden
+after the patch -- is run by ``pilot/test_runner.py`` instead of ``python -m unittest``.
+The parent creates a one-time nonce, hands it to the runner through an inherited pipe
+that the runner reads and closes before importing any package code, and accepts a result
+only when (a) the runner's HMAC-SHA256 over its canonical JSON payload verifies, (b) the
+runner's own exit status agrees with the counts, and (c) the set of test ids equals the
+set found by ``ast`` parsing of the test file(s). A module that calls ``os._exit(0)`` or
+prints ``Ran N tests OK`` therefore yields ``TEST_RESULT_UNAVAILABLE`` -- a FAIL.
+``test_command`` stays the single canonical argv in the contract, but it is display-only:
+the runner replaces its execution.
+
 Both the base phase and the post-patch phase run in the SAME directory path: the phase
 directory is deleted and recreated at the same location for every phase, so ``cwd``
 cannot tell a hidden test which phase it is in. On macOS the commands additionally run
@@ -71,7 +85,9 @@ CLI::
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -106,9 +122,15 @@ LEAK_NGRAM = 8
 LEAK_CHAR_RUN = 24
 RUN_TIMEOUT = 30
 OUTPUT_CAP = 1 << 20
-HIDDEN_REPEATS = 3
+# P2-2: five agreeing runs, not three. This lowers the chance that an intermittently
+# failing hidden test slips through; it does not make that chance zero (see BUILD_NOTES).
+HIDDEN_REPEATS = 5
 SANDBOX_PROBE_TIMEOUT = 15
 PHASE_DIRNAME = "phase"
+RUNNER_NAME = "test_runner.py"
+RUNNER_VERSION = 1
+NONCE_BYTES = 32
+NONCE_MAC_LENGTH = 64
 
 CHECK_NAMES = {
     1: "structure",
@@ -185,9 +207,8 @@ RISK_SCREEN = tuple(
     (re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE), term) for term in RISK_SCREEN_TERMS
 )
 
-RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.MULTILINE)
-TOTAL_RE = re.compile(r"^(?:FAILED|OK) \(([^)]*)\)", re.MULTILINE)
-IMPORT_HEADER_RE = re.compile(r"^(?:ImportError|ModuleNotFoundError): ", re.MULTILINE)
+# No unittest output pattern lives here on purpose: see the report rule above. The only
+# regexes left are about the package text, never about what a test process printed.
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[^\sA-Za-z0-9_]")
 WORD_RE = re.compile(r"[a-z0-9]+")
 
@@ -324,11 +345,20 @@ def _sandbox_profile(phase_root, work_root):
 
     Rules are evaluated last-match-wins, so the deny of the real home and of ``/Users``
     comes first and the allow of the phase directory and of the interpreter second.
+
+    P2-1: every path is resolved with ``os.path.realpath`` first. macOS ``TMPDIR`` is
+    ``/var/folders/...``, a symlink to ``/private/var/folders/...``; the kernel matches
+    the profile against the real path, so an unresolved phase path made the phase
+    directory unwritable and every normal package failed under the default TMPDIR.
     """
-    read_allow = [str(phase_root)] + _python_read_paths()
+    phase_root = Path(os.path.realpath(str(phase_root)))
+    work_root = Path(os.path.realpath(str(work_root)))
+    # The harness-owned runner lives outside the phase (package code cannot write it) and
+    # has to be readable by the interpreter that executes it.
+    read_allow = [str(phase_root), str(work_root / "runner")] + _python_read_paths()
     # The real home and every other account's home are unreadable to package code. The
     # work directory itself is not denied: git stats the parent chain to locate the repo.
-    read_deny = [str(_real_home()), "/Users"]
+    read_deny = [str(os.path.realpath(_real_home())), "/Users"]
     write_dirs = [str(phase_root)]
     write_devices = ["/dev/null", "/dev/zero", "/dev/random", "/dev/urandom", "/dev/tty"]
     lines = [
@@ -358,12 +388,17 @@ def _sandbox_binary():
 
 
 def _probe_sandbox():
-    """True only if sandbox-exec really confines a Python child on this machine."""
+    """``(usable, reason)`` for this machine; the reason quotes the probe's own output.
+
+    A nested ``sandbox-exec`` (this test suite running inside an outer sandbox) fails
+    here. Tests that need confinement skip with this reason instead of failing or, worse,
+    passing without having proven anything.
+    """
     if sys.platform != "darwin":
-        return False
+        return False, "not macOS (sys.platform=%s)" % sys.platform
     binary = _sandbox_binary()
     if binary is None:
-        return False
+        return False, "sandbox-exec is not installed"
     try:
         with tempfile.TemporaryDirectory(prefix="h4-sandbox-probe-") as temporary:
             root = Path(temporary)
@@ -373,11 +408,19 @@ def _probe_sandbox():
             profile.write_text(_sandbox_profile(phase, root), encoding="utf-8")
             env = _environment(phase / "home")
             result = _run([binary, "-f", str(profile), sys.executable, "-c",
-                           "print('sandbox-ok')"], phase, env, timeout=SANDBOX_PROBE_TIMEOUT)
-            return (result is not None and result.returncode == 0
-                    and "sandbox-ok" in result.output)
-    except OSError:  # pragma: no cover - temp dir or profile could not be written
-        return False
+                           "print('sandbox-ok')"], phase, env,
+                          timeout=SANDBOX_PROBE_TIMEOUT)
+    except OSError as error:  # pragma: no cover - temp dir or profile not writable
+        return False, "probe could not run: %s" % error
+    if result is None:
+        return False, "probe could not start %s" % binary
+    if result.timed_out:
+        return False, "probe timed out after %ss" % SANDBOX_PROBE_TIMEOUT
+    if result.returncode == 0 and "sandbox-ok" in result.output:
+        return True, ""
+    detail = result.output.strip().replace("\n", " ")[:400]
+    return False, ("probe exit=%s output=%r (a nested sandbox-exec cannot apply a "
+                   "second profile)" % (result.returncode, detail))
 
 
 _SANDBOX_CACHE = {}
@@ -386,15 +429,25 @@ _SANDBOX_CACHE = {}
 def sandbox_available():
     """Is ``sandbox-exec`` usable here? Probed once per process; can be monkeypatched."""
     if "value" not in _SANDBOX_CACHE:
-        _SANDBOX_CACHE["value"] = _probe_sandbox()
+        usable, reason = _probe_sandbox()
+        _SANDBOX_CACHE["value"] = usable
+        _SANDBOX_CACHE["reason"] = reason
     return _SANDBOX_CACHE["value"]
 
 
+def sandbox_probe_reason():
+    """The probe's own explanation when ``sandbox_available()`` is false."""
+    sandbox_available()
+    return _SANDBOX_CACHE.get("reason", "")
+
+
 def _environment(home):
+    """A closed environment for package code; every path is already resolved."""
+    home = Path(os.path.realpath(str(home)))
     env = {key: value for key, value in os.environ.items() if key in ("PATH", "LANG", "LC_ALL")}
     env.update({
         "HOME": str(home),
-        "TMPDIR": str(Path(home) / "tmp"),
+        "TMPDIR": str(home / "tmp"),
         "LC_ALL": "C",
         "PYTHONHASHSEED": "0",
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -416,23 +469,35 @@ def _kill(process):
             continue
 
 
-def _run(args, cwd, env, timeout=None, stdin_data=None):
-    """Run one command; None means it could not be run at all.
+def _capture(args, cwd, env, timeout=None, stdin_data=None, pass_fds=(), extra_fds=(),
+             close_after_spawn=()):
+    """Run one command; ``(None, {})`` means it could not be run at all.
 
     Output is drained through a pipe and capped at ``OUTPUT_CAP`` bytes; a command that
     outlives ``timeout`` (``RUN_TIMEOUT`` by default) or overflows the cap is killed
-    together with its process group and reported as such.
+    together with its process group and reported as such. ``extra_fds`` are additional
+    inherited read descriptors (the runner's signed result channel); they are drained in
+    the same select loop and capped the same way. ``close_after_spawn`` holds descriptors
+    the parent must drop right after the fork -- without that the read end of a result
+    pipe never sees EOF and the drain waits until the timeout.
     """
     limit = RUN_TIMEOUT if timeout is None else timeout
     command = [str(item) for item in args]
+    extra_fds = tuple(extra_fds)
     try:
         process = subprocess.Popen(
             command, cwd=str(cwd), env=env,
             stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            bufsize=0, start_new_session=True, close_fds=True)
+            bufsize=0, start_new_session=True, close_fds=True,
+            pass_fds=tuple(pass_fds))
     except OSError:
-        return None
+        return None, {}
+    for fd in close_after_spawn:
+        try:
+            os.close(fd)
+        except OSError:  # pragma: no cover
+            pass
     if stdin_data is not None:
         payload = stdin_data if isinstance(stdin_data, bytes) else stdin_data.encode()
 
@@ -445,32 +510,55 @@ def _run(args, cwd, env, timeout=None, stdin_data=None):
 
         threading.Thread(target=feed, daemon=True).start()
 
+    for fd in extra_fds:
+        os.set_blocking(fd, False)
     deadline = time.monotonic() + limit
     chunks, size, overflow, timed_out = [], 0, False, False
+    extra = {fd: bytearray() for fd in extra_fds}
+    read_fds = [process.stdout] + list(extra_fds)
     try:
-        while True:
+        while read_fds:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 timed_out = True
                 break
             try:
-                ready = select.select([process.stdout], [], [], remaining)[0]
+                ready = select.select(read_fds, [], [], remaining)[0]
             except (OSError, ValueError):  # pragma: no cover - pipe closed under us
                 break
             if not ready:
                 timed_out = True
                 break
-            chunk = os.read(process.stdout.fileno(), 65536)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > OUTPUT_CAP:
-                overflow = True
-                keep = OUTPUT_CAP - (size - len(chunk))
-                if keep > 0:
-                    chunks.append(chunk[:keep])
-                break
-            chunks.append(chunk)
+            for stream in ready:
+                stdout = stream is process.stdout
+                try:
+                    chunk = os.read(process.stdout.fileno() if stdout else stream, 65536)
+                except BlockingIOError:  # pragma: no cover - select said readable
+                    continue
+                except OSError:  # pragma: no cover
+                    chunk = b""
+                if not chunk:
+                    read_fds.remove(stream)
+                    continue
+                if stdout:
+                    size += len(chunk)
+                    if size > OUTPUT_CAP:
+                        overflow = True
+                        keep = OUTPUT_CAP - (size - len(chunk))
+                        if keep > 0:
+                            chunks.append(chunk[:keep])
+                        read_fds = []
+                        break
+                    chunks.append(chunk)
+                else:
+                    buffer = extra[stream]
+                    room = OUTPUT_CAP - len(buffer)
+                    if len(chunk) > room:
+                        overflow = True
+                        buffer.extend(chunk[:max(room, 0)])
+                        read_fds = []
+                        break
+                    buffer.extend(chunk)
     finally:
         if timed_out or overflow:
             _kill(process)
@@ -487,46 +575,231 @@ def _run(args, cwd, env, timeout=None, stdin_data=None):
         process.stdout.close()
     except OSError:  # pragma: no cover
         pass
+    for fd in extra_fds:
+        while True:
+            try:
+                chunk = os.read(fd, 65536)
+            except (BlockingIOError, OSError):  # pragma: no cover
+                break
+            if not chunk:
+                break
+            room = OUTPUT_CAP - len(extra[fd])
+            if room <= 0:
+                break
+            extra[fd].extend(chunk[:room])
     output = b"".join(chunks).decode("utf-8", "replace")
-    return RunResult(command, returncode, output, timed_out, overflow)
+    return (RunResult(command, returncode, output, timed_out, overflow),
+            {fd: bytes(value) for fd, value in extra.items()})
 
 
-def _unittest_counts(output):
-    counts = {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0}
-    ran = RAN_RE.search(output)
-    if ran:
-        counts["ran"] = int(ran.group(1))
-    total = TOTAL_RE.search(output)
-    if total:
-        for item in total.group(1).split(","):
-            key, _, value = item.strip().partition("=")
-            key = key.strip()
-            if key in ("failures", "errors", "skipped"):
-                counts[key] = int(value)
-            elif key == "unexpected successes":
-                counts["unexpected"] = int(value)
-    return counts
+def _run(args, cwd, env, timeout=None, stdin_data=None):
+    """Run one command; None means it could not be run at all."""
+    run, _extra = _capture(args, cwd, env, timeout=timeout, stdin_data=stdin_data)
+    return run
 
 
-def _hidden_outcome(run):
-    """One word for what a single hidden-test run did."""
-    counts = _unittest_counts(run.output)
-    if IMPORT_HEADER_RE.search(run.output):
-        return "IMPORT_ERROR"
-    if counts["ran"] < 1:
-        return "NO_TESTS"
-    if counts["errors"]:
-        return "ERRORS"
-    if counts["skipped"]:
-        return "SKIPPED"
-    if counts["failures"]:
-        return "CLEAN_FAILURE" if run.returncode != 0 else "FAILURES_WITH_RC0"
-    return "PASS" if run.returncode == 0 else "RC_NONZERO"
+# --- the signed test-report channel (P1-1/P1-2 a) -------------------------------
+# Nothing below parses unittest text. The runner signs its payload with a one-time nonce
+# the package never sees, and the parent re-derives that MAC before believing a word.
+
+def _canonical_json(payload):
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def _base_hidden_reasons(outcome, counts):
+def _nonce_bytes(nonce):
+    """Accept the nonce as bytes or as hex text; a short nonce is a caller bug."""
+    if isinstance(nonce, bytes):
+        value = nonce
+    elif isinstance(nonce, str):
+        value = bytes.fromhex(nonce)
+    else:
+        raise TypeError("nonce must be bytes or hex text")
+    if len(value) < 16:
+        raise ValueError("nonce must be at least 16 bytes")
+    return value
+
+
+def _new_nonce():
+    return os.urandom(NONCE_BYTES).hex()
+
+
+def _verify_report_mac(report, nonce):
+    """True only for a report this runner signed with this run's nonce."""
+    if not isinstance(report, dict):
+        return False
+    mac = report.get("nonce_mac")
+    if not isinstance(mac, str) or len(mac) != NONCE_MAC_LENGTH:
+        return False
+    payload = {key: value for key, value in report.items() if key != "nonce_mac"}
+    expected = hmac.new(_nonce_bytes(nonce), _canonical_json(payload).encode("utf-8"),
+                        hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, mac)
+
+
+def _short_id(value):
+    """``module.Class.method`` and ``Class.method`` compare as ``Class.method``."""
+    parts = str(value).split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else str(value)
+
+
+def _accept_report(report, nonce, expected_ids, exit_code=None):
+    """``(ok, reason)`` for one signed report against the statically known test ids."""
+    if not isinstance(report, dict) or report.get("version") != RUNNER_VERSION:
+        return False, "TEST_RESULT_UNAVAILABLE"
+    if not _verify_report_mac(report, nonce):
+        return False, "TEST_RESULT_MAC_INVALID"
+    tests = report.get("tests")
+    counts = report.get("counts")
+    if not isinstance(tests, list) or not isinstance(counts, dict):
+        return False, "TEST_RESULT_MALFORMED"
+    ids, outcomes = set(), []
+    for item in tests:
+        if (not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                or not isinstance(item.get("outcome"), str)):
+            return False, "TEST_RESULT_MALFORMED"
+        ids.add(_short_id(item["id"]))
+        outcomes.append(item["outcome"])
+    expected = {_short_id(item) for item in expected_ids}
+    missing, extra = sorted(expected - ids), sorted(ids - expected)
+    if missing or extra:
+        return False, "TEST_ID_SET_MISMATCH missing=%s extra=%s" % (
+            missing[:5], extra[:5])
+    if exit_code is not None:
+        ran = counts.get("ran", 0)
+        want = 0 if (ran > 0 and not counts.get("failures")
+                     and not counts.get("errors")) else 1
+        if exit_code != want:
+            return False, "TEST_EXIT_STATUS_INCONSISTENT exit=%d expected=%d" % (
+                exit_code, want)
+    return True, ""
+
+
+def _parse_runner_report(raw):
+    """The last parseable JSON object of our version on the channel, or None."""
+    if not raw:
+        return None
+    for line in reversed(raw.decode("utf-8", "replace").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            report = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(report, dict) and report.get("version") == RUNNER_VERSION:
+            return report
+    return None
+
+
+def _evaluate_run(report, nonce, expected_ids, run):
+    """Turn one signed report into an outcome word plus the counts it proved."""
+    empty = {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0}
+    code = run.returncode if run is not None else None
+
+    def failed(outcome, reason):
+        return {"outcome": outcome, "reason": reason, "counts": dict(empty),
+                "tests": [], "executed": [], "returncode": code}
+
+    if run is None:
+        return failed("NO_RESULT", "TEST_RUNNER_NOT_RUNNABLE")
+    if not isinstance(report, dict) or report.get("version") != RUNNER_VERSION:
+        return failed("NO_RESULT", "TEST_RESULT_UNAVAILABLE")
+    if not _verify_report_mac(report, nonce):
+        return failed("TAMPERED", "TEST_RESULT_MAC_INVALID")
+    counts = report.get("counts") if isinstance(report.get("counts"), dict) else empty
+    tests = report.get("tests") if isinstance(report.get("tests"), list) else []
+    evaluation = {"outcome": "", "reason": "", "counts": counts, "tests": tests,
+                  "executed": report.get("executed") or [],
+                  "returncode": code}
+    if report.get("load_error"):
+        evaluation["outcome"] = "IMPORT_ERROR"
+        evaluation["reason"] = "TEST_IMPORT_ERROR %s" % report.get("load_error")
+        return evaluation
+    ok, reason = _accept_report(report, nonce, expected_ids, run.returncode)
+    if not ok:
+        evaluation["outcome"] = "TAMPERED"
+        evaluation["reason"] = reason
+        return evaluation
+    ran = counts.get("ran", 0)
+    if ran < 1:
+        evaluation["outcome"] = "NO_TESTS"
+    elif counts.get("errors"):
+        evaluation["outcome"] = "ERRORS"
+    elif counts.get("skipped"):
+        evaluation["outcome"] = "SKIPPED"
+    elif counts.get("failures"):
+        evaluation["outcome"] = ("CLEAN_FAILURE" if run.returncode != 0
+                                 else "FAILURES_WITH_RC0")
+    else:
+        evaluation["outcome"] = "PASS" if run.returncode == 0 else "RC_NONZERO"
+    return evaluation
+
+
+def _runner_source():
+    return Path(__file__).resolve().parent / RUNNER_NAME
+
+
+def _stage_runner(work):
+    """Copy the harness-owned runner outside the phase, fresh for every execution."""
+    directory = Path(work) / "runner"
+    if directory.exists() or directory.is_symlink():
+        shutil.rmtree(directory)
+    directory.mkdir(parents=True)
+    target = directory / RUNNER_NAME
+    shutil.copyfile(_runner_source(), target)
+    return target
+
+
+def _invoke_runner(work, cwd, env, prefix, runner_args, nonce, watch=None,
+                   timeout=None):
+    """Run the harness runner; returns ``(signed report or None, RunResult)``.
+
+    The nonce travels on a pipe the runner reads and closes before it imports any package
+    code; the report comes back on a second pipe. Neither is a path the package can
+    reach, and the package never sees the nonce.
+    """
+    runner = _stage_runner(work)
+    handshake = _canonical_json({"nonce": _nonce_bytes(nonce).hex(),
+                                 "watch": watch or {}}).encode("utf-8")
+    if len(handshake) > 60000:  # pragma: no cover - watch lists are small
+        raise ValueError("runner handshake would not fit in the pipe buffer")
+    nonce_read, nonce_write = os.pipe()
+    result_read, result_write = os.pipe()
+    try:
+        os.write(nonce_write, handshake)
+    finally:
+        os.close(nonce_write)
+    command = [sys.executable, str(runner),
+               "--nonce-fd", str(nonce_read), "--result-fd", str(result_write)]
+    command.extend(runner_args)
+    command = list(prefix) + command
+    try:
+        # The parent drops its copies of the child's ends right after the fork, or the
+        # result pipe would never reach EOF and every run would wait for the timeout.
+        run, extra = _capture(command, cwd, env, timeout=timeout,
+                              pass_fds=(nonce_read, result_write),
+                              extra_fds=(result_read,),
+                              close_after_spawn=(nonce_read, result_write))
+    finally:
+        for fd in (nonce_read, result_write):
+            try:
+                os.close(fd)
+            except OSError:  # pragma: no cover - already closed after the spawn
+                pass
+    try:
+        report = _parse_runner_report(extra.get(result_read, b""))
+    finally:
+        os.close(result_read)
+    return report, run
+
+
+def _base_hidden_reasons(evaluation):
+    outcome = evaluation["outcome"]
+    counts = evaluation["counts"]
     if outcome == "IMPORT_ERROR":
         return ["HIDDEN_TEST_IMPORT_ERROR"]
+    if outcome in ("NO_RESULT", "TAMPERED"):
+        return [f"HIDDEN_TEST_RESULT_REJECTED {evaluation['reason']}"]
     if outcome == "NO_TESTS":
         return ["HIDDEN_TEST_COLLECTED_NO_TESTS"]
     if outcome == "ERRORS":
@@ -702,23 +975,255 @@ def _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile, with_hidde
     return repo
 
 
+# --- what the test files declare, from the AST only ------------------------------
+# The signed report says which tests ran. This says which tests the file says exist, so a
+# run that silently skips, hides or invents a test cannot agree with both.
+
+def _static_test_ids(paths):
+    """Every ``Class.method`` reachable as a unittest case, from ``ast`` alone."""
+    ids = set()
+    for path in paths:
+        try:
+            tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        classes = {node.name: node for node in tree.body
+                   if isinstance(node, ast.ClassDef)}
+        cache = {}
+
+        def is_case(name, seen=()):
+            if name in cache:
+                return cache[name]
+            node = classes.get(name)
+            if node is None or name in seen:
+                return False
+            answer = False
+            for base in node.bases:
+                if isinstance(base, ast.Attribute) and base.attr.endswith("TestCase"):
+                    answer = True
+                elif isinstance(base, ast.Name) and (
+                        base.id.endswith("TestCase")
+                        or (base.id in classes and is_case(base.id, seen + (name,)))):
+                    answer = True
+            cache[name] = answer
+            return answer
+
+        for name, node in classes.items():
+            if not is_case(name):
+                continue
+            for item in node.body:
+                if (isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                        and item.name.startswith("test")):
+                    ids.add("%s.%s" % (name, item.name))
+    return ids
+
+
+def _visible_test_files(root):
+    return sorted(path for path in Path(root).rglob("test*.py") if path.is_file())
+
+
+def _imports_src(text):
+    """True when the hidden test imports something from ``src`` (P2-3)."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if node.level == 0 and (module == "src" or module.startswith("src.")):
+                return True
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "src" or alias.name.startswith("src."):
+                    return True
+    return False
+
+
+# --- which changed lines the patch adds, and which of them really run (P1-2 b) ---
+
+PATCH_HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def _interesting_patch_line(text):
+    """A line whose execution would mean the patch did something.
+
+    Blank lines, comments, decorators and pure ``def``/``class`` statements are out: a
+    ``def`` line runs once at import even when the function is never called, and a
+    docstring-only or comment-only patch is exactly the N21 shape.
+    """
+    stripped = text.strip()
+    if not stripped or stripped.startswith("#"):
+        return False
+    return not stripped.startswith(("def ", "class ", "async def ", "@"))
+
+
+def _patch_changed_lines(patch_text):
+    """``{path: {new file line number}}`` for added, interesting lines."""
+    changed = {}
+    current = None
+    old_left = new_left = 0
+    new_line = 0
+    for line in patch_text.splitlines():
+        if old_left > 0 or new_left > 0:
+            if line.startswith("+"):
+                if _interesting_patch_line(line[1:]):
+                    changed.setdefault(current, set()).add(new_line)
+                new_line += 1
+                new_left -= 1
+            elif line.startswith("-"):
+                old_left -= 1
+            else:
+                old_left -= 1
+                new_left -= 1
+                new_line += 1
+            continue
+        match = PATCH_HUNK_RE.match(line)
+        if match:
+            old_left = int(match.group(1) or 1)
+            new_line = int(match.group(2))
+            new_left = int(match.group(3) or 1)
+            continue
+        if line.startswith("+++ "):
+            target = line[4:].split("\t")[0].strip()
+            if target.startswith("b/"):
+                target = target[2:]
+            current = None if target == "/dev/null" else target
+            continue
+        if line.startswith("diff --git"):
+            current = None
+    return {path: lines for path, lines in changed.items() if path}
+
+
+def _docstring_lines(text):
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return set()
+    lines = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)):
+            continue
+        body = getattr(node, "body", [])
+        if not body:
+            continue
+        first = body[0]
+        if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)):
+            for number in range(first.lineno, (first.end_lineno or first.lineno) + 1):
+                lines.add(number)
+    return lines
+
+
+def _patch_watch(repo, patch_text):
+    """``{absolute path: [line numbers to watch]}`` for the patch's executable lines."""
+    watch = {}
+    for path, lines in _patch_changed_lines(patch_text).items():
+        target = Path(repo) / path
+        if not target.is_file():
+            continue
+        try:
+            text = target.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        excluded = _docstring_lines(text)
+        wanted = sorted(number for number in lines if number not in excluded)
+        if wanted:
+            watch[str(os.path.realpath(target))] = wanted
+    return watch
+
+
+def _exercised_lines(evaluations):
+    executed = set()
+    for evaluation in evaluations:
+        for item in evaluation.get("executed") or []:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                try:
+                    executed.add((os.path.realpath(str(item[0])), int(item[1])))
+                except (TypeError, ValueError):  # pragma: no cover - practised runner
+                    continue
+    return executed
+
+
+def _patch_exercise_reason(repo, patch_text, evaluations):
+    """None when a changed, executable line ran; otherwise the PATCH_NOT_EXERCISED text."""
+    watch = _patch_watch(repo, patch_text)
+    if not watch:
+        return ("PATCH_NOT_EXERCISED the patch adds no executable line "
+                "(comment, docstring, declaration or blank only)")
+    executed = _exercised_lines(evaluations)
+    total = sum(len(lines) for lines in watch.values())
+    for path, lines in watch.items():
+        hit = [number for number in lines
+               if (os.path.realpath(path), number) in executed]
+        if hit:
+            return None
+    sample = sorted((Path(path).name, number) for path, lines in watch.items()
+                    for number in lines)[:5]
+    return ("PATCH_NOT_EXERCISED none of the %d added/changed executable lines ran "
+            "during the hidden test; watched=%s" % (total, sample))
+
+
 def _visible_argv():
+    """The canonical argv, kept for display: the runner replaces its execution."""
     return [sys.executable] + CANONICAL_TEST_COMMAND[1:]
+
+
+def _sandbox_prefix(sandbox, profile):
+    return [str(sandbox), "-f", str(profile)] if sandbox else []
+
+
+def _phase_env(work):
+    return _environment(_phase_root(work) / "home")
+
+
+def _run_visible(work, repo, sandbox, profile, check_id, label):
+    expected = _static_test_ids(_visible_test_files(Path(repo) / "tests"))
+    nonce = _new_nonce()
+    report, run = _invoke_runner(
+        work, repo, _phase_env(work), _sandbox_prefix(sandbox, profile),
+        ["--discover", "tests", "--top", "."], nonce)
+    run = _guard(check_id, run, label)
+    evaluation = _evaluate_run(report, nonce, expected, run)
+    evaluation["expected_ids"] = expected
+    evaluation["command"] = list(CANONICAL_TEST_COMMAND)
+    return evaluation
+
+
+def _hidden_runs(work, repo, manifest, sandbox, profile, check_id, label, watch=None):
+    test_path = Path(repo) / manifest["hidden_test_dest"]
+    expected = _static_test_ids([test_path])
+    evaluations = []
+    for _attempt in range(HIDDEN_REPEATS):
+        nonce = _new_nonce()
+        report, run = _invoke_runner(
+            work, repo, _phase_env(work), _sandbox_prefix(sandbox, profile),
+            ["--tests", manifest["hidden_test_dest"]], nonce, watch=watch)
+        run = _guard(check_id, run, label)
+        evaluations.append(_evaluate_run(report, nonce, expected, run))
+    return evaluations, expected
 
 
 def _phase_base(work, pkg, manifest, patch_text, sandbox, profile):
     """Check 2: the project is green on its own before anything is added."""
     reasons, data = [], {}
-    _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
-                   with_hidden=False, patch=False)
-    visible = _guard(2, _phase_run(work, sandbox, profile, _visible_argv()), "VISIBLE_TESTS")
-    counts = _unittest_counts(visible.output)
+    repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
+                          with_hidden=False, patch=False)
+    evaluation = _run_visible(work, repo, sandbox, profile, 2, "VISIBLE_TESTS")
+    counts = evaluation["counts"]
     data["visible"] = counts
-    if visible.returncode != 0 or counts["failures"] or counts["errors"] or counts["ran"] < 1:
+    data["phase"] = str(repo)
+    data["visible_ids"] = sorted(evaluation["expected_ids"])
+    data["command"] = evaluation["command"]
+    data["executed_by"] = RUNNER_NAME
+    if evaluation["outcome"] != "PASS":
         reasons.append(
-            "VISIBLE_TESTS_FAIL rc={} failures={} errors={} ran={}".format(
-                visible.returncode, counts["failures"], counts["errors"], counts["ran"]))
-    data["phase"] = str(_phase_root(work) / "repo")
+            "VISIBLE_TESTS_FAIL rc={} outcome={} failures={} errors={} ran={}".format(
+                evaluation["returncode"], evaluation["outcome"], counts["failures"],
+                counts["errors"], counts["ran"]))
+    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+        reasons.append("VISIBLE_TESTS_RESULT_REJECTED %s" % evaluation["reason"])
     ruff = _guard(2, _phase_run(work, sandbox, profile,
                                 [sys.executable, "-m", "ruff", "check", "--no-cache", "."]),
                   "RUFF")
@@ -728,64 +1233,82 @@ def _phase_base(work, pkg, manifest, patch_text, sandbox, profile):
     return _result(2, "PASS" if not reasons else "FAIL", reasons, data)
 
 
-def _hidden_runs(work, manifest, sandbox, profile, check_id, label):
-    runs = []
-    for _attempt in range(HIDDEN_REPEATS):
-        run = _guard(check_id, _phase_run(
-            work, sandbox, profile,
-            [sys.executable, "-m", "unittest", "-v", manifest["hidden_test_dest"]]), label)
-        runs.append(run)
-    return runs
-
-
 def _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile):
     """Check 3: a clean, deterministic failure at base."""
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
                           with_hidden=True, patch=False)
-    runs = _hidden_runs(work, manifest, sandbox, profile, 3, "HIDDEN_TEST")
-    outcomes = [_hidden_outcome(run) for run in runs]
-    counts = _unittest_counts(runs[0].output)
+    runs, expected = _hidden_runs(work, repo, manifest, sandbox, profile, 3,
+                                  "HIDDEN_TEST")
+    outcomes = [run["outcome"] for run in runs]
+    counts = runs[0]["counts"]
     data = {"phase": str(repo), "runs": outcomes, "hidden_at_base": counts,
-            "returncode": runs[0].returncode}
+            "returncode": runs[0]["returncode"], "hidden_ids": sorted(expected),
+            "executed_by": RUNNER_NAME}
     reasons = []
     if len(set(outcomes)) > 1:
         reasons.append(f"NONDETERMINISTIC base outcomes={outcomes}")
+        for evaluation in runs:
+            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+                reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % evaluation["reason"])
     else:
-        reasons.extend(_base_hidden_reasons(outcomes[0], counts))
+        reasons.extend(_base_hidden_reasons(runs[0]))
+    hidden_text = (Path(pkg) / "hidden" / "test_hidden.py").read_text(encoding="utf-8")
+    if not _imports_src(hidden_text):
+        reasons.append("HIDDEN_TEST_DOES_NOT_IMPORT_TARGET")
     return _result(3, "PASS" if not reasons else "FAIL", reasons, data)
 
 
 def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
     """Check 4: the reference makes the hidden test pass and keeps everything else green."""
     reasons, data = [], {}
+    text = patch_text.decode("utf-8") if isinstance(patch_text, bytes) else patch_text
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
                           with_hidden=True, patch=True)
-    runs = _hidden_runs(work, manifest, sandbox, profile, 4, "HIDDEN_TEST_AFTER_PATCH")
-    outcomes = [_hidden_outcome(run) for run in runs]
-    counts = _unittest_counts(runs[0].output)
+    watch = _patch_watch(repo, text)
+    runs, expected = _hidden_runs(work, repo, manifest, sandbox, profile, 4,
+                                  "HIDDEN_TEST_AFTER_PATCH", watch=watch)
+    outcomes = [run["outcome"] for run in runs]
+    counts = runs[0]["counts"]
     data.update({"phase": str(repo), "runs": outcomes, "hidden_after_patch": counts,
-                 "returncode": runs[0].returncode})
+                 "returncode": runs[0]["returncode"], "hidden_ids": sorted(expected),
+                 "watched_lines": {Path(path).name: len(lines)
+                                   for path, lines in watch.items()},
+                 "executed_by": RUNNER_NAME, "patch_exercised": False})
     if len(set(outcomes)) > 1:
         reasons.append(f"NONDETERMINISTIC after_patch outcomes={outcomes}")
+        for evaluation in runs:
+            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+                reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % evaluation["reason"])
     elif outcomes[0] != "PASS":
+        if outcomes[0] in ("NO_RESULT", "TAMPERED"):
+            reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % runs[0]["reason"])
         reasons.append(
-            "HIDDEN_TEST_FAILS_AFTER_PATCH rc={} failures={} errors={} skipped={} ran={}".format(
-                runs[0].returncode, counts["failures"], counts["errors"],
+            "HIDDEN_TEST_FAILS_AFTER_PATCH rc={} outcome={} failures={} errors={} "
+            "skipped={} ran={}".format(
+                runs[0]["returncode"], outcomes[0], counts["failures"], counts["errors"],
                 counts["skipped"], counts["ran"]))
+    else:
+        # P1-2 b: the reference must change something that actually runs.
+        exercised = _patch_exercise_reason(repo, text, runs)
+        data["patch_exercised"] = exercised is None
+        if exercised:
+            reasons.append(exercised)
 
     # Same path, fresh tree, no hidden test: the visible suite the worker must not break.
-    _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
-                   with_hidden=False, patch=True)
-    visible = _guard(4, _phase_run(work, sandbox, profile, _visible_argv()),
-                     "VISIBLE_TESTS_AFTER_PATCH")
-    visible_counts = _unittest_counts(visible.output)
+    repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
+                          with_hidden=False, patch=True)
+    evaluation = _run_visible(work, repo, sandbox, profile, 4,
+                              "VISIBLE_TESTS_AFTER_PATCH")
+    visible_counts = evaluation["counts"]
     data["visible_after_patch"] = visible_counts
-    if (visible.returncode != 0 or visible_counts["failures"] or visible_counts["errors"]
-            or visible_counts["ran"] < 1):
+    if evaluation["outcome"] != "PASS":
         reasons.append(
-            "VISIBLE_TESTS_BROKEN_BY_PATCH rc={} failures={} errors={} ran={}".format(
-                visible.returncode, visible_counts["failures"], visible_counts["errors"],
-                visible_counts["ran"]))
+            "VISIBLE_TESTS_BROKEN_BY_PATCH rc={} outcome={} failures={} errors={} "
+            "ran={}".format(evaluation["returncode"], evaluation["outcome"],
+                            visible_counts["failures"], visible_counts["errors"],
+                            visible_counts["ran"]))
+    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+        reasons.append("VISIBLE_TESTS_RESULT_REJECTED %s" % evaluation["reason"])
     ruff = _guard(4, _phase_run(work, sandbox, profile,
                                 [sys.executable, "-m", "ruff", "check", "--no-cache", "."]),
                   "RUFF_AFTER_PATCH")
@@ -960,6 +1483,81 @@ def _check_seal(pkg, allow_reseal):
     return _result(7, "PASS", [], {"state": "SEALED"})
 
 
+def run_tests_with_runner(tree, test_ids_or_file=None, nonce=None, watch=None,
+                          timeout=None, discover="tests", top="."):
+    """Run tests in ``tree`` through ``test_runner.py`` and return a verified report.
+
+    This is the only supported way for a later step (ticket B, ``pilot_accept.py``) to run
+    a hidden test. It applies the same MAC discipline as ``verify_package``:
+
+    * ``tree`` must be a FRESH copy of the candidate and becomes the runner's cwd;
+    * ``nonce`` is a one-time secret -- pass ``secrets.token_hex(32)``; ``None`` makes this
+      function generate one, which is only useful when the caller trusts this process;
+    * a result is accepted only when the runner's HMAC verifies, the runner's own exit
+      status agrees with its counts, and the test ids equal the static ``ast`` set.
+
+    ``test_ids_or_file`` is a test file relative to ``tree``, an iterable of dotted test
+    ids, or ``None`` to discover ``discover``. Returns::
+
+        {"accepted": bool,      # the report is authentic and the ids match
+         "outcome": str,        # PASS | CLEAN_FAILURE | ERRORS | SKIPPED | IMPORT_ERROR |
+                                # NO_TESTS | NO_RESULT | TAMPERED
+         "reason": str,         # why it was not accepted, or ""
+         "tests": [{"id": ..., "outcome": ...}],
+         "counts": {...}, "exit_code": int, "executed": [[path, line], ...],
+         "expected_ids": [...], "output": str}
+
+    ``output`` is captured only for the size cap and is never parsed for a verdict. An
+    empty ``tests`` list plus ``accepted`` true means the suite collected nothing.
+    """
+    root = Path(os.path.realpath(str(tree)))
+    if not root.is_dir():
+        raise ValueError("tree is not a directory: %s" % (tree,))
+    if test_ids_or_file is None:
+        runner_args = ["--discover", discover, "--top", top]
+        expected = _static_test_ids(_visible_test_files(root / discover))
+    elif isinstance(test_ids_or_file, (str, os.PathLike)):
+        relative = Path(test_ids_or_file)
+        runner_args = ["--tests", str(relative)]
+        expected = _static_test_ids([root / relative])
+    else:
+        ids = [str(item) for item in test_ids_or_file]
+        runner_args = []
+        for item in ids:
+            runner_args.extend(["--ids", item])
+        expected = set(ids)
+    nonce = _new_nonce() if nonce is None else _nonce_bytes(nonce).hex()
+
+    empty = {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0}
+    with tempfile.TemporaryDirectory(prefix="h4-runner-") as temporary:
+        work = Path(os.path.realpath(temporary)) / "work"
+        (work / "home" / "tmp").mkdir(parents=True)
+        report, run = _invoke_runner(work, root, _environment(work / "home"), [],
+                                     runner_args, nonce, watch=watch, timeout=timeout)
+        if run is None:
+            evaluation = {"outcome": "NO_RESULT", "reason": "TEST_RUNNER_NOT_RUNNABLE",
+                          "counts": empty, "tests": [], "executed": []}
+        elif run.timed_out:
+            evaluation = {"outcome": "NO_RESULT", "reason": "TEST_RUNNER_TIMEOUT",
+                          "counts": empty, "tests": [], "executed": []}
+        elif run.overflow:
+            evaluation = {"outcome": "NO_RESULT", "reason": "TEST_RUNNER_OUTPUT_OVERFLOW",
+                          "counts": empty, "tests": [], "executed": []}
+        else:
+            evaluation = _evaluate_run(report, nonce, expected, run)
+        return {
+            "accepted": evaluation["outcome"] not in ("NO_RESULT", "TAMPERED"),
+            "outcome": evaluation["outcome"],
+            "reason": evaluation.get("reason", ""),
+            "tests": evaluation.get("tests", []),
+            "counts": evaluation.get("counts", empty),
+            "exit_code": getattr(run, "returncode", None),
+            "executed": evaluation.get("executed", []),
+            "expected_ids": sorted(expected),
+            "output": getattr(run, "output", ""),
+        }
+
+
 def verify_package(pkg_dir, allow_unsandboxed=False, allow_reseal=False):
     """Verify one package; returns a per-check verdict and an overall verdict.
 
@@ -995,7 +1593,10 @@ def verify_package(pkg_dir, allow_unsandboxed=False, allow_reseal=False):
             checks.append(_result(check_id, "NOT_RUN", ["CHECK_1_DID_NOT_PASS"]))
     else:
         with tempfile.TemporaryDirectory(prefix="h4-taskpack-") as temporary:
-            work = Path(temporary) / "work"
+            # P2-1: resolve the temp root once. Everything below it -- the phase directory,
+            # HOME, TMPDIR, the runner copy and the sandbox profile -- then uses real paths,
+            # so a symlinked TMPDIR (the macOS default) cannot break the write allow-list.
+            work = Path(os.path.realpath(temporary)) / "work"
             work.mkdir()
             profile = work / "sandbox.sb"
             try:

@@ -11,6 +11,12 @@ write anything about evaluation, experiments, treatments, reviewers or results: 
 package is a self-contained Python task and nothing else. Do not write `SEAL.json`; the
 harness seals the package itself once it has verified it.
 
+How your package is checked, so you do not waste effort on the wrong thing: the verifier
+does not read unittest's own summary. It starts its own runner with a one-time key, runs
+the tests itself, and compares the ids it received against the ids it found by parsing
+your test files. Printing `Ran N tests` or `OK`, calling `os._exit`, or writing a result
+file of your own changes nothing — a run without the verifier's key is not a result.
+
 ## What you produce
 
 Exactly this tree, no other files anywhere:
@@ -103,6 +109,9 @@ The person doing the task sees the `base/` project and this statement, and nothi
 
 - Standard-library `unittest`, one `unittest.TestCase` subclass with two to six test
   methods, importing the project as `from src.<module> import <name>`.
+- It must really import the module under test and assert on its behaviour. A hidden test
+  that only opens or greps the source text, without importing `src.<module>`, is refused
+  as `HIDDEN_TEST_DOES_NOT_IMPORT_TARGET`.
 - At base it must **fail cleanly**: at least one test runs, `failures` is greater than
   zero, `errors` is zero, nothing is skipped, and nothing raises `ImportError` or
   `ModuleNotFoundError`. The module and the names you import must already exist at base;
@@ -123,6 +132,10 @@ The person doing the task sees the `base/` project and this statement, and nothi
   It must not touch anything under `tests/`.
 - It must fix the behaviour the statement asks for, keep every visible test passing, and
   leave the project `ruff check` clean under the fixed `ruff.toml`.
+- It must change code that the hidden test actually runs. The verifier records which of
+  the patch's added or changed lines execute during the hidden test, so a patch that only
+  edits a docstring or a comment, or only adds dead code, is refused as
+  `PATCH_NOT_EXERCISED` even when the hidden test passes by looking for that text.
 - It must not touch security, credentials, permissions, concurrency, networking or policy
   logic of any kind: this is a small, self-contained correctness task.
 

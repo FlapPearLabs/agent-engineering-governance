@@ -11,6 +11,7 @@ never a pass.
 """
 import difflib
 import hashlib
+import hmac
 import importlib.util
 import json
 import os
@@ -32,10 +33,15 @@ SANDBOX = taskpack.sandbox_available()
 
 
 def require_sandbox(case):
-    """Skip, with a reason, when confinement cannot be proven on this machine."""
+    """Skip, with the probe's own reason, when confinement cannot be proven here.
+
+    A nested ``sandbox-exec`` (this suite inside an outer sandbox) lands here too: the
+    skip reason quotes what the probe printed, so a skip can never be mistaken for a pass.
+    """
     if not SANDBOX:
-        case.skipTest("sandbox-exec is unavailable: package confinement cannot be proven, "
-                      "so this case is not a pass")
+        case.skipTest("sandbox-exec is unavailable (%s): package confinement cannot be "
+                      "proven, so this case is not a pass"
+                      % taskpack.sandbox_probe_reason())
 
 RUFF_TOML = 'target-version = "py312"\n\n[lint]\nselect = ["E9", "F"]\n'
 
@@ -619,6 +625,143 @@ RENAME_PATCH = diff("src/textutil.py", GOOD_SOURCE, FIXED_SOURCE) + (
     "-X = 1\n"
     "+X = 2\n")
 
+# --- round-2 attack payloads (P1-1, P1-2, P2-3) -----------------------------------
+
+# N22: package code prints unittest's own summary and exits before discovery can import
+# the failing test. With a stdout-reading verifier this was a PASS.
+FORGING_INIT = '''import os
+import sys
+
+print("Ran 3 tests in 0.001s")
+print()
+print("OK")
+sys.stdout.flush()
+os._exit(0)
+'''
+
+FORGING_VISIBLE = GOOD_VISIBLE_TESTS.replace(
+    'self.assertEqual(word_count("one two three"), 3)',
+    'self.assertEqual(word_count("one two three"), 999)')
+
+# N23: the reference patch itself forges the hidden run's summary and leaves the bug.
+FORGING_HEADER = '''import os
+import sys
+
+if "test_hidden" in " ".join(sys.argv):
+    print("Ran 1 test in 0.001s")
+    print()
+    print("OK")
+    sys.stdout.flush()
+    os._exit(0)
+
+'''
+
+# Stronger than N22: package code finds the runner's result fd in argv and writes an
+# otherwise perfectly shaped report (right ids, right counts, exit 0) with a made-up MAC.
+RESULT_FD_FORGERY = '''import json
+import os
+import sys
+
+
+def _forge():
+    try:
+        fd = int(sys.argv[sys.argv.index("--result-fd") + 1])
+    except (ValueError, IndexError):
+        return
+    report = {
+        "version": 1,
+        "tests": [
+            {"id": "TextUtilTests.test_slugify_joins_words_with_dashes", "outcome": "pass"},
+            {"id": "TextUtilTests.test_slugify_lowercases", "outcome": "pass"},
+            {"id": "TextUtilTests.test_word_count_counts_words", "outcome": "pass"},
+        ],
+        "counts": {"ran": 3, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0},
+        "load_error": None,
+        "load_detail": "",
+        "executed": [],
+        "nonce_mac": "0" * 64,
+    }
+    os.write(fd, (json.dumps(report) + "\\n").encode())
+    os._exit(0)
+
+
+_forge()
+'''
+
+# N21: the "fix" only edits a docstring, and the hidden test only looks for that text.
+DOCSTRING_ONLY_SOURCE = GOOD_SOURCE.replace(
+    '    """Return the number of whitespace-separated words."""',
+    '    """Return the number of whitespace-separated words.\n\n'
+    '    Counts only non-empty words."""')
+
+DOCSTRING_COLLUSION_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class DocstringOnlyTests(unittest.TestCase):
+    def test_the_patch_added_a_docstring(self):
+        with open("src/textutil.py") as stream:
+            self.assertIn("Counts only non-empty words.", stream.read())
+
+    def test_the_module_still_works(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+'''
+
+COMMENT_ONLY_SOURCE = GOOD_SOURCE.replace(
+    '"""Small text helpers used by the sample project."""\n',
+    '"""Small text helpers used by the sample project."""\n'
+    '# documented for the reader\n')
+
+COMMENT_COLLUSION_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class CommentOnlyTests(unittest.TestCase):
+    def test_the_patch_added_a_comment(self):
+        with open("src/textutil.py") as stream:
+            self.assertIn("# documented for the reader", stream.read())
+
+    def test_the_module_still_works(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+'''
+
+# Dead code: the added body line can never run, and the hidden test only greps for it.
+DEAD_CODE_SOURCE = GOOD_SOURCE + '''
+
+def unused_helper():
+    return "never called"
+'''
+
+DEAD_CODE_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class DeadCodeTests(unittest.TestCase):
+    def test_the_patch_added_a_function(self):
+        with open("src/textutil.py") as stream:
+            self.assertIn("def unused_helper", stream.read())
+
+    def test_the_module_still_works(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+'''
+
+# A hidden test that reads the fixed source but never imports the target (P2-3).
+NO_IMPORT_HIDDEN = '''import unittest
+
+
+class SourceTextTests(unittest.TestCase):
+    def test_the_fix_is_present(self):
+        with open("src/textutil.py") as stream:
+            self.assertIn('parts = [part for part in replaced.split("-") if part]',
+                          stream.read())
+'''
+
+# A test module that exits before the runner can report anything.
+EARLY_EXIT_HIDDEN = "import os\n\nos._exit(0)\n" + GOOD_HIDDEN
+
 
 def verify(pkg, **kwargs):
     """Verify with the sandbox requirement satisfied: the good package must be green."""
@@ -723,13 +866,16 @@ class PhaseIsolationTests(unittest.TestCase):
             self.assertEqual(verdict["overall"], "FAIL")
             self.assertIn("HIDDEN_TEST_ALREADY_PASSES_AT_BASE", reasons(verdict, 3))
 
-    def test_hidden_test_is_run_three_times_in_each_phase(self):
+    def test_hidden_test_is_run_five_times_in_each_phase(self):
+        # P2-2 raised the repeat count from three to five; five agreeing runs lower the
+        # chance that an intermittently failing test slips through (not to zero).
+        self.assertGreaterEqual(taskpack.HIDDEN_REPEATS, 5)
         with tempfile.TemporaryDirectory() as temporary:
             pkg = build_package(temporary)
             verdict = verify(pkg)
             self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
-            self.assertEqual(check(verdict, 3)["data"]["runs"], ["CLEAN_FAILURE"] * 3)
-            self.assertEqual(check(verdict, 4)["data"]["runs"], ["PASS"] * 3)
+            self.assertEqual(check(verdict, 3)["data"]["runs"], ["CLEAN_FAILURE"] * 5)
+            self.assertEqual(check(verdict, 4)["data"]["runs"], ["PASS"] * 5)
 
     def test_previous_phase_directory_is_deleted(self):
         visible = GOOD_VISIBLE_TESTS.replace(
@@ -756,7 +902,7 @@ class PhaseIsolationTests(unittest.TestCase):
             verdict = verify(pkg)
             self.assertEqual(verdict["overall"], "FAIL")
             self.assertIn("NONDETERMINISTIC", reasons(verdict, 3))
-            self.assertEqual(len(check(verdict, 3)["data"]["runs"]), 3)
+            self.assertEqual(len(check(verdict, 3)["data"]["runs"]), 5)
 
     def test_random_hidden_test_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1258,6 +1404,347 @@ class AttackRegressionTests(unittest.TestCase):
             (pkg / "base" / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
             self.assertRefused(verify(pkg), 1, "FORBIDDEN_PATH")
             self.assertFalse(escape.exists())
+
+
+def signed_report(nonce, payload):
+    """Build a report exactly the way the documented protocol says, with a real MAC."""
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    mac = hmac.new(bytes.fromhex(nonce), body, hashlib.sha256).hexdigest()
+    return dict(payload, nonce_mac=mac)
+
+
+class SignedReportTests(unittest.TestCase):
+    """P1-1/P1-2 a: no verdict may come from text a package can print.
+
+    The verifier starts ``pilot/test_runner.py`` and accepts only a report signed with a
+    one-time nonce. These tests are the round-2 attacks N22/N23 plus the mutation checks
+    that fail when the MAC gate is removed.
+    """
+
+    def test_n22_package_that_forges_the_visible_summary_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, visible_tests=FORGING_VISIBLE)
+            (pkg / "base" / "src" / "__init__.py").write_text(FORGING_INIT)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 2)["status"], "FAIL", reasons(verdict, 2))
+        self.assertIn("VISIBLE_TESTS_RESULT_REJECTED", reasons(verdict, 2))
+        self.assertIn("TEST_RESULT_UNAVAILABLE", reasons(verdict, 2),
+                      "a run that produced no signed report must never be a pass")
+        self.assertIn("VISIBLE_TESTS_FAIL", reasons(verdict, 2))
+
+    def test_n23_patch_that_forges_the_hidden_summary_is_rejected(self):
+        forged = FORGING_HEADER + GOOD_SOURCE
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, patches=[
+                ("src/textutil.py", GOOD_SOURCE, forged)])
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("HIDDEN_TEST_RESULT_REJECTED", reasons(verdict, 4))
+        self.assertIn("TEST_RESULT_UNAVAILABLE", reasons(verdict, 4))
+
+    def test_forged_report_on_the_result_fd_is_rejected_without_the_nonce(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, visible_tests=FORGING_VISIBLE)
+            (pkg / "base" / "src" / "__init__.py").write_text(RESULT_FD_FORGERY)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertNotEqual(check(verdict, 2)["status"], "PASS")
+        self.assertIn("VISIBLE_TESTS_RESULT_REJECTED", reasons(verdict, 2))
+        self.assertIn("TEST_RESULT_MAC_INVALID", reasons(verdict, 2),
+                      "a report the runner did not sign with this run's nonce is not a result")
+
+    def test_mac_check_is_load_bearing(self):
+        # Mutation anchor: delete the MAC verification in _accept_report and the first
+        # assertion below turns green, so this test goes red.
+        nonce = "ab" * 32
+        payload = {
+            "version": 1,
+            "tests": [{"id": "WidgetTests.test_one", "outcome": "pass"}],
+            "counts": {"ran": 1, "failures": 0, "errors": 0, "skipped": 0,
+                       "unexpected": 0},
+            "load_error": None,
+            "load_detail": "",
+            "executed": [],
+        }
+        forged = dict(payload, nonce_mac="0" * 64)
+        accepted, reason = taskpack._accept_report(forged, nonce, {"WidgetTests.test_one"}, 0)
+        self.assertFalse(accepted)
+        self.assertEqual(reason, "TEST_RESULT_MAC_INVALID")
+        with mock.patch.object(taskpack, "_verify_report_mac", lambda *args: True):
+            accepted, reason = taskpack._accept_report(
+                forged, nonce, {"WidgetTests.test_one"}, 0)
+            self.assertTrue(accepted, "only the MAC stood between this report and a pass")
+
+    def test_a_protocol_conforming_report_is_accepted_only_with_its_own_nonce(self):
+        nonce = "cd" * 32
+        payload = {
+            "version": 1,
+            "tests": [{"id": "WidgetTests.test_one", "outcome": "pass"},
+                      {"id": "WidgetTests.test_two", "outcome": "pass"}],
+            "counts": {"ran": 2, "failures": 0, "errors": 0, "skipped": 0,
+                       "unexpected": 0},
+            "load_error": None,
+            "load_detail": "",
+            "executed": [["/tmp/example.py", 7]],
+        }
+        report = signed_report(nonce, payload)
+        accepted, reason = taskpack._accept_report(report, nonce, set(), 0)
+        self.assertFalse(accepted)
+        self.assertIn("TEST_ID_SET_MISMATCH", reason)
+        accepted, reason = taskpack._accept_report(
+            report, nonce, {"WidgetTests.test_one", "WidgetTests.test_two"}, 0)
+        self.assertTrue(accepted, reason)
+        wrong, reason = taskpack._accept_report(
+            report, "ef" * 32, {"WidgetTests.test_one", "WidgetTests.test_two"}, 0)
+        self.assertFalse(wrong)
+        self.assertEqual(reason, "TEST_RESULT_MAC_INVALID")
+
+    def test_id_set_equality_is_load_bearing(self):
+        # Mutation anchor: drop the id comparison and both rejections turn green.
+        nonce = "ab" * 32
+        expected = {"WidgetTests.test_one", "WidgetTests.test_two"}
+
+        def report_for(ids):
+            return signed_report(nonce, {
+                "version": 1,
+                "tests": [{"id": item, "outcome": "pass"} for item in ids],
+                "counts": {"ran": len(ids), "failures": 0, "errors": 0, "skipped": 0,
+                           "unexpected": 0},
+                "load_error": None,
+                "load_detail": "",
+                "executed": [],
+            })
+
+        self.assertTrue(taskpack._accept_report(
+            report_for(sorted(expected)), nonce, expected, 0)[0])
+        missing = taskpack._accept_report(
+            report_for(["WidgetTests.test_one"]), nonce, expected, 0)
+        self.assertFalse(missing[0], "a test the AST knows about did not run")
+        self.assertIn("TEST_ID_SET_MISMATCH", missing[1])
+        self.assertIn("missing=", missing[1])
+        extra = taskpack._accept_report(
+            report_for(sorted(expected) + ["WidgetTests.test_three"]), nonce, expected, 0)
+        self.assertFalse(extra[0], "a test the AST does not know about cannot be counted")
+        self.assertIn("extra=", extra[1])
+
+    def test_the_canonical_command_stays_display_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary)
+            verdict = verify(pkg)
+        self.assertEqual(check(verdict, 2)["data"]["command"],
+                         taskpack.CANONICAL_TEST_COMMAND)
+        self.assertEqual(check(verdict, 2)["data"]["executed_by"], "test_runner.py")
+        self.assertEqual(check(verdict, 2)["data"]["visible_ids"],
+                         ["TextUtilTests.test_slugify_joins_words_with_dashes",
+                          "TextUtilTests.test_slugify_lowercases",
+                          "TextUtilTests.test_word_count_counts_words"])
+
+
+class PatchExerciseTests(unittest.TestCase):
+    """P1-2 b / P2-3: the patch must change something that runs."""
+
+    def assertNotExercised(self, pkg):
+        verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 3)["status"], "PASS", reasons(verdict, 3))
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("PATCH_NOT_EXERCISED", reasons(verdict, 4))
+        self.assertIs(check(verdict, 4)["data"]["patch_exercised"], False)
+        return verdict
+
+    def test_n21_docstring_only_patch_is_rejected(self):
+        # The hidden test passes after the patch and cleanly fails before it; only the
+        # "did any changed line run?" check separates this from a real fix.
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=DOCSTRING_COLLUSION_HIDDEN, patches=[
+                ("src/textutil.py", GOOD_SOURCE, DOCSTRING_ONLY_SOURCE)])
+            self.assertNotExercised(pkg)
+
+    def test_comment_only_patch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=COMMENT_COLLUSION_HIDDEN, patches=[
+                ("src/textutil.py", GOOD_SOURCE, COMMENT_ONLY_SOURCE)])
+            self.assertNotExercised(pkg)
+
+    def test_dead_code_patch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=DEAD_CODE_HIDDEN, patches=[
+                ("src/textutil.py", GOOD_SOURCE, DEAD_CODE_SOURCE)])
+            self.assertNotExercised(pkg)
+
+    def test_the_real_fix_is_recorded_as_exercised(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
+        self.assertIs(check(verdict, 4)["data"]["patch_exercised"], True)
+        self.assertTrue(check(verdict, 4)["data"]["watched_lines"])
+
+    def test_hidden_test_must_import_the_target(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=NO_IMPORT_HIDDEN)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 3)["status"], "FAIL", reasons(verdict, 3))
+        self.assertIn("HIDDEN_TEST_DOES_NOT_IMPORT_TARGET", reasons(verdict, 3))
+
+    def test_only_executable_changed_lines_are_watched(self):
+        patch = diff("src/textutil.py", GOOD_SOURCE, DOCSTRING_ONLY_SOURCE)
+        changed = taskpack._patch_changed_lines(patch)
+        self.assertIn("src/textutil.py", changed)
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "textutil.py").write_text(DOCSTRING_ONLY_SOURCE)
+            # Every added line is inside the function docstring, so nothing is watched.
+            self.assertEqual(taskpack._patch_watch(repo, patch), {})
+            (repo / "src" / "textutil.py").write_text(DEAD_CODE_SOURCE)
+            dead_patch = diff("src/textutil.py", GOOD_SOURCE, DEAD_CODE_SOURCE)
+            self.assertTrue(taskpack._patch_changed_lines(dead_patch)["src/textutil.py"])
+            self.assertTrue(taskpack._patch_watch(repo, dead_patch))
+
+
+class RunnerApiTests(unittest.TestCase):
+    """The API ticket B (``pilot_accept.py``) must call to run the hidden test."""
+
+    def make_tree(self, temporary, hidden=None, source=None):
+        tree = Path(temporary) / "tree"
+        (tree / "src").mkdir(parents=True)
+        (tree / "tests").mkdir()
+        (tree / "src" / "__init__.py").write_text("")
+        (tree / "src" / "textutil.py").write_text(
+            FIXED_SOURCE if source is None else source)
+        (tree / "tests" / "__init__.py").write_text("")
+        (tree / "tests" / "test_hidden.py").write_text(
+            GOOD_HIDDEN if hidden is None else hidden)
+        return tree
+
+    def test_a_passing_suite_is_authentic_and_fully_reported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary)
+            result = taskpack.run_tests_with_runner(
+                tree, "tests/test_hidden.py", "ab" * 32)
+        self.assertTrue(result["accepted"], result["reason"])
+        self.assertEqual(result["outcome"], "PASS")
+        self.assertTrue(all(item["outcome"] == "pass" for item in result["tests"]))
+        self.assertEqual(result["counts"]["ran"], 2)
+        self.assertEqual(result["expected_ids"],
+                         ["SlugifySeparatorTests.test_collapses_a_run_of_separators",
+                          "SlugifySeparatorTests.test_drops_leading_and_trailing_separators"])
+        self.assertEqual(result["exit_code"], 0)
+
+    def test_a_failing_suite_is_authentic_but_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary, source=GOOD_SOURCE)
+            result = taskpack.run_tests_with_runner(
+                tree, "tests/test_hidden.py", "ab" * 32)
+        self.assertTrue(result["accepted"], result["reason"])
+        self.assertEqual(result["outcome"], "CLEAN_FAILURE")
+        self.assertGreater(result["counts"]["failures"], 0)
+        self.assertEqual(result["exit_code"], 1)
+
+    def test_a_module_that_exits_early_produces_no_result(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary, hidden=EARLY_EXIT_HIDDEN)
+            result = taskpack.run_tests_with_runner(
+                tree, "tests/test_hidden.py", "ab" * 32)
+        self.assertFalse(result["accepted"])
+        self.assertEqual(result["outcome"], "NO_RESULT")
+        self.assertIn("TEST_RESULT_UNAVAILABLE", result["reason"])
+
+    def test_explicit_ids_are_accepted_when_they_match(self):
+        wanted = "tests.test_hidden.SlugifySeparatorTests.test_collapses_a_run_of_separators"
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary)
+            result = taskpack.run_tests_with_runner(tree, [wanted], "ab" * 32)
+        self.assertTrue(result["accepted"], result["reason"])
+        self.assertEqual(result["outcome"], "PASS")
+        self.assertEqual(result["counts"]["ran"], 1)
+        self.assertEqual([taskpack._short_id(item) for item in result["expected_ids"]],
+                         ["SlugifySeparatorTests.test_collapses_a_run_of_separators"])
+
+    def test_a_module_that_hides_a_test_is_caught_by_the_ast_id_set(self):
+        # The file declares two cases; a line at import removes one before unittest ever
+        # looks at the class, so only one runs. The static AST set still has two.
+        hiding = GOOD_HIDDEN.replace(
+            "if __name__ == \"__main__\":",
+            "del SlugifySeparatorTests.test_drops_leading_and_trailing_separators\n\n"
+            "if __name__ == \"__main__\":")
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary, hidden=hiding)
+            result = taskpack.run_tests_with_runner(
+                tree, "tests/test_hidden.py", "ab" * 32)
+        self.assertFalse(result["accepted"])
+        self.assertEqual(result["outcome"], "TAMPERED")
+        self.assertIn("TEST_ID_SET_MISMATCH", result["reason"])
+        self.assertIn("missing=", result["reason"])
+
+    def test_discovery_mode_matches_the_static_id_set(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = self.make_tree(temporary)
+            (tree / "tests" / "test_hidden.py").write_text(GOOD_VISIBLE_TESTS)
+            result = taskpack.run_tests_with_runner(tree, None, "ab" * 32)
+        self.assertTrue(result["accepted"], result["reason"])
+        self.assertEqual(result["outcome"], "PASS")
+        self.assertEqual(result["counts"]["ran"], 3)
+
+    def test_runner_help_documents_the_reuse_call(self):
+        run = subprocess.run(
+            [sys.executable, str(PILOT / "test_runner.py"), "--help"],
+            capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("run_tests_with_runner", run.stdout)
+        self.assertIn("--nonce-fd", run.stdout)
+        self.assertIn("--result-fd", run.stdout)
+        self.assertIn("nonce_mac", run.stdout)
+
+
+class TempDirAliasTests(unittest.TestCase):
+    """P2-1: the sandbox profile and every phase path are resolved with realpath."""
+
+    def test_sandbox_profile_resolves_a_symlinked_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            real = Path(temporary) / "real"
+            real.mkdir()
+            alias = Path(temporary) / "alias"
+            os.symlink(real, alias)
+            profile = taskpack._sandbox_profile(alias / "phase", alias)
+        self.assertIn(str(Path(os.path.realpath(real)) / "phase"), profile)
+        self.assertIn('(subpath "%s/runner")' % os.path.realpath(real), profile)
+        self.assertNotIn(str(alias), profile,
+                         "an unresolved symlink in the profile is what broke P2-1")
+
+    def test_good_package_passes_when_tmpdir_is_a_symlinked_alias(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            real = Path(temporary) / "real-tmp"
+            real.mkdir()
+            alias = Path(temporary) / "alias-tmp"
+            os.symlink(real, alias)
+            pkg = build_package(temporary)
+            with mock.patch.dict(os.environ, {"TMPDIR": str(alias)}), \
+                    mock.patch.object(tempfile, "tempdir", None):
+                verdict = taskpack.verify_package(pkg, allow_unsandboxed=True)
+        self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
+        if SANDBOX:
+            self.assertEqual(verdict["isolation"], "SANDBOX_EXEC")
+
+    def test_good_package_passes_under_the_darwin_user_temp_dir(self):
+        if sys.platform != "darwin":
+            self.skipTest("the macOS default TMPDIR does not exist on this platform")
+        probe = subprocess.run(["getconf", "DARWIN_USER_TEMP_DIR"],
+                               capture_output=True, text=True)
+        default = probe.stdout.strip()
+        if probe.returncode != 0 or not default or not os.path.isdir(default):
+            self.skipTest("getconf DARWIN_USER_TEMP_DIR gave no usable directory: %r"
+                          % probe.stdout.strip())
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary)
+            with mock.patch.dict(os.environ, {"TMPDIR": default}), \
+                    mock.patch.object(tempfile, "tempdir", None):
+                verdict = taskpack.verify_package(pkg, allow_unsandboxed=True)
+        self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
 
 
 if __name__ == "__main__":
