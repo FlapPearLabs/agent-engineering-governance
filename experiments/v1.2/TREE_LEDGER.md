@@ -26,7 +26,7 @@ N0  V1.2 ROOT
 ├── N2  H2 — Lazy Skill / Progressive Disclosure                  [CLOSED]
 │       STATUS = CLOSED / INSUFFICIENT_EVIDENCE
 ├── N3  H3 — Prospective Structure Shadow                         [COLLECTING]
-├── N4  H4 — MICRO/LOW Governance Ablation                        [PLANNED]
+├── N4  H4 — MICRO/LOW Governance Ablation                        [PROTOCOL_NOT_STARTABLE]
 ├── N5  H5 — Verified State + Fresh Episode Recovery              [PLANNED]
 │       DESIGN = 设计准备已入仓（PR #61）；不开跑
 │
@@ -50,7 +50,7 @@ N0  V1.2 ROOT
 
 ```text
 TREE_NODES_TOTAL = 19   （N0 + N1–N13 = 14，N6.1–N6.5 = 5）
-CURRENT_NODE     = （无 ACTIVE 节点）N7 已 CLOSED（实验级机制入仓），H5 设计准备已入仓；下一节点待 owner 选定（N5 / N4，见 C 节）
+CURRENT_NODE     = （无 ACTIVE 节点）N4 PROTOCOL_NOT_STARTABLE；N5 保持 PLANNED（见 C 节）
 ```
 
 ### A.1 节点详情
@@ -146,15 +146,17 @@ NOTE = 本轮（N6）**未**触碰 H3；detector 未改；不接 CI；不 block 
 
 #### N4 — H4 MICRO/LOW Governance Ablation
 ```text
-STATUS = PLANNED
+STATUS = PROTOCOL_NOT_STARTABLE
 ENTRY_CRITERIA = ① #45 的"门是否承重"判定落地（H4 的判据依赖机械验收的判别力）
                    —— 实验级已满足（N7 CLOSED，PR #60）；#45 本体 promotion 仍未做
                  ② N6.5 §0 的 P1–P7 全部满足
                  ③ 三臂设计（含 ARM_INJECT）可用
 EXIT_CRITERIA = ≥4 个真实 MICRO/LOW 任务 × 3 臂；结论 ∈ 预注册集合
-EVIDENCE = experiment-protocols.md §2
+EVIDENCE = experiment-protocols.md §2；H4 freeze preparation PR #63（merge 250c867）；
+           OWNER_DECISIONS.md（owner 保留严格规则，2 个结果任务 + 1 个负控 = 3 < 4）
 DEPENDENCIES = N6（协议）+ N7（#45）
-BLOCKERS = ② §0 P1–P7 未逐项为 H4 闭合；③ 三臂设计未落地（#45 的实验级机制已就绪，见 N7）
+BLOCKERS = 严格规则下合格任务仅 3 < 4；② §0 P1–P7 未逐项为 H4 闭合；
+           ③ 三臂设计未落地（#45 的实验级机制已就绪，见 N7）；协议未冻结、未授权运行
 NEXT_NODE = N9
 ```
 
@@ -513,13 +515,12 @@ GIT_LOCATION =
 
 ```text
 TREE_NODES_TOTAL = 19
-CURRENT_NODE = （无 ACTIVE 节点）
+CURRENT_NODE = （无 ACTIVE 节点）；N4 PROTOCOL_NOT_STARTABLE，N5 保持 PLANNED
 LAST_CLOSED = N7 — #45 Load-Bearing Gate Disposition = CLOSED / EXPERIMENTAL_MECHANISM_READY
   （PR #60 merge bbcb455）
   · 同期入仓：H5 设计准备（PR #61，merge 1422892）—— N5 仍 PLANNED，不开跑
   · 此前：N2 = CLOSED / INSUFFICIENT_EVIDENCE（PR #56；harness v3 PR #58）
-NEXT_NODE = 待 owner 选定：N5（H5；先答 OPEN_QUESTIONS 7 项，再闭合 §0 P1–P7、构建 T60–T67）
-            或 N4（H4；#45 实验级机制已就绪，仍需 §0 与三臂设计）
+NEXT_NODE = N5 待 owner 选定；N4 等待更多真实合格任务，仍需闭合 §0 与三臂设计
   · N9 的入口仍未实质满足：H1、H2 均为 INSUFFICIENT_EVIDENCE
   · 旁路并行：N3 — H3 保持 COLLECTING，不阻塞任何节点
 GIT_LOCATION =
@@ -624,4 +625,11 @@ REASON = PR #60 已合并（merge `bbcb455c69c71abdc7e828b35d1af4824f028216`，h
          复现并抓住 #45；#45 本体保持 OPEN / PROMOTION_PENDING。H5 只做设计（无构建、无运行、
          无 runs root），N5 入口的 ledger 形状在设计层满足，§0 P1–P7 仍未闭合。
          属现有 19 节点树内推进，非新增主节点。
+
+[TREE_CHANGE 2026-11-01 · H4 owner 决策] N4 转 PROTOCOL_NOT_STARTABLE；
+CURRENT_NODE 仍无 ACTIVE 节点，N5 保持 PLANNED。
+ADDED_NODES = 无
+REMOVED_NODES = 无
+REASON = PR #63（merge 250c867）后，owner 保留严格规则；合格任务 3 < 4，
+         继续收集真实 LOW 历史。协议未冻结，未授权实验运行。
 ```
