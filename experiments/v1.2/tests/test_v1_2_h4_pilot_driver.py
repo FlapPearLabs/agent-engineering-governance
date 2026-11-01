@@ -7,12 +7,15 @@ reason when `sandbox-exec` cannot apply a profile — never reported as a pass).
 
 Acceptance runs in a FRESH directory (`pilot_accept.prepare_acceptance_tree`): the worker's source,
 the sealed base's visible tests, and a canary whose four tests must all fail before the hidden test
-is believed. Two regression tests replay the acceptance report's escape attacks: a worker-authored
-`tests/__init__.py` (D1) and a `src/__init__.py` that patches `unittest`.
+is believed. Every test verdict comes from `taskpack.run_tests_with_runner` (the signed
+`test_runner.py` channel), never from parsed `python -m unittest` output: a suite that prints a fake
+summary and exits early, or that writes a report it cannot sign, is INVALID. Regression tests replay
+the acceptance report's escape attacks (a worker-authored `tests/__init__.py`, a `src/__init__.py`
+that patches `unittest`), the forged-summary attack and a forged report with a bad MAC.
 
-No model, no network: the worker is the deterministic `--fake-worker` stub, and `taskpack.py`
-(another implementer's file in a parallel worktree) is replaced by a stand-in through
-`pilot_accept.taskpack_module`.
+No model, no network: the worker is the deterministic `--fake-worker` stub. `taskpack.py` is the
+other branch's module, merged in; the tests use it as it is (its `test_runner.py` is what runs the
+tests, so the real discipline is exercised here, not a stand-in).
 """
 import contextlib
 import hashlib
@@ -47,6 +50,7 @@ def load(name):
 arms = load("arms")
 pilot_accept = load("pilot_accept")
 pilot_driver = load("pilot_driver")
+taskpack = load("taskpack")
 
 # D5: `which sandbox-exec` is not proof that a profile can be applied. The probe really runs
 # `sandbox-exec -p '(version 1)(allow default)' /usr/bin/true`; under an outer sandbox it fails
@@ -59,10 +63,16 @@ def sha256(data: bytes) -> str:
 
 
 class StandInTaskpack:
-    """The agreed `taskpack` interface: `verify_seal(pkg_dir)` raising `SealError` on a mismatch."""
+    """The agreed `taskpack` interface, as `pilot_accept` uses it.
+
+    `verify_seal` is local so the seal fixture can be hand-built; `run_tests_with_runner` is the real
+    one, because the signed channel is the thing under test here and a stand-in would prove nothing.
+    """
 
     class SealError(Exception):
         pass
+
+    run_tests_with_runner = staticmethod(taskpack.run_tests_with_runner)
 
     @classmethod
     def verify_seal(cls, pkg_dir):
@@ -111,10 +121,36 @@ SRC_INIT_PLANT = (
     "unittest.TestCase.assertTrue = lambda self, expr, msg=None: None\n"
     "unittest.TestCase.assertIsNone = lambda self, obj, msg=None: None\n"
 )
+# The acceptance report's N22 shape: print unittest's own summary and exit 0 without running
+# anything. Under the old "parse the printed output" regime this was a green visible-tests gate.
+FAKE_SUMMARY_PLANT = (
+    "import os\n"
+    "import sys\n"
+    "print('Ran 1 test in 0.000s')\n"
+    "print('')\n"
+    "print('OK')\n"
+    "sys.stdout.flush()\n"
+    "os._exit(0)\n"
+)
+# The N23 shape on the signed channel: write a well-formed report straight to the inherited result
+# fd with a MAC this process cannot compute. The runner must reject it, and acceptance with it.
+FORGED_REPORT_INIT = (
+    "import json\n"
+    "import os\n"
+    "import sys\n"
+    "\n"
+    "fd = int(sys.argv[sys.argv.index('--result-fd') + 1])\n"
+    "report = {'version': 1, 'tests': [{'id': 'Forged.test', 'outcome': 'pass'}],\n"
+    "          'counts': {'ran': 1, 'failures': 0, 'errors': 0, 'skipped': 0, 'unexpected': 0},\n"
+    "          'load_error': None, 'load_detail': '', 'executed': [], 'nonce_mac': '0' * 64}\n"
+    "os.write(fd, (json.dumps(report) + '\\n').encode('utf-8'))\n"
+    "os._exit(0)\n"
+)
 
 
 def build_package(root: Path, *, hidden: str = HIDDEN_CALLS_THE_FUNCTION,
-                  fixed: str = FIXED_WIDGET, task_id: str = "pkg-01") -> Path:
+                  fixed: str = FIXED_WIDGET, task_id: str = "pkg-01",
+                  tests_init: str = "") -> Path:
     """A synthetic package in the registered format, sealed by the helper (as the tests must)."""
     pkg = root / task_id
     (pkg / "base/src").mkdir(parents=True)
@@ -123,7 +159,7 @@ def build_package(root: Path, *, hidden: str = HIDDEN_CALLS_THE_FUNCTION,
     (pkg / "base/ruff.toml").write_text('[lint]\nselect = ["E9", "F"]\n', encoding="utf-8")
     (pkg / "base/src/__init__.py").write_text("", encoding="utf-8")
     (pkg / "base/src/widget.py").write_text(BASE_WIDGET, encoding="utf-8")
-    (pkg / "base/tests/__init__.py").write_text("", encoding="utf-8")
+    (pkg / "base/tests/__init__.py").write_text(tests_init, encoding="utf-8")
     (pkg / "base/tests/test_widget.py").write_text(
         "import unittest\n\nfrom src import widget\n\n\n"
         "class Widget(unittest.TestCase):\n"
@@ -401,6 +437,13 @@ class PilotDriverTests(unittest.TestCase):
             self.assertEqual("PASS", record["acceptance"]["gates"]["visible_tests"]["verdict"])
             self.assertEqual("PASS", record["acceptance"]["gates"]["ruff"]["verdict"])
             self.assertEqual("PASS", record["acceptance"]["gates"]["hidden_test"]["verdict"])
+            # every test verdict came from the signed runner, not from parsed unittest output
+            for gate in ("visible_tests", "hidden_test"):
+                self.assertEqual("test_runner.py",
+                                 record["acceptance"]["gates"][gate]["executed_by"])
+                self.assertEqual("PASS", record["acceptance"]["gates"][gate]["outcome"])
+            self.assertEqual("test_runner.py", record["acceptance"]["canary"]["executed_by"])
+            self.assertEqual("FAILED_AS_REQUIRED", record["acceptance"]["canary"]["status"])
             self.assertEqual([], record["acceptance"]["reasons"])
             self.assertTrue(record["acceptance"]["canary"]["failed"])
             self.assertEqual("CANARY_FAILS_AS_REQUIRED", record["acceptance"]["canary"]["reason"])
@@ -596,6 +639,103 @@ class PilotDriverTests(unittest.TestCase):
         self.assertFalse((run_dir / "acceptance/tests/test_hidden.py").exists(),
                          "the hidden test is not run once the canary has been neutered")
 
+    def test_a_worker_that_prints_a_fake_unittest_summary_is_not_believed(self):
+        """N22: `Ran 1 test / OK` plus `os._exit(0)` was a green visible gate under output parsing."""
+        record, run_dir = self.run_escape(
+            "pkg-escape-print", ("src/__init__.py", FAKE_SUMMARY_PLANT),
+            hidden=HIDDEN_ASSERTS_A_CONSTANT, fixed=CONSTANT_FIX)
+        visible = record["acceptance"]["gates"]["visible_tests"]
+        self.assertEqual("INVALID", record["verdict"])
+        self.assertNotEqual("PASS", record["verdict"], "a printed summary was believed again")
+        self.assertEqual(["visible_tests"], record["acceptance"]["order"])
+        self.assertEqual(["ruff", "hidden_test"], record["acceptance"]["skipped"])
+        self.assertEqual("test_runner.py", visible["executed_by"])
+        self.assertEqual("NO_RESULT", visible["outcome"])
+        self.assertIn("TEST_RESULT_UNAVAILABLE", " ".join(visible["reasons"]))
+        # the fake text really was produced: the old parser would have read it as a green run
+        tail = visible["stdout_tail"]
+        self.assertIn("Ran 1 test in", tail)
+        self.assertIn("OK", tail)
+
+    def test_a_tests_init_that_noops_the_assertions_is_caught_by_the_canary(self):
+        """A `tests/__init__.py` that empties `assertEqual` shows up as a canary that did not fail.
+
+        The worker's own `tests/` never reaches the acceptance tree (that is the D1 fix, asserted
+        above), so this fixture puts the no-op in the sealed base: that is the only way a
+        `tests/__init__.py` can be imported before the canary, and the canary must still notice.
+        """
+        pkg = build_package(self.root / "pkg-neuter-init", hidden=HIDDEN_ASSERTS_A_CONSTANT,
+                            fixed=CONSTANT_FIX, task_id="pkg-neuter-init",
+                            tests_init=TESTS_INIT_PLANT)
+        self.pkg = pkg
+        code, results = self.run_driver(arms_value="MIN", results=self.root / "neuter-results")
+        self.assertEqual(3, code, self.output)
+        record = self.record(results, "pkg-neuter-init-min")
+        self.assertEqual("INVALID", record["verdict"])
+        self.assertIn("ACCEPTANCE_NEUTERED", record["acceptance"]["reasons"])
+        canary = record["acceptance"]["canary"]
+        self.assertEqual("NEUTERED", canary["status"])
+        self.assertFalse(canary["failed"])
+        self.assertEqual(4, canary["ran"])
+        self.assertLess(canary["failures"] + canary["errors"], 4,
+                        "some canary assertions were silently neutered")
+        self.assertEqual(["hidden_test"], record["acceptance"]["skipped"])
+        self.assertFalse((results / "pkg-neuter-init-min/acceptance/tests/test_hidden.py").exists(),
+                         "the hidden test is not run once the canary has been neutered")
+
+    def test_a_report_with_a_bad_mac_is_never_believed(self):
+        """N23 on this side: a report written to the result fd without the nonce is TAMPERED."""
+        pkg = build_package(self.root / "pkg-forged-report", task_id="pkg-forged-report",
+                            tests_init=FORGED_REPORT_INIT)
+        self.pkg = pkg
+        code, results = self.run_driver(arms_value="MIN", results=self.root / "forged-results")
+        self.assertEqual(3, code, self.output)
+        record = self.record(results, "pkg-forged-report-min")
+        visible = record["acceptance"]["gates"]["visible_tests"]
+        self.assertEqual("INVALID", record["verdict"])
+        self.assertNotEqual("PASS", record["verdict"])
+        self.assertEqual("TAMPERED", visible["outcome"])
+        self.assertIn("TEST_RESULT_MAC_INVALID", " ".join(visible["reasons"]))
+        self.assertEqual(["ruff", "hidden_test"], record["acceptance"]["skipped"])
+
+    def test_an_accepted_result_with_the_wrong_test_ids_is_invalid(self):
+        """`accepted` alone is not enough: the id set must equal what the runner expected."""
+
+        class LyingRunner:
+            """A `taskpack` that signs a report naming tests the file does not declare."""
+
+            class SealError(Exception):
+                pass
+
+            @staticmethod
+            def run_tests_with_runner(tree, target, nonce, **_kwargs):
+                return {
+                    "accepted": True, "outcome": "PASS", "reason": "",
+                    "tests": [{"id": "Widget.test_area", "outcome": "pass"},
+                              {"id": "Widget.test_not_in_the_file", "outcome": "pass"}],
+                    "counts": {"ran": 2, "failures": 0, "errors": 0, "skipped": 0,
+                               "unexpected": 0},
+                    "expected_ids": ["Widget.test_area"], "output": "", "executed": [],
+                }
+
+        empty_runner = type("EmptyRunner", (LyingRunner,), {
+            "run_tests_with_runner": staticmethod(
+                lambda tree, target, nonce, **_kwargs: {
+                    "accepted": True, "outcome": "PASS", "reason": "", "tests": [],
+                    "counts": {"ran": 0, "failures": 0, "errors": 0, "skipped": 0,
+                               "unexpected": 0},
+                    "expected_ids": [], "output": "", "executed": []})})
+
+        pkg = pilot_accept.load_package(self.pkg)
+        tree = self.root / "ids-tree"
+        pilot_accept.copy_tree(self.pkg / "base", tree)
+        for module, reason in ((LyingRunner, "TEST_ID_SET_MISMATCH"),
+                               (empty_runner, "TEST_ID_SET_EMPTY")):
+            pilot_accept.taskpack_module = lambda module=module: module
+            gate = pilot_accept.visible_tests(tree, pkg)
+            self.assertEqual("INVALID", gate["verdict"])
+            self.assertIn(reason, " ".join(gate["reasons"]))
+
     def test_acceptance_refuses_a_candidate_that_shadows_unittest(self):
         tree = self.root / "shadow-candidate"
         pilot_accept.copy_tree(self.pkg / "base", tree)
@@ -618,8 +758,15 @@ class PilotDriverTests(unittest.TestCase):
         (tree / "src/__init__.py").write_text(SRC_INIT_PLANT, encoding="utf-8")
         neutered = pilot_accept.canary_control(tree)
         self.assertFalse(neutered["failed"], neutered["stdout_tail"])
+        self.assertEqual("NEUTERED", neutered["status"])
         self.assertNotEqual(clean["failures"] + clean["errors"],
                             neutered["failures"] + neutered["errors"])
+        # a canary whose own report cannot be believed is UNVERIFIED, not "passed"
+        (tree / "src/__init__.py").write_text("import os\n\nos._exit(0)\n", encoding="utf-8")
+        unverified = pilot_accept.canary_control(tree)
+        self.assertFalse(unverified["failed"])
+        self.assertEqual("UNVERIFIED", unverified["status"])
+        self.assertIn("CANARY_RESULT_REJECTED", unverified["reason"])
 
     # -- D3: the real-launch layout is the frozen one ----------------------
 

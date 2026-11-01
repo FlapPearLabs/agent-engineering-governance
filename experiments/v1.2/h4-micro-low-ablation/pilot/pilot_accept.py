@@ -18,10 +18,19 @@ run also executes a four-test canary that must fail, so a worker that patches `u
 `tests/__init__.py` or from `src/__init__.py`) makes the verdict `INVALID`/`ACCEPTANCE_NEUTERED`
 instead of green.
 
-`taskpack.py` is another implementer's file in a parallel worktree, so it is imported lazily through
-`taskpack_module()`; tests replace that function with a stand-in. The agreed interface is
-`verify_seal(pkg_dir) -> None`, raising `taskpack.SealError` on a mismatch, over a `SEAL.json` of
-`{"version": 1, "files": {relative_path: sha256}, "verified": true}`.
+**Every test verdict comes from `taskpack.run_tests_with_runner`**, the harness-owned runner that
+signs its report with a one-time nonce (`test_runner.py`). Nothing here parses unittest's printed
+summary: a suite that exits early, prints `Ran N tests`/`OK` or writes a report it cannot sign yields
+`INVALID`, never `PASS`. A result is believed only when the runner accepted it (MAC verified, exit
+status consistent with the counts) **and** the reported test ids equal the ids `taskpack` found by
+`ast` parsing of the same test file(s); `pilot_accept` re-checks that id set rather than trusting the
+outcome word alone.
+
+`taskpack.py` is imported lazily through `taskpack_module()`; the driver tests substitute a
+`verify_seal` stand-in through it and call the real `run_tests_with_runner`. The interfaces used are
+`verify_seal(pkg_dir) -> None`, raising `taskpack.SealError` on a mismatch over a `SEAL.json` of
+`{"version": 1, "files": {relative_path: sha256}, "verified": true}`, and
+`run_tests_with_runner(tree, test_ids_or_file, nonce, ...) -> dict`.
 """
 from __future__ import annotations
 
@@ -30,6 +39,7 @@ import importlib.util
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -298,22 +308,97 @@ def load_package(pkg_dir) -> dict:
 # Acceptance: visible tests -> ruff -> hidden test, in a FRESH directory
 # ---------------------------------------------------------------------------
 
-RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.MULTILINE)
-SUMMARY_RE = re.compile(r"^(?:FAILED|OK)(?: \(([^)]*)\))?", re.MULTILINE)
+TEST_RUNNER_NAME = "test_runner.py"
+EMPTY_COUNTS = {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0}
+# What a signed outcome means for the gate. Anything untrustworthy or unusable is INVALID, never a
+# green gate and never a plain FAIL: `NO_RESULT`/`TAMPERED` mean the verdict itself is not evidence.
+VERDICT_BY_OUTCOME = {"PASS": PASS, "CLEAN_FAILURE": FAIL, "ERRORS": FAIL, "SKIPPED": FAIL,
+                      "IMPORT_ERROR": FAIL}
 
 
-def unittest_outcome(output: str) -> dict:
-    """`Ran N` and the failure/error counts of one unittest run; zero when unparseable."""
-    ran = RAN_RE.search(output)
-    summary = SUMMARY_RE.search(output)
-    counts = {"failures": 0, "errors": 0}
-    if summary and summary.group(1):
-        for item in summary.group(1).split(","):
-            key, _, number = item.strip().partition("=")
-            if key in counts and number.isdigit():
-                counts[key] = int(number)
-    return {"ran": int(ran.group(1)) if ran else 0, **counts,
-            "ok": bool(summary and summary.group(0).startswith("OK"))}
+def _short_id(value) -> str:
+    """`module.Class.method` and `Class.method` name the same test (mirrors `taskpack`)."""
+    parts = str(value).split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else str(value)
+
+
+def signed_result(tree, target) -> dict:
+    """One test execution through `taskpack.run_tests_with_runner`, or an unavailable result.
+
+    `target` is a test file relative to `tree`, or `None` to discover `tests/`. A missing/unusable
+    `taskpack`, an exception, an unsigned report or an early exit all come back as
+    `accepted: False` -- the caller turns that into INVALID, never into a pass.
+    """
+    module = taskpack_module()
+    if module is None or not callable(getattr(module, "run_tests_with_runner", None)):
+        return {"accepted": False, "outcome": UNKNOWN, "reason": "TEST_RUNNER_UNAVAILABLE",
+                "tests": [], "counts": dict(EMPTY_COUNTS), "expected_ids": [], "output": ""}
+    try:
+        # A fresh nonce per execution; it never reaches the package (see test_runner.py).
+        result = module.run_tests_with_runner(tree, target, secrets.token_hex(32))
+    except Exception as exc:  # noqa: BLE001 - an unusable runner is a verdict, not a crash
+        return {"accepted": False, "outcome": UNKNOWN,
+                "reason": f"TEST_RUNNER_FAILED:{type(exc).__name__}",
+                "tests": [], "counts": dict(EMPTY_COUNTS), "expected_ids": [], "output": ""}
+    return result if isinstance(result, dict) else {
+        "accepted": False, "outcome": UNKNOWN, "reason": "TEST_RUNNER_RESULT_NOT_AN_OBJECT",
+        "tests": [], "counts": dict(EMPTY_COUNTS), "expected_ids": [], "output": ""}
+
+
+def _result_counts(result: dict) -> dict:
+    counts = result.get("counts")
+    if not isinstance(counts, dict):
+        return dict(EMPTY_COUNTS)
+    return {key: counts.get(key, 0) for key in EMPTY_COUNTS}
+
+
+def _result_tests(result: dict) -> list:
+    tests = []
+    for item in result.get("tests") or []:
+        if isinstance(item, dict) and isinstance(item.get("id"), str):
+            tests.append({"id": item["id"], "outcome": item.get("outcome", UNKNOWN)})
+    return tests
+
+
+def _id_sets(result: dict, tests: list) -> dict:
+    observed = sorted({_short_id(item["id"]) for item in tests})
+    expected = sorted({_short_id(item) for item in (result.get("expected_ids") or [])})
+    missing = sorted(set(expected) - set(observed))
+    extra = sorted(set(observed) - set(expected))
+    return {"expected": expected, "observed": observed, "missing": missing, "extra": extra,
+            "equal": bool(expected) and not missing and not extra}
+
+
+def _runner_gate(name: str, tree, target, command) -> dict:
+    """The signed verdict of one test target, with the id set re-checked on this side."""
+    result = signed_result(tree, target)
+    tests = _result_tests(result)
+    ids = _id_sets(result, tests)
+    counts = _result_counts(result)
+    output = result.get("output") or ""
+    reasons: list[str] = []
+    if not result.get("accepted"):
+        verdict = INVALID
+        reasons.append("TEST_RESULT_REJECTED "
+                       + str(result.get("reason") or result.get("outcome") or UNKNOWN))
+    elif not ids["expected"]:
+        verdict = INVALID
+        reasons.append("TEST_ID_SET_EMPTY")
+    elif not ids["equal"]:
+        verdict = INVALID
+        reasons.append("TEST_ID_SET_MISMATCH missing={} extra={}".format(
+            ids["missing"][:5], ids["extra"][:5]))
+    else:
+        outcome = result.get("outcome")
+        verdict = VERDICT_BY_OUTCOME.get(outcome, INVALID)
+        if verdict == INVALID:
+            reasons.append(f"TEST_RESULT_NOT_A_VERDICT {outcome}")
+    return {"name": name, "verdict": verdict, "reasons": reasons,
+            "command": list(command), "executed_by": TEST_RUNNER_NAME,
+            "outcome": result.get("outcome", UNKNOWN), "counts": counts, "tests": tests,
+            "ids_expected": ids["expected"], "ids_observed": ids["observed"],
+            "output_sha256": sha256(output.encode("utf-8", "replace")),
+            "stdout_tail": output[-STDOUT_TAIL:]}
 
 
 def prepare_acceptance_tree(pkg, candidate, dest) -> dict:
@@ -359,20 +444,51 @@ def prepare_acceptance_tree(pkg, candidate, dest) -> dict:
             "worker_test_files_skipped": skipped_tests}
 
 
+CANARY_IDS = tuple(sorted(
+    "AcceptanceCanary." + name for name in
+    ("test_bare_assert", "test_assert_equal", "test_assert_true", "test_assert_is_none")))
+
+
 def canary_control(tree) -> dict:
-    """Run the negative control: every canary test MUST fail in the acceptance directory."""
+    """Run the negative control: every canary test MUST fail in the acceptance directory.
+
+    The verdict is the runner's, not a parsed summary: the report must be accepted, name exactly the
+    four canary ids, and show four `failure` outcomes and no error. A canary that ran and did not all
+    fail is `NEUTERED`; a canary whose report cannot be believed is `UNVERIFIED`. Both stop the run.
+    """
     tree = Path(tree)
     path = tree / ACCEPTANCE_TESTS / CANARY_NAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(CANARY_SOURCE, encoding="utf-8")
-    raw = run([PYTHON, "-m", "unittest", CANARY_MODULE], tree)
-    outcome = unittest_outcome(raw.get("_stdout", ""))
-    failed = (raw["verdict"] == FAIL and outcome["ran"] == CANARY_TESTS
-              and outcome["failures"] + outcome["errors"] == CANARY_TESTS)
-    return {"name": "canary", **recorded(raw), "ran": outcome["ran"],
-            "failures": outcome["failures"], "errors": outcome["errors"],
-            "expected_tests": CANARY_TESTS, "failed": failed,
-            "reason": "CANARY_FAILS_AS_REQUIRED" if failed else "CANARY_DID_NOT_FAIL"}
+    target = ACCEPTANCE_TESTS + "/" + CANARY_NAME
+    result = signed_result(tree, target)
+    tests = _result_tests(result)
+    ids = _id_sets(result, tests)
+    counts = _result_counts(result)
+    output = result.get("output") or ""
+    verified = (bool(result.get("accepted")) and ids["equal"]
+                and ids["expected"] == sorted(CANARY_IDS))
+    failed = (verified and result.get("outcome") == "CLEAN_FAILURE"
+              and counts["ran"] == CANARY_TESTS and counts["failures"] == CANARY_TESTS
+              and counts["errors"] == 0
+              and all(item["outcome"] == "failure" for item in tests))
+    if failed:
+        status, reason = "FAILED_AS_REQUIRED", "CANARY_FAILS_AS_REQUIRED"
+    elif verified:
+        status, reason = "NEUTERED", "CANARY_DID_NOT_FAIL"
+    else:
+        status = "UNVERIFIED"
+        reason = "CANARY_RESULT_REJECTED " + str(result.get("reason") or result.get("outcome")
+                                                or UNKNOWN)
+    return {"name": "canary", "status": status, "failed": failed, "reason": reason,
+            "executed_by": TEST_RUNNER_NAME,
+            "command": [PYTHON, "-m", "unittest", CANARY_MODULE],
+            "outcome": result.get("outcome", UNKNOWN), "counts": counts,
+            "tests": tests, "ids_expected": ids["expected"], "ids_observed": ids["observed"],
+            "ran": counts["ran"], "failures": counts["failures"], "errors": counts["errors"],
+            "expected_tests": CANARY_TESTS,
+            "output_sha256": sha256(output.encode("utf-8", "replace")),
+            "stdout_tail": output[-STDOUT_TAIL:]}
 
 
 def _gate(name: str, argv, tree) -> dict:
@@ -381,7 +497,8 @@ def _gate(name: str, argv, tree) -> dict:
 
 
 def visible_tests(tree, pkg) -> dict:
-    return _gate("visible_tests", pkg["test_argv"], tree)
+    """The sealed base suite, discovered in the fresh acceptance tree by the signed runner."""
+    return _runner_gate("visible_tests", tree, None, pkg["test_argv"])
 
 
 def ruff_gate(tree, pkg) -> dict:
@@ -397,7 +514,7 @@ def hidden_test(tree, pkg) -> dict:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, dest)
     module = dest_rel[:-3].replace("/", ".") if dest_rel.endswith(".py") else dest_rel
-    return _gate("hidden_test", [PYTHON, "-m", "unittest", module], tree)
+    return _runner_gate("hidden_test", tree, dest_rel, [PYTHON, "-m", "unittest", module])
 
 
 ACCEPTANCE_ORDER = (("visible_tests", visible_tests), ("ruff", ruff_gate),
@@ -408,10 +525,13 @@ def accept(candidate, pkg, acceptance_dir) -> dict:
     """Run the acceptance gates in their registered order; stop at the first non-PASS.
 
     Visible tests and the hidden test run in `acceptance_dir`, built by `prepare_acceptance_tree`
-    from the candidate's source plus the sealed base tests — never in the worker's own tree. The
-    canary runs before the hidden test: if it does not fail, the interpreter's assertions have been
-    neutered, the verdict is INVALID with `ACCEPTANCE_NEUTERED`, and the hidden test is not trusted
-    at all. `ruff` needs no execution of package code, so it checks the candidate tree as it is.
+    from the candidate's source plus the sealed base tests — never in the worker's own tree. Every
+    test verdict is the signed one from `taskpack.run_tests_with_runner`; a gate whose report is
+    unsigned, missing or names the wrong test ids is INVALID. The canary runs before the hidden test:
+    if the interpreter's assertions have been neutered the verdict is INVALID with
+    `ACCEPTANCE_NEUTERED`, and if the canary's own report cannot be believed it is INVALID with
+    `ACCEPTANCE_CANARY_UNVERIFIED`; either way the hidden test is never trusted. `ruff` needs no
+    execution of package code, so it checks the candidate tree as it is.
     """
     tree = prepare_acceptance_tree(pkg, candidate, acceptance_dir)
     gates: list[dict] = []
@@ -422,7 +542,8 @@ def accept(candidate, pkg, acceptance_dir) -> dict:
         if name == "hidden_test":
             canary = canary_control(tree["path"])
             if not canary["failed"]:
-                reasons.append("ACCEPTANCE_NEUTERED")
+                reasons.append("ACCEPTANCE_NEUTERED" if canary["status"] == "NEUTERED"
+                               else "ACCEPTANCE_CANARY_UNVERIFIED")
                 skipped = [later for later, _ in ACCEPTANCE_ORDER[index:]]
                 break
         result = function(Path(candidate) if name == "ruff" else tree["path"], pkg)

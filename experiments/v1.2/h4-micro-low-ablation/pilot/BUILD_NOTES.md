@@ -16,22 +16,89 @@ This round is a **fix ticket on my own earlier work** (`4856a90`), driven by the
 acceptance report `ACCEPT.md` (verdict REJECT: 2 P1, 3 P2, plus P3). Nothing here is an acceptance
 verdict: the same implementer does not sign off on its own work.
 
+### Round B2 (this commit) — integration, and every test verdict from the signed runner
+
+Ticket A's round-3 fix replaced "parse `python -m unittest` output" with a harness-owned signed
+runner. This round merges A in and makes `pilot_accept` use that channel.
+
+**Merge.** `git merge --no-ff experiment/v1.2-h4-pilot-a` (A tip `eed1ad9`). One conflict, exactly
+as expected: `pilot/BUILD_NOTES.md` is added by both branches. Resolution: both sections kept in
+full, B's above A's, each under a `## Ticket …` heading; every heading inside both sections is
+demoted one level so they nest under those headings. Nothing was dropped — checked mechanically:
+every non-empty line of each branch's original file appears in the merged file, in order (B 247/247,
+A 213/213). No code conflict.
+
+**`pilot_accept.py` — test verdicts.** Every test gate (visible tests, hidden test, canary) now
+calls `taskpack.run_tests_with_runner(tree, target, secrets.token_hex(32))` with a fresh nonce and
+believes the returned dict only when all hold:
+
+- `accepted` is true — which `taskpack` itself only says for a MAC-verified report whose exit
+  status agrees with its counts, so an early exit, a missing result or a package-written report is
+  rejected before this point;
+- the reported ids **equal the ids `taskpack` found by `ast`** — re-checked on this side
+  (`TEST_ID_SET_EMPTY`, `TEST_ID_SET_MISMATCH missing=… extra=…`) rather than trusting the outcome
+  word alone, so a runner stand-in cannot widen the gate either;
+- then the outcome word maps to a gate verdict: `PASS` → PASS; `CLEAN_FAILURE` / `ERRORS` /
+  `SKIPPED` / `IMPORT_ERROR` → FAIL; `NO_TESTS` and anything unrecognised → INVALID.
+
+`NO_RESULT` / `TAMPERED` / a missing or exception-raising `taskpack` are INVALID with the runner's
+own reason (`TEST_RUNNER_UNAVAILABLE`, `TEST_RESULT_UNAVAILABLE`, `TEST_RESULT_MAC_INVALID`,
+`TEST_RUNNER_FAILED:<type>`). `pilot_accept` no longer contains a single regex over unittest's
+summary: `unittest_outcome`, `Ran N` and `OK`/`FAILED` parsing are gone. The runner's captured
+output is still recorded (`stdout_tail`, `output_sha256`) for the record and for the 1 MiB cap — it
+is never read for a verdict, and each gate record says `executed_by: "test_runner.py"`.
+
+The fresh acceptance directory, the must-fail canary and the acceptance order are unchanged. The
+canary now reports a `status`: `FAILED_AS_REQUIRED` (all four ids present, four `failure` outcomes,
+no error), `NEUTERED` (a believable run in which some canary test passed) or `UNVERIFIED` (the
+canary's own report could not be believed). `NEUTERED` still gives
+`INVALID`/`ACCEPTANCE_NEUTERED`; `UNVERIFIED` gives `INVALID`/`ACCEPTANCE_CANARY_UNVERIFIED`. In
+both cases the hidden test is not run and `hidden_test` stays in `skipped`.
+
+**Tests added** (`test_v1_2_h4_pilot_driver.py`, now 31):
+
+- `test_a_worker_that_prints_a_fake_unittest_summary_is_not_believed` — the N22 shape: a worker
+  `src/__init__.py` prints `Ran 1 test in 0.000s` / `OK`, flushes, and `os._exit(0)`. The visible
+  gate is `INVALID` with `NO_RESULT`/`TEST_RESULT_UNAVAILABLE`, the fake text **is** in the captured
+  output (so the test proves the old parser would have read green), and ruff/hidden are skipped.
+- `test_a_tests_init_that_noops_the_assertions_is_caught_by_the_canary` — a `tests/__init__.py`
+  that replaces `assertEqual` (and two others) by no-ops. It shows up as
+  `canary.status == NEUTERED`, verdict `INVALID`, reason `ACCEPTANCE_NEUTERED`, hidden test not run.
+  Note on the fixture: the worker's own `tests/` never enters the acceptance tree (that is D1,
+  asserted by the test above it), so a `tests/__init__.py` can only reach the canary from the
+  sealed base; the fixture puts it there on purpose to drive this branch.
+- `test_a_report_with_a_bad_mac_is_never_believed` — a `tests/__init__.py` that reads the inherited
+  `--result-fd` from `sys.argv`, writes a well-formed version-1 report with a 64-hex dummy MAC and
+  exits 0. The real runner rejects it (`TAMPERED`, `TEST_RESULT_MAC_INVALID`) and acceptance is
+  `INVALID`.
+- `test_an_accepted_result_with_the_wrong_test_ids_is_invalid` — a stand-in `taskpack` that says
+  `accepted: True`/`PASS` while naming a test the file does not declare, and a second one that names
+  no tests at all. This side's id-set re-check refuses both
+  (`TEST_ID_SET_MISMATCH`, `TEST_ID_SET_EMPTY`), so `accepted` alone is never enough.
+
+`StandInTaskpack` in the driver tests now only stands in for `verify_seal`; `run_tests_with_runner`
+is the real one from `taskpack.py`, so the signed channel is exercised end to end, not mocked.
+
+**Changes needed in `taskpack.py` / `test_runner.py`: none.** Their interface
+(`run_tests_with_runner(tree, test_ids_or_file=None, nonce=None, …) -> {accepted, outcome, reason,
+tests, counts, expected_ids, executed, output}`) was sufficient as written; nothing here asked for
+a signature or behaviour change, and neither file was edited.
+
 ### What is here
 
 | File | Role |
 | --- | --- |
 | `arms.py` | FULL/MIN/INJECT carriers: deterministic `git show <materials>:AGENTS.md` §2–§4 extraction with an 11-rule byte-range manifest, the MIN A-layer carrier, outside-repository delivery, readback verification, and the leak scan (anchors/sentinels **plus** a 10-word verbatim window overlap). |
 | `a_layer_min.md` | The MIN base text. **ASSUMED**, hand-written for the pilot — see "What is assumed" below. |
-| `pilot_accept.py` | Seal re-verification through the agreed `taskpack` interface, the **fresh acceptance directory**, the canary negative control, the fixed acceptance order (visible tests → ruff → hidden test), the registered F-010 injection and the N7 probe. |
+| `pilot_accept.py` | Seal re-verification through the agreed `taskpack` interface, the **fresh acceptance directory**, the canary negative control, **every test verdict taken from `taskpack.run_tests_with_runner`** (signed report + `ast` id-set), the fixed acceptance order (visible tests → ruff → hidden test), the registered F-010 injection and the N7 probe. |
 | `pilot_driver.py` | Authorization gate (absolute, non-symlink, non-temp, capped), `--fake-worker` stub path, the real launch path (import-only reuse of `freeze-v3`, frozen driver-root layout), the sandbox probe, per-run durable records. |
 | `../../tests/test_v1_2_h4_pilot_arms.py` | Carrier tests: FULL ≠ MIN, MIN carries none of the 11 (anchors, sentinels **and** verbatim slices), missing/substituted/wrong/extra carrier rejected, delivery refusals, stale-range detection, FULL not blocked by the window check. |
-| `../../tests/test_v1_2_h4_pilot_driver.py` | Driver tests: authorization refusals (relative/symlink/temp/cap/unknown keys), fake worker through all three arms, fresh-tree acceptance + canary, the two escape attacks, INJECT miss → `INVALID`, N7 positive direction, seal tamper, driver-root layout, sandbox probe, isolation. |
+| `../../tests/test_v1_2_h4_pilot_driver.py` | Driver tests: authorization refusals (relative/symlink/temp/cap/unknown keys), fake worker through all three arms, fresh-tree acceptance + canary, the two escape attacks, the fake-summary, neutered-`tests/__init__` and bad-MAC attacks on the signed channel, INJECT miss → `INVALID`, N7 positive direction, seal tamper, driver-root layout, sandbox probe, isolation. |
 
-`taskpack.py` is **not** in this worktree: it belongs to a parallel implementer. `pilot_accept`
-imports it lazily through `taskpack_module()`, and the tests replace that function with a stand-in
-that implements the agreed `verify_seal(pkg_dir) -> None` / `taskpack.SealError` contract over a
-hand-built package and a hand-computed `SEAL.json`. The real module was exercised separately — see
-"Merge with the taskpack branch" below.
+`taskpack.py` and `test_runner.py` come from ticket A and are part of this tree after the merge in
+round B2. `pilot_accept` imports `taskpack` lazily through `taskpack_module()`; the driver tests
+replace only `verify_seal` (with a hand-computed `SEAL.json` stand-in) and use A's real
+`run_tests_with_runner`, so the signed channel is what the acceptance tests exercise.
 
 ### What the fix round changed
 
@@ -163,6 +230,42 @@ $ cd experiments/v1.2/tests && python -m unittest test_v1_2_h4_pilot_driver
 Ran 27 tests ... OK
 ```
 
+Gates re-run after round B2 (the merge plus the signed-runner change), same environment, each test
+file run by name from `experiments/v1.2/tests`:
+
+```text
+$ python -m ruff check .
+All checks passed!
+
+$ python scripts/validate_governance.py
+35/35 checks passed
+
+$ python scripts/validate_public_release.py
+VIOLATIONS=0
+
+$ python -m unittest test_v1_2_h4_pilot_arms
+Ran 17 tests ... OK
+
+$ python -m unittest test_v1_2_h4_pilot_driver
+Ran 31 tests ... OK
+
+$ python -m unittest test_v1_2_h4_pilot_taskpack
+Ran 106 tests ... OK
+```
+
+Mutation audit for the new defences (round B2), on a throwaway tree built from the committed
+sources plus `AGENTS.md`, `gate-load-bearing/` and `freeze-v3/`, one defence disabled at a time; the
+baseline in that tree is `rc=0`, no failures:
+
+```text
+M1 id-set re-check disabled              -> new failure: test_an_accepted_result_with_the_wrong_test_ids_is_invalid
+M2 canary accepts a partly-passing run   -> new failures: test_a_tests_init_that_noops_the_assertions_is_caught_by_the_canary,
+                                                             test_a_worker_package_initialiser_cannot_neuter_the_canary,
+                                                             test_the_canary_control_passes_only_when_all_four_tests_fail
+M3 unaccepted result treated as a verdict -> new failures: test_a_report_with_a_bad_mac_is_never_believed,
+                                                             test_a_worker_that_prints_a_fake_unittest_summary_is_not_believed
+```
+
 Acceptance-report attacks, copied to a scratch directory outside the repository, pointed at a snapshot
 of this worktree (no assertion about the code under test was relaxed; the fixture changes are listed
 after the table):
@@ -203,17 +306,19 @@ D4(b) RESULTS_DIR_INSIDE_REPOSITORY branch   -> test_a_results_directory_inside_
 alive: []
 ```
 
-### Merge with the taskpack branch (ticket A, current tip)
+### Merge with the taskpack branch (ticket A)
 
-A throwaway clone of this branch, with this round's working tree applied, then
-`git merge --no-ff origin/experiment/v1.2-h4-pilot-a` (tip `65097be`). Result:
+At the previous round this merge was rehearsed in a throwaway clone against A's tip `65097be`. The
+real merge happened in round B2 against A's current tip `eed1ad9` (`git merge --no-ff
+experiment/v1.2-h4-pilot-a`), and it went exactly as rehearsed:
 
 - **One conflict, documentation only:** `pilot/BUILD_NOTES.md` is added by both branches (add/add).
-  Resolved in the throwaway clone by keeping this file. Folding the two build notes into one is an
-  integrator decision; the *code* merges cleanly.
+  Resolved by keeping **both** sections, B's first, each under its own `## Ticket …` heading and
+  with the inner headings demoted one level; the mechanical check and the counts are in round B2
+  above. No code conflicted.
 - All pilot test files in the merged tree:
-  `test_v1_2_h4_pilot_arms` 17 OK, `test_v1_2_h4_pilot_driver` 27 OK,
-  `test_v1_2_h4_pilot_taskpack` 83 OK (A's suite, unchanged).
+  `test_v1_2_h4_pilot_arms` 17 OK, `test_v1_2_h4_pilot_driver` 31 OK (4 added in B2),
+  `test_v1_2_h4_pilot_taskpack` 106 OK (A's suite, unchanged).
 - End-to-end integration against the **real** `taskpack.py` (no stand-in): my fixture package
   verifies with checks 1–6 `PASS` and check 7 `SEAL_PRESENT_BEFORE_SEALING` (the fixture seals
   itself, and A refuses a pre-existing seal unless `allow_reseal`), `seal_package` then writes a
@@ -285,6 +390,15 @@ A throwaway clone of this branch, with this round's working tree applied, then
 - **The window guard is a threshold.** Ten words catches a copied sentence; it misses a paraphrase,
   a reordered sentence, and any of the three ranges shorter than ten words. Those three are still
   covered by their anchor/sentinel text only.
+- **The signed channel imports the tests into the runner's own process.** `pilot_accept` inherits
+  ticket A's stated limit: a determined test module can walk frames while it runs and reach the
+  nonce. What is closed is the demonstrated family — a printed summary, an early `os._exit`, a
+  report written without the nonce, an id set that does not match the file. A person who can write
+  frame-walking code is out of the threat model, not excluded by construction.
+- **INVALID vs FAIL for test gates.** A suite that ran and failed is FAIL; a verdict that could not
+  be believed (no report, bad MAC, wrong ids, runner unavailable) is INVALID. Both are non-green;
+  the distinction is kept because "the candidate is bad" and "the gate did not produce evidence"
+  are different facts in the record.
 - **`budget_cap` is recorded, never enforced.** `max_runs` is the only enforced limit; the ceiling on
   `budget_cap` is a sanity check on the recorded number.
 - **The real launch is unproven.** `real_launch()` — the `opencode serve`/`run` invocation, the
