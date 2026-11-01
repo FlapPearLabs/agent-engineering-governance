@@ -16,7 +16,192 @@ This round is a **fix ticket on my own earlier work** (`4856a90`), driven by the
 acceptance report `ACCEPT.md` (verdict REJECT: 2 P1, 3 P2, plus P3). Nothing here is an acceptance
 verdict: the same implementer does not sign off on its own work.
 
-### Round B2 (this commit) — integration, and every test verdict from the signed runner
+### Round B3 (this commit) — F1 threat-model limit + tamper scan, F2 clean refusals, F3 tests, P3
+
+Driven by the integrated independent acceptance report
+(`h4-accept-b2/work/ACCEPT.md`, verdict REJECT: 1 P1, 2 P2, plus P3). Nothing here is an acceptance
+verdict.
+
+#### F1 (P1) — the gc-forged signed report
+
+**Decision (supervisor).** Worker code that runs in the acceptance process can always forge a signed
+report — walk `gc` for the nonce, walk frames, monkeypatch `unittest`, exit early. That is now an
+explicit, documented limitation of the stated threat model in `PILOT_SPEC.md` §"Threat model and the
+tamper scan" and in this file: the pilot defends against **accidental or lazy shortcuts by a model**,
+not a determined attacker. Moving test execution out of the acceptance process is out of scope.
+
+**Detection added — `pilot/tamper_scan.py` (stdlib `ast`).** It scans every Python file the worker
+**changed or added** relative to the sealed package base, including added tests and any
+`__init__.py`, `conftest.py`, `sitecustomize.py`, `usercustomize.py`, `*.pth`; unchanged base files are
+not the worker's code and are skipped. One hit per `(file, line, rule)`:
+
+| Family | Rules |
+| --- | --- |
+| imports | `IMPORT_GC`, `IMPORT_INSPECT`, `IMPORT_CTYPES`, `IMPORT_HMAC`, `IMPORT_BUILTINS`, `IMPORT_ATEXIT`, `IMPORT_SIGNAL`, `IMPORT_MULTIPROCESSING`, `IMPORT_THREADING`, `IMPORTLIB_RELOAD` |
+| process / frame reach | `OS_EXIT`, `SYS_GETFRAME`, `SYS_SETTRACE`, `SYS_SETPROFILE`, `SYS_MONITORING`, `SYS_MODULES_MAIN`, `DYNAMIC_IMPORT` |
+| unittest patching | `UNITTEST_PATCH` (assignment, including a name imported from `unittest`), `UNITTEST_SETATTR`, `MOCK_PATCH_UNITTEST` |
+| harness files | `READS_PROTECTED_FILE` (`test_runner.py`, `taskpack.py`, `reference.patch`, `hidden/`) |
+| interpreter hooks | `PATH_CONFIG_FILE` (a changed/added `.pth`) |
+
+`pilot_accept.accept` runs the scan before the gates. Any hit appends `SUSPECT_TAMPERING` to the
+record reasons and forces the verdict `INVALID`; the gates still run, so the hidden test's own result
+is recorded, but a `hidden_test` gate is rewritten to `INVALID` and can never read `PASS`. The scan
+result (`scanned`, `hits`, `unparsed`, `verdict`) is in `record["acceptance"]["tamper"]`, and the
+driver record carries `verdict_reasons` so a run reads `INVALID` + `SUSPECT_TAMPERING` without
+parsing gate text.
+
+**Tests (both directions).** `TamperScanTests`: the gc-forge worker from `attacks/n_accept_attacks.py`
+is flagged (`IMPORT_GC`, `IMPORT_HMAC`, `OS_EXIT`), added-test `unittest` patching / `setattr` /
+`unittest.mock.patch` are flagged, frame/dynamic-import/exit tricks are flagged, reads of the four
+harness paths are flagged, an added `.pth` is flagged, ordinary code (`os.path`, `json`, `re`,
+`dataclasses`, `functools`, `typing`, `collections`, `itertools`) is clean, and a file that is
+unchanged from the sealed base is not even scanned. Integration:
+`test_acceptance_refuses_a_gc_forged_signed_report` (the `n_accept_attacks.py` shape: the forged
+hidden gate says `outcome=PASS` but `verdict=INVALID`, with the hit list) and
+`test_the_driver_run_ends_invalid_suspect_tampering_for_a_gc_forge_worker` (the
+`n_driver_forge.py` shape through `run_one`; canary still `FAILED_AS_REQUIRED`, run `INVALID`).
+
+#### F2 (P2) — a bad `--results-dir` is a clean refusal
+
+`results_dir_problem(path)` runs before `mkdir` and before any process starts: an existing regular
+file or a path whose nearest existing ancestor is a file is `REFUSED:RESULTS_DIR_NOT_A_DIRECTORY`; a
+directory that cannot be written (probe file) is `REFUSED:RESULTS_DIR_NOT_WRITABLE`. Both exit 2
+with no traceback. `mkdir` itself is also wrapped, so a race becomes the same named refusal rather
+than a crash. Tests run the real CLI for the three shapes and assert the file is untouched, no run
+directory exists, and `Traceback` is absent from stderr.
+
+#### F3 (P2) — the two untested fail-closed branches
+
+- `ACCEPTANCE_TREE_EXISTS`: `test_an_existing_acceptance_tree_is_refused` calls
+  `prepare_acceptance_tree` directly with an existing target.
+- `DRIVER_ROOT_INSIDE_LAUNCH`: the check is now the pure `driver_root_inside_launch(run_dir,
+  driver_dir)` used by both `driver_layout` and `real_launch`.
+  `test_the_driver_root_inside_launch_check_refuses_a_bad_layout` tests the pure function with a
+  driver root inside the launch and then calls `real_launch` with a stub frozen delivery whose
+  `driver_root` returns `<launch>/.driver`; the launch returns `BLOCKED:DRIVER_ROOT_INSIDE_LAUNCH`
+  and creates nothing. Removing either branch turns a test red.
+
+#### P3 — the recorded items
+
+- **`max_runs` ceiling.** `MAX_RUNS = 100`; `read_authorization` refuses
+  `AUTHORIZATION_MAX_RUNS_ABOVE_MAX:100`. `budget_cap`'s `MAX_BUDGET_CAP = 100.0` already existed and
+  is still record-only. Test: `test_max_runs_has_a_documented_upper_bound` (100 accepted, 101
+  refused).
+- **Duplicate arms.** `--arms MIN,MIN` is `REFUSED:DUPLICATE_ARM:MIN`, exit 2, before any run
+  directory exists. Test: `test_duplicate_arms_are_refused_before_any_run`.
+- **Delivery onto a regular file.** `arms.deliver` refuses
+  `DELIVERY_TARGET_NOT_A_DIRECTORY:<name>` and leaves the file untouched. Test in the arms suite.
+- **Nothing survives the verdict.** The real launch now starts the worker in its own session
+  (`start_new_session=True`) and returns its `pgid`; `cleanup_run` sends SIGTERM then SIGKILL to that
+  group and deletes the acceptance directory before the record is written. `real_launch` also kills
+  the group on `INVALID:TIMEOUT`. Tests: `test_the_worker_process_group_is_killed_after_the_verdict`
+  (a stub worker spawns `sleep 30` in a new session; the process is gone after `run_one`) and the
+  acceptance-directory assertions in the escape tests.
+- **Home directory rule (choice, stated).** A results directory under the invoking home is refused
+  only when it is temp-like or hidden: any component starting with `.` or equal (case-folded) to
+  `tmp`, `temp`, `temporary items`, `var`, `folders`, `cache`, `caches` gives
+  `RESULTS_DIR_UNDER_HOME_TEMP`. A normal durable directory under the home and a shared location
+  outside it (the `/Volumes/...` positive control in the test) stay allowed. This keeps a shared
+  durable results root outside the home usable, which is the intended operator choice.
+
+#### Behaviour changes to earlier tests (none of them a relaxation)
+
+- `test_a_worker_tests_init_cannot_neuter_the_hidden_test` (g_escape2): the planted
+  `tests/__init__.py` patches `unittest`, so the tamper scan now makes the run `INVALID` /
+  `SUSPECT_TAMPERING` instead of `FAIL`. The regression assertion is kept and strengthened: the
+  hidden gate's own `outcome` is `CLEAN_FAILURE`, its `verdict` is `INVALID`, and the worker's
+  `tests/__init__.py` is still not in the acceptance tree.
+- The acceptance directory is deleted after the verdict, so three tests no longer read files from
+  it. They now read the recorded `record["acceptance"]["tree_files"]` snapshot (taken after the gates
+  ran) and assert the directory is gone; the assertions about what was in the tree are unchanged.
+
+#### Limits of this round
+
+- **The scan is a heuristic.** It catches the demonstrated shortcut families, not a determined
+  attacker; a worker that builds `gc` dynamically (`__import__('g'+'c')`) or hides in an unparseable
+  file is not caught by this scan (unparseable Python is recorded in `unparsed`, not accused). The
+  threat-model limit in `PILOT_SPEC.md` is the authoritative statement.
+- **`threading`, `signal`, `multiprocessing`, `atexit` imports are flagged wholesale.** The synthetic
+  LOW-risk packages are deterministic and single-threaded, so a legitimate worker need is out of
+  scope; this trades a possible false positive for a simple rule, and the spec says so.
+- **Process-group cleanup covers the launched worker, not every acceptance subprocess.** The gates'
+  runner is started by `taskpack.py` (which kills its group only on timeout/overflow and is owned by
+  the parallel branch); a child that calls `setsid` can outlive the run. What this side guarantees is
+  that the acceptance directory is gone, so such a child has no run directory to write into.
+- **`real_launch` is still unexecuted.** The F3 test calls it with a stubbed frozen delivery only up
+  to the layout refusal; the real `opencode run`, sandbox self-test, wall clock and token parsing
+  remain `未核实`.
+
+#### Evidence (B3)
+
+Gates from the repository root (`env -u PYTHONPATH`, ticket interpreter), after the changes above:
+
+```text
+$ python -m ruff check .
+All checks passed!
+
+$ python scripts/validate_governance.py
+35/35 checks passed
+
+$ python scripts/validate_public_release.py
+VIOLATIONS=0
+```
+
+Pilot suites, each run by file from `experiments/v1.2/tests` with `TMPDIR` set to its real path:
+
+```text
+$ python -m unittest test_v1_2_h4_pilot_arms
+Ran 18 tests ... OK
+
+$ python -m unittest test_v1_2_h4_pilot_driver
+Ran 49 tests ... OK
+
+$ python -m unittest test_v1_2_h4_pilot_taskpack
+Ran 106 tests ... OK
+```
+
+Mutation audit for the F3 branches and the F1 integration, on a throwaway copy of this worktree
+(`experiments/v1.2/` + `AGENTS.md`, git-initialized so the FULL carrier resolves; baseline `rc=0`,
+no failures). One defence disabled at a time:
+
+```text
+M1 ACCEPTANCE_TREE_EXISTS disabled          -> test_an_existing_acceptance_tree_is_refused
+M2 DRIVER_ROOT_INSIDE_LAUNCH disabled       -> test_the_driver_root_inside_launch_check_refuses_a_bad_layout
+M3 tamper hit integration disabled          -> test_a_worker_tests_init_cannot_neuter_the_hidden_test,
+                                               test_acceptance_refuses_a_gc_forged_signed_report,
+                                               test_the_driver_run_ends_invalid_suspect_tampering_for_a_gc_forge_worker
+```
+
+The acceptance report's own attacks, copied to a scratch directory outside the repository with
+`src` pointing at this worktree:
+
+```text
+$ python attacks/n_accept_attacks.py
+"gc-forged signed report": {"verdict": "INVALID",
+                            "gates": {"visible_tests": "PASS", "ruff": "PASS",
+                                      "hidden_test": "INVALID"},
+                            "reasons": ["SUSPECT_TAMPERING"],
+                            "canary": "FAILED_AS_REQUIRED"}
+
+$ python attacks/n_driver_forge.py
+{"verdict": "INVALID", "acceptance": "INVALID",
+ "gates": {"visible_tests": "PASS", "ruff": "PASS", "hidden_test": "INVALID"},
+ "canary": "FAILED_AS_REQUIRED"}
+```
+
+F2, the same CLI against a package that seals cleanly:
+
+```text
+$ pilot_driver.py --packages pkg --results-dir <existing file> --arms MIN --fake-worker
+REFUSED:RESULTS_DIR_NOT_A_DIRECTORY
+rc=2
+
+$ pilot_driver.py --packages pkg --results-dir <directory mode 0500> --arms MIN --fake-worker
+REFUSED:RESULTS_DIR_NOT_WRITABLE
+rc=2
+```
+
+### Round B2 — integration, and every test verdict from the signed runner
 
 Ticket A's round-3 fix replaced "parse `python -m unittest` output" with a harness-owned signed
 runner. This round merges A in and makes `pilot_accept` use that channel.

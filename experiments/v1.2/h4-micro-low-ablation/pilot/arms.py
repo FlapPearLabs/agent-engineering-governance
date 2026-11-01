@@ -338,6 +338,8 @@ def deliver(carrier: dict, dest: Path, root: Path | None = None) -> dict:
     marker = inherited_marker(dest)
     if marker is not None:
         raise CarrierError(f"INHERITED_GUIDANCE:{marker}")
+    if dest.exists() and not dest.is_dir():
+        raise CarrierError("DELIVERY_TARGET_NOT_A_DIRECTORY:" + dest.name)
     if carrier["arm"] != ARM_FULL:
         leaks = carrier_leaks(carrier, carrier["files"][CARRIER_NAME], root)
         if leaks:

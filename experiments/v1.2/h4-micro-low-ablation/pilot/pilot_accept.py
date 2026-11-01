@@ -46,6 +46,8 @@ import sys
 import time
 from pathlib import Path
 
+import tamper_scan
+
 PILOT_DIR = Path(__file__).resolve().parent
 ROOT = PILOT_DIR.parents[3]
 
@@ -520,6 +522,17 @@ def hidden_test(tree, pkg) -> dict:
 ACCEPTANCE_ORDER = (("visible_tests", visible_tests), ("ruff", ruff_gate),
                     ("hidden_test", hidden_test))
 
+TAMPER_REASON = "SUSPECT_TAMPERING"
+
+
+def tree_manifest(tree) -> dict:
+    """`relative_path -> sha256` for every file in a directory (evidence after the gates ran)."""
+    files = {}
+    for path in sorted(Path(tree).rglob("*")):
+        if path.is_file() and not path.is_symlink():
+            files[path.relative_to(tree).as_posix()] = sha256(path.read_bytes())
+    return files
+
 
 def accept(candidate, pkg, acceptance_dir) -> dict:
     """Run the acceptance gates in their registered order; stop at the first non-PASS.
@@ -532,8 +545,14 @@ def accept(candidate, pkg, acceptance_dir) -> dict:
     `ACCEPTANCE_NEUTERED`, and if the canary's own report cannot be believed it is INVALID with
     `ACCEPTANCE_CANARY_UNVERIFIED`; either way the hidden test is never trusted. `ruff` needs no
     execution of package code, so it checks the candidate tree as it is.
+
+    Before any gate runs, every Python file the worker changed or added is scanned for the ordinary
+    shortcuts that forge a signed report (`tamper_scan`). Any hit makes the verdict INVALID with
+    `SUSPECT_TAMPERING` and the hit list in the record; the gates still run so the hidden test's own
+    result is recorded, but a hidden-test gate is never allowed to read PASS on such a run.
     """
     tree = prepare_acceptance_tree(pkg, candidate, acceptance_dir)
+    tamper = tamper_scan.scan_tree(candidate, pkg["base"])
     gates: list[dict] = []
     skipped: list[str] = []
     canary = None
@@ -551,6 +570,13 @@ def accept(candidate, pkg, acceptance_dir) -> dict:
         if result["verdict"] != PASS:
             skipped = [later for later, _ in ACCEPTANCE_ORDER[index + 1:]]
             break
+    if tamper["hits"]:
+        reasons.append(TAMPER_REASON)
+        for gate in gates:
+            if gate["name"] == "hidden_test":
+                gate["verdict"] = INVALID
+                if TAMPER_REASON not in gate["reasons"]:
+                    gate["reasons"].append(TAMPER_REASON)
     verdicts = [gate["verdict"] for gate in gates]
     if reasons:
         verdict = INVALID
@@ -564,7 +590,8 @@ def accept(candidate, pkg, acceptance_dir) -> dict:
         verdict = INVALID
     return {"verdict": verdict, "order": [gate["name"] for gate in gates],
             "gates": {gate["name"]: gate for gate in gates}, "skipped": skipped,
-            "canary": canary, "fresh_tree": tree, "reasons": reasons}
+            "canary": canary, "fresh_tree": tree, "reasons": reasons, "tamper": tamper,
+            "tree_files": tree_manifest(tree["path"])}
 
 
 

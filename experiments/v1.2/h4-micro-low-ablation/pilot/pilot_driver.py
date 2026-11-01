@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -64,6 +65,12 @@ ALLOWED_AUTHORIZATION_KEYS = REQUIRED_AUTHORIZATION_KEYS
 # only ever *recorded* (MAX_RUNS_ONLY;RUN_COST_UNOBSERVED). An unbounded or absurd cap would make
 # that record look like a real spend limit, so a cap above this ceiling is refused at read time.
 MAX_BUDGET_CAP = 100.0
+# `max_runs` is the one limit that is actually enforced (`plan_size_reason`), so it gets a documented
+# ceiling of its own: an authorization that asks for a billion runs is not a control either.
+MAX_RUNS = 100
+# A results directory under the invoking user's home is refused only when it is a temp-like or hidden
+# location; normal durable shared locations outside the home (a `/Volumes/...` path) stay allowed.
+HOME_TEMP_COMPONENTS = ("tmp", "temp", "temporary items", "var", "folders", "cache", "caches")
 SANDBOX_PROBE_ARGV = ("-p", "(version 1)(allow default)", "/usr/bin/true")
 
 GIT_IDENTITY = {"GIT_AUTHOR_NAME": "H4 Pilot", "GIT_AUTHOR_EMAIL": "h4@pilot.invalid",
@@ -152,6 +159,8 @@ def read_authorization(environ=None) -> dict:
             raise AuthorizationError(f"AUTHORIZATION_{key.upper()}_NOT_POSITIVE_NUMERIC")
     if float(data["max_runs"]) != int(data["max_runs"]):
         raise AuthorizationError("AUTHORIZATION_MAX_RUNS_NOT_INTEGER")
+    if data["max_runs"] > MAX_RUNS:
+        raise AuthorizationError(f"AUTHORIZATION_MAX_RUNS_ABOVE_MAX:{MAX_RUNS}")
     if data["budget_cap"] > MAX_BUDGET_CAP:
         raise AuthorizationError(
             f"AUTHORIZATION_BUDGET_CAP_ABOVE_MAX:{MAX_BUDGET_CAP}")
@@ -168,6 +177,44 @@ def results_dir_reason(path) -> str | None:
     for prefix in TEMP_ROOT_PREFIXES:
         if text == prefix or text.startswith(prefix + os.sep):
             return "RESULTS_DIR_UNDER_TEMP"
+    home = Path.home().resolve()
+    if resolved == home or home in resolved.parents:
+        relative = resolved.relative_to(home)
+        if any(part.startswith(".") or part.casefold() in HOME_TEMP_COMPONENTS
+               for part in relative.parts):
+            return "RESULTS_DIR_UNDER_HOME_TEMP"
+    return None
+
+
+def results_dir_problem(path) -> str | None:
+    """Why `path` cannot be used as a results directory at all (F2), or None when it can.
+
+    Checked before `mkdir`, so a bad path is a clean `REFUSED:…` with exit 2 instead of a traceback:
+    an existing regular file (or a file where a parent directory should be) is not a directory, and
+    a directory the caller cannot write to is not a results store.
+    """
+    path = Path(path)
+    if path.exists() and not path.is_dir():
+        return "RESULTS_DIR_NOT_A_DIRECTORY"
+    ancestor = path
+    while not ancestor.exists():
+        if ancestor.parent == ancestor:
+            break
+        ancestor = ancestor.parent
+    if ancestor.exists() and not ancestor.is_dir():
+        return "RESULTS_DIR_NOT_A_DIRECTORY"
+    target = path if path.is_dir() else ancestor
+    if target.is_dir():
+        probe = target / f".h4-write-probe-{os.getpid()}"
+        try:
+            probe.write_text("probe\n", encoding="utf-8")
+        except OSError:
+            return "RESULTS_DIR_NOT_WRITABLE"
+        finally:
+            try:
+                probe.unlink()
+            except OSError:
+                pass
     return None
 
 
@@ -262,6 +309,18 @@ def frozen_modules():
     return sandbox_v2, wrapper_delivery
 
 
+def driver_root_inside_launch(run_dir, driver_dir) -> bool:
+    """The pure layout check `real_launch` refuses on (F3): is the driver root inside the launch?
+
+    `run_dir` is the tree the worker owns; the driver root holds the confinement plant, the rendered
+    profile and the fresh home. If it is the launch itself or anywhere below it, the worker could read
+    or rewrite its own controls, so the launch must be refused. Extracted from `real_launch` so the
+    rejection can be tested with a bad layout without starting a worker.
+    """
+    run_dir, driver_dir = Path(run_dir), Path(driver_dir)
+    return driver_dir == run_dir or run_dir in driver_dir.parents
+
+
 def driver_layout(run_dir) -> dict:
     """The frozen layout for a launch: `<runs_root>/.driver/<run_id>`, OUTSIDE the launch.
 
@@ -273,10 +332,9 @@ def driver_layout(run_dir) -> dict:
     _sandbox, delivery = frozen_modules()
     run_dir = Path(run_dir)
     driver_dir = Path(delivery.driver_root(run_dir))
-    inside = driver_dir == run_dir or run_dir in driver_dir.parents
     return {"run_dir": str(run_dir), "driver_dir": str(driver_dir),
             "runs_root": str(Path(delivery.runs_root_of(run_dir))),
-            "inside_launch": inside,
+            "inside_launch": driver_root_inside_launch(run_dir, driver_dir),
             "directly_under_runs_root": run_dir.parent
             == Path(delivery.runs_root_of(run_dir))}
 
@@ -310,6 +368,47 @@ def render_profile(stream_dir, run_dir, home) -> dict:
     return sandbox.profile(Path(stream_dir), Path(run_dir), Path(home), sys.executable)
 
 
+def kill_process_group(pgid, grace: float = 2.0) -> dict:
+    """SIGTERM then SIGKILL a whole process group (P3): nothing the worker started keeps running.
+
+    The worker is launched in its own session, so its pid is the group id. A background child it
+    leaves behind is in that group and receives the same signal. `gone` is a best-effort observation
+    (`killpg(..., 0)`): an unreaped zombie still counts as present, which is why the caller's record
+    reports the signals it sent rather than claiming a death it did not verify.
+    """
+    result = {"attempted": True, "pgid": pgid, "term_sent": False, "kill_sent": False,
+              "gone": False}
+    if not isinstance(pgid, int) or pgid <= 0:
+        return {"attempted": False, "pgid": pgid, "reason": "NO_PGID"}
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+        result["term_sent"] = True
+    except ProcessLookupError:
+        result["gone"] = True
+        return result
+    except OSError as exc:
+        result["error"] = type(exc).__name__
+        return result
+    deadline = time.monotonic() + grace
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            result["gone"] = True
+            return result
+        except OSError:
+            break
+        time.sleep(0.05)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+        result["kill_sent"] = True
+    except ProcessLookupError:
+        result["gone"] = True
+    except OSError as exc:
+        result["error"] = type(exc).__name__
+    return result
+
+
 def real_launch(run_dir: Path, model: str, timeout: int = WALL_CLOCK_SECONDS) -> dict:
     """REAL LAUNCH — imports the frozen sandbox and delivery modules; no test executes this.
 
@@ -330,7 +429,7 @@ def real_launch(run_dir: Path, model: str, timeout: int = WALL_CLOCK_SECONDS) ->
         return {"kind": "real", "exit_status": UNKNOWN, "seconds": UNKNOWN,
                 "blocked": f"BLOCKED:{reason}"}
     driver_dir = Path(delivery.driver_root(run_dir))
-    if driver_dir == run_dir or run_dir in driver_dir.parents:
+    if driver_root_inside_launch(run_dir, driver_dir):
         return {"kind": "real", "exit_status": UNKNOWN, "seconds": UNKNOWN,
                 "blocked": "BLOCKED:DRIVER_ROOT_INSIDE_LAUNCH"}
     home = sandbox.fresh_home(driver_dir, "home-1", run_dir)
@@ -347,19 +446,27 @@ def real_launch(run_dir: Path, model: str, timeout: int = WALL_CLOCK_SECONDS) ->
                             "-m", model, prompt])
     env = sandbox.home_env(dict(os.environ), home, run_dir)
     started = time.monotonic()
+    # A new session per worker: background children it leaves behind stay in its own process
+    # group, so `run_one` can kill the whole group after the verdict (P3).
+    process = subprocess.Popen(argv, cwd=str(run_dir), env=env, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, start_new_session=True)
     try:
-        process = subprocess.run(argv, cwd=str(run_dir), env=env, capture_output=True, text=True,
-                                 timeout=timeout)
+        stdout, _stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
+        kill_process_group(process.pid)
+        try:
+            process.communicate(timeout=10)
+        except subprocess.TimeoutExpired:  # pragma: no cover - SIGKILL should have landed
+            pass
         return {"kind": "real", "exit_status": UNKNOWN,
                 "seconds": round(time.monotonic() - started, 3), "blocked": "INVALID:TIMEOUT",
-                "profile": profile, "self_test": verdict}
+                "profile": profile, "self_test": verdict, "pgid": process.pid}
     seconds = round(time.monotonic() - started, 3)
-    output = (process.stdout or "") + (process.stderr or "")
+    output = stdout or ""
     (driver_dir / "worker-stream.txt").write_text(output, encoding="utf-8")
     return {"kind": "real", "exit_status": process.returncode, "seconds": seconds,
             "stream_sha256": pilot_accept.sha256(output.encode("utf-8", "replace")),
-            "profile": profile, "self_test": verdict}
+            "profile": profile, "self_test": verdict, "pgid": process.pid}
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +479,25 @@ def _record_carrier(carrier: dict, delivery: dict) -> dict:
             "rules": len(carrier["rules"]), "excluded_rules": len(carrier["excluded_rules"]),
             "delivered_path": delivery["path"], "readback": delivery["files"],
             "readback_verdict": delivery["verdict"]}
+
+
+def cleanup_run(run_dir, worker: dict) -> dict:
+    """After the verdict: kill the worker's process group and delete the acceptance directory.
+
+    A worker (or code it planted) can leave a background process that writes into the acceptance
+    directory after acceptance returns; the acceptance report observed exactly that. The worker
+    group is signalled first, then the directory is removed, so a leftover writer has nowhere to
+    write and no surviving group to run in.
+    """
+    pgid = worker.get("pgid")
+    group = (kill_process_group(pgid) if isinstance(pgid, int) and not isinstance(pgid, bool)
+             else {"attempted": False, "pgid": pgid, "reason": "NO_PGID"})
+    acceptance_dir = Path(run_dir) / "acceptance"
+    removed = False
+    if acceptance_dir.exists():
+        shutil.rmtree(acceptance_dir, ignore_errors=True)
+        removed = not acceptance_dir.exists()
+    return {"worker_group": group, "acceptance_dir_removed": removed}
 
 
 def run_one(pkg_dir, arm: str, results_dir: Path, *, fake_worker_mode: bool, materials,
@@ -421,6 +547,8 @@ def run_one(pkg_dir, arm: str, results_dir: Path, *, fake_worker_mode: bool, mat
         verdict = INVALID
     else:
         verdict = classification["verdict"]
+    cleanup = cleanup_run(run_dir, worker)
+    acceptance["directory_removed"] = cleanup["acceptance_dir_removed"]
 
     report = worker.get("report") or {}
     record = {
@@ -443,6 +571,8 @@ def run_one(pkg_dir, arm: str, results_dir: Path, *, fake_worker_mode: bool, mat
         "acceptance": acceptance,
         "inject": inject,
         "verdict": verdict,
+        "verdict_reasons": list(acceptance.get("reasons") or []),
+        "cleanup": cleanup,
         "escape": classification["escape"],
         "durations": {**timings, "total_seconds": round(time.monotonic() - started, 3)},
         "tokens": report.get("tokens", UNKNOWN),
@@ -495,7 +625,15 @@ def main(argv=None) -> int:
     if not arm_list or unknown:
         print(f"REFUSED:UNKNOWN_ARM:{','.join(unknown) or 'EMPTY'}", file=sys.stderr)
         return 2
+    duplicates = sorted({item for item in arm_list if arm_list.count(item) > 1})
+    if duplicates:
+        print(f"REFUSED:DUPLICATE_ARM:{','.join(duplicates)}", file=sys.stderr)
+        return 2
     results = Path(args.results_dir).resolve()
+    problem = results_dir_problem(results)
+    if problem is not None:
+        print(f"REFUSED:{problem}", file=sys.stderr)
+        return 2
     authorization = None
     if not args.fake_worker:
         try:
@@ -513,7 +651,11 @@ def main(argv=None) -> int:
     if reason is not None:
         print(f"REFUSED:{reason}", file=sys.stderr)
         return 2
-    results.mkdir(parents=True, exist_ok=True)
+    try:
+        results.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"REFUSED:RESULTS_DIR_NOT_WRITABLE:{type(exc).__name__}", file=sys.stderr)
+        return 2
     print(f"results_durability={durability} runs={len(plan)}")
     exit_code = 0
     for package, arm in plan:

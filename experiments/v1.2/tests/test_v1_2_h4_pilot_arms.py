@@ -191,6 +191,14 @@ class CarrierTests(unittest.TestCase):
         self.assertIn("INHERITED_GUIDANCE:.agents", str(caught.exception))
         self.assertFalse((cell / "delivery").exists())
 
+    def test_delivery_onto_a_regular_file_is_refused_cleanly(self):
+        target = self.root / "delivery-file"
+        target.write_text("not a directory\n", encoding="utf-8")
+        with self.assertRaises(arms.CarrierError) as caught:
+            arms.deliver(self.min, target, ROOT)
+        self.assertIn("DELIVERY_TARGET_NOT_A_DIRECTORY", str(caught.exception))
+        self.assertEqual("not a directory\n", target.read_text(encoding="utf-8"))
+
     def test_unknown_materials_commit_fails_closed(self):
         with self.assertRaises(arms.CarrierError) as caught:
             arms.build("FULL", ROOT, "0" * 40)
