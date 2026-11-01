@@ -23,14 +23,25 @@ produces no acceptable result, which is a FAIL -- never a PASS.
 
 Handshake (parent -> runner)
 ----------------------------
-The parent creates a one-time nonce and writes ``{"nonce": "<hex>", "watch": {...}}`` into
-a pipe. The runner reads that pipe and closes it BEFORE it inserts the working directory
-into ``sys.path`` or imports any package code. The nonce is never passed in ``argv``,
-never in the environment, and never through a file inside the package.
+The parent creates a one-time nonce and writes
+``{"nonce": "<hex>", "watch": {...}, "targets": {...}}`` into a pipe. The runner reads
+that pipe and closes it BEFORE it inserts the working directory into ``sys.path`` or
+imports any package code. The nonce is never passed in ``argv``, never in the
+environment, and never through a file inside the package. It is derived into a closure
+key and deleted from the runner's frame before any package code is imported.
 
 ``watch`` maps an absolute path to a list of line numbers; the runner records which of
 those lines execute (``sys.settrace``) while the tests run, so the parent can require the
-reference patch to change something that actually runs (P1-2 b).
+reference patch to change something that actually runs (P1-2 b). ``targets`` maps an
+absolute path to ``[[first, last], ...]`` line ranges of the functions and methods defined
+in the patched files, so the parent can require the hidden test to call one of them
+(P1-1 c).
+
+While the tests run the runner also wraps ``builtins.open``, ``io.open``,
+``pathlib.Path.open``/``read_text``/``read_bytes`` and ``os.open``. An open of the
+project's ``src/`` tree, ``reference.patch`` or a hidden test file made from test code is
+recorded as ``source_reads``; the import system's own file reads stay allowed because
+their caller frame is ``importlib``/``zipimport`` (P1-1 a).
 
 Result (runner -> parent)
 -------------------------
@@ -41,6 +52,8 @@ Exactly one JSON line is written to the result fd::
      "counts": {"ran": 0, "failures": 0, "errors": 0, "skipped": 0, "unexpected": 0},
      "load_error": null, "load_detail": "",
      "executed": [["/abs/path.py", 12]],
+     "source_reads": ["src/example.py"],
+     "integrity_violation": ["_Result.addFailure"],
      "nonce_mac": "<64 hex characters>"}
 
 The MAC is computed over the canonical JSON of the payload without ``nonce_mac``
@@ -73,11 +86,15 @@ the size cap and is never parsed for a verdict.
 from __future__ import annotations
 
 import argparse
+import builtins
 import hashlib
 import hmac
 import importlib.util
+import io
 import json
+import marshal
 import os
+import pathlib
 import re
 import sys
 import unittest
@@ -87,6 +104,7 @@ NONCE_MIN_BYTES = 16
 HANDSHAKE_LIMIT = 1 << 20
 EXECUTED_LIMIT = 20000
 RESULT_LIMIT = 1 << 20
+SOURCE_READ_LIMIT = 200
 
 
 def _canonical(payload):
@@ -99,6 +117,87 @@ def _test_id(test):
     if isinstance(test, unittest.TestCase) and method:
         return "%s.%s" % (type(test).__name__, method)
     return str(test)
+
+
+# --- integrity snapshot (P1-2) --------------------------------------------------
+# Cheap detection, not prevention: the runner records the identity and code-object hash
+# of every function it relies on BEFORE package code is imported and re-checks them after
+# the run. A package that swaps ``_Result.addFailure`` for a "record pass" function is
+# reported as an integrity violation instead of being believed.
+
+def _fingerprint(obj):
+    """``(id, sha256(code object))``; builtins have no code object, so id only."""
+    code = getattr(obj, "__code__", None)
+    digest = ""
+    if code is not None:
+        try:
+            digest = hashlib.sha256(marshal.dumps(code)).hexdigest()
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            digest = repr(code)
+    return [id(obj), digest]
+
+
+def _integrity_items():
+    """``(name, getter)`` for everything whose replacement would change a verdict."""
+    return [
+        ("unittest.TestResult.addFailure", lambda: unittest.TestResult.addFailure),
+        ("unittest.TestResult.addError", lambda: unittest.TestResult.addError),
+        ("unittest.TestResult.addSkip", lambda: unittest.TestResult.addSkip),
+        ("unittest.TestResult.addExpectedFailure",
+         lambda: unittest.TestResult.addExpectedFailure),
+        ("unittest.TestResult.addUnexpectedSuccess",
+         lambda: unittest.TestResult.addUnexpectedSuccess),
+        ("unittest.TestResult.addSuccess", lambda: unittest.TestResult.addSuccess),
+        ("unittest.TestResult.wasSuccessful", lambda: unittest.TestResult.wasSuccessful),
+        ("unittest.TestCase.run", lambda: unittest.TestCase.run),
+        ("unittest.TestCase.assertEqual", lambda: unittest.TestCase.assertEqual),
+        ("unittest.TestCase.assertNotEqual", lambda: unittest.TestCase.assertNotEqual),
+        ("unittest.TestCase.assertTrue", lambda: unittest.TestCase.assertTrue),
+        ("unittest.TestCase.assertFalse", lambda: unittest.TestCase.assertFalse),
+        ("unittest.TestCase.assertIn", lambda: unittest.TestCase.assertIn),
+        ("unittest.TestCase.assertNotIn", lambda: unittest.TestCase.assertNotIn),
+        ("unittest.TestCase.assertIs", lambda: unittest.TestCase.assertIs),
+        ("unittest.TestCase.assertIsNone", lambda: unittest.TestCase.assertIsNone),
+        ("unittest.TestCase.assertRaises", lambda: unittest.TestCase.assertRaises),
+        ("hmac.new", lambda: hmac.new),
+        ("hmac.compare_digest", lambda: hmac.compare_digest),
+        ("json.dumps", lambda: json.dumps),
+        ("builtins.exec", lambda: builtins.exec),
+        ("builtins.eval", lambda: builtins.eval),
+        ("_Result.addFailure", lambda: _Result.addFailure),
+        ("_Result.addError", lambda: _Result.addError),
+        ("_Result.addSkip", lambda: _Result.addSkip),
+        ("_Result.addExpectedFailure", lambda: _Result.addExpectedFailure),
+        ("_Result.addUnexpectedSuccess", lambda: _Result.addUnexpectedSuccess),
+        ("_Result.addSuccess", lambda: _Result.addSuccess),
+        ("_Result._record", lambda: _Result._record),
+        ("_test_id", lambda: _test_id),
+        ("_canonical", lambda: _canonical),
+        ("_write_all", lambda: _write_all),
+    ]
+
+
+def _integrity_snapshot():
+    snapshot = {}
+    for name, getter in _integrity_items():
+        try:
+            snapshot[name] = _fingerprint(getter())
+        except Exception as error:  # noqa: BLE001 - a missing target is a violation later
+            snapshot[name] = ["MISSING", type(error).__name__]
+    return snapshot
+
+
+def _integrity_violations(snapshot):
+    changed = []
+    for name, getter in _integrity_items():
+        try:
+            current = _fingerprint(getter())
+        except Exception:  # noqa: BLE001 - a target that vanished was tampered with
+            changed.append(name)
+            continue
+        if snapshot.get(name) != current:
+            changed.append(name)
+    return changed
 
 
 class _Result(unittest.TestResult):
@@ -160,14 +259,143 @@ def _read_handshake(fd):
     return json.loads(b"".join(chunks).decode("utf-8"))
 
 
-def _install_trace(watch):
-    """Record executed ``(path, line)`` pairs for the watched files only."""
+def _read_target(path, repo_root):
+    """A relative marker when ``path`` is package source or a hidden/reference file."""
+    try:
+        if isinstance(path, int):
+            return None
+        raw = os.fspath(path)
+    except TypeError:
+        return None
+    if isinstance(raw, bytes):
+        try:
+            raw = raw.decode("utf-8", "surrogateescape")
+        except UnicodeDecodeError:  # pragma: no cover - defensive
+            return None
+    if not raw:
+        return None
+    try:
+        real = os.path.realpath(os.path.abspath(raw))
+        root = os.path.realpath(repo_root)
+        src = os.path.join(root, "src")
+        if os.path.commonpath([real, src]) == src:
+            return os.path.relpath(real, root)
+    except (OSError, ValueError):  # pragma: no cover - defensive
+        return None
+    name = os.path.basename(real)
+    if name in ("reference.patch", "test_hidden.py"):
+        if real == root or real.startswith(root + os.sep):
+            return os.path.relpath(real, root)
+        return name
+    return None
+
+
+def _caller_is_import():
+    """True when this open is the import system reading a module it must read."""
+    frame = sys._getframe(1)
+    while frame is not None:
+        module = frame.f_globals.get("__name__", "")
+        filename = frame.f_code.co_filename or ""
+        if (module == "zipimport" or module.startswith("importlib")
+                or "importlib" in filename or "zipimport" in filename):
+            return True
+        frame = frame.f_back
+    return False
+
+
+def _install_source_guard(repo_root):
+    """Record test-code reads of ``src/``, ``reference.patch`` and hidden files.
+
+    The guard is installed only around the test load/run and removed afterwards. It never
+    blocks a read; it records one, because the parent -- not this process -- decides what
+    a record means. The import system is exempt: its caller frame is ``importlib`` or
+    ``zipimport``, otherwise every module import would be recorded.
+    """
+    records = []
+    original_open = builtins.open
+    original_io_open = io.open
+    original_path_open = pathlib.Path.open
+    original_read_text = pathlib.Path.read_text
+    original_read_bytes = pathlib.Path.read_bytes
+    original_os_open = os.open
+
+    def record(path):
+        marker = _read_target(path, repo_root)
+        if marker and marker not in records and len(records) < SOURCE_READ_LIMIT:
+            records.append(marker)
+
+    def guarded_open(file, *args, **kwargs):
+        if not _caller_is_import():
+            record(file)
+        return original_open(file, *args, **kwargs)
+
+    def guarded_io_open(file, *args, **kwargs):
+        if not _caller_is_import():
+            record(file)
+        return original_io_open(file, *args, **kwargs)
+
+    def guarded_path_open(self, *args, **kwargs):
+        if not _caller_is_import():
+            record(self)
+        return original_path_open(self, *args, **kwargs)
+
+    def guarded_read_text(self, *args, **kwargs):
+        if not _caller_is_import():
+            record(self)
+        return original_read_text(self, *args, **kwargs)
+
+    def guarded_read_bytes(self, *args, **kwargs):
+        if not _caller_is_import():
+            record(self)
+        return original_read_bytes(self, *args, **kwargs)
+
+    def guarded_os_open(path, *args, **kwargs):
+        if not _caller_is_import():
+            record(path)
+        return original_os_open(path, *args, **kwargs)
+
+    builtins.open = guarded_open
+    io.open = guarded_io_open
+    pathlib.Path.open = guarded_path_open
+    pathlib.Path.read_text = guarded_read_text
+    pathlib.Path.read_bytes = guarded_read_bytes
+    os.open = guarded_os_open
+
+    def stop():
+        builtins.open = original_open
+        io.open = original_io_open
+        pathlib.Path.open = original_path_open
+        pathlib.Path.read_text = original_read_text
+        pathlib.Path.read_bytes = original_read_bytes
+        os.open = original_os_open
+
+    return records, stop
+
+
+def _make_signer(secret, hmac_new, sha256, dumps):
+    """Derive the MAC key into a closure and drop the nonce from this frame."""
+    key = hmac_new(secret, b"h4-runner-report", sha256).digest()
+
+    def sign(payload):
+        body = dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hmac_new(key, body, sha256).hexdigest()
+
+    return sign
+
+
+def _install_trace(watch, targets=None):
+    """Record executed ``(path, line)`` pairs for the watched files and target ranges."""
     executed = set()
-    if not watch:
+    if not watch and not targets:
         return executed, (lambda: None)
     wanted = {}
-    for path, lines in watch.items():
-        wanted[os.path.realpath(str(path))] = {int(line) for line in lines}
+    ranges = {}
+    for path, lines in (watch or {}).items():
+        wanted.setdefault(os.path.realpath(str(path)), set()).update(
+            int(line) for line in lines)
+    for path, spans in (targets or {}).items():
+        ranges.setdefault(os.path.realpath(str(path)), []).extend(
+            (int(start), int(end)) for start, end in spans)
     cache = {}
 
     def _real(filename):
@@ -180,13 +408,21 @@ def _install_trace(watch):
     def _local(frame, event, arg):
         if event == "line":
             filename = _real(frame.f_code.co_filename)
+            line = frame.f_lineno
             lines = wanted.get(filename)
-            if lines and frame.f_lineno in lines and len(executed) < EXECUTED_LIMIT:
-                executed.add((filename, frame.f_lineno))
+            hit = bool(lines and line in lines)
+            if not hit:
+                for start, end in ranges.get(filename, ()):
+                    if start <= line <= end:
+                        hit = True
+                        break
+            if hit and len(executed) < EXECUTED_LIMIT:
+                executed.add((filename, line))
         return _local
 
     def _global(frame, event, arg):
-        return _local if _real(frame.f_code.co_filename) in wanted else None
+        filename = _real(frame.f_code.co_filename)
+        return _local if (filename in wanted or filename in ranges) else None
 
     sys.settrace(_global)
 
@@ -285,16 +521,19 @@ def _parser():
             "  accept only if result[\"accepted\"] and every tests[*].outcome == \"pass\"\n"
             "\n"
             "Protocol:\n"
-            "  --nonce-fd   pipe carrying {\"nonce\": <hex>, \"watch\": {path: [lines]}};\n"
-            "               read and closed before any package code is imported.\n"
+            "  --nonce-fd   pipe carrying {\"nonce\": <hex>, \"watch\": {path: [lines]},\n"
+            "               \"targets\": {path: [[first, last]]}}; read and closed before\n"
+            "               any package code is imported.\n"
             "  --result-fd  pipe receiving exactly one JSON line:\n"
             "               {version, tests, counts, load_error, load_detail, executed,\n"
-            "                nonce_mac}. nonce_mac = HMAC-SHA256(nonce, canonical json of\n"
-            "               the payload without nonce_mac).\n"
+            "                source_reads, integrity_violation, nonce_mac}.\n"
+            "               nonce_mac = HMAC-SHA256(key, canonical json of the payload\n"
+            "               without nonce_mac).\n"
             "\n"
             "Exit status: 0 all collected tests passed (skips allowed); 1 failures,\n"
-            "errors or an unimportable test module; 2 the runner could not do its job\n"
-            "and wrote no result -- the parent must treat that as unavailable, not pass."),
+            "errors, an unimportable test module or an integrity violation; 2 the\n"
+            "runner could not do its job and wrote no result -- the parent must treat\n"
+            "that as unavailable, not pass."),
     )
     parser.add_argument("--nonce-fd", type=int, required=True)
     parser.add_argument("--result-fd", type=int, required=True)
@@ -311,19 +550,36 @@ def _parser():
 def main(argv=None):
     args = _parser().parse_args(argv)
     handshake = _read_handshake(args.nonce_fd)
-    nonce = bytes.fromhex(handshake["nonce"])
+    nonce_hex = handshake["nonce"]
+    watch = dict(handshake.get("watch") or {})
+    targets = dict(handshake.get("targets") or {})
+    del handshake
+    nonce = bytes.fromhex(nonce_hex)
+    del nonce_hex
     if len(nonce) < NONCE_MIN_BYTES:
         raise ValueError("nonce is too short")
-    watch = dict(handshake.get("watch") or {})
+
+    # Everything the verdict depends on is captured BEFORE any package code is imported.
+    dumps = json.dumps
+    hmac_new = hmac.new
+    sha256 = hashlib.sha256
+    write_all = _write_all
+    check_integrity = _integrity_violations
+    integrity = _integrity_snapshot()
+    sign = _make_signer(nonce, hmac_new, sha256, dumps)
+    del nonce  # the key lives in the closure; this frame keeps no copy
 
     # Only now may package code be imported.
     sys.path.insert(0, os.getcwd())
     result = _Result()
     load_error, load_detail = None, ""
     executed = set()
+    reads = []
+    violations = []
     try:
         suite = None
-        executed, stop = _install_trace(watch)
+        executed, stop_trace = _install_trace(watch, targets)
+        reads, stop_guard = _install_source_guard(os.getcwd())
         try:
             try:
                 suite = _load_suite(args)
@@ -333,8 +589,10 @@ def main(argv=None):
             if suite is not None:
                 suite.run(result)
         finally:
-            stop()
+            stop_guard()
+            stop_trace()
     finally:
+        violations = check_integrity(integrity)
         payload = {
             "version": REPORT_VERSION,
             "tests": [{"id": key, "outcome": result.outcomes[key]}
@@ -349,16 +607,17 @@ def main(argv=None):
             "load_error": load_error,
             "load_detail": load_detail,
             "executed": [list(item) for item in sorted(executed)],
+            "source_reads": sorted(set(reads)),
+            "integrity_violation": sorted(violations),
         }
-        mac = hmac.new(nonce, _canonical(payload).encode("utf-8"),
-                       hashlib.sha256).hexdigest()
-        line = json.dumps(dict(payload, nonce_mac=mac), sort_keys=True,
-                          separators=(",", ":")) + "\n"
-        _write_all(args.result_fd, line.encode("utf-8"))
-        del nonce
+        mac = sign(payload)
+        line = dumps(dict(payload, nonce_mac=mac), sort_keys=True,
+                     separators=(",", ":")) + "\n"
+        write_all(args.result_fd, line.encode("utf-8"))
+        del sign
     counts = payload["counts"]
-    clean = load_error is None and counts["ran"] > 0 and not counts["failures"] \
-        and not counts["errors"]
+    clean = (not violations and load_error is None and counts["ran"] > 0
+             and not counts["failures"] and not counts["errors"])
     # os._exit skips atexit handlers a test module may have installed.
     os._exit(0 if clean else 1)
 
