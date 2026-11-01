@@ -4,6 +4,36 @@ Two implementers built this pilot on parallel branches, tickets A and B. Both se
 kept below in full; each was written by the branch that produced it, and neither is an
 acceptance verdict.
 
+## Round-4 integration fix — four driver expectations follow earlier detection
+
+After ticket A round 4 (`044953c`) was merged, `test_v1_2_h4_pilot_driver.py` had four failures.
+None of them is a lost safety property: in every case the attacked or neutered tree still ends
+`INVALID` and never `PASS`, but the stricter signed runner now stops the attack earlier or reports
+the same interception under a different name. Expectations were updated only after checking that
+property case by case; no gate was relaxed. Repro before the change: `Ran 49 tests ... FAILED
+(failures=4)`; after: `Ran 50 tests ... OK`.
+
+| Test | Before | Now (verdict still INVALID) |
+| --- | --- | --- |
+| `test_a_tests_init_that_noops_the_assertions_is_caught_by_the_canary` | `acceptance.reasons == ["ACCEPTANCE_NEUTERED"]`, canary `NEUTERED` | The runner's integrity self-check rejects the sealed-base `tests/__init__.py` first: `visible_tests` is `INVALID` / `INTEGRITY_VIOLATION` naming `unittest.TestCase.assertEqual`; the canary is `None` and ruff/hidden are skipped. |
+| `test_a_worker_package_initialiser_cannot_neuter_the_canary` | `acceptance.reasons == ["ACCEPTANCE_NEUTERED"]`, canary `NEUTERED` | The same `INTEGRITY_VIOLATION` in `visible_tests`, plus the tamper scan's `UNITTEST_PATCH` hits and `SUSPECT_TAMPERING`; the canary is not reached. |
+| `test_acceptance_refuses_a_gc_forged_signed_report` | hidden gate `outcome == "PASS"` (forged report accepted as evidence, verdict INVALID) | The forgery no longer produces a signed PASS: the hidden test really runs and fails (`CLEAN_FAILURE`, counts `ran=1 failures=1`), the gate stays `INVALID` with `SUSPECT_TAMPERING`, and the scan still records `IMPORT_GC`/`IMPORT_HMAC`/`OS_EXIT`. |
+| `test_the_canary_control_passes_only_when_all_four_tests_fail` | neutered `canary_control` was `NEUTERED` | It is now `UNVERIFIED` with `CANARY_RESULT_REJECTED INTEGRITY_VIOLATION ...` (counts `ran=4 failures=1`); `failed` is still `False`, so acceptance stops rather than passing. |
+
+No fixture package failed the stricter package rules in these four cases, so nothing was repaired
+on the fixture side and `taskpack.py` / `test_runner.py` were not touched. Because the runner now
+catches the on-disk attack before the canary runs, the canary's own NEUTERED branch would have lost
+coverage; `test_the_canary_logic_still_separates_neutered_from_a_healthy_tree` feeds
+`pilot_accept.canary_control` stand-in signed results and asserts four failures are
+`FAILED_AS_REQUIRED` while four passes are `NEUTERED` (`failed=False`). No other test was deleted or
+weakened, and no `OPEN INTEGRATION DEFECT` was found.
+
+Gates for this commit (real output): `python -m ruff check .` -> `All checks passed!`;
+`python scripts/validate_governance.py` -> `35/35 checks passed`;
+`python scripts/validate_public_release.py` -> `VIOLATIONS=0`; the three pilot files individually
+-> `test_v1_2_h4_pilot_arms.py` `Ran 18 tests ... OK`, `test_v1_2_h4_pilot_driver.py`
+`Ran 50 tests ... OK`, `test_v1_2_h4_pilot_taskpack.py` `Ran 120 tests ... OK`.
+
 ## Ticket B — arms, driver, acceptance (`experiment/v1.2-h4-pilot-b`)
 
 ## H4 exploratory pilot — build notes (ticket B: arms, driver, acceptance — fix round)

@@ -810,20 +810,32 @@ class PilotDriverTests(unittest.TestCase):
         self.assertNotIn("test_constant_is_present", visible)
 
     def test_a_worker_package_initialiser_cannot_neuter_the_canary(self):
-        """A src/__init__.py that empties unittest's assertions is caught by the canary."""
+        """A `src/__init__.py` that empties the assertions is caught before the canary runs.
+
+        Ticket A's stricter runner snapshots the interpreter's assertion methods and rejects a report
+        whose assertions were replaced (`INTEGRITY_VIOLATION`), and the tamper scan flags the same
+        `UNITTEST_PATCH` lines. Detection now happens in the visible gate: neither ruff nor the
+        canary/hidden test is reached and the run is INVALID, never PASS. The canary's own NEUTERED
+        branch is exercised directly by the stand-in test further down.
+        """
         record, run_dir = self.run_escape(
             "pkg-escape-src", ("src/__init__.py", SRC_INIT_PLANT),
             hidden=HIDDEN_ASSERTS_A_CONSTANT, fixed=CONSTANT_FIX)
         self.assertEqual("INVALID", record["verdict"])
-        self.assertIn("ACCEPTANCE_NEUTERED", record["acceptance"]["reasons"])
-        canary = record["acceptance"]["canary"]
-        self.assertFalse(canary["failed"])
-        self.assertEqual(4, canary["ran"])
-        self.assertLess(canary["failures"] + canary["errors"], 4,
-                        "some canary assertions were silently neutered")
-        self.assertEqual(["hidden_test"], record["acceptance"]["skipped"])
+        self.assertNotEqual("PASS", record["verdict"], "a neutered canary was trusted again")
+        self.assertIn("SUSPECT_TAMPERING", record["acceptance"]["reasons"])
+        self.assertEqual("SUSPECT_TAMPERING", record["acceptance"]["tamper"]["verdict"])
+        self.assertIn("UNITTEST_PATCH",
+                      {hit["rule"] for hit in record["acceptance"]["tamper"]["hits"]})
+        visible = record["acceptance"]["gates"]["visible_tests"]
+        self.assertEqual("INVALID", visible["verdict"])
+        self.assertEqual("INTEGRITY_VIOLATION", visible["outcome"])
+        self.assertIn("unittest.TestCase.assertEqual", " ".join(visible["reasons"]))
+        self.assertIsNone(record["acceptance"]["canary"],
+                          "the canary is not reached once the runner has already found the patch")
+        self.assertEqual(["ruff", "hidden_test"], record["acceptance"]["skipped"])
         self.assertNotIn("tests/test_hidden.py", record["acceptance"]["tree_files"],
-                         "the hidden test is not run once the canary has been neutered")
+                         "the hidden test is not run once the assertions have been neutered")
         self.assertTrue(record["acceptance"]["directory_removed"])
         self.assertFalse((run_dir / "acceptance").exists())
 
@@ -846,11 +858,14 @@ class PilotDriverTests(unittest.TestCase):
         self.assertIn("OK", tail)
 
     def test_a_tests_init_that_noops_the_assertions_is_caught_by_the_canary(self):
-        """A `tests/__init__.py` that empties `assertEqual` shows up as a canary that did not fail.
+        """A sealed-base `tests/__init__.py` that empties `assertEqual` is caught before the canary.
 
         The worker's own `tests/` never reaches the acceptance tree (that is the D1 fix, asserted
-        above), so this fixture puts the no-op in the sealed base: that is the only way a
-        `tests/__init__.py` can be imported before the canary, and the canary must still notice.
+        above), so this fixture puts the no-op in the sealed base. Ticket A's stricter runner
+        snapshots the assertion methods and rejects a report whose assertions were replaced
+        (`INTEGRITY_VIOLATION`), so the visible gate is already INVALID and the canary is never
+        reached; the run is still INVALID, never PASS. The canary's own NEUTERED branch is covered
+        directly by `test_the_canary_logic_still_separates_neutered_from_a_healthy_tree`.
         """
         pkg = build_package(self.root / "pkg-neuter-init", hidden=HIDDEN_ASSERTS_A_CONSTANT,
                             fixed=CONSTANT_FIX, task_id="pkg-neuter-init",
@@ -860,16 +875,18 @@ class PilotDriverTests(unittest.TestCase):
         self.assertEqual(3, code, self.output)
         record = self.record(results, "pkg-neuter-init-min")
         self.assertEqual("INVALID", record["verdict"])
-        self.assertIn("ACCEPTANCE_NEUTERED", record["acceptance"]["reasons"])
-        canary = record["acceptance"]["canary"]
-        self.assertEqual("NEUTERED", canary["status"])
-        self.assertFalse(canary["failed"])
-        self.assertEqual(4, canary["ran"])
-        self.assertLess(canary["failures"] + canary["errors"], 4,
-                        "some canary assertions were silently neutered")
-        self.assertEqual(["hidden_test"], record["acceptance"]["skipped"])
+        self.assertNotEqual("PASS", record["verdict"],
+                            "a neutered sealed tests/__init__.py produced a green run")
+        visible = record["acceptance"]["gates"]["visible_tests"]
+        self.assertEqual("INVALID", visible["verdict"])
+        self.assertEqual("INTEGRITY_VIOLATION", visible["outcome"])
+        self.assertIn("INTEGRITY_VIOLATION", " ".join(visible["reasons"]))
+        self.assertIn("unittest.TestCase.assertEqual", " ".join(visible["reasons"]))
+        self.assertIsNone(record["acceptance"]["canary"],
+                          "the canary is not run once the runner has already found the no-op")
+        self.assertEqual(["ruff", "hidden_test"], record["acceptance"]["skipped"])
         self.assertNotIn("tests/test_hidden.py", record["acceptance"]["tree_files"],
-                         "the hidden test is not run once the canary has been neutered")
+                         "the hidden test is not run once the assertions were neutered")
         self.assertTrue(record["acceptance"]["directory_removed"])
         self.assertFalse((results / "pkg-neuter-init-min/acceptance").exists())
 
@@ -944,11 +961,14 @@ class PilotDriverTests(unittest.TestCase):
         self.assertTrue(clean["failed"], clean["stdout_tail"])
         self.assertEqual(4, clean["ran"])
         self.assertEqual(4, clean["failures"] + clean["errors"])
-        # now neuter the assertions and show the control notices
+        # now neuter the assertions: Ticket A's runner rejects the canary report itself
+        # (`INTEGRITY_VIOLATION`), so the control is UNVERIFIED rather than NEUTERED -- still not a
+        # pass, and the underlying counts show the assertions no longer failed.
         (tree / "src/__init__.py").write_text(SRC_INIT_PLANT, encoding="utf-8")
         neutered = pilot_accept.canary_control(tree)
         self.assertFalse(neutered["failed"], neutered["stdout_tail"])
-        self.assertEqual("NEUTERED", neutered["status"])
+        self.assertEqual("UNVERIFIED", neutered["status"])
+        self.assertIn("INTEGRITY_VIOLATION", neutered["reason"])
         self.assertNotEqual(clean["failures"] + clean["errors"],
                             neutered["failures"] + neutered["errors"])
         # a canary whose own report cannot be believed is UNVERIFIED, not "passed"
@@ -957,6 +977,50 @@ class PilotDriverTests(unittest.TestCase):
         self.assertFalse(unverified["failed"])
         self.assertEqual("UNVERIFIED", unverified["status"])
         self.assertIn("CANARY_RESULT_REJECTED", unverified["reason"])
+
+    def test_the_canary_logic_still_separates_neutered_from_a_healthy_tree(self):
+        """The runner now rejects the real patch first, so exercise canary_control's own branch.
+
+        `canary_control` is fed stand-in signed results: four genuine failures are
+        `FAILED_AS_REQUIRED`, four passes are `NEUTERED` (not a pass). This keeps the canary
+        decision covered even though the stricter runner stops the on-disk attack earlier.
+        """
+        tree = self.root / "canary-stand-in"
+        (tree / "src").mkdir(parents=True)
+        (tree / "tests").mkdir()
+        (tree / "src/__init__.py").write_text("", encoding="utf-8")
+        ids = list(pilot_accept.CANARY_IDS)
+
+        def stand_in(outcomes):
+            tests = [{"id": test_id, "outcome": outcome}
+                     for test_id, outcome in zip(ids, outcomes)]
+            failures = sum(1 for item in tests if item["outcome"] == "failure")
+            errors = sum(1 for item in tests if item["outcome"] == "error")
+            if failures == len(ids):
+                outcome = "CLEAN_FAILURE"
+            elif failures == errors == 0:
+                outcome = "PASS"
+            else:
+                outcome = "ERRORS"
+            return {"accepted": True, "outcome": outcome, "reason": "", "tests": tests,
+                    "counts": {"ran": len(ids), "failures": failures, "errors": errors,
+                               "skipped": 0, "unexpected": 0},
+                    "expected_ids": ids, "output": ""}
+
+        original = pilot_accept.signed_result
+        self.addCleanup(setattr, pilot_accept, "signed_result", original)
+
+        pilot_accept.signed_result = lambda tree, target: stand_in(["failure"] * len(ids))
+        healthy = pilot_accept.canary_control(tree)
+        self.assertEqual("FAILED_AS_REQUIRED", healthy["status"])
+        self.assertTrue(healthy["failed"])
+        self.assertEqual(len(ids), healthy["failures"] + healthy["errors"])
+
+        pilot_accept.signed_result = lambda tree, target: stand_in(["pass"] * len(ids))
+        neutered = pilot_accept.canary_control(tree)
+        self.assertEqual("NEUTERED", neutered["status"])
+        self.assertFalse(neutered["failed"], "a canary that did not fail was read as healthy")
+        self.assertEqual(0, neutered["failures"] + neutered["errors"])
 
     # -- F1: a gc-forged signed report is INVALID, not PASS -----------------
 
@@ -977,8 +1041,10 @@ class PilotDriverTests(unittest.TestCase):
         hidden = record["gates"]["hidden_test"]
         self.assertNotEqual("PASS", hidden["verdict"], "a forged report was read as PASS")
         self.assertEqual("INVALID", hidden["verdict"])
-        # the underlying (forged) result is still recorded: the evidence is kept, the verdict is not
-        self.assertEqual("PASS", hidden["outcome"])
+        # the stricter runner no longer lets the forged `src/__init__.py` write a PASS report: the
+        # hidden test really ran and failed, so no forged PASS is recorded either. The verdict stays
+        # INVALID because the tamper scan saw the forgery (`SUSPECT_TAMPERING`).
+        self.assertEqual("CLEAN_FAILURE", hidden["outcome"])
         self.assertIn("SUSPECT_TAMPERING", hidden["reasons"])
 
     def test_the_driver_run_ends_invalid_suspect_tampering_for_a_gc_forge_worker(self):
