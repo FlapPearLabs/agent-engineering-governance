@@ -33,12 +33,15 @@ pkg/
 ```
 
 Anything extra — a README, notes, a scratch file, a second hidden test, `__pycache__` —
-makes the package unusable. Do not create `.git`, and do not run the tests in place with
-bytecode writing left on.
+makes the package unusable. Do not create `.git`, do not leave `*.pyc` bytecode anywhere,
+and do not run the tests in place with bytecode writing left on.
 
 ## `package.json`
 
-Copy these values exactly; only the two `<...>` fields are yours to choose:
+Copy these values exactly; only the two `<...>` fields are yours to choose. The
+`test_command` line is not a suggestion: the verifier accepts that exact argv and nothing
+else — no extra flags, no `python3`, no `-c` payload — so a command it cannot read is a
+package it refuses to run.
 
 ```json
 {
@@ -74,6 +77,9 @@ Copy these values exactly; only the two `<...>` fields are yours to choose:
   `from src.<module> import <name>` works from `pkg/base`.
 - `tests/test_*.py` holds visible tests that **pass at base**. They test the behaviour
   that must not change, and they must not test the behaviour the task asks for.
+- This is enforced, not just asked for: the verifier runs your code confined, so it
+  cannot open a socket, write outside its own directory or read the home directory. A
+  test that needs any of that is refused.
 
 ## `statement.md` — the task, as a ticket
 
@@ -83,6 +89,8 @@ The person doing the task sees the `base/` project and this statement, and nothi
   passing. Write it as an ordinary work ticket in prose.
 - Do **not** quote, paste or paraphrase the hidden test: no line of `hidden/test_hidden.py`
   may reappear here, and no run of eight consecutive words may be shared with it.
+- The eight-word window ignores capitalisation and punctuation: changing `,` to a space,
+  dropping the quotes or shouting in capitals does not make a pasted line yours.
 - Do **not** mention a hidden test, an oracle, a grader, evaluation, experiments,
   treatments, arms, governance or process vocabulary. Do not name the file
   `tests/test_hidden.py`.
@@ -100,14 +108,17 @@ The person doing the task sees the `base/` project and this statement, and nothi
   `ModuleNotFoundError`. The module and the names you import must already exist at base;
   the tests fail on their assertions, not on a missing import.
 - It must pass, completely and without skips, once `reference.patch` is applied.
-- It must not depend on the visible tests, on file order, on the clock or on randomness,
-  and it must not be a copy of a visible test.
+- It must not depend on the visible tests, on file order, on the clock, on randomness, on
+  the directory it happens to run in, or on anything an earlier run left behind: the
+  verifier runs it several times at base and several times after the patch, in one fixed
+  directory path, and refuses the package if those runs disagree.
 - `pkg/base/tests/test_hidden.py` must not exist.
 
 ## `reference.patch` — the reference solution
 
 - A unified diff against `base/`, with `a/` and `b/` prefixes, applicable from
-  `pkg/base` with `git apply` (no fuzz, no renames, no mode changes, no binary files).
+  `pkg/base` with `git apply` (no fuzz, no renames, no copies, no mode changes, no file
+  deletions, no binary hunks). Creating one new non-test file is allowed.
 - Changes **at most 60 lines** (added plus removed) across **one or two non-test files**.
   It must not touch anything under `tests/`.
 - It must fix the behaviour the statement asks for, keep every visible test passing, and
