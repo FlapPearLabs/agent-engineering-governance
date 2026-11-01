@@ -19,11 +19,17 @@ check, never an exception for a bad package):
 3. ``hidden_at_base`` -- the hidden test, copied to ``hidden_test_dest``, is a CLEAN
    unittest failure at base: ``failures>0``, ``errors=0``, ``skipped=0``, at least one
    test collected, no import-level failure, and it imports a module from ``src/``. It
-   runs ``HIDDEN_REPEATS`` times and every verdict must agree.
+   runs ``HIDDEN_REPEATS`` times (seven) and every verdict must agree; the run stops at
+   the first disagreement. A hidden test that reads a file under ``src/``, or a hidden or
+   reference file, is ``SOURCE_READ_BY_TEST``.
 4. ``reference`` -- after ``reference.patch`` the hidden test passes ``HIDDEN_REPEATS``
-   times in a row, at least one added or changed non-comment, non-docstring line of the
-   patch actually runs during that hidden test (a docstring-only or dead-code patch is
-   ``PATCH_NOT_EXERCISED``), the visible tests still pass, and ruff is still clean.
+   times in a row, at least one added or changed line of the patch lies inside a function
+   or method body, actually runs during that hidden test and is not a trivial statement
+   (a bare constant, ``pass``, ``assert <constant>``, an unread constant assignment or
+   dead code), the hidden test calls at least one function or method defined in the
+   patched files (``HIDDEN_TEST_NEVER_CALLS_TARGET``), the visible tests still pass, and
+   ruff is still clean. A docstring-only, comment-only or dead-code patch is
+   ``PATCH_NOT_EXERCISED``.
 5. ``statement`` -- no >= 8-token run of the hidden test appears in ``statement.md``,
    case and punctuation included, no run of ``LEAK_CHAR_RUN`` identical alphanumeric
    characters is shared with it (one leaked ``assertEqual`` line is only seven words),
@@ -59,7 +65,10 @@ runner's own exit status agrees with the counts, and (c) the set of test ids equ
 set found by ``ast`` parsing of the test file(s). A module that calls ``os._exit(0)`` or
 prints ``Ran N tests OK`` therefore yields ``TEST_RESULT_UNAVAILABLE`` -- a FAIL.
 ``test_command`` stays the single canonical argv in the contract, but it is display-only:
-the runner replaces its execution.
+the runner replaces its execution. The runner also records test-code reads of ``src/``
+(``SOURCE_READ_BY_TEST``), records which function-body lines of the patched files ran
+(``HIDDEN_TEST_NEVER_CALLS_TARGET``), and re-checks the identity of the functions its
+verdict relies on before signing the report (``INTEGRITY_VIOLATION``).
 
 Both the base phase and the post-patch phase run in the SAME directory path: the phase
 directory is deleted and recreated at the same location for every phase, so ``cwd``
@@ -122,9 +131,10 @@ LEAK_NGRAM = 8
 LEAK_CHAR_RUN = 24
 RUN_TIMEOUT = 30
 OUTPUT_CAP = 1 << 20
-# P2-2: five agreeing runs, not three. This lowers the chance that an intermittently
-# failing hidden test slips through; it does not make that chance zero (see BUILD_NOTES).
-HIDDEN_REPEATS = 5
+# P2-1: seven agreeing runs with an early abort on the first disagreement. This lowers
+# the chance that an intermittently failing hidden test slips through; it does not make
+# that chance zero (see BUILD_NOTES, which records the MEASURED N20 acceptance rate).
+HIDDEN_REPEATS = 7
 SANDBOX_PROBE_TIMEOUT = 15
 PHASE_DIRNAME = "phase"
 RUNNER_NAME = "test_runner.py"
@@ -623,6 +633,14 @@ def _new_nonce():
     return os.urandom(NONCE_BYTES).hex()
 
 
+REPORT_KEY_LABEL = b"h4-runner-report"
+
+
+def _report_key(nonce):
+    """The runner derives its MAC key from the nonce; the parent derives the same key."""
+    return hmac.new(_nonce_bytes(nonce), REPORT_KEY_LABEL, hashlib.sha256).digest()
+
+
 def _verify_report_mac(report, nonce):
     """True only for a report this runner signed with this run's nonce."""
     if not isinstance(report, dict):
@@ -631,7 +649,7 @@ def _verify_report_mac(report, nonce):
     if not isinstance(mac, str) or len(mac) != NONCE_MAC_LENGTH:
         return False
     payload = {key: value for key, value in report.items() if key != "nonce_mac"}
-    expected = hmac.new(_nonce_bytes(nonce), _canonical_json(payload).encode("utf-8"),
+    expected = hmac.new(_report_key(nonce), _canonical_json(payload).encode("utf-8"),
                         hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, mac)
 
@@ -648,6 +666,9 @@ def _accept_report(report, nonce, expected_ids, exit_code=None):
         return False, "TEST_RESULT_UNAVAILABLE"
     if not _verify_report_mac(report, nonce):
         return False, "TEST_RESULT_MAC_INVALID"
+    violations = report.get("integrity_violation")
+    if violations:
+        return False, "INTEGRITY_VIOLATION " + ",".join(str(item) for item in violations[:8])
     tests = report.get("tests")
     counts = report.get("counts")
     if not isinstance(tests, list) or not isinstance(counts, dict):
@@ -698,7 +719,7 @@ def _evaluate_run(report, nonce, expected_ids, run):
 
     def failed(outcome, reason):
         return {"outcome": outcome, "reason": reason, "counts": dict(empty),
-                "tests": [], "executed": [], "returncode": code}
+                "tests": [], "executed": [], "source_reads": [], "returncode": code}
 
     if run is None:
         return failed("NO_RESULT", "TEST_RUNNER_NOT_RUNNABLE")
@@ -710,7 +731,14 @@ def _evaluate_run(report, nonce, expected_ids, run):
     tests = report.get("tests") if isinstance(report.get("tests"), list) else []
     evaluation = {"outcome": "", "reason": "", "counts": counts, "tests": tests,
                   "executed": report.get("executed") or [],
+                  "source_reads": report.get("source_reads") or [],
                   "returncode": code}
+    violations = report.get("integrity_violation")
+    if violations:
+        evaluation["outcome"] = "INTEGRITY_VIOLATION"
+        evaluation["reason"] = "INTEGRITY_VIOLATION " + ",".join(
+            str(item) for item in violations[:8])
+        return evaluation
     if report.get("load_error"):
         evaluation["outcome"] = "IMPORT_ERROR"
         evaluation["reason"] = "TEST_IMPORT_ERROR %s" % report.get("load_error")
@@ -751,7 +779,7 @@ def _stage_runner(work):
 
 
 def _invoke_runner(work, cwd, env, prefix, runner_args, nonce, watch=None,
-                   timeout=None):
+                   targets=None, timeout=None):
     """Run the harness runner; returns ``(signed report or None, RunResult)``.
 
     The nonce travels on a pipe the runner reads and closes before it imports any package
@@ -760,7 +788,8 @@ def _invoke_runner(work, cwd, env, prefix, runner_args, nonce, watch=None,
     """
     runner = _stage_runner(work)
     handshake = _canonical_json({"nonce": _nonce_bytes(nonce).hex(),
-                                 "watch": watch or {}}).encode("utf-8")
+                                 "watch": watch or {},
+                                 "targets": targets or {}}).encode("utf-8")
     if len(handshake) > 60000:  # pragma: no cover - watch lists are small
         raise ValueError("runner handshake would not fit in the pipe buffer")
     nonce_read, nonce_write = os.pipe()
@@ -798,7 +827,7 @@ def _base_hidden_reasons(evaluation):
     counts = evaluation["counts"]
     if outcome == "IMPORT_ERROR":
         return ["HIDDEN_TEST_IMPORT_ERROR"]
-    if outcome in ("NO_RESULT", "TAMPERED"):
+    if outcome in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
         return [f"HIDDEN_TEST_RESULT_REJECTED {evaluation['reason']}"]
     if outcome == "NO_TESTS":
         return ["HIDDEN_TEST_COLLECTED_NO_TESTS"]
@@ -1095,29 +1124,132 @@ def _patch_changed_lines(patch_text):
     return {path: lines for path, lines in changed.items() if path}
 
 
-def _docstring_lines(text):
+_UNKNOWN = object()
+
+
+def _constant_value(node):
+    """The value of a literal expression, or ``_UNKNOWN`` when it is not literal."""
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        inner = _constant_value(node.operand)
+        if inner is not _UNKNOWN:
+            return not inner
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        inner = _constant_value(node.operand)
+        if isinstance(inner, (int, float, complex)):
+            return -inner if isinstance(node.op, ast.USub) else +inner
+    return _UNKNOWN
+
+
+def _is_constant_expr(node):
+    """True for a literal expression (``1``, ``"x"``, ``...``, ``True``, a literal tuple)."""
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, ast.UnaryOp):
+        return _is_constant_expr(node.operand)
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return all(_is_constant_expr(item) for item in node.elts)
+    if isinstance(node, ast.Dict):
+        return (all(key is None or _is_constant_expr(key) for key in node.keys)
+                and all(_is_constant_expr(value) for value in node.values))
+    return False
+
+
+def _trivial_statement(node, module_loads):
+    """A statement whose execution cannot change behaviour on its own.
+
+    P1-1 (b): a bare constant/Ellipsis expression, ``pass``, ``assert <constant>`` and an
+    assignment of a constant to a name never read elsewhere in the module are all refused
+    as "the patch ran"; they are exactly the N24/N25 shapes.
+    """
+    if isinstance(node, ast.Pass):
+        return True
+    if isinstance(node, ast.Expr) and _is_constant_expr(node.value):
+        return True
+    if isinstance(node, ast.Assert) and _is_constant_expr(node.test):
+        return True
+    if isinstance(node, ast.Assign) and _is_constant_expr(node.value):
+        names = [target.id for target in node.targets if isinstance(target, ast.Name)]
+        if names and all(name not in module_loads for name in names):
+            return True
+    if (isinstance(node, ast.AnnAssign) and node.value is not None
+            and _is_constant_expr(node.value) and isinstance(node.target, ast.Name)
+            and node.target.id not in module_loads):
+        return True
+    return False
+
+
+def _child_blocks(statement):
+    """``(body, dead)`` for every nested statement block, with literal-false branches dead."""
+    blocks = []
+    if isinstance(statement, ast.If):
+        value = _constant_value(statement.test)
+        if value is _UNKNOWN:
+            blocks.append((statement.body, False))
+            blocks.append((statement.orelse, False))
+        else:
+            blocks.append((statement.body, not value))
+            blocks.append((statement.orelse, bool(value)))
+    elif isinstance(statement, ast.While):
+        value = _constant_value(statement.test)
+        blocks.append((statement.body, value is not _UNKNOWN and not value))
+        blocks.append((statement.orelse, False))
+    elif isinstance(statement, (ast.For, ast.AsyncFor)):
+        blocks.append((statement.body, False))
+        blocks.append((statement.orelse, False))
+    elif isinstance(statement, (ast.With, ast.AsyncWith)):
+        blocks.append((statement.body, False))
+    elif isinstance(statement, ast.Try):
+        blocks.append((statement.body, False))
+        for handler in statement.handlers:
+            blocks.append((handler.body, False))
+        blocks.append((statement.orelse, False))
+        blocks.append((statement.finalbody, False))
+    elif isinstance(statement, ast.Match):
+        for case in statement.cases:
+            blocks.append((case.body, False))
+    return blocks
+
+
+def _iter_statements(body, dead=False):
+    """Yield ``(statement, dead)`` for a block and its nested blocks.
+
+    A statement after an unconditional ``return``/``raise`` in the same block is dead, and
+    so is everything inside ``if False:`` (or any literal-false branch).
+    """
+    terminated = False
+    for statement in body:
+        yield statement, dead or terminated
+        for child, child_dead in _child_blocks(statement):
+            yield from _iter_statements(child, dead or terminated or child_dead)
+        if isinstance(statement, (ast.Return, ast.Raise)):
+            terminated = True
+
+
+def _watchable_lines(text):
+    """Line numbers of non-trivial, live statements inside a function or method body."""
     try:
         tree = ast.parse(text)
     except SyntaxError:
         return set()
-    lines = set()
+    module_loads = {node.id for node in ast.walk(tree)
+                    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+    watchable = set()
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
-                                 ast.AsyncFunctionDef)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        body = getattr(node, "body", [])
-        if not body:
-            continue
-        first = body[0]
-        if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
-                and isinstance(first.value.value, str)):
-            for number in range(first.lineno, (first.end_lineno or first.lineno) + 1):
-                lines.add(number)
-    return lines
+        for statement, dead in _iter_statements(node.body):
+            if dead or _trivial_statement(statement, module_loads):
+                continue
+            start = statement.lineno
+            end = statement.end_lineno or start
+            watchable.update(range(start, end + 1))
+    return watchable
 
 
 def _patch_watch(repo, patch_text):
-    """``{absolute path: [line numbers to watch]}`` for the patch's executable lines."""
+    """``{absolute path: [line numbers to watch]}`` for changed, non-trivial body lines."""
     watch = {}
     for path, lines in _patch_changed_lines(patch_text).items():
         target = Path(repo) / path
@@ -1127,11 +1259,30 @@ def _patch_watch(repo, patch_text):
             text = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        excluded = _docstring_lines(text)
-        wanted = sorted(number for number in lines if number not in excluded)
+        watchable = _watchable_lines(text)
+        wanted = sorted(number for number in lines if number in watchable)
         if wanted:
             watch[str(os.path.realpath(target))] = wanted
     return watch
+
+
+def _patch_targets(repo, patch_text):
+    """``{absolute path: [[first, last], ...]}`` for functions in the patched files."""
+    targets = {}
+    for path in _patch_changed_lines(patch_text):
+        target = Path(repo) / path
+        if not target.is_file():
+            continue
+        try:
+            tree = ast.parse(target.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, SyntaxError):
+            continue
+        spans = sorted([node.lineno, node.end_lineno or node.lineno]
+                       for node in ast.walk(tree)
+                       if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)))
+        if spans:
+            targets[str(os.path.realpath(target))] = spans
+    return targets
 
 
 def _exercised_lines(evaluations):
@@ -1165,6 +1316,20 @@ def _patch_exercise_reason(repo, patch_text, evaluations):
             "during the hidden test; watched=%s" % (total, sample))
 
 
+def _patch_target_reason(repo, patch_text, evaluations):
+    """None when the hidden test ran a function defined in a patched file (P1-1 c)."""
+    targets = _patch_targets(repo, patch_text)
+    if not targets:
+        return "HIDDEN_TEST_NEVER_CALLS_TARGET the patched files define no function"
+    executed = _exercised_lines(evaluations)
+    for path, spans in targets.items():
+        for start, end in spans:
+            if any((path, line) in executed for line in range(start, end + 1)):
+                return None
+    return ("HIDDEN_TEST_NEVER_CALLS_TARGET no function or method defined in the "
+            "patched files ran during the hidden test")
+
+
 def _visible_argv():
     """The canonical argv, kept for display: the runner replaces its execution."""
     return [sys.executable] + CANONICAL_TEST_COMMAND[1:]
@@ -1191,7 +1356,8 @@ def _run_visible(work, repo, sandbox, profile, check_id, label):
     return evaluation
 
 
-def _hidden_runs(work, repo, manifest, sandbox, profile, check_id, label, watch=None):
+def _hidden_runs(work, repo, manifest, sandbox, profile, check_id, label, watch=None,
+                 targets=None):
     test_path = Path(repo) / manifest["hidden_test_dest"]
     expected = _static_test_ids([test_path])
     evaluations = []
@@ -1199,9 +1365,13 @@ def _hidden_runs(work, repo, manifest, sandbox, profile, check_id, label, watch=
         nonce = _new_nonce()
         report, run = _invoke_runner(
             work, repo, _phase_env(work), _sandbox_prefix(sandbox, profile),
-            ["--tests", manifest["hidden_test_dest"]], nonce, watch=watch)
+            ["--tests", manifest["hidden_test_dest"]], nonce, watch=watch,
+            targets=targets)
         run = _guard(check_id, run, label)
         evaluations.append(_evaluate_run(report, nonce, expected, run))
+        # P2-1: stop at the first disagreement; more agreeing runs cannot repair it.
+        if len(evaluations) > 1 and evaluations[-1]["outcome"] != evaluations[0]["outcome"]:
+            break
     return evaluations, expected
 
 
@@ -1222,7 +1392,7 @@ def _phase_base(work, pkg, manifest, patch_text, sandbox, profile):
             "VISIBLE_TESTS_FAIL rc={} outcome={} failures={} errors={} ran={}".format(
                 evaluation["returncode"], evaluation["outcome"], counts["failures"],
                 counts["errors"], counts["ran"]))
-    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
         reasons.append("VISIBLE_TESTS_RESULT_REJECTED %s" % evaluation["reason"])
     ruff = _guard(2, _phase_run(work, sandbox, profile,
                                 [sys.executable, "-m", "ruff", "check", "--no-cache", "."]),
@@ -1241,17 +1411,21 @@ def _phase_hidden_at_base(work, pkg, manifest, patch_text, sandbox, profile):
                                   "HIDDEN_TEST")
     outcomes = [run["outcome"] for run in runs]
     counts = runs[0]["counts"]
+    source_reads = sorted({item for run in runs for item in run.get("source_reads") or []})
     data = {"phase": str(repo), "runs": outcomes, "hidden_at_base": counts,
             "returncode": runs[0]["returncode"], "hidden_ids": sorted(expected),
-            "executed_by": RUNNER_NAME}
+            "source_reads": source_reads, "executed_by": RUNNER_NAME}
     reasons = []
     if len(set(outcomes)) > 1:
         reasons.append(f"NONDETERMINISTIC base outcomes={outcomes}")
         for evaluation in runs:
-            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
                 reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % evaluation["reason"])
     else:
         reasons.extend(_base_hidden_reasons(runs[0]))
+    if source_reads:
+        reasons.append("SOURCE_READ_BY_TEST the hidden test read %s"
+                       % ", ".join(source_reads[:5]))
     hidden_text = (Path(pkg) / "hidden" / "test_hidden.py").read_text(encoding="utf-8")
     if not _imports_src(hidden_text):
         reasons.append("HIDDEN_TEST_DOES_NOT_IMPORT_TARGET")
@@ -1265,22 +1439,26 @@ def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
                           with_hidden=True, patch=True)
     watch = _patch_watch(repo, text)
+    targets = _patch_targets(repo, text)
     runs, expected = _hidden_runs(work, repo, manifest, sandbox, profile, 4,
-                                  "HIDDEN_TEST_AFTER_PATCH", watch=watch)
+                                  "HIDDEN_TEST_AFTER_PATCH", watch=watch, targets=targets)
     outcomes = [run["outcome"] for run in runs]
     counts = runs[0]["counts"]
+    source_reads = sorted({item for run in runs for item in run.get("source_reads") or []})
     data.update({"phase": str(repo), "runs": outcomes, "hidden_after_patch": counts,
                  "returncode": runs[0]["returncode"], "hidden_ids": sorted(expected),
+                 "source_reads": source_reads,
                  "watched_lines": {Path(path).name: len(lines)
                                    for path, lines in watch.items()},
-                 "executed_by": RUNNER_NAME, "patch_exercised": False})
+                 "executed_by": RUNNER_NAME, "patch_exercised": False,
+                 "target_called": False})
     if len(set(outcomes)) > 1:
         reasons.append(f"NONDETERMINISTIC after_patch outcomes={outcomes}")
         for evaluation in runs:
-            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+            if evaluation["outcome"] in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
                 reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % evaluation["reason"])
     elif outcomes[0] != "PASS":
-        if outcomes[0] in ("NO_RESULT", "TAMPERED"):
+        if outcomes[0] in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
             reasons.append("HIDDEN_TEST_RESULT_REJECTED %s" % runs[0]["reason"])
         reasons.append(
             "HIDDEN_TEST_FAILS_AFTER_PATCH rc={} outcome={} failures={} errors={} "
@@ -1288,11 +1466,19 @@ def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
                 runs[0]["returncode"], outcomes[0], counts["failures"], counts["errors"],
                 counts["skipped"], counts["ran"]))
     else:
-        # P1-2 b: the reference must change something that actually runs.
+        # P1-1 b: the reference must change something that actually runs.
         exercised = _patch_exercise_reason(repo, text, runs)
         data["patch_exercised"] = exercised is None
         if exercised:
             reasons.append(exercised)
+        # P1-1 c: the hidden test must call a function defined in a patched file.
+        called = _patch_target_reason(repo, text, runs)
+        data["target_called"] = called is None
+        if called:
+            reasons.append(called)
+    if source_reads:
+        reasons.append("SOURCE_READ_BY_TEST the hidden test read %s"
+                       % ", ".join(source_reads[:5]))
 
     # Same path, fresh tree, no hidden test: the visible suite the worker must not break.
     repo = _prepare_phase(work, pkg, manifest, patch_text, sandbox, profile,
@@ -1307,7 +1493,7 @@ def _phase_after_patch(work, pkg, manifest, patch_text, sandbox, profile):
             "ran={}".format(evaluation["returncode"], evaluation["outcome"],
                             visible_counts["failures"], visible_counts["errors"],
                             visible_counts["ran"]))
-    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED"):
+    if evaluation["outcome"] in ("NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"):
         reasons.append("VISIBLE_TESTS_RESULT_REJECTED %s" % evaluation["reason"])
     ruff = _guard(4, _phase_run(work, sandbox, profile,
                                 [sys.executable, "-m", "ruff", "check", "--no-cache", "."]),
@@ -1470,6 +1656,10 @@ def _check_risk(patch_text, statement_text, title):
 
 def _check_seal(pkg, allow_reseal):
     seal_path = Path(pkg) / SEAL_NAME
+    # P2-2: a directory (or any other non-regular file) named SEAL.json is a refusal, not
+    # "no seal yet". ``is_file`` follows symlinks, so test the link itself first.
+    if seal_path.is_symlink() or (os.path.lexists(seal_path) and not seal_path.is_file()):
+        return _result(7, "FAIL", ["SEAL_NOT_A_FILE"], {"state": "NOT_A_FILE"})
     if not seal_path.is_file():
         return _result(7, "NOT_SEALED", ["SEAL_ABSENT"], {"state": "NOT_SEALED"})
     try:
@@ -1484,7 +1674,7 @@ def _check_seal(pkg, allow_reseal):
 
 
 def run_tests_with_runner(tree, test_ids_or_file=None, nonce=None, watch=None,
-                          timeout=None, discover="tests", top="."):
+                          targets=None, timeout=None, discover="tests", top="."):
     """Run tests in ``tree`` through ``test_runner.py`` and return a verified report.
 
     This is the only supported way for a later step (ticket B, ``pilot_accept.py``) to run
@@ -1533,7 +1723,8 @@ def run_tests_with_runner(tree, test_ids_or_file=None, nonce=None, watch=None,
         work = Path(os.path.realpath(temporary)) / "work"
         (work / "home" / "tmp").mkdir(parents=True)
         report, run = _invoke_runner(work, root, _environment(work / "home"), [],
-                                     runner_args, nonce, watch=watch, timeout=timeout)
+                                     runner_args, nonce, watch=watch, targets=targets,
+                                     timeout=timeout)
         if run is None:
             evaluation = {"outcome": "NO_RESULT", "reason": "TEST_RUNNER_NOT_RUNNABLE",
                           "counts": empty, "tests": [], "executed": []}
@@ -1546,13 +1737,15 @@ def run_tests_with_runner(tree, test_ids_or_file=None, nonce=None, watch=None,
         else:
             evaluation = _evaluate_run(report, nonce, expected, run)
         return {
-            "accepted": evaluation["outcome"] not in ("NO_RESULT", "TAMPERED"),
+            "accepted": evaluation["outcome"] not in (
+                "NO_RESULT", "TAMPERED", "INTEGRITY_VIOLATION"),
             "outcome": evaluation["outcome"],
             "reason": evaluation.get("reason", ""),
             "tests": evaluation.get("tests", []),
             "counts": evaluation.get("counts", empty),
             "exit_code": getattr(run, "returncode", None),
             "executed": evaluation.get("executed", []),
+            "source_reads": evaluation.get("source_reads", []),
             "expected_ids": sorted(expected),
             "output": getattr(run, "output", ""),
         }
@@ -1643,21 +1836,29 @@ def seal_package(pkg_dir, allow_unsandboxed=False):
     """
     pkg = Path(pkg_dir)
     report = verify_package(pkg, allow_unsandboxed=allow_unsandboxed, allow_reseal=True)
-    if report["seal"] == "BROKEN":
+    if report["seal"] in ("BROKEN", "NOT_A_FILE"):
         raise SealError("refusing to re-seal a package with a broken seal: "
                         + "; ".join(report["reasons"][:5]))
     if report["overall"] != "PASS":
         raise SealError("package verification failed: " + "; ".join(report["reasons"][:5]))
+    seal_path = pkg / SEAL_NAME
+    if seal_path.is_symlink() or (os.path.lexists(seal_path) and not seal_path.is_file()):
+        raise SealError(f"refusing to write {SEAL_NAME}: SEAL_NOT_A_FILE")
     files = {name: _sha256(pkg / name) for name in _sealed_files(pkg)}
     payload = {"version": SEAL_VERSION, "files": dict(sorted(files.items())), "verified": True}
-    (pkg / SEAL_NAME).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
-                                 encoding="utf-8")
+    try:
+        seal_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                             encoding="utf-8")
+    except OSError as error:
+        raise SealError(f"could not write {SEAL_NAME}: {error}") from error
 
 
 def verify_seal(pkg_dir):
     """Raise SealError unless SEAL.json matches every file exactly, and nothing is extra."""
     pkg = Path(pkg_dir)
     seal_path = pkg / SEAL_NAME
+    if seal_path.is_symlink() or (os.path.lexists(seal_path) and not seal_path.is_file()):
+        raise SealError(f"{SEAL_NAME} is not a regular file: SEAL_NOT_A_FILE")
     if not seal_path.is_file():
         raise SealError(f"missing {SEAL_NAME}")
     try:
@@ -1710,7 +1911,7 @@ def main(argv=None):
     if args.command == "seal":
         try:
             seal_package(args.package, allow_unsandboxed=args.allow_unsandboxed)
-        except SealError as error:
+        except (SealError, OSError) as error:
             print(json.dumps({"sealed": False, "error": str(error)}, indent=2, sort_keys=True))
             return 1
         print(json.dumps({"sealed": True, "package": str(Path(args.package))},

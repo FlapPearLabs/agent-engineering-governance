@@ -1,16 +1,22 @@
 # Build notes — H4 pilot task-package verifier
 
-Two fix rounds on my own earlier work, both driven by independent acceptance reports.
+Three fix rounds on my own earlier work, all driven by independent acceptance reports.
 Nothing here is an acceptance verdict: the same implementer does not sign off on its own
 work.
 
 - **Round A2** (`65097be`) — fixes for the first report (`ACCEPT.md`, verdict REJECT:
   4 P1, 3 P2). Kept below under "Fix round A2", because the code it describes is still
   in place.
-- **Round A3** (this commit) — fixes for the second report (`h4-accept-a2/ACCEPT.md`,
+- **Round A3** (`eed1ad9`) — fixes for the second report (`h4-accept-a2/ACCEPT.md`,
   verdict REJECT: 2 P1, 3 P2): the forged-unittest-summary family (N22, N23), a patch
   that changes nothing that runs (N21), the macOS default `TMPDIR` failure, and flaky
   hidden tests.
+- **Round A4** (this commit) — fixes for the third report (`h4-accept-a3/work/ACCEPT.md`,
+  verdict REJECT: 2 P1, 3 P2): a hidden test that only greps the source (N24/N25), package
+  code that rewrites the runner's result object (N26/N27b), flakiness (N20), `SEAL.json`
+  that is a directory (N36/N36b), and two mutation anchors for the exit-code and report
+  version checks. The threat model is unchanged: accidental or lazy shortcuts by a model,
+  not a determined in-process attacker.
 
 ## Threat model (read this before trusting any verdict)
 
@@ -34,7 +40,135 @@ deprecated it); a package can still consume CPU within the 30 s budget. Those ar
 accepted, stated limits — see "Limits" at the end of this file. What the pilot needs is
 that a model cannot *accidentally* or *lazily* pass, not that a person cannot cheat.
 
-## Fix round A3 (this commit)
+## Fix round A4 (this commit)
+
+### P1-1 — a hidden test may not read the source, and the patch must change live code
+
+Three rules, all in the runner/verifier pair:
+
+1. **No source reads by the hidden test (`SOURCE_READ_BY_TEST`).** While the test module
+   is loaded and run, `test_runner.py` wraps `builtins.open`, `io.open`,
+   `pathlib.Path.open`/`read_text`/`read_bytes` and `os.open`. Any open of a path under the
+   project's `src/` tree, of `reference.patch`, or of a hidden test file made from test
+   code is recorded in the signed report as `source_reads`; check 3 and check 4 then fail
+   with `SOURCE_READ_BY_TEST`. The guard is installed only around the test load/run and
+   removed afterwards. The import system is exempt: an open whose caller frame is
+   `importlib`/`zipimport` is not recorded, so `import src.num` still works. The guard
+   records, it does not block: the parent decides what a record means.
+2. **The patch must change a non-trivial line inside a function or method body.** Check 4
+   parses the patched file with `ast` and only watches added/changed lines that lie inside
+   a function or method body and are not trivial. Trivial means: a bare constant/Ellipsis
+   expression, `pass`, `assert <constant>`, an assignment of a constant to a name never
+   read elsewhere in the module, or a dead line (`if False:` bodies, anything after an
+   unconditional `return`/`raise` in the same block). A module-level marker such as
+   `_CLAMP_FIX = 1` (N24) and an `assert True` inside the function (N25) are therefore not
+   "the patch ran"; the verdict is `PATCH_NOT_EXERCISED`.
+3. **The hidden test must call a function defined in the patched files
+   (`HIDDEN_TEST_NEVER_CALLS_TARGET`).** The runner's trace also covers the line ranges of
+   every function/method in the patched files, so check 4 can require one of those lines
+   to execute during the hidden test. A hidden test that only imports the module and
+   asserts on an attribute no longer counts.
+
+### P1-2 — cheap detection of in-process tampering, not prevention
+
+Before any package code is imported, the runner snapshots the identity and code-object
+hash of every function its verdict relies on: `unittest.TestResult.addFailure/addError/
+addSkip/addExpectedFailure/addUnexpectedSuccess/addSuccess/wasSuccessful`,
+`unittest.TestCase.run`, the `assertEqual` family, `hmac.new`, `hmac.compare_digest`,
+`json.dumps`, `builtins.exec`/`eval`, and its own `_Result` methods, `_test_id`,
+`_canonical` and `_write_all`. After the run it re-checks all of them. A replacement --
+for example `src/__init__.py` setting `__main__._Result.addFailure` to "record pass" (N26)
+-- is reported in the signed payload as `integrity_violation`; the parent turns that into
+`INTEGRITY_VIOLATION` and the package is `INVALID`, whatever the counts say.
+
+The nonce is read, derived into a closure MAC key (`HMAC-SHA256(nonce, b"h4-runner-report")`)
+and deleted from the runner's frame before package code is imported. The MAC key is no
+longer the nonce itself, so a frame-walk that recovers a stale nonce (N27b) cannot sign a
+report the parent will accept.
+
+**This reduces, but does not remove, in-process tampering.** The runner still imports the
+tests into its own process; code with enough determination can inspect the closure cell,
+replace `os.write`, or walk frames while the tests run. That is outside the stated threat
+model (accidental or lazy shortcuts by a model) and is not claimed to be impossible.
+
+### P2-1 — seven agreeing runs, early abort, and the measured N20 rate
+
+`HIDDEN_REPEATS = 7` (was 5) and the loop stops at the **first disagreement**; the
+remaining repetitions are not spent. The theoretical chance for the N20 shape (the hidden
+test fails with probability 0.2 after the patch) is `0.8^7 ≈ 0.21`; the measured rate is
+below. The measurement used the exact N20 package (real reference patch, a hidden test
+whose first assertion fails with probability 1/5) over **40 independent verify runs** with
+`allow_unsandboxed=True`: **7 of 40 accepted = 0.175**. The JSON is not committed (it lives
+in a temporary directory); the command is in the evidence list below. Seven runs are a
+real reduction, not a proof; a formal run still needs the experiment-level guards.
+
+### P2-2 — `SEAL.json` that is a directory or any other non-regular file
+
+`_check_seal` now distinguishes "absent" from "present but not a regular file": a
+directory (or symlink) named `SEAL.json` gives check 7 `FAIL` with `SEAL_NOT_A_FILE` and
+`seal: NOT_A_FILE`, never `NOT_SEALED` and never a pass. `verify_seal` raises the same
+reason, and `seal_package` refuses with a `SealError` before it writes; the CLI catches it
+and prints `{"sealed": false, "error": "... SEAL_NOT_A_FILE ..."}` with exit 1 and no
+traceback (N36/N36b).
+
+### P2-3 — mutation anchors for the two surviving checks
+
+`ReportConsistencyTests` adds two tests that fail when a defence is removed:
+`_accept_report` must reject a signed report whose counts say 0 failures while the process
+exited 1, and the reverse (a failure with exit 0); and a report with `version != 1` must
+be `TEST_RESULT_UNAVAILABLE`, both directly and through `_evaluate_run`.
+
+### Evidence (A4)
+
+- `python experiments/v1.2/tests/test_v1_2_h4_pilot_taskpack.py` → `Ran 120 tests` `OK`
+  (the 106 from A3 plus 14 new: N24/N25/source guard, N26/N27b, N36/N36b, the two
+  mutation anchors, the N20 intermittent test and the target-call rule).
+- Mutation audit (8 mutations, one defence removed at a time, each run against the same
+  test file in a temporary copy of `experiments/`): **8/8 killed, ALIVE: none**. Anchors:
+  `if exit_code != want:` → `if False:`; the version check in `_accept_report` removed;
+  `_install_source_guard` made a no-op; `violations = check_integrity(integrity)` → `[]`;
+  the trivial-statement filter removed from `_watchable_lines`; `_patch_target_reason`
+  made `return None`; the `SEAL_NOT_A_FILE` branch removed; `HIDDEN_REPEATS = 5`.
+- N20 measurement: 40 verify runs, **7 accepted (0.175)**, 23.3 s, early abort visible in
+  the recorded run lists (e.g. `["PASS", "PASS", "CLEAN_FAILURE"]`).
+- `python -m ruff check .`, `python scripts/validate_governance.py` (35/35),
+  `python scripts/validate_public_release.py` (`VIOLATIONS=0`) — exact output in the
+  final report of this commit.
+
+### Behaviour changes that touched existing tests (A4, stated plainly)
+
+- `test_hidden_test_is_run_five_times_in_each_phase` became
+  `test_hidden_test_is_run_seven_times_in_each_phase` (expects seven runs and asserts
+  `HIDDEN_REPEATS == 7`). `test_hidden_test_whose_runs_disagree_is_rejected` now expects
+  two recorded runs, because P2-1 stops at the first disagreement. Both are stronger or
+  more precise, not weaker.
+- `PatchExerciseTests.assertNotExercised` now also requires check 3 to fail with
+  `SOURCE_READ_BY_TEST`: the three collusion fixtures read the source, which P1-1 a
+  refuses before the patch check. The `PATCH_NOT_EXERCISED` assertion on check 4 is kept,
+  and `test_only_executable_changed_lines_are_watched` exercises the patch rule directly
+  with synthetic evaluations, so removing the rule still turns a test red.
+
+### Limits introduced or still open in A4
+
+- **In-process attacker is still out of scope.** The integrity snapshot catches the cheap
+  shapes (N26/N27b) but a determined process can tamper with objects the snapshot does not
+  name, or with the filesystem/`os` functions used to write the report. The honest claim
+  is "reduces the cheap paths", not "prevents tampering".
+- **The source-read guard is a recorder, not a jail.** It covers the common open paths;
+  a read through a lower-level interface (`ctypes`, `mmap` of an already-open fd, a
+  subprocess) is not recorded. The pilot's threat model is a model taking a shortcut, not
+  an attacker choosing an exotic interface.
+- **The AST triviality rules are conservative heuristics.** A legitimate fix whose only
+  changed line is a bare constant, an `assert` on a constant, or an assignment never read
+  is refused. That is deliberate: such a line cannot be the behaviour change the hidden
+  test is supposed to observe.
+- **A hidden test that reads a fixture under `tests/` is still allowed.** Only `src/`,
+  `reference.patch` and hidden test files are treated as source reads.
+- **The seven runs are per phase and stop at the first disagreement.** A hidden test that
+  fails only on the eighth run is not seen; the measured N20 rate above is the residual
+  risk, not zero.
+
+## Fix round A3 (`eed1ad9`) — carried forward
 
 ### P1-1 / P1-2 a — the verifier trusts no printed summary
 
@@ -108,6 +242,8 @@ probability `q` after the patch, an accepted package has probability about
 `COIN_FLIP_HIDDEN` regression (eight independent coin flips) is accepted with probability
 `(0.5^8)^5 ≈ 6·10^-16`, which is why *that* shape is effectively dead. Five runs are a
 real reduction, not a proof; a formal run still needs the experiment-level guards.
+**A4 changes this to seven runs with an early abort; the measured N20 rate is in the A4
+section.**
 
 ### Reuse for ticket B (`pilot_accept.py`, another branch)
 

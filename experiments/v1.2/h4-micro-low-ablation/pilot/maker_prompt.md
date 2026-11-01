@@ -110,8 +110,13 @@ The person doing the task sees the `base/` project and this statement, and nothi
 - Standard-library `unittest`, one `unittest.TestCase` subclass with two to six test
   methods, importing the project as `from src.<module> import <name>`.
 - It must really import the module under test and assert on its behaviour. A hidden test
-  that only opens or greps the source text, without importing `src.<module>`, is refused
-  as `HIDDEN_TEST_DOES_NOT_IMPORT_TARGET`.
+  that opens or greps the source text instead of calling the code is refused as
+  `SOURCE_READ_BY_TEST` (and a test that never imports `src.<module>` is refused as
+  `HIDDEN_TEST_DOES_NOT_IMPORT_TARGET`). Do not read files under `src/`, `reference.patch`
+  or the hidden test file from the test code.
+- It must call at least one function or method defined in the patched file; a test that
+  only imports the module and asserts on an attribute is refused as
+  `HIDDEN_TEST_NEVER_CALLS_TARGET`.
 - At base it must **fail cleanly**: at least one test runs, `failures` is greater than
   zero, `errors` is zero, nothing is skipped, and nothing raises `ImportError` or
   `ModuleNotFoundError`. The module and the names you import must already exist at base;
@@ -132,9 +137,11 @@ The person doing the task sees the `base/` project and this statement, and nothi
   It must not touch anything under `tests/`.
 - It must fix the behaviour the statement asks for, keep every visible test passing, and
   leave the project `ruff check` clean under the fixed `ruff.toml`.
-- It must change code that the hidden test actually runs. The verifier records which of
-  the patch's added or changed lines execute during the hidden test, so a patch that only
-  edits a docstring or a comment, or only adds dead code, is refused as
+- It must change code that the hidden test actually runs. The changed line must lie inside
+  a function or method body, execute during the hidden test, and be non-trivial: a bare
+  constant or `...`, `pass`, `assert <constant>`, a constant assigned to a name nobody
+  reads, or dead code (`if False:`, after a `return`/`raise`) does not count. A patch that
+  only edits a docstring or a comment, or only adds such a line, is refused as
   `PATCH_NOT_EXERCISED` even when the hidden test passes by looking for that text.
 - It must not touch security, credentials, permissions, concurrency, networking or policy
   logic of any kind: this is a small, self-contained correctness task.

@@ -28,6 +28,9 @@ PILOT = ROOT / "experiments/v1.2/h4-micro-low-ablation/pilot"
 SPEC = importlib.util.spec_from_file_location("h4_taskpack", PILOT / "taskpack.py")
 taskpack = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(taskpack)
+RUNNER_SPEC = importlib.util.spec_from_file_location("h4_test_runner", PILOT / "test_runner.py")
+test_runner = importlib.util.module_from_spec(RUNNER_SPEC)
+RUNNER_SPEC.loader.exec_module(test_runner)
 
 SANDBOX = taskpack.sandbox_available()
 
@@ -866,16 +869,16 @@ class PhaseIsolationTests(unittest.TestCase):
             self.assertEqual(verdict["overall"], "FAIL")
             self.assertIn("HIDDEN_TEST_ALREADY_PASSES_AT_BASE", reasons(verdict, 3))
 
-    def test_hidden_test_is_run_five_times_in_each_phase(self):
-        # P2-2 raised the repeat count from three to five; five agreeing runs lower the
+    def test_hidden_test_is_run_seven_times_in_each_phase(self):
+        # P2-1 raised the repeat count from five to seven; seven agreeing runs lower the
         # chance that an intermittently failing test slips through (not to zero).
-        self.assertGreaterEqual(taskpack.HIDDEN_REPEATS, 5)
+        self.assertEqual(taskpack.HIDDEN_REPEATS, 7)
         with tempfile.TemporaryDirectory() as temporary:
             pkg = build_package(temporary)
             verdict = verify(pkg)
             self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
-            self.assertEqual(check(verdict, 3)["data"]["runs"], ["CLEAN_FAILURE"] * 5)
-            self.assertEqual(check(verdict, 4)["data"]["runs"], ["PASS"] * 5)
+            self.assertEqual(check(verdict, 3)["data"]["runs"], ["CLEAN_FAILURE"] * 7)
+            self.assertEqual(check(verdict, 4)["data"]["runs"], ["PASS"] * 7)
 
     def test_previous_phase_directory_is_deleted(self):
         visible = GOOD_VISIBLE_TESTS.replace(
@@ -902,7 +905,11 @@ class PhaseIsolationTests(unittest.TestCase):
             verdict = verify(pkg)
             self.assertEqual(verdict["overall"], "FAIL")
             self.assertIn("NONDETERMINISTIC", reasons(verdict, 3))
-            self.assertEqual(len(check(verdict, 3)["data"]["runs"]), 5)
+            # P2-1: the run stops at the first disagreement, so two runs are recorded and
+            # the remaining repetitions are never spent.
+            self.assertEqual(len(check(verdict, 3)["data"]["runs"]), 2)
+            self.assertLess(len(check(verdict, 3)["data"]["runs"]),
+                            taskpack.HIDDEN_REPEATS)
 
     def test_random_hidden_test_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1409,7 +1416,7 @@ class AttackRegressionTests(unittest.TestCase):
 def signed_report(nonce, payload):
     """Build a report exactly the way the documented protocol says, with a real MAC."""
     body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    mac = hmac.new(bytes.fromhex(nonce), body, hashlib.sha256).hexdigest()
+    mac = hmac.new(taskpack._report_key(nonce), body, hashlib.sha256).hexdigest()
     return dict(payload, nonce_mac=mac)
 
 
@@ -1548,7 +1555,11 @@ class PatchExerciseTests(unittest.TestCase):
     def assertNotExercised(self, pkg):
         verdict = verify(pkg)
         self.assertEqual(verdict["overall"], "FAIL")
-        self.assertEqual(check(verdict, 3)["status"], "PASS", reasons(verdict, 3))
+        # P1-1 a: these hidden tests read the source, so the base phase now refuses them
+        # as SOURCE_READ_BY_TEST before the patch check even runs. The patch rule below
+        # is still asserted independently (and in the unit test on _patch_watch).
+        self.assertEqual(check(verdict, 3)["status"], "FAIL", reasons(verdict, 3))
+        self.assertIn("SOURCE_READ_BY_TEST", reasons(verdict, 3))
         self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
         self.assertIn("PATCH_NOT_EXERCISED", reasons(verdict, 4))
         self.assertIs(check(verdict, 4)["data"]["patch_exercised"], False)
@@ -1600,10 +1611,16 @@ class PatchExerciseTests(unittest.TestCase):
             (repo / "src" / "textutil.py").write_text(DOCSTRING_ONLY_SOURCE)
             # Every added line is inside the function docstring, so nothing is watched.
             self.assertEqual(taskpack._patch_watch(repo, patch), {})
+            self.assertIn("PATCH_NOT_EXERCISED",
+                          taskpack._patch_exercise_reason(repo, patch, [{"executed": []}]))
             (repo / "src" / "textutil.py").write_text(DEAD_CODE_SOURCE)
             dead_patch = diff("src/textutil.py", GOOD_SOURCE, DEAD_CODE_SOURCE)
             self.assertTrue(taskpack._patch_changed_lines(dead_patch)["src/textutil.py"])
             self.assertTrue(taskpack._patch_watch(repo, dead_patch))
+            # The dead function's body is watched, but it never runs.
+            self.assertIn("PATCH_NOT_EXERCISED",
+                          taskpack._patch_exercise_reason(repo, dead_patch,
+                                                          [{"executed": []}]))
 
 
 class RunnerApiTests(unittest.TestCase):
@@ -1745,6 +1762,405 @@ class TempDirAliasTests(unittest.TestCase):
                     mock.patch.object(tempfile, "tempdir", None):
                 verdict = taskpack.verify_package(pkg, allow_unsandboxed=True)
         self.assertEqual(verdict["overall"], "PASS", verdict["reasons"])
+
+
+SLUG_FIX_MARKER_SOURCE = GOOD_SOURCE + "\n_SLUG_FIX = 1\n"
+
+N24_SOURCE_GREP_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class MarkerTests(unittest.TestCase):
+    def test_marker_present(self):
+        with open("src/textutil.py") as stream:
+            self.assertIn("_SLUG_FIX", stream.read())
+'''
+
+N24_PATHLIB_HIDDEN = '''import unittest
+from pathlib import Path
+
+from src.textutil import slugify
+
+
+class MarkerTests(unittest.TestCase):
+    def test_marker_present(self):
+        self.assertIn("_SLUG_FIX", Path("src/textutil.py").read_text())
+'''
+
+N24_OS_OPEN_HIDDEN = '''import os
+import unittest
+
+from src.textutil import slugify
+
+
+class MarkerTests(unittest.TestCase):
+    def test_marker_present(self):
+        handle = os.open("src/textutil.py", os.O_RDONLY)
+        try:
+            data = os.read(handle, 65536).decode("utf-8")
+        finally:
+            os.close(handle)
+        self.assertIn("_SLUG_FIX", data)
+'''
+
+N25_ASSERT_TRUE_SOURCE = GOOD_SOURCE.replace(
+    "    lowered = text.lower()\n",
+    "    assert True\n    lowered = text.lower()\n", 1)
+
+N25_SOURCE_GREP_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class TapTests(unittest.TestCase):
+    def test_called(self):
+        self.assertEqual(slugify("Hello World"), "hello-world")
+        with open("src/textutil.py") as stream:
+            self.assertIn("assert True", stream.read())
+'''
+
+# N26/N27b: the patch changes a real function-body line (so the patch rule is satisfied)
+# but does not fix the bug; the hidden test asserts the fixed behaviour.
+N26_MARKED_SOURCE = GOOD_SOURCE.replace(
+    "    lowered = text.lower()\n",
+    "    lowered = text.lower().strip()\n", 1) + "\n_SLUG_FIX = 1\n"
+
+N26_HIDDEN = '''import unittest
+
+from src.textutil import slugify
+
+
+class BugTests(unittest.TestCase):
+    def test_collapses_a_run_of_separators(self):
+        self.assertEqual(slugify("Hello   World"), "hello-world")
+
+    def test_drops_leading_and_trailing_separators(self):
+        self.assertEqual(slugify("  Hello, World!  "), "hello-world")
+'''
+
+N26_INIT = '''
+import sys
+
+
+def _install():
+    main = sys.modules.get("__main__")
+    result_class = getattr(main, "_Result", None)
+    if result_class is None:
+        return
+    test_id = getattr(main, "_test_id", None)
+
+    def record_pass(self, test, err):
+        key = test_id(test) if test_id else str(test)
+        self.outcomes[key] = "pass"
+
+    result_class.addFailure = record_pass
+    result_class.addError = record_pass
+
+
+try:
+    from . import textutil as _mod
+except Exception:  # noqa: BLE001
+    _mod = None
+if _mod is not None and getattr(_mod, "_SLUG_FIX", 0):
+    _install()
+'''
+
+N27B_INIT = r'''
+import hashlib
+import hmac
+import json
+import os
+import sys
+
+
+def _forged(value, line):
+    payload = {
+        "version": 1,
+        "tests": [{"id": "BugTests.test_collapses_a_run_of_separators", "outcome": "pass"},
+                  {"id": "BugTests.test_drops_leading_and_trailing_separators",
+                   "outcome": "pass"}],
+        "counts": {"ran": 2, "failures": 0, "errors": 0, "skipped": 0,
+                   "unexpected": 0},
+        "load_error": None,
+        "load_detail": "",
+        "executed": [[os.path.realpath("src/textutil.py"), line]],
+    }
+    mac = hmac.new(value, json.dumps(payload, sort_keys=True,
+                                     separators=(",", ":")).encode(),
+                   hashlib.sha256).hexdigest()
+    payload["nonce_mac"] = mac
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+def _walk():
+    frame = sys._getframe()
+    while frame is not None:
+        local = frame.f_locals
+        if isinstance(local.get("nonce"), (bytes, bytearray)) and "watch" in local:
+            return bytes(local["nonce"])
+        frame = frame.f_back
+    return None
+
+
+def _result_fd():
+    argv = list(sys.argv)
+    for index, item in enumerate(argv):
+        if item == "--result-fd" and index + 1 < len(argv):
+            return int(argv[index + 1])
+    for item in argv:
+        if item.startswith("--result-fd="):
+            return int(item.split("=", 1)[1])
+    return None
+
+
+try:
+    from . import textutil as _mod
+except Exception:  # noqa: BLE001
+    _mod = None
+if _mod is not None and getattr(_mod, "_SLUG_FIX", 0) and "--tests" in sys.argv:
+    nonce = _walk()
+    fd = _result_fd()
+    if nonce is not None and fd is not None:
+        os.write(fd, _forged(nonce, 1).encode())
+        os._exit(0)
+'''
+
+N20_INTERMITTENT_HIDDEN = '''import os
+import unittest
+
+from src.textutil import slugify
+
+COUNTER = "h4_n20_counter.txt"
+
+
+class IntermittentTests(unittest.TestCase):
+    def test_collapses_a_run_of_separators(self):
+        seen = 0
+        if os.path.exists(COUNTER):
+            with open(COUNTER) as stream:
+                seen = int(stream.read().strip() or "0")
+        with open(COUNTER, "w") as stream:
+            stream.write(str(seen + 1))
+        self.assertEqual(slugify("Hello   World"), "hello-world")
+        if seen == 6:
+            self.fail("the seventh run fails")
+'''
+
+
+class SourceReadTests(unittest.TestCase):
+    """P1-1 a: a hidden test that reads the source instead of calling it is invalid."""
+
+    def assertSourceRead(self, pkg):
+        verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 3)["status"], "FAIL", reasons(verdict, 3))
+        self.assertIn("SOURCE_READ_BY_TEST", reasons(verdict, 3))
+        self.assertIn("src/textutil.py", check(verdict, 3)["data"]["source_reads"])
+        return verdict
+
+    def test_n24_module_marker_patch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N24_SOURCE_GREP_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, SLUG_FIX_MARKER_SOURCE)])
+            verdict = self.assertSourceRead(pkg)
+        # The module-level constant is not inside any function body, so it can never
+        # satisfy the patch rule either.
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("PATCH_NOT_EXERCISED", reasons(verdict, 4))
+
+    def test_n25_assert_true_patch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N25_SOURCE_GREP_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, N25_ASSERT_TRUE_SOURCE)])
+            verdict = self.assertSourceRead(pkg)
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("PATCH_NOT_EXERCISED", reasons(verdict, 4))
+
+    def test_source_read_through_pathlib_is_recorded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N24_PATHLIB_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, SLUG_FIX_MARKER_SOURCE)])
+            self.assertSourceRead(pkg)
+
+    def test_source_read_through_os_open_is_recorded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N24_OS_OPEN_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, SLUG_FIX_MARKER_SOURCE)])
+            self.assertSourceRead(pkg)
+
+    def test_the_import_system_is_exempt_from_the_source_guard(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "__init__.py").write_text("")
+            (repo / "src" / "probe_mod.py").write_text("VALUE = 7\n")
+            records, stop = test_runner._install_source_guard(repo)
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    "h4_guard_probe", repo / "src" / "probe_mod.py")
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                self.assertEqual(module.VALUE, 7)
+            finally:
+                stop()
+        self.assertEqual(records, [], "importlib's own reads must stay allowed")
+
+    def test_a_data_file_outside_src_is_not_a_source_read(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "tests").mkdir()
+            (repo / "tests" / "fixture.txt").write_text("ok\n")
+            records, stop = test_runner._install_source_guard(repo)
+            try:
+                with open(repo / "tests" / "fixture.txt") as stream:
+                    self.assertEqual(stream.read(), "ok\n")
+            finally:
+                stop()
+        self.assertEqual(records, [])
+
+
+class IntegrityViolationTests(unittest.TestCase):
+    """P1-2: cheap detection of a package that rewrites the runner's own machinery."""
+
+    def test_n26_runner_result_monkeypatch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N26_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, N26_MARKED_SOURCE)])
+            (pkg / "base" / "src" / "__init__.py").write_text(N26_INIT)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertIn("INTEGRITY_VIOLATION", reasons(verdict, 4))
+        self.assertIn("_Result.addFailure", reasons(verdict, 4))
+
+    def test_n27b_frame_walk_cannot_forge_a_report(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(
+                temporary, hidden=N26_HIDDEN,
+                patches=[("src/textutil.py", GOOD_SOURCE, N26_MARKED_SOURCE)])
+            (pkg / "base" / "src" / "__init__.py").write_text(N27B_INIT)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertNotEqual(verdict["overall"], "PASS")
+
+
+class SealNotAFileTests(unittest.TestCase):
+    """P2-2: a directory (or any non-regular file) named SEAL.json is a clean refusal."""
+
+    def test_n36_seal_json_directory_is_refused_by_verify(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary)
+            (pkg / "SEAL.json").mkdir()
+            (pkg / "SEAL.json" / "payload.json").write_text("{}")
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(verdict["seal"], "NOT_A_FILE")
+        self.assertEqual(check(verdict, 7)["status"], "FAIL")
+        self.assertIn("SEAL_NOT_A_FILE", reasons(verdict, 7))
+
+    def test_n36b_sealing_refuses_cleanly_without_a_traceback(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary)
+            (pkg / "SEAL.json").mkdir()
+            (pkg / "SEAL.json" / "payload.json").write_text("{}")
+            with self.assertRaises(taskpack.SealError) as raised:
+                taskpack.seal_package(pkg, allow_unsandboxed=True)
+            self.assertIn("SEAL_NOT_A_FILE", str(raised.exception))
+            self.assertFalse((pkg / "SEAL.json").is_file())
+            run = subprocess.run(
+                [sys.executable, str(PILOT / "taskpack.py"), "seal",
+                 "--allow-unsandboxed", str(pkg)],
+                capture_output=True, text=True)
+        self.assertNotEqual(run.returncode, 0)
+        self.assertNotIn("Traceback", run.stderr)
+        payload = json.loads(run.stdout)
+        self.assertIs(payload["sealed"], False)
+        self.assertIn("SEAL_NOT_A_FILE", payload["error"])
+
+
+class ReportConsistencyTests(unittest.TestCase):
+    """P2-3: mutations that remove these checks must turn a test red."""
+
+    def report(self, nonce, counts, outcome="pass"):
+        return signed_report(nonce, {
+            "version": 1,
+            "tests": [{"id": "WidgetTests.test_one", "outcome": outcome}],
+            "counts": dict({"ran": 1, "failures": 0, "errors": 0, "skipped": 0,
+                            "unexpected": 0}, **counts),
+            "load_error": None,
+            "load_detail": "",
+            "executed": [],
+            "source_reads": [],
+            "integrity_violation": [],
+        })
+
+    def test_exit_code_and_counts_must_agree_in_both_directions(self):
+        nonce = "ab" * 32
+        expected = {"WidgetTests.test_one"}
+        clean = self.report(nonce, {})
+        accepted, reason = taskpack._accept_report(clean, nonce, expected, 1)
+        self.assertFalse(accepted, "a signed report with 0 failures and exit 1 is not a pass")
+        self.assertIn("TEST_EXIT_STATUS_INCONSISTENT", reason)
+        failing = self.report(nonce, {"failures": 1}, outcome="failure")
+        accepted, reason = taskpack._accept_report(failing, nonce, expected, 0)
+        self.assertFalse(accepted, "a signed report with a failure and exit 0 is not a pass")
+        self.assertIn("TEST_EXIT_STATUS_INCONSISTENT", reason)
+        # The agreeing shapes stay acceptable, so the check is not a blanket refusal.
+        self.assertTrue(taskpack._accept_report(clean, nonce, expected, 0)[0])
+        self.assertTrue(taskpack._accept_report(failing, nonce, expected, 1)[0])
+
+    def test_a_report_with_the_wrong_version_is_unavailable(self):
+        nonce = "cd" * 32
+        payload = self.report(nonce, {})
+        payload["version"] = 99
+        # Re-sign: the MAC covers the version field, so a forged version is a different
+        # report and the version gate -- not the MAC -- is what must refuse it.
+        body = {key: value for key, value in payload.items() if key != "nonce_mac"}
+        payload = signed_report(nonce, body)
+        accepted, reason = taskpack._accept_report(
+            payload, nonce, {"WidgetTests.test_one"}, 0)
+        self.assertFalse(accepted)
+        self.assertEqual(reason, "TEST_RESULT_UNAVAILABLE")
+        evaluation = taskpack._evaluate_run(
+            payload, nonce, {"WidgetTests.test_one"}, mock.Mock(returncode=0))
+        self.assertEqual(evaluation["outcome"], "NO_RESULT")
+        self.assertEqual(evaluation["reason"], "TEST_RESULT_UNAVAILABLE")
+
+
+class IntermittentHiddenTestTests(unittest.TestCase):
+    """P2-1: seven repetitions with an early abort; a one-in-seven failure is refused."""
+
+    def test_n20_a_single_failure_in_seven_runs_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pkg = build_package(temporary, hidden=N20_INTERMITTENT_HIDDEN)
+            verdict = verify(pkg)
+        self.assertEqual(verdict["overall"], "FAIL")
+        self.assertEqual(check(verdict, 4)["status"], "FAIL", reasons(verdict, 4))
+        self.assertIn("NONDETERMINISTIC", reasons(verdict, 4))
+        self.assertEqual(len(check(verdict, 4)["data"]["runs"]), taskpack.HIDDEN_REPEATS)
+
+
+class TargetCallTests(unittest.TestCase):
+    """P1-1 c: the hidden test must call a function defined in the patched files."""
+
+    def test_a_hidden_test_that_never_calls_the_target_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "textutil.py").write_text(FIXED_SOURCE)
+            patch = diff("src/textutil.py", GOOD_SOURCE, FIXED_SOURCE)
+            reason = taskpack._patch_target_reason(repo, patch, [{"executed": []}])
+            self.assertIn("HIDDEN_TEST_NEVER_CALLS_TARGET", reason)
+            path = os.path.realpath(repo / "src" / "textutil.py")
+            called = [{"executed": [[path, 10]]}]
+            self.assertIsNone(taskpack._patch_target_reason(repo, patch, called))
 
 
 if __name__ == "__main__":
