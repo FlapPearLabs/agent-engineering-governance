@@ -19,6 +19,7 @@ tests, so the real discipline is exercised here, not a stand-in).
 """
 import contextlib
 import hashlib
+import hmac
 import importlib.util
 import io
 import json
@@ -1388,6 +1389,104 @@ class PilotDriverTests(unittest.TestCase):
         self.assertNotIn("SECRET_HIDDEN_TEST", python_read.stdout)
         self.assertIn("permitted", python_read.stderr.lower(), python_read.stderr)
         self.assertTrue(profile["sha256"])
+
+
+class RunnerSessionTokenTests(unittest.TestCase):
+    """The parent must ignore child events that do not carry the run's session token.
+
+    `test_runner._parent_main` hands the child a random per-run `session` on stdin and keeps
+    it out of the child's argv; it then keeps only `event.get("session") == session`. Without
+    that filter, a package that guesses the event fd could write a `{"event": "test",
+    "outcome": "pass"}` line and win. This drives the real parent with a stand-in child that
+    emits an honest failure under the real token and a forged pass under a wrong token: only
+    the honest event may survive, and deleting the filter must turn this test red.
+    """
+
+    def test_the_parent_drops_child_events_with_the_wrong_session_token(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        tests_dir = root / "tests"
+        tests_dir.mkdir()
+        # The id set the parent derives from the AST; the stand-in child never imports this.
+        (tests_dir / "test_session.py").write_text(
+            "import unittest\n\n\n"
+            "class Widget(unittest.TestCase):\n"
+            "    def test_area(self):\n"
+            "        self.assertTrue(True)\n",
+            encoding="utf-8")
+
+        fake_child = root / "fake_child.py"
+        fake_child.write_text(
+            "import json, os, sys\n"
+            "handshake = json.loads(sys.stdin.buffer.read().decode('utf-8'))\n"
+            "fd = int(handshake['event_fd'])\n"
+            "session = handshake['session']\n"
+            "def emit(event):\n"
+            "    os.write(fd, (json.dumps(event, sort_keys=True) + '\\n').encode('utf-8'))\n"
+            "# The honest outcome under the real token, then a forged pass under a wrong one.\n"
+            "emit({'event': 'test', 'id': 'Widget.test_area', 'outcome': 'failure',\n"
+            "      'session': session})\n"
+            "emit({'event': 'test', 'id': 'Widget.test_area', 'outcome': 'pass',\n"
+            "      'session': '00' * 16})\n"
+            "emit({'event': 'done', 'session': session, 'load_error': None, 'load_detail': '',\n"
+            "      'executed': [], 'source_reads': [], 'integrity_violation': []})\n"
+            "os._exit(0)\n",
+            encoding="utf-8")
+
+        # Run the real parent but point the child argv it builds (its module-level
+        # `__file__`) at the stand-in. The runner module itself is loaded, not edited.
+        wrapper = root / "run_parent.py"
+        wrapper.write_text(
+            "import importlib.util, sys\n"
+            "spec = importlib.util.spec_from_file_location('runner_under_test', sys.argv[1])\n"
+            "module = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(module)\n"
+            "module.__file__ = sys.argv[2]\n"
+            "module.main(sys.argv[3:])\n",
+            encoding="utf-8")
+
+        nonce = "a1" * 32
+        handshake = json.dumps({"nonce": nonce, "watch": {}, "targets": {}}).encode("utf-8")
+        nonce_read, nonce_write = os.pipe()
+        result_read, result_write = os.pipe()
+        try:
+            os.write(nonce_write, handshake)
+            os.close(nonce_write)
+            command = [sys.executable, str(wrapper), str(PILOT / "test_runner.py"),
+                       str(fake_child), "--nonce-fd", str(nonce_read),
+                       "--result-fd", str(result_write), "--tests", "tests/test_session.py"]
+            completed = subprocess.run(command, cwd=str(root),
+                                       pass_fds=(nonce_read, result_write),
+                                       capture_output=True, text=True, timeout=120)
+        finally:
+            for fd in (nonce_read, result_write):
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+        raw = bytearray()
+        while True:
+            chunk = os.read(result_read, 65536)
+            if not chunk:
+                break
+            raw.extend(chunk)
+        os.close(result_read)
+        report = json.loads(bytes(raw).decode("utf-8").strip())
+
+        self.assertEqual(1, completed.returncode, completed.stdout + completed.stderr)
+        self.assertEqual([{"id": "Widget.test_area", "outcome": "failure"}],
+                         report["tests"],
+                         "the forged pass under a wrong session token was believed")
+        self.assertEqual(1, report["counts"]["ran"])
+        self.assertEqual(1, report["counts"]["failures"])
+        self.assertFalse(report["id_set_mismatch"])
+        body = {key: value for key, value in report.items() if key != "nonce_mac"}
+        expected_mac = hmac.new(
+            hmac.new(bytes.fromhex(nonce), b"h4-runner-report", hashlib.sha256).digest(),
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+            hashlib.sha256).hexdigest()
+        self.assertEqual(expected_mac, report["nonce_mac"])
 
 
 if __name__ == "__main__":

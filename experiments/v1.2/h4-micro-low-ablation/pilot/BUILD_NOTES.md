@@ -189,6 +189,59 @@ test_v1_2_h4_pilot_driver.py           -> Ran 54 tests ... OK
 test_v1_2_h4_pilot_taskpack.py         -> Ran 127 tests ... OK
 ```
 
+## Round C2 — accepted limits, human PASS review, and a test for the session-token filter
+
+Source: owner decision 2026-11-02 after the C1 acceptance (`ACCEPT.md` §6). The three P1
+ordinary-write bypasses are **accepted as documented limits** of this exploratory pilot;
+nothing it produces is formal evidence. The owner chose human review of every PASS over
+another detector round. No model, no network, no `run_h2r2.py`, no runs root; nothing pushed.
+
+### What changed
+
+- `PILOT_SPEC.md` has a new **"Accepted limits (owner decision 2026-11-02)"** section that
+  lists exactly the three bypasses, each with a repro pointer to the C1 acceptance script
+  (`attacks/c1_r1.py`, `attacks/c1_r2.py`, `attacks/c1_r4.py`) and the consequence: a
+  harness PASS is a **candidate PASS** only.
+- `PILOT_SPEC.md` has a mandatory **"Human PASS review"** procedure. Before any PASS is
+  counted the supervisor reads the worker diff and checks (i) it changes real behaviour in
+  the function the hidden test targets, (ii) nothing was edited except the intended source
+  files, (iii) no module-level code touches `sys.modules` / `__main__` / `unittest` / `gc`
+  / frames (including via an alias), and (iv) the hidden test truly fails on base for the
+  stated reason. A PASS without this review is **UNREVIEWED** and is not counted.
+- New test `RunnerSessionTokenTests.test_the_parent_drops_child_events_with_the_wrong_session_token`
+  in `test_v1_2_h4_pilot_driver.py`. It drives the real `test_runner._parent_main` with a
+  stand-in child that emits an honest `failure` under the run's session token and then a
+  forged `pass` under a wrong token. The parent must keep only the honest event: the report
+  has one `failure`, exit 1, no id mismatch, and a MAC that verifies with the nonce. The
+  runner module is loaded from the repo, not edited; only the child argv (`module.__file__`)
+  points at the stand-in.
+
+### Mutation check (real output)
+
+Temporarily replaced the parent filter
+`events = [event for event in _parse_events(bytes(raw)) if event.get("session") == session]`
+with `events = _parse_events(bytes(raw))`, ran only the new test, then restored the line
+(`git diff --quiet -- test_runner.py` exit 0 afterwards).
+
+```text
+base    -> Ran 1 test ... OK
+mutant  -> Ran 1 test ... FAILED (failures=1)
+           AssertionError: 1 != 0 :   # parent exited 0 and believed the forged pass
+```
+
+The mutation is killed. No `OPEN DEFECT`.
+
+### Gates for this commit (real output, run from the worktree root)
+
+```text
+python -m ruff check .                    -> All checks passed!
+python scripts/validate_governance.py     -> 35/35 checks passed
+python scripts/validate_public_release.py -> VIOLATIONS=0
+test_v1_2_h4_pilot_arms.py                -> Ran 18 tests ... OK
+test_v1_2_h4_pilot_driver.py              -> Ran 55 tests ... OK
+test_v1_2_h4_pilot_taskpack.py            -> Ran 127 tests ... OK (116.895s)
+```
+
 ## Ticket B — arms, driver, acceptance (`experiment/v1.2-h4-pilot-b`)
 
 ## H4 exploratory pilot — build notes (ticket B: arms, driver, acceptance — fix round)
